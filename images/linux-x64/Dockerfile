@@ -1,9 +1,9 @@
 # The linux-x64 toolchain image: upstream devenvy/ffmpeg's pinned manylinux_2_28 (AlmaLinux 8, glibc 2.28, so the
 # artifacts run on any glibc >= 2.28), provisioned the way upstream's 03_install_packages.sh provisions it.
 # Builds use gcc-toolset-14, which the driver enables. The library cache keys on this image's Docker ID.
-FROM quay.io/pypa/manylinux_2_28_x86_64:2026.09.30-1@sha256:c2261579b9c2e5d45aa93312f73e2a302182e3e977b558581a1838d6fed3d8e6 AS toolchain
-FROM mirror.gcr.io/library/node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS node
-FROM quay.io/pypa/manylinux_2_28_x86_64:2026.09.30-1@sha256:c2261579b9c2e5d45aa93312f73e2a302182e3e977b558581a1838d6fed3d8e6
+FROM quay.io/pypa/manylinux_2_28_x86_64:2026.10.10-1@sha256:4131ddd7acb9c6c966af02fe7e71edc51e078c2d41f475966697676430bfa2ae AS toolchain
+FROM mirror.gcr.io/library/node:24.18.1-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node
+FROM quay.io/pypa/manylinux_2_28_x86_64:2026.10.10-1@sha256:4131ddd7acb9c6c966af02fe7e71edc51e078c2d41f475966697676430bfa2ae
 COPY --from=node /usr/local/ /usr/local/
 
 # vim-common supplies xxd (libvmaf's built-in models silently vanish without it).

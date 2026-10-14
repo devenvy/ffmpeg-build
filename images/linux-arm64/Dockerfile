@@ -2,9 +2,9 @@
 # 2.28, so the artifacts run on any glibc >= 2.28), provisioned as images/linux-x64 is. An arm64 image: it runs
 # natively on an arm64 host and under qemu on an x64 one, as upstream builds it on arm64 runners. Builds use
 # gcc-toolset-14, which the driver enables. The library cache keys on this image's Docker ID.
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.09.30-1@sha256:acc4e63610fef1da3d687322793665205415c2b22c0d2e403f1a44eb834d63fc AS toolchain
-FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS node
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.09.30-1@sha256:acc4e63610fef1da3d687322793665205415c2b22c0d2e403f1a44eb834d63fc
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.10-1@sha256:abd1230aa9e4058a74b89d27cd14ba18c0db036d7bfe6e6f219a29ea63c24eb6 AS toolchain
+FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.18.1-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.10-1@sha256:abd1230aa9e4058a74b89d27cd14ba18c0db036d7bfe6e6f219a29ea63c24eb6
 COPY --from=node /usr/local/ /usr/local/
 
 # vim-common supplies xxd (libvmaf's built-in models silently vanish without it).
