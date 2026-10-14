@@ -305,6 +305,8 @@ describe('gnutls', () => {
         './configure',
         `--prefix=${h.deps}`,
         `--libdir=${h.deps}/lib`,
+        // the system priority file's path is compiled in: the system's, never the deps folder
+        '--sysconfdir=/etc',
         '--disable-shared',
         '--enable-static',
         '--with-included-unistring',
