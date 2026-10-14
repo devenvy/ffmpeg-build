@@ -1,0 +1,30 @@
+name: x265
+provides: x265
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-libx265]
+source: { git: https://github.com/Multicorewareinc/x265, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  source-dir: source
+  args: [-DLIB_INSTALL_DIR=lib, -DENABLE_SHARED=OFF, -DENABLE_CLI=OFF, -DENABLE_LIBNUMA=OFF]
+  # The CMake-generated x265.pc carries platform-specific Libs.private (-lgcc_s -lrt) that break
+  # `pkg-config --static`; write the one FFmpeg's link needs instead.
+  vars: { private: -lstdc++ -lm -lpthread }
+  platforms:
+    linux-armhf: { args: [-DENABLE_ASSEMBLY=OFF] }
+    'osx-*': { args: [-DENABLE_ASSEMBLY=OFF], vars: { private: -lc++ -lm } }
+    'android-*': { args: [-DENABLE_ASSEMBLY=OFF], vars: { private: -lc++ -lm } }
+    'ios-*': { args: [-DENABLE_ASSEMBLY=OFF], vars: { private: -lc++ -lm } }
+    'maccatalyst-*': { args: [-DENABLE_ASSEMBLY=OFF], vars: { private: -lc++ -lm } }
+    'win-*': { vars: { private: -lstdc++ -lm } }
+  after:
+    - pkg-config:
+        name: x265
+        description: H.265/HEVC video encoder
+        version: '{version}'
+        exec-prefix: true
+        libs: -lx265
+        libs-private: '{private}'

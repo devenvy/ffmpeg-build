@@ -1,0 +1,106 @@
+name: librist
+provides: rist
+license: BSD-2-Clause
+license-files: [COPYING]
+configure: [--enable-librist]
+uses: [mbedtls] # encryption, where the license allows mbedTLS
+source: { git: https://code.videolan.org/rist/librist.git, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # librist: Reliable Internet Stream Transport (BSD-2-Clause), static. Ported from devenvy/ffmpeg scripts/deps/librist.sh.
+  # Enables FFmpeg's rist:// protocol. librist CANNOT use OpenSSL -- only mbedTLS or GnuTLS/nettle -- which is the
+  # reason the v3 cells carry an external mbedTLS at all. Vendored lz4 + cJSON (builtin_*) keep it self-contained; the
+  # external mbedTLS we built is used (builtin_mbedtls=false). meson, with its own setup line (no source argument).
+  #
+  # Encryption backend. Upstream chose it per license cell (RIST_CRYPTO, set in 04_select_license): mbedtls on v3,
+  # none on the nocrypto cells. Here mbedTLS is optional (recipe.yml uses:): the engine puts it in the deps folder
+  # wherever the build's license allows it (all but lgplv2), and the recipe encrypts when it is there.
+  #
+  # gnutls is deliberately NOT picked even when GnuTLS is in the deps folder. Upstream's 04_select_license: librist's
+  # gnutls EAP/SRP path won't compile (its verifier types are mbedTLS-only), so the gpl-2 cells ship librist without
+  # crypto.
+  #
+  # cmake_prefix_path makes our pinned mbedTLS findable ON A NATIVE BUILD. It does nothing for a
+  # cross build -- measured: meson's cmake dependency lookup cannot see our prefix cross via
+  # -Dcmake_prefix_path, CMAKE_PREFIX_PATH, or [properties] cmake_prefix_path, though all three
+  # work natively. Cross builds are covered instead by the -I/-L search paths the platforms' meson
+  # cross files carry, which let librist's cc.find_library fallback succeed. Both
+  # halves are needed; the check after the build proves whichever one applied. librist resolves it with
+  #     dependency('MbedTLS', method: 'cmake', modules: ['MbedTLS::mbedcrypto'])
+  # -- a CMake package lookup, NOT pkg-config. Measured on win-arm64 v3 before cmake_prefix_path was added: the lookup
+  # missed, the cc.find_library('mbedcrypto') fallback missed too, and librist quietly compiled its own vendored copy.
+  system: none
+  vars:
+    crypto: none
+    crypto-args: [-Duse_mbedtls=false, -Duse_gnutls=false]
+    mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto
+  platforms:
+    # On Windows, librist's rist_time.c calls clock_gettime, which the mingw-w64 toolchain provides in
+    # winpthreads (not as the static-inline librist assumes) -- so link fails with undefined clock_gettime
+    # unless we opt into mingw pthreads. This makes librist link -lpthread (winpthreads); it lands in
+    # librist.pc, where the Windows platform's .pc rewrite wraps it -Bstatic (no libwinpthread-1.dll runtime dep).
+    # mbedcrypto's entropy_poll.c calls BCryptGenRandom (bcrypt.dll), so -lbcrypt must come AFTER -lmbedcrypto.
+    'win-*':
+      {
+        args: [-Dhave_mingw_pthreads=true],
+        vars: { mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto -lbcrypt },
+      }
+  steps:
+    - vars:
+        {
+          crypto: mbedtls,
+          crypto-args: [-Duse_mbedtls=true, -Duse_gnutls=false, '-Dcmake_prefix_path={deps}'],
+        }
+      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+    - - meson
+      - setup
+      - _build
+      - '--prefix={deps}'
+      - --libdir=lib
+      - --default-library=static
+      - --buildtype=release
+      - '{meson-cross-args}'
+      - -Dbuilt_tools=false
+      - -Dtest=false
+      - -Dbuiltin_cjson=true
+      - -Dbuiltin_lz4=true
+      - -Dbuiltin_mbedtls=false
+      - '{crypto-args}'
+      - '{args}'
+    - [meson, compile, -C, _build, -j, '{jobs}']
+    # -Dbuiltin_mbedtls=false is a REQUEST, and librist does not fail when it cannot be honoured.
+    # contrib/mbedtls/meson.build resolves the external library as above, falling back to
+    # cc.find_library('mbedcrypto'), and if BOTH miss it simply sets builtin_mbedtls = true and compiles
+    # its own vendored copy from contrib/mbedtls/library/*.c.
+    #
+    # So the failure mode is not "rist:// in the clear" -- encryption still works. It is that the
+    # artifact would carry an UNPINNED, unlocked mbedTLS vendored inside librist instead
+    # of the version the lock pins, silently diverging from the ledger that the whole dependency
+    # policy rests on. The vendored path is unambiguous in the build tree: it declares
+    # static_library('mbedcrypto'), so a libmbedcrypto.a under _build means the external one was not found.
+    # Checked after compile, because that is when the library would exist.
+    - check:
+        missing: _build/**/libmbedcrypto.a
+        message: >-
+          librist fell back to its VENDORED mbedTLS. -Dbuiltin_mbedtls=false was set, so our pinned mbedTLS should have
+          been found. The artifact would ship an unpinned crypto library that the lock does not track.
+      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+    - [meson, install, -C, _build]
+    # Upstream re-added "-lmbedtls -lmbedx509 -lmbedcrypto" at the END of FFmpeg's link (EXTRA_LIBS, from mbedtls.sh),
+    # because librist's mbedTLS symbols were left unresolved otherwise. A recipe can't touch FFmpeg's link line, so the
+    # same -l libs go into librist.pc after -lrist. librist 0.2.20's .pc does name mbedTLS, but as ABSOLUTE .a paths
+    # (libeverest.a libmbedcrypto.a libp256m.a, the CMake package's targets), which FFmpeg's configure classifies as
+    # input objects and places BEFORE -lrist -- the srt.pc problem. Those paths are replaced by the -l libs, ordered
+    # tls -> x509 -> crypto.
+    - replace-in-file:
+        {
+          path: '{deps}/lib/pkgconfig/librist.pc',
+          from: '[^\s]*/lib(mbedtls|mbedx509|mbedcrypto|everest|p256m)\.a',
+          to: '',
+          regex: true,
+        }
+      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/librist.pc', libs-private: { append: '{mbedtls-libs}' } }
+      when: { exists: '{deps}/lib/libmbedcrypto.a' }

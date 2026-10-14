@@ -1,0 +1,10 @@
+name: libpng
+license: libpng-2.0 AND Libpng
+license-files: [LICENSE]
+needs: [zlib]
+source: { git: https://github.com/pnggroup/libpng, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  args: [-DPNG_SHARED=OFF, -DPNG_STATIC=ON, -DPNG_TESTS=OFF, -DPNG_TOOLS=OFF]

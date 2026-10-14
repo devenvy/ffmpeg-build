@@ -1,0 +1,49 @@
+name: zimg
+provides: zimg
+license: WTFPL
+license-files: [COPYING]
+configure: [--enable-libzimg]
+source: { git: https://github.com/sekrit-twc/zimg.git, ref: 'release-{version}', submodules: true }
+versions: { git-tags: '^release-(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # zimg: high-quality image scaling/colorspace/depth conversion (WTFPL), static.
+  # Ported from devenvy/ffmpeg scripts/deps/zimg.sh. Its submodules come with the source.
+  system: none
+  bootstrap: autogen
+  steps:
+    - [./configure, '--prefix={deps}', --disable-shared, --enable-static, --with-pic, '{args}']
+    - [make, '-j{jobs}']
+    - [make, install]
+  after:
+    # zimg's installed pkg-config omits -lm from Libs.private, so FFmpeg's static
+    # link test fails (--as-needed drops libm despite log10f etc. being used). Add it.
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/zimg.pc', libs-private: { set: -lstdc++ -lm, missing: skip } }
+  platforms:
+    win-x64: { args: [--host=x86_64-w64-mingw32] }
+    # zimg 3.0.6 has two mingw-on-ARM bugs, both reproduced by cross-building it locally:
+    #  1. src/zimg/api/zimg.cpp uses std::exception_ptr without including <exception>. That
+    #     compiles under libstdc++, which pulls it in transitively; llvm-mingw uses libc++,
+    #     which does not, so every EX_END macro fails. Force the include.
+    #  2. src/zimg/common/arm/cpuinfo_arm.cpp includes <Windows.h> with a capital W.
+    #     mingw-w64 ships windows.h lowercase, which only works on a case-insensitive
+    #     filesystem, so a Linux cross-build cannot find it. A one-line shim header on the
+    #     include path fixes it while keeping zimg's NEON paths (--disable-simd would not).
+    # Both are fixed in zimg main; drop this when the pinned version moves past 3.0.6.
+    win-arm64:
+      before:
+        - write-file:
+            path: '{src}/_zimg-compat/Windows.h'
+            text: |
+              #pragma once
+              #include <windows.h>
+      args: [--host=aarch64-w64-mingw32, 'CXXFLAGS=-O2 -include exception -I{src}/_zimg-compat']
+    linux-armhf: { args: [--host=arm-linux-gnueabihf] }
+    android-arm64: { args: [--host=aarch64-linux-android] }
+    android-x64: { args: [--host=x86_64-linux-android] }
+    ios-arm64: { args: [--host=aarch64-apple-darwin] }
+    ios-sim-arm64: { args: [--host=aarch64-apple-darwin] }
+    maccatalyst-arm64: { args: [--host=aarch64-apple-darwin] }
+    maccatalyst-x64: { args: [--host=x86_64-apple-darwin] }
+    osx-x64: { args: [--host=x86_64-apple-darwin] } # cross-compiled on Apple silicon

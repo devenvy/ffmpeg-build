@@ -1,0 +1,12 @@
+rules:
+  # `uses: ./.github/workflows/ci.yml` is the form actionlint and GitHub's docs use
+  self-repository:
+    disable: true
+  # installing ffmpeg-build (from npm, a packed git spec or the tested tarball) is what these steps are for; the
+  # version is the lock's engine or the workflow's input
+  adhoc-packages:
+    ignore:
+      - build.yml
+      - update-lock.yml
+      - update-pin.yml
+      - ci.yml

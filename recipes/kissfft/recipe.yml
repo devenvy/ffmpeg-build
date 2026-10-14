@@ -1,0 +1,18 @@
+name: kissfft
+license: BSD-3-Clause
+license-files: [COPYING, LICENSES/BSD-3-Clause, LICENSES/Unlicense]
+source: { git: https://github.com/mborgerding/kissfft, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # kissfft: small FFT library (BSD-3-Clause), source only. Ported from devenvy/ffmpeg scripts/deps/kissfft.sh.
+  # chromaprint's build compiles kissfft's kiss_fft.c + kiss_fftr.c DIRECTLY from source (its FindKissFFT.cmake wants
+  # KISSFFT_SOURCE_DIR with kiss_fftr.h/.c -- it does NOT link a prebuilt libkissfft), so there is nothing to build.
+  # Each library gets its own source folder and only the deps folder carries over to the next recipe, so the source
+  # files chromaprint needs are copied to {deps}/src/kissfft (outside include/ and lib/, so nothing of it is staged
+  # into FFmpeg's archives).
+  system: none
+  steps:
+    - copy: { from: ['*.c', '*.h'], into: '{deps}/src/kissfft', preserve: true }
+    - copy:
+        { from: [COPYING, LICENSES], into: '{deps}/src/kissfft', recursive: true, preserve: true }

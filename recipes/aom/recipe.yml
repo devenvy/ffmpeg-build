@@ -1,0 +1,27 @@
+name: aom
+provides: aom
+license: BSD-2-Clause
+license-files:
+  [
+    LICENSE,
+    PATENTS,
+    third_party/fastfeat/LICENSE,
+    third_party/vector/LICENSE,
+    third_party/x86inc/LICENSE,
+  ]
+configure: [--enable-libaom]
+source: { git: https://aomedia.googlesource.com/aom, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  args:
+    [
+      -DENABLE_APPS=OFF,
+      -DENABLE_EXAMPLES=OFF,
+      -DENABLE_TOOLS=OFF,
+      -DENABLE_TESTS=OFF,
+      -DENABLE_DOCS=OFF,
+    ]
+  platforms:
+    linux-armhf: { args: [-DAOM_TARGET_CPU=arm] }

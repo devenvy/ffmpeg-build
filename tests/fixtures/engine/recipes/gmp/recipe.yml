@@ -1,0 +1,7 @@
+name: gmp
+license: LGPL-3.0-or-later OR GPL-2.0-or-later
+license-files: [COPYING]
+source: { url: 'https://gmplib.org/download/gmp/gmp-{version}.tar.xz' }
+versions: { listing: 'https://gmplib.org/download/gmp/', files: 'gmp-(\d+\.\d+\.\d+)\.tar\.xz' }
+platforms: all
+build: { system: none, steps: [['true']] }

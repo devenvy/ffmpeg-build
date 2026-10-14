@@ -1,0 +1,13 @@
+name: opus
+provides: opus
+license: BSD-3-Clause
+license-files: [COPYING, LICENSE_PLEASE_READ.txt]
+configure: [--enable-libopus]
+source: { git: https://github.com/xiph/opus, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
+platforms: all
+build:
+  system: cmake
+  args: [-DOPUS_BUILD_TESTING=OFF, -DOPUS_BUILD_PROGRAMS=OFF]
+  platforms:
+    win-arm64: { args: [-DOPUS_DISABLE_INTRINSICS=ON] }

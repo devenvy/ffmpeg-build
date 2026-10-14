@@ -1,0 +1,53 @@
+# libgsm has no canonical git repo; it ships as a hand-packed tarball from quut.com (a single personal host),
+# with the Debian archive's .orig.tar.gz as the fallback (verified SHA-256-identical upstream for 1.0.24). The
+# tarball's top folder is gsm-1.0-pl24/, not gsm-1.0.24/; the engine strips it either way.
+name: libgsm
+provides: gsm
+license: TU-Berlin-2.0
+license-files: [COPYRIGHT]
+configure: [--enable-libgsm]
+source:
+  url: 'https://www.quut.com/gsm/gsm-{version}.tar.gz'
+  mirrors: ['https://deb.debian.org/debian/pool/main/libg/libgsm/libgsm_{version}.orig.tar.gz']
+versions: { listing: 'https://www.quut.com/gsm/', files: '^gsm-(\d+\.\d+\.\d+)\.tar\.gz$' }
+platforms: all
+build:
+  # libgsm: GSM 06.10 full-rate speech codec (TU-Berlin-2.0), static. Ported from devenvy/ffmpeg scripts/deps/libgsm.sh.
+  # FFmpeg finds it via `check_lib libgsm gsm.h gsm_create -lgsm` (no pkg-config), with gsm.h in {deps}/include.
+  #
+  # NON-STANDARD PACKAGING (the tricky one): libgsm ships a hand-written top-level
+  # Makefile with NO ./configure and NO `make install` target. Its Makefile hardcodes the
+  # host toolchain (CC = gcc, AR = ar, RANLIB = ranlib) and does not honour a --host cross
+  # triple, so we override those make variables on the command line to inject the cross
+  # toolchain + -fPIC, build ONLY the static lib target (lib/libgsm.a — skipping the toast
+  # CLI tools, which need extra headers), then copy the lib + header into the deps folder by hand.
+  #
+  # LIKELY TWEAK POINT: the make-variable names below (CC/AR/RANLIB and the lib/libgsm.a
+  # target) follow libgsm-1.0.22's Makefile. If a version bump renames them, this is the
+  # line to adjust. libgsm's Makefile uses `AR ... $(ARFLAGS)` with ARFLAGS defaulting to `cr`,
+  # so AR stays the archiver alone and the flags go in ARFLAGS.
+  #
+  # Toolchain: the platform's CC/AR/RANLIB where it sets them (win/apple/android), else the cross
+  # triple's tools, else the plain native tool. This matters for linux-armhf — the ONE cross target that
+  # sets no CC (its autotools deps cross via --host instead): without the triple, gcc would silently
+  # build a NATIVE x86-64 libgsm.a that FFmpeg's armhf link then rejects ("libgsm not found").
+  #
+  # The tarball's top dir is NOT gsm-${ver} — libgsm names it by version+patchlevel
+  # (gsm-1.0.22.tar.gz extracts to gsm-1.0-pl22/). The engine strips the top folder, so the
+  # source is already here.
+  system: none
+  vars: { tools: '' }
+  steps:
+    - vars: { tools: '{host}-' }
+      when: { set: '{host}' }
+    - [
+        make,
+        '-j{jobs}',
+        lib/libgsm.a,
+        'CC={CC|{tools}gcc} -fPIC {EXTRA_CFLAGS|}',
+        'AR={AR|{tools}ar}',
+        ARFLAGS=cr,
+        'RANLIB={RANLIB|{tools}ranlib}',
+      ]
+    - copy: { from: lib/libgsm.a, into: '{deps}/lib', preserve: true }
+    - copy: { from: inc/gsm.h, into: '{deps}/include', preserve: true }

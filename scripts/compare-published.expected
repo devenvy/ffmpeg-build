@@ -1,0 +1,50 @@
+# Differences scripts/compare-published.sh expects between an ffmpeg-build archive and the published devenvy/ffmpeg
+# one, per platform: "<platform> <section> <diff line>", where the section is files, links, flags, encoders,
+# decoders, filters, formats, protocols, hwaccels, bsfs or deps, and the diff line starts with - (published) or
+# + (built). A difference can also be listed for one build, "<platform>-<license> <section> <diff line>". Each group
+# says why. Anything not listed here fails the comparison.
+
+# The Vulkan loader's development link: ffmpeg-build keeps the loader's own chain (libvulkan.so -> libvulkan.so.1 ->
+# libvulkan.so.1.4.363); upstream pointed it at the file. Programs load libvulkan.so.1 (the soname) either way.
+linux-x64 links -libvulkan.so -> libvulkan.so.1.4.363
+linux-x64 links +libvulkan.so -> libvulkan.so.1
+linux-musl-x64 links -libvulkan.so -> libvulkan.so.1.4.363
+linux-musl-x64 links +libvulkan.so -> libvulkan.so.1
+linux-arm64 links -libvulkan.so -> libvulkan.so.1.4.363
+linux-arm64 links +libvulkan.so -> libvulkan.so.1
+linux-musl-arm64 links -libvulkan.so -> libvulkan.so.1.4.363
+linux-musl-arm64 links +libvulkan.so -> libvulkan.so.1
+
+# Libraries that use no C++ library take the compiler helpers (__multf3, __divti3, ...) from the static libgcc here;
+# upstream's link (its global --extra-libs carried -lstdc++) took them from libgcc_s.so.1. One run-time library fewer.
+linux-arm64 deps -libavutil.so.61.1.102: soname=libavutil.so.61 needs=libc.so.6 libdl.so.2 libgcc_s.so.1 libm.so.6 libpthread.so.0 rpath=$ORIGIN
+linux-arm64 deps +libavutil.so.61.1.102: soname=libavutil.so.61 needs=libc.so.6 libdl.so.2 libm.so.6 libpthread.so.0 rpath=$ORIGIN
+linux-arm64 deps -libswscale.so.10.1.102: soname=libswscale.so.10 needs=libavutil.so.61 libc.so.6 libgcc_s.so.1 libm.so.6 libpthread.so.0 rpath=$ORIGIN
+linux-arm64 deps +libswscale.so.10.1.102: soname=libswscale.so.10 needs=libavutil.so.61 libc.so.6 libm.so.6 libpthread.so.0 rpath=$ORIGIN
+linux-armhf deps -libavutil.so.61.1.102: soname=libavutil.so.61 needs=libc.so.6 libgcc_s.so.1 libm.so.6 rpath=$ORIGIN
+linux-armhf deps +libavutil.so.61.1.102: soname=libavutil.so.61 needs=libc.so.6 libm.so.6 rpath=$ORIGIN
+linux-armhf deps -libswresample.so.7.1.102: soname=libswresample.so.7 needs=libavutil.so.61 libc.so.6 libgcc_s.so.1 libm.so.6 rpath=$ORIGIN
+linux-armhf deps +libswresample.so.7.1.102: soname=libswresample.so.7 needs=libavutil.so.61 libc.so.6 libm.so.6 rpath=$ORIGIN
+linux-armhf deps -libswscale.so.10.1.102: soname=libswscale.so.10 needs=libavutil.so.61 libc.so.6 libgcc_s.so.1 libm.so.6 rpath=$ORIGIN
+linux-armhf deps +libswscale.so.10.1.102: soname=libswscale.so.10 needs=libavutil.so.61 libc.so.6 libm.so.6 rpath=$ORIGIN
+
+# Licence texts: upstream's archives carry a legal/ folder; ffmpeg-build carries one THIRD-PARTY-NOTICES.txt at the
+# root instead, with every text legal/ had (the owner's decision).
+linux-x64 files -legal
+linux-x64 files +THIRD-PARTY-NOTICES.txt
+linux-arm64 files -legal
+linux-arm64 files +THIRD-PARTY-NOTICES.txt
+linux-musl-x64 files -legal
+linux-musl-x64 files +THIRD-PARTY-NOTICES.txt
+linux-musl-arm64 files -legal
+linux-musl-arm64 files +THIRD-PARTY-NOTICES.txt
+linux-armhf files -legal
+linux-armhf files +THIRD-PARTY-NOTICES.txt
+win-x64 files -legal
+win-x64 files +THIRD-PARTY-NOTICES.txt
+win-arm64 files -legal
+win-arm64 files +THIRD-PARTY-NOTICES.txt
+android-arm64 files -legal
+android-arm64 files +THIRD-PARTY-NOTICES.txt
+android-x64 files -legal
+android-x64 files +THIRD-PARTY-NOTICES.txt

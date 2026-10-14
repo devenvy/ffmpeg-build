@@ -1,0 +1,163 @@
+# The options the engine builds for this FFmpeg major. `releases:` is kept equal to FFmpeg's release tags by the nightly
+# support check (.github/workflows/ffmpeg-support.yml), which also reports options a new release adds, removes or
+# reclassifies; those, and the options below, are maintained by a person.
+# Classes (ffmpeg-license) and minimums (min) are copied from FFmpeg 9.0.2's configure (8.x where it differs). Option names are FFmpeg's
+# configure names without a leading `lib`, plus the friendly groupings nvenc (nv-codec), vaapi (libva), whisper.
+# `ships:` is what a build with the option on must report (`ffmpeg -encoders`, `-filters`, `-hwaccels`, ...), each name
+# exact. `ffmpeg-build test` checks it, so an option configure took but the build lost (FFmpeg 8.1.2's Vulkan builds
+# had no Vulkan filters: the glslc was too old) fails the test. Name only what the option always adds, or say what else
+# it needs with `{ name: { with: [option] } }`.
+major: 8
+releases: [8.0, 8.0.1, 8.0.2, 8.0.3, 8.1, 8.1.1, 8.1.2, 8.1.3]
+options:
+  # built into FFmpeg: nothing to build
+  # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
+  jni: { builtin: true, kind: hwaccel, platforms: [android-*] }
+  # the MediaCodec decoders; FFmpeg has no mediacodec hwaccels (upstream's --enable-hwaccel=h264_mediacodec and
+  # hevc_mediacodec matched nothing)
+  mediacodec:
+    {
+      builtin: true,
+      kind: hwaccel,
+      platforms: [android-*],
+      configure:
+        [--enable-mediacodec, --enable-decoder=h264_mediacodec, --enable-decoder=hevc_mediacodec],
+      ships: { hwaccels: [mediacodec], decoders: [h264_mediacodec, hevc_mediacodec] },
+    }
+  # Windows hardware video and the media framework (built into FFmpeg; the OS provides them at run time)
+  d3d11va: { builtin: true, kind: hwaccel, platforms: [win-*], ships: { hwaccels: [d3d11va] } }
+  dxva2: { builtin: true, kind: hwaccel, platforms: [win-*], ships: { hwaccels: [dxva2] } }
+  mediafoundation:
+    { builtin: true, kind: hwaccel, platforms: [win-*], ships: { encoders: [h264_mf] } }
+  amf: { needs: amf, platforms: [win-*, linux-*], ships: { encoders: [h264_amf, av1_amf] } }
+  schannel:
+    { builtin: true, kind: tls, platforms: [win-*], group: tls, ships: { protocols: [tls, https] } }
+  securetransport:
+    {
+      builtin: true,
+      kind: tls,
+      platforms: [osx-*, ios-*],
+      group: tls,
+      ships: { protocols: [tls, https] },
+    }
+  v4l2-m2m:
+    {
+      builtin: true,
+      kind: hwaccel,
+      platforms: [linux-*, android-*],
+      ships: { encoders: [h264_v4l2m2m] },
+    }
+  videotoolbox:
+    {
+      builtin: true,
+      kind: hwaccel,
+      platforms: [osx-*, ios-*, maccatalyst-*],
+      ships: { hwaccels: [videotoolbox], encoders: [h264_videotoolbox, hevc_videotoolbox] },
+    }
+  audiotoolbox:
+    {
+      builtin: true,
+      kind: hwaccel,
+      platforms: [osx-*, ios-*, maccatalyst-*],
+      ships: { encoders: [aac_at] },
+    }
+
+  # TLS (one per build: group tls; the profile lists which, per platform and license)
+  openssl: { needs: openssl, min: 3.0.0, ships: { protocols: [tls, https] } }
+  gnutls: { needs: gnutls, ships: { protocols: [tls, https] } }
+
+  # hardware
+  nvenc:
+    {
+      needs: nv-codec,
+      platforms: [linux-*, win-*],
+      ships:
+        { hwaccels: [cuda], encoders: [h264_nvenc, hevc_nvenc, av1_nvenc], decoders: [av1_cuvid] },
+    }
+  vaapi:
+    {
+      needs: libva,
+      platforms: [linux-*],
+      ships:
+        {
+          hwaccels: [vaapi],
+          encoders: [h264_vaapi, hevc_vaapi, av1_vaapi],
+          filters: [transpose_vaapi],
+        },
+    }
+  drm: { needs: libdrm, platforms: [linux-*] }
+  vpl: { needs: libvpl, min: 2.6.0, ships: { encoders: [h264_qsv, hevc_qsv, av1_qsv] } }
+  # FFmpeg's Vulkan: the Khronos loader on glibc and musl Linux, and on macOS with MoltenVK beside it; on Windows,
+  # linux-armhf and Android only the headers (FFmpeg loads the system's Vulkan library at run time); on iOS and Mac
+  # Catalyst MoltenVK linked statically into the libav* frameworks (--enable-vulkan-static). Each library's recipe
+  # gives the flags.
+  vulkan: {
+      needs:
+        [
+          { vulkan-loader: { platforms: [linux-x64, linux-arm64, linux-musl-*, osx-*] } },
+          { vulkan-headers: { platforms: [win-*, linux-armhf, android-*] } },
+          { moltenvk: { platforms: [ios-arm64, maccatalyst-*] } },
+        ],
+      min: 1.3.277,
+      # FFmpeg 8.x compiles its Vulkan filters' shaders only with libshaderc
+      ships: { hwaccels: [vulkan], filters: [{ scale_vulkan: { with: [shaderc] } }] },
+    }
+  placebo:
+    { needs: libplacebo, min: 5.229.0, ships: { filters: [{ libplacebo: { with: [vulkan] } }] } }
+  # FFmpeg 8.x only gets its Vulkan filters' shader compiler through libshaderc
+  shaderc: { needs: shaderc, min: 2019.1 }
+  whisper: { needs: whisper.cpp, min: 1.7.5, since: 8.0.0, ships: { filters: [whisper] } }
+
+  # video
+  x264: { needs: x264, ffmpeg-license: gpl, ships: { encoders: [libx264] } }
+  x265: { needs: x265, ffmpeg-license: gpl, ships: { encoders: [libx265] } }
+  openh264: { needs: openh264, min: 1.3.0, ships: { encoders: [libopenh264] } }
+  kvazaar: { needs: kvazaar, min: 2.0.0, ships: { encoders: [libkvazaar] } }
+  dav1d: { needs: dav1d, min: 1.0.0, ships: { decoders: [libdav1d] } }
+  aom: { needs: aom, min: 2.0.0, ships: { encoders: [libaom-av1] } }
+  svtav1: { needs: svtav1, min: 0.9.0, ships: { encoders: [libsvtav1] } }
+  vpx: { needs: libvpx, min: 1.4.0, ships: { encoders: [libvpx, libvpx-vp9] } }
+  webp: { needs: libwebp, min: 0.2.0, ships: { encoders: [libwebp] } }
+  openjpeg: { needs: openjpeg, min: 2.1.0, ships: { encoders: [libopenjpeg] } }
+  jxl: { needs: libjxl, min: 0.7.0, ships: { decoders: [libjxl] } }
+  zimg: { needs: zimg, min: 2.7.0, ships: { filters: [zscale] } }
+  vmaf: { needs: libvmaf, min: 2.0.0, ships: { filters: [libvmaf] } }
+  lcms2: { needs: lcms2, min: 2.13 }
+
+  # audio
+  opus: { needs: opus, ships: { encoders: [libopus] } }
+  vorbis: { needs: libvorbis, ships: { encoders: [libvorbis] } }
+  mp3lame: { needs: libmp3lame, ships: { encoders: [libmp3lame] } }
+  speex: { needs: speex, ships: { decoders: [libspeex] } }
+  gsm: { needs: libgsm, ships: { decoders: [libgsm] } }
+  opencore-amrnb:
+    {
+      needs: opencore-amr,
+      ffmpeg-license: version3,
+      configure: [--enable-libopencore-amrnb],
+      ships: { decoders: [libopencore_amrnb] },
+    }
+  opencore-amrwb:
+    {
+      needs: opencore-amr,
+      ffmpeg-license: version3,
+      configure: [--enable-libopencore-amrwb],
+      ships: { decoders: [libopencore_amrwb] },
+    }
+  vo-amrwbenc:
+    { needs: vo-amrwbenc, ffmpeg-license: version3, ships: { encoders: [libvo_amrwbenc] } }
+  soxr: { needs: soxr, ships: { resamplers: [soxr] } }
+  chromaprint: { needs: chromaprint, ships: { muxers: [chromaprint] } }
+
+  # text, subtitles, XML, compression
+  freetype: { needs: freetype, ships: { filters: [{ drawtext: { with: [harfbuzz] } }] } }
+  fribidi: { needs: fribidi }
+  harfbuzz: { needs: harfbuzz }
+  fontconfig: { needs: fontconfig }
+  ass: { needs: libass, min: 0.11.0, ships: { filters: [ass, subtitles] } }
+  xml2: { needs: libxml2, ships: { demuxers: [dash] } }
+  zlib: { needs: zlib }
+
+  # network
+  srt: { needs: srt, min: 1.3.0, ships: { protocols: [srt] } }
+  rist: { needs: librist, min: 0.2.7, ships: { protocols: [rist] } }

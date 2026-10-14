@@ -1,0 +1,9 @@
+name: brotli
+license: MIT
+license-files: [LICENSE]
+source: { git: https://github.com/google/brotli, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  args: [-DBROTLI_DISABLE_TESTS=ON, -DBROTLI_BUNDLED_MODE=OFF, -DBROTLI_BUILD_TOOLS=OFF]

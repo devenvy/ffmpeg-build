@@ -1,0 +1,499 @@
+# REUSABLE. A folder of targets calls it to build and publish its releases:
+#   plan (releases --json) -> build and test each target on its runner -> test on another runner the builds that one
+#   can't run (Windows) -> iOS bundle (macOS) -> bundle + release per release
+# `publish: changed-only` builds and publishes only the releases that changed since their last release; `always` all
+# of them; `never` builds without publishing (CI for pull requests), every release unless `due: true` narrows it to
+# the ones that changed. `tests: all` runs every build where CI can (see docs/building.md); `build-runner` only on the
+# runners they build on (no Windows runners); `none` runs none.
+#
+# Every job installs the engine with the same block (tests/workflow-engine.test.ts keeps the copies identical). It
+# isn't a script under .github/scripts/: a reusable workflow's checkout is the caller's repository, and the workflow
+# isn't told which ref of its own repository it runs at, so it has no reliable way to fetch a file of its own.
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      folder:
+        description: folder holding ffmpeg-build.yml and ffmpeg.lock, relative to the repository root and written one way, . or e.g. builds/linux (no leading ./, no trailing /, no .., no backslashes)
+        type: string
+        default: .
+      publish:
+        description: changed-only | always | never
+        type: string
+        default: changed-only
+      engine:
+        description: ffmpeg-build to run, a version or a git/npm spec like github:owner/repo#ref (default the version ffmpeg.lock records; "source" builds this repository)
+        type: string
+        default: ''
+      tests:
+        description: all | build-runner | none (build-runner skips the Windows test runners, which cost more minutes in private repositories)
+        type: string
+        default: all
+      platforms:
+        description: only targets on these platforms, e.g. 'linux-*,win-*' (default every target). Publishing needs every target of a release
+        type: string
+        default: ''
+      due:
+        description: with publish never only (refused otherwise), build only the releases that changed since they were last published (a cheaper pull-request check); changed-only always does
+        type: boolean
+        default: false
+
+# read-only everywhere; only the release job writes (it creates the GitHub release)
+permissions:
+  contents: read
+
+# runs that publish take turns per repository and folder: a scheduled run and a manual one started together would
+# otherwise both plan the same tag, and the second would find it already published. Queued, the second plans after the
+# first published (the next build number, or nothing due). A pull request's build (publish: never) never waits.
+concurrency:
+  group: ${{ inputs.publish != 'never' && format('ffmpeg-build-publish-{0}-{1}', github.repository, inputs.folder) || format('ffmpeg-build-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      releases: ${{ steps.plan.outputs.releases }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      any: ${{ steps.plan.outputs.any }}
+      apple: ${{ steps.plan.outputs.apple }}
+      apple_releases: ${{ steps.plan.outputs.apple_releases }}
+      tests: ${{ steps.plan.outputs.tests }}
+      any_tests: ${{ steps.plan.outputs.any_tests }}
+      engine: ${{ steps.engine.outputs.version }}
+    steps:
+      # a misspelt value would otherwise build every release (publish) or publish what it shouldn't: stop first
+      - name: inputs
+        env:
+          PUBLISH: ${{ inputs.publish }}
+          TESTS: ${{ inputs.tests }}
+          DUE: ${{ inputs.due }}
+          FOLDER: ${{ inputs.folder }}
+        run: |
+          # one folder, one spelling: it names the concurrency group (`.` and `./` would queue apart)
+          case "${FOLDER}" in
+            .) ;;
+            ''|/*|./*|*/|..|../*|*/..|*/../*|*/.|*/./*|*//*|*"\\"*)
+              echo "::error::build.yml input folder is \"${FOLDER}\"; write it as . (the repository root) or a relative path like builds/linux: no leading ./ or /, no trailing /, no . or .. parts, no backslashes"
+              exit 1 ;;
+          esac
+          case "${PUBLISH}" in
+            changed-only|always|never) ;;
+            *) echo "::error::build.yml input publish is \"${PUBLISH}\"; it takes changed-only, always or never"; exit 1 ;;
+          esac
+          # due narrows a run that doesn't publish; with always it would publish only some releases, and changed-only
+          # already builds just the changed ones
+          if [ "${DUE}" = true ] && [ "${PUBLISH}" != never ]; then
+            echo "::error::build.yml input due is true with publish ${PUBLISH}; due applies only with publish: never (changed-only already builds just the releases that changed)"
+            exit 1
+          fi
+          case "${TESTS}" in
+            all|build-runner|none) ;;
+            *) echo "::error::build.yml input tests is \"${TESTS}\"; it takes all, build-runner or none"; exit 1 ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - id: engine
+        name: engine version
+        working-directory: ${{ inputs.folder }}
+        env:
+          WANTED: ${{ inputs.engine }}
+        run: |
+          version="${WANTED:-$(sed -n 's/^engine: *//p' ffmpeg.lock | head -1)}"
+          [ -n "${version}" ] || { echo "::error::no engine version: ffmpeg.lock has none and the engine input is empty"; exit 1; }
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: install the engine
+        env:
+          ENGINE: ${{ steps.engine.outputs.version }}
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      # the compatibility contract: the @v0 workflows run any 0.x engine, and no other
+      - name: the engine suits these workflows
+        env:
+          WORKFLOWS_MAJOR: '0'
+        run: |
+          have="$(ffmpeg-build --version)"
+          if [ "${have%%.*}" != "${WORKFLOWS_MAJOR}" ]; then
+            echo "::error::ffmpeg-build ${have} is a ${have%%.*}.x engine, but these workflows (@v${WORKFLOWS_MAJOR}) run ${WORKFLOWS_MAJOR}.x engines only: call the workflows @v${have%%.*}, or set the engine input (or ffmpeg.lock's engine:) to a ${WORKFLOWS_MAJOR}.x release"
+            exit 1
+          fi
+      - id: plan
+        name: releases
+        working-directory: ${{ inputs.folder }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH: ${{ inputs.publish }}
+          PLATFORMS: ${{ inputs.platforms }}
+          DUE: ${{ inputs.due }}
+        run: |
+          ffmpeg-build check
+          args=(--json)
+          if [ "${PUBLISH}" = "changed-only" ] || { [ "${PUBLISH}" = never ] && [ "${DUE}" = true ]; }; then args+=(--due); fi
+          # a release is published with all its targets: a platforms choice that leaves one part-built stops here
+          if [ -n "${PLATFORMS}" ]; then args+=(--platform "${PLATFORMS}"); [ "${PUBLISH}" = never ] || args+=(--whole); fi
+          if ! ffmpeg-build releases "${args[@]}" > "${RUNNER_TEMP}/releases.json"; then
+            # a failure is {"error", "problems"}: each problem is an annotation of its own (or the error, when there are none)
+            jq -r 'if ((.problems? // []) | length) > 0 then .problems[] else (.error? // empty) end' "${RUNNER_TEMP}/releases.json" 2>/dev/null | sed 's/^/::error::/'
+            exit 1
+          fi
+          {
+            echo "releases=$(jq -c . "${RUNNER_TEMP}/releases.json")"
+            echo "matrix=$(jq -c '{include: [.[] as $r | $r.targets[] | {release: $r.tag, target: .name, platform: .platform, runner: .runner, testRunner: .testRunner, testHere: .testHere, in: .in, cacheKey: .cacheKey}]}' "${RUNNER_TEMP}/releases.json")"
+            # the builds their build runner can't run, for the test job on the runner that can
+            echo "tests=$(jq -c '{include: [.[] as $r | $r.targets[] | select(.testHere | not) | {release: $r.tag, target: .name, platform: .platform, testRunner: .testRunner}]}' "${RUNNER_TEMP}/releases.json")"
+            echo "any_tests=$(jq '[.[].targets[] | select(.testHere | not)] | length > 0' "${RUNNER_TEMP}/releases.json")"
+            echo "any=$(jq 'length > 0' "${RUNNER_TEMP}/releases.json")"
+            echo "apple=$(jq '[.[].targets[].platform | select(test("^(ios|maccatalyst)-"))] | length > 0' "${RUNNER_TEMP}/releases.json")"
+            echo "apple_releases=$(jq -c '[.[] | select(any(.targets[]; .platform | test("^(ios|maccatalyst)-"))) | .tag]' "${RUNNER_TEMP}/releases.json")"
+          } >> "$GITHUB_OUTPUT"
+          jq -r '.[] | "\(.tag): \(if .due then "due" else "unchanged" end) — \(.reasons | join("; "))"' "${RUNNER_TEMP}/releases.json" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    # the steps are bash; a Windows runner (a native build: in: here) would run them in PowerShell otherwise
+    defaults:
+      run:
+        shell: bash
+    env:
+      FFMPEG_BUILD_IMAGE_CACHE: gha
+      FFMPEG_BUILD_SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
+      FFMPEG_BUILD_SOURCE_REF: ${{ github.sha }}
+      # the release the notices name: only when this run publishes it (a PR check's builds go nowhere)
+      FFMPEG_BUILD_RELEASE: ${{ inputs.publish != 'never' && matrix.release || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        env:
+          ENGINE: ${{ needs.plan.outputs.engine }}
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      - name: Apple build tools
+        if: runner.os == 'macOS'
+        run: sed 's/#.*//' "$(npm root --global)/@devenvy/ffmpeg-build/platforms/apple-brew.txt" | xargs brew install
+      # a native build (ffmpeg-build.yml build: in: here) uses the runner's own toolchain instead of a Docker image
+      - name: Linux build tools (native build)
+        if: runner.os == 'Linux' && matrix.in == 'here'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq build-essential cmake meson ninja-build nasm pkg-config git curl autoconf automake libtool binutils patchelf xxd python3 gperf xz-utils diffutils
+      - name: MSYS2 (native Windows build)
+        if: runner.os == 'Windows' && matrix.in == 'here'
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: ${{ matrix.platform == 'win-arm64' && 'CLANGARM64' || 'MINGW64' }}
+          path-type: inherit # node and the engine npm installed
+          update: true
+          install: make git tar gzip curl autoconf automake libtool perl binutils vim python gperf xz diffutils
+          pacboy: ${{ matrix.platform == 'win-arm64' && 'clang:p' || 'gcc:p' }} cmake:p meson:p ninja:p nasm:p pkgconf:p tools-git:p llvm:p
+      - name: buildx with the Actions cache
+        if: runner.os == 'Linux' && matrix.in == 'docker'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: expose the Actions cache to buildx
+        if: runner.os == 'Linux' && matrix.in == 'docker'
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ffmpeg-build
+          key: ${{ matrix.cacheKey }}
+          restore-keys: ffmpeg-build-libs-${{ matrix.platform }}-
+      # before the build: staging runs the x86_64 programs it made (without Rosetta it only names their architecture)
+      - name: Rosetta (x86_64 builds run under it on Apple silicon)
+        if: runner.os == 'macOS' && endsWith(matrix.platform, '-x64')
+        run: sudo softwareupdate --install-rosetta --agree-to-license
+      - name: build ${{ matrix.target }}
+        if: ${{ !(runner.os == 'Windows' && matrix.in == 'here') }}
+        working-directory: ${{ inputs.folder }}
+        env:
+          IN: ${{ matrix.in }}
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: ffmpeg-build build --target "${MATRIX_TARGET}" --in "${IN}" --out "${RUNNER_TEMP}/dist"
+      - name: build ${{ matrix.target }} (in MSYS2)
+        if: runner.os == 'Windows' && matrix.in == 'here'
+        working-directory: ${{ inputs.folder }}
+        shell: msys2 {0}
+        env:
+          OUT: ${{ runner.temp }}/dist
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: ffmpeg-build build --target "${MATRIX_TARGET}" --in here --out "$(cygpath -m "${OUT}")"
+      # Testing (docs/building.md): every build its build runner can run must run there (--must-run); the test job
+      # runs the rest
+      - name: qemu for 32-bit ARM (linux-armhf runs in a Debian armhf container)
+        if: inputs.tests != 'none' && matrix.platform == 'linux-armhf'
+        env:
+          BINFMT: mirror.gcr.io/tonistiigi/binfmt:qemu-v8.1.5@sha256:2d2918e86e5327d0661f7083d67a95280b0f7be8f77ed79a8418f81d7d90ce6f
+        run: |
+          # Docker Hub rate-limits anonymous pulls from shared runner addresses now and then: retry before giving up
+          for i in 1 2 3 4; do docker pull --quiet "${BINFMT}" && break; [ "$i" = 4 ] && exit 1; sleep $((i * 30)); done
+          docker run --privileged --rm "${BINFMT}" --install arm
+      - name: test ${{ matrix.target }}
+        if: inputs.tests != 'none' && !startsWith(matrix.platform, 'android-')
+        working-directory: ${{ inputs.folder }}
+        env:
+          HERE: ${{ matrix.testHere }}
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: |
+          must=
+          if [ "${HERE}" = true ]; then must=--must-run; fi
+          ffmpeg-build test --target "${MATRIX_TARGET}" --dist "${RUNNER_TEMP}/dist" ${must}
+      # Android: a program linked against the libraries with the runner's NDK runs on an x86_64 emulator (KVM):
+      # android-x64 natively, android-arm64 through the system image's arm64 translation
+      - name: KVM and patchelf for the Android emulator
+        if: inputs.tests != 'none' && startsWith(matrix.platform, 'android-')
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo apt-get -o Acquire::Retries=5 update -qq
+          sudo apt-get -o Acquire::Retries=5 install -y -q patchelf
+      - name: test ${{ matrix.target }} on an Android emulator
+        if: inputs.tests != 'none' && startsWith(matrix.platform, 'android-')
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          MATRIX_TARGET: ${{ matrix.target }}
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          working-directory: ${{ inputs.folder }}
+          script: ffmpeg-build test --target "${MATRIX_TARGET}" --dist "${RUNNER_TEMP}/dist" --must-run
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: dist-${{ matrix.release }}-${{ matrix.target }}
+          path: ${{ runner.temp }}/dist
+          retention-days: 5
+          if-no-files-found: error
+
+  # The builds their build runner can't run (platforms.yml test-runner:, today Windows), on a runner that can
+  test:
+    needs: [plan, build]
+    if: needs.plan.outputs.any_tests == 'true' && inputs.tests == 'all'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.tests) }}
+    runs-on: ${{ matrix.testRunner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # the folder: ffmpeg-build.yml, ffmpeg.lock and the scripts its targets' tests: name
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        env:
+          ENGINE: ${{ needs.plan.outputs.engine }}
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: dist-${{ matrix.release }}-${{ matrix.target }}
+          path: ${{ runner.temp }}/dist
+      - name: test ${{ matrix.target }}
+        working-directory: ${{ inputs.folder }}
+        env:
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: ffmpeg-build test --target "${MATRIX_TARGET}" --dist "${RUNNER_TEMP}/dist" --must-run
+
+  ios:
+    needs: [plan, build]
+    if: needs.plan.outputs.apple == 'true' && inputs.publish != 'never'
+    strategy:
+      matrix:
+        release: ${{ fromJson(needs.plan.outputs.apple_releases) }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        env:
+          ENGINE: ${{ needs.plan.outputs.engine }}
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: dist-${{ matrix.release }}-*
+          path: ${{ runner.temp }}/dist
+          merge-multiple: true
+      - working-directory: ${{ inputs.folder }}
+        env:
+          MATRIX_RELEASE: ${{ matrix.release }}
+        run: ffmpeg-build bundle --apple --release "${MATRIX_RELEASE}" --dist "${RUNNER_TEMP}/dist"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ios-${{ matrix.release }}
+          # each bundle with its .slices.json: plain bundle checks the bundle against the slice archives with it
+          path: |
+            ${{ runner.temp }}/dist/ffmpeg-*-ios-*.tar.gz
+            ${{ runner.temp }}/dist/ffmpeg-*-ios-*.slices.json
+          retention-days: 5
+          if-no-files-found: ignore
+
+  release:
+    needs: [plan, build, test, ios]
+    if: always() && needs.plan.outputs.any == 'true' && inputs.publish != 'never' && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') && (needs.ios.result == 'success' || needs.ios.result == 'skipped')
+    strategy:
+      max-parallel: 1
+      matrix:
+        release: ${{ fromJson(needs.plan.outputs.releases).*.tag }}
+    runs-on: ubuntu-24.04
+    # one runner publishes the whole release: a full one (about 60 targets) downloads every target's archives and kept
+    # sources, bundle hashes them and writes the sources archive, and about 100 assets upload one by one. 60 minutes
+    # was the cap before any release that size had run; a stalled upload still ends the job well before GitHub's six
+    # hours, and an unfinished release stays a draft that the next run completes
+    timeout-minutes: 180
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }} # gh runs in the dist folder, which isn't a checkout
+      TAG: ${{ matrix.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        env:
+          ENGINE: ${{ needs.plan.outputs.engine }}
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      # every target's archives and kept sources (each build keeps its own copy of FFmpeg's and its libraries'
+      # sources), then the sources archive bundle writes: several GB for a full release. The runner's preinstalled SDKs,
+      # none of which this job uses, make room; df in the log shows how close a release came
+      - name: room for a whole release
+        run: |
+          df -h "${RUNNER_TEMP}"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h "${RUNNER_TEMP}"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: '{dist,ios}-${{ matrix.release }}*'
+          path: ${{ runner.temp }}/dist
+          merge-multiple: true
+      - name: bundle
+        working-directory: ${{ inputs.folder }}
+        # bundle reads the repository's visibility itself: nonfree targets never go to a public repository
+        run: |
+          ffmpeg-build bundle --release "${TAG}" --dist "${RUNNER_TEMP}/dist"
+          du -sh "${RUNNER_TEMP}/dist"
+          df -h "${RUNNER_TEMP}"
+      - name: publish
+        run: |
+          cd "${RUNNER_TEMP}/dist"
+          # a published release is never touched again. A draft a run that failed part way left is replaced, with its tag:
+          # its assets, notes and tag may be another commit's (this run may build a newer one under the same tag)
+          if draft="$(gh release view "${TAG}" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            [ "${draft}" = true ] || { echo "::error::${TAG} is already published; releases are never replaced"; exit 1; }
+            gh release delete "${TAG}" --yes --cleanup-tag
+          fi
+          if ! gh release create "${TAG}" --draft --title "${TAG}" --notes-file release-notes.md --target "${GITHUB_SHA}"; then
+            # GITHUB_TOKEN can't tag a commit whose workflow files differ from the branch's tip (403)
+            tip="$(gh api "repos/${GH_REPO}/commits/${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)"
+            if [ -n "${tip}" ] && [ "${tip}" != "${GITHUB_SHA}" ]; then
+              echo "::error::${GITHUB_REF_NAME} moved on to ${tip} while this run built ${GITHUB_SHA}; GitHub doesn't let GITHUB_TOKEN tag a commit whose workflow files differ from the branch's. The next release run releases it."
+            fi
+            exit 1
+          fi
+          # every asset, tried three times; one that never uploads leaves the release a draft (SHA256SUMS names it)
+          for f in $(jq -r '.assets[]' bundle.json); do
+            uploaded=false
+            for i in 1 2 3; do
+              if gh release upload "${TAG}" "${f}" --clobber; then uploaded=true; break; fi
+              sleep $((i * 10))
+            done
+            [ "${uploaded}" = true ] || { echo "::error::${f} didn't upload; ${TAG} stays a draft, and the next run retries it"; exit 1; }
+          done
+          latest=false
+          [ "$(jq -r '.latest' bundle.json)" = "true" ] && latest=true
+          gh release edit "${TAG}" --draft=false --latest="${latest}"
+
+  all-builds:
+    needs: [plan, build, test, ios, release]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for r in ${RESULTS}; do
+            case "$r" in success|skipped) ;; *) echo "::error::a job ended with ${r}"; exit 1 ;; esac
+          done

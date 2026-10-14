@@ -1,0 +1,83 @@
+version: 2
+
+# One weekly pull request per ecosystem, plus one for security fixes: the engine's npm packages (3 runtime, the rest
+# for development) and the actions its workflows use. Version updates wait out a 7-day cooldown, so a compromised
+# release is usually caught before it reaches a PR (security updates are not delayed). The workflows pin each action by
+# commit SHA with its version in a comment (tests/workflow-pins.test.ts); Dependabot moves both together. ci.yml merges
+# these PRs once they pass, and a runtime dependency bump ships in the next nightly release (release.yml).
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]
+    # conventional titles (ci.yml checks PR titles): a runtime bump is a fix (it ships in the next nightly release),
+    # a development one a chore
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    cooldown:
+      default-days: 7
+      exclude: ['@devenvy/*'] # our own baseline updates arrive without delay
+    groups:
+      dependencies:
+        applies-to: version-updates
+        patterns: ['*']
+      security:
+        applies-to: security-updates
+        patterns: ['*']
+    ignore:
+      # typescript-eslint and @devenvy/code-guidelines pin TypeScript (~6.0); the peer range moves when they do
+      - dependency-name: typescript
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      # the types follow the Node the engine requires (package.json engines, .nvmrc), not the newest Node
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]
+    commit-message:
+      prefix: ci
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
+
+  # The toolchain images' base images (images/<name>/Dockerfile FROM lines, each pinned tag@sha256): a new tag, or a
+  # new digest for the same tag (bookworm, 24.04: security fixes), in one PR. The Docker Hub images come through
+  # mirror.gcr.io (tests/image-registry.test.ts), which serves the registry API Dependabot reads, so the prefix stays.
+  # A base image is the toolchain: ci.yml doesn't merge these PRs by itself; toolchains.yml builds them first. What an
+  # image downloads (NDK, llvm-mingw, shaderc, meson) is pinned by sha256 or commit in the Dockerfile and isn't tracked
+  # here: those move by hand.
+  - package-ecosystem: docker
+    directories: ['/images/*']
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]
+    # conventional titles: a new base image ships in the next engine release (release-due counts images/)
+    commit-message:
+      prefix: fix
+      include: scope
+    cooldown:
+      default-days: 7
+    groups:
+      images:
+        patterns: ['*']
+    ignore:
+      # Dependabot names a FROM image without its registry (mirror.gcr.io/library/node is library/node).
+      # The node stage follows the Node the engine requires (package.json engines), not the newest
+      - dependency-name: library/node
+        update-types: [version-update:semver-major]
+      # a new Ubuntu release is a new toolchain floor: chosen by hand, like debian:bookworm's codename. Its YY.MM tags
+      # read as semver, so 24.04 -> 24.10 is a "minor" (and an interim release, soon end-of-life): only the same
+      # release's new digests come through
+      - dependency-name: library/ubuntu
+        update-types: [version-update:semver-major, version-update:semver-minor]

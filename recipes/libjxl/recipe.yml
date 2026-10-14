@@ -1,0 +1,55 @@
+name: libjxl
+provides: jxl
+license: BSD-3-Clause
+license-files: [LICENSE, PATENTS]
+configure: [--enable-libjxl]
+needs: [brotli, highway, lcms2]
+source: { git: https://github.com/libjxl/libjxl, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libjxl: JPEG XL reference codec (BSD-3-Clause), static. Ported from devenvy/ffmpeg scripts/deps/libjxl.sh.
+  # Enables FFmpeg's libjxl JPEG XL en/decoder. Consumes the brotli, highway, and lcms2 static libs built earlier via
+  # JPEGXL_FORCE_SYSTEM_* (no vendored submodules). C++ -- the C++ runtime is added to its .pc files for FFmpeg's static
+  # link, covering the whole libjxl->highway chain.
+  #
+  # SJPEG + TRANSCODE_JPEG are OFF: they are the lossless JPEG->JXL recompression path
+  # (FFmpeg's libjxl codec doesn't use it) and SJPEG=ON pulls a third_party/sjpeg submodule
+  # that a shallow no-submodule clone doesn't have -- turning them off keeps us submodule-free.
+  #
+  # CMAKE_FIND_ROOT_PATH={deps}: libjxl is the only dep that locates OTHER built deps
+  # (highway/brotli/lcms2) via find_library/find_path. The win/armhf/ios toolchains already put
+  # the deps folder on the find-root path, but android uses the NDK's own toolchain file which doesn't --
+  # so without this, find_library(HWY) fails under the NDK cross ("Could NOT find HWY"). Adding
+  # it to the root path (keeping the strict MODE=ONLY) makes android match the others.
+  system: cmake
+  args:
+    - '-DCMAKE_FIND_ROOT_PATH={deps}'
+    - -DBUILD_TESTING=OFF
+    - -DJPEGXL_ENABLE_TOOLS=OFF
+    - -DJPEGXL_ENABLE_BENCHMARK=OFF
+    - -DJPEGXL_ENABLE_EXAMPLES=OFF
+    - -DJPEGXL_ENABLE_MANPAGES=OFF
+    - -DJPEGXL_ENABLE_DOXYGEN=OFF
+    - -DJPEGXL_ENABLE_JPEGLI=OFF
+    - -DJPEGXL_ENABLE_PLUGINS=OFF
+    - -DJPEGXL_ENABLE_SKCMS=OFF
+    - -DJPEGXL_ENABLE_SJPEG=OFF
+    - -DJPEGXL_ENABLE_TRANSCODE_JPEG=OFF
+    - -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
+    - -DJPEGXL_FORCE_SYSTEM_HWY=ON
+    - -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
+  # libjxl + highway are C++; upstream appended the C++ runtime to FFmpeg's EXTRA_LIBS for the static --enable-libjxl
+  # link (libstdc++ GNU/mingw, libc++ Apple/NDK; -l:libstdc++.a on musl and -l:libc++.a on win-arm64 via CXX_RT_LIB).
+  # On Android, libjxl's __ANDROID__ logging path calls __android_log_write (in -llog) but its .pc doesn't declare it,
+  # so the static link test fails without an explicit -llog. A recipe can't touch FFmpeg's link line, so these go into
+  # the Libs.private of the two .pc files FFmpeg's configure asks for (libjxl, libjxl_threads) when not already there.
+  # (libjxl 0.12's own libjxl.pc already lists -lstdc++ on GNU toolchains; libjxl_threads.pc, std::thread based, doesn't.)
+  vars: { cxx-libs: '{cxx-runtime}' }
+  platforms:
+    'android-*': { vars: { cxx-libs: '{cxx-runtime} -llog' } }
+  after:
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/libjxl.pc', libs-private: { add: '{cxx-libs}' } }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/libjxl_threads.pc', libs-private: { add: '{cxx-libs}' } }

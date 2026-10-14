@@ -1,0 +1,49 @@
+name: Bug report
+description: Something ffmpeg-build does wrong, or a build that fails
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A security problem goes through **Report a vulnerability** (Security tab), not here.
+        A library or FFmpeg bug that isn't about how ffmpeg-build builds it belongs upstream.
+  - type: input
+    id: version
+    attributes:
+      label: ffmpeg-build version
+      description: '`ffmpeg-build --version`, or the `engine:` line of ffmpeg.lock'
+      placeholder: 0.0.1
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Where it ran
+      description: The OS and architecture (and Docker or Xcode version for a build), or the GitHub runner
+      placeholder: Ubuntu 24.04 x64, Docker 28.1 / macOS 15 arm64, Xcode 16.4 / ubuntu-24.04 runner
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected, and what happened instead (with its output)
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: '`ffmpeg-build check --json`'
+      description: Its output in the folder (it holds your targets and what each gets; remove anything private)
+      render: json
+    validations:
+      required: false
+  - type: textarea
+    id: folder
+    attributes:
+      label: ffmpeg-build.yml
+      description: The folder file, or the targets involved (remove anything private)
+      render: yaml
+    validations:
+      required: false

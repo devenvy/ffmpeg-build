@@ -1,0 +1,25 @@
+root = true
+
+# >>> @devenvy/code-guidelines >>>
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{js,mjs,cjs,ts,mts,cts}]
+quote_type = single
+
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
+
+[{Makefile,*.mk}]
+indent_style = tab
+# <<< @devenvy/code-guidelines <<<
+
+[*.patch]
+trim_trailing_whitespace = false
+insert_final_newline = false

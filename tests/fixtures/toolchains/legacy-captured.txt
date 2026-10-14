@@ -1,0 +1,210 @@
+=== linux-x64
+ANDROID_NDK_HOME=
+CXXFLAGS=-fPIC
+CFLAGS=-fPIC
+declare -a CMAKE_CROSS_ARGS=()
+declare -a MESON_CROSS_ARGS=()
+=== linux-musl-x64
+ANDROID_NDK_HOME=
+CXXFLAGS=-fPIC
+CFLAGS=-fPIC
+declare -a CMAKE_CROSS_ARGS=()
+declare -a MESON_CROSS_ARGS=()
+=== linux-armhf
+ANDROID_NDK_HOME=
+CROSS_HOST=arm-linux-gnueabihf
+CROSS_PREFIX=arm-linux-gnueabihf
+CXXFLAGS=-fPIC
+CFLAGS=-fPIC
+declare -a CMAKE_CROSS_ARGS=([0]="-DCMAKE_TOOLCHAIN_FILE={ROOT}/.work/legacy/linux-armhf/toolchain/armhf.cmake")
+declare -a MESON_CROSS_ARGS=([0]="--cross-file" [1]="{ROOT}/.work/legacy/linux-armhf/toolchain/armhf-meson.ini")
+--- toolchain/armhf-meson.ini
+[binaries]
+c = 'arm-linux-gnueabihf-gcc'
+cpp = 'arm-linux-gnueabihf-g++'
+ar = 'arm-linux-gnueabihf-ar'
+strip = 'arm-linux-gnueabihf-strip'
+pkg-config = 'pkg-config'
+[host_machine]
+system = 'linux'
+cpu_family = 'arm'
+cpu = 'armv7'
+endian = 'little'
+[properties]
+pkg_config_libdir = '{ROOT}/.work/legacy/linux-armhf/deps/lib/pkgconfig'
+needs_exe_wrapper = true
+[built-in options]
+c_args = ['-I{ROOT}/.work/legacy/linux-armhf/deps/include']
+cpp_args = ['-I{ROOT}/.work/legacy/linux-armhf/deps/include']
+c_link_args = ['-L{ROOT}/.work/legacy/linux-armhf/deps/lib']
+cpp_link_args = ['-L{ROOT}/.work/legacy/linux-armhf/deps/lib']
+--- toolchain/armhf.cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_C_COMPILER arm-linux-gnueabihf-gcc)
+set(CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++)
+set(CMAKE_C_FLAGS_INIT "-mfpu=neon")
+set(CMAKE_CXX_FLAGS_INIT "-mfpu=neon")
+set(CMAKE_FIND_ROOT_PATH {ROOT}/.work/legacy/linux-armhf/deps)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+=== win-x64
+ANDROID_NDK_HOME=
+AR=x86_64-w64-mingw32-ar
+CC=x86_64-w64-mingw32-gcc-win32
+CROSS_HOST=x86_64-w64-mingw32
+CROSS_PREFIX=x86_64-w64-mingw32
+CXX=x86_64-w64-mingw32-g++-win32
+NM=x86_64-w64-mingw32-nm
+RANLIB=x86_64-w64-mingw32-ranlib
+STRIP=x86_64-w64-mingw32-strip
+declare -a CMAKE_CROSS_ARGS=([0]="-DCMAKE_TOOLCHAIN_FILE={ROOT}/.work/legacy/win-x64/toolchain/windows.cmake")
+declare -a MESON_CROSS_ARGS=([0]="--cross-file" [1]="{ROOT}/.work/legacy/win-x64/toolchain/windows-meson.ini")
+--- toolchain/windows-meson.ini
+[binaries]
+c = 'x86_64-w64-mingw32-gcc-win32'
+cpp = 'x86_64-w64-mingw32-g++-win32'
+ar = 'x86_64-w64-mingw32-ar'
+strip = 'x86_64-w64-mingw32-strip'
+windres = 'x86_64-w64-mingw32-windres'
+pkg-config = 'pkg-config'
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+[properties]
+pkg_config_libdir = '{ROOT}/.work/legacy/win-x64/deps/lib/pkgconfig'
+needs_exe_wrapper = true
+[built-in options]
+c_args = ['-I{ROOT}/.work/legacy/win-x64/deps/include']
+cpp_args = ['-I{ROOT}/.work/legacy/win-x64/deps/include']
+c_link_args = ['-L{ROOT}/.work/legacy/win-x64/deps/lib']
+cpp_link_args = ['-L{ROOT}/.work/legacy/win-x64/deps/lib']
+--- toolchain/windows.cmake
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
+set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
+set(CMAKE_FIND_ROOT_PATH {ROOT}/.work/legacy/win-x64/deps)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+=== win-arm64
+ANDROID_NDK_HOME=
+AR=aarch64-w64-mingw32-ar
+CC=aarch64-w64-mingw32-clang
+CROSS_HOST=aarch64-w64-mingw32
+CROSS_PREFIX=aarch64-w64-mingw32
+CXX=aarch64-w64-mingw32-clang++
+CXX_RT_LIB=-l:libc++.a
+NM=aarch64-w64-mingw32-nm
+RANLIB=aarch64-w64-mingw32-ranlib
+STRIP=aarch64-w64-mingw32-strip
+declare -a CMAKE_CROSS_ARGS=([0]="-DCMAKE_TOOLCHAIN_FILE={ROOT}/.work/legacy/win-arm64/toolchain/windows.cmake")
+declare -a MESON_CROSS_ARGS=([0]="--cross-file" [1]="{ROOT}/.work/legacy/win-arm64/toolchain/windows-meson.ini")
+--- toolchain/windows-meson.ini
+[binaries]
+c = 'aarch64-w64-mingw32-clang'
+cpp = 'aarch64-w64-mingw32-clang++'
+ar = 'aarch64-w64-mingw32-ar'
+strip = 'aarch64-w64-mingw32-strip'
+windres = 'aarch64-w64-mingw32-windres'
+pkg-config = 'pkg-config'
+[host_machine]
+system = 'windows'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'
+[properties]
+pkg_config_libdir = '{ROOT}/.work/legacy/win-arm64/deps/lib/pkgconfig'
+needs_exe_wrapper = true
+[built-in options]
+c_args = ['-I{ROOT}/.work/legacy/win-arm64/deps/include']
+cpp_args = ['-I{ROOT}/.work/legacy/win-arm64/deps/include']
+c_link_args = ['-L{ROOT}/.work/legacy/win-arm64/deps/lib']
+cpp_link_args = ['-L{ROOT}/.work/legacy/win-arm64/deps/lib']
+--- toolchain/windows.cmake
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR ARM64)
+set(CMAKE_C_COMPILER aarch64-w64-mingw32-clang)
+set(CMAKE_CXX_COMPILER aarch64-w64-mingw32-clang++)
+set(CMAKE_RC_COMPILER aarch64-w64-mingw32-windres)
+set(CMAKE_FIND_ROOT_PATH {ROOT}/.work/legacy/win-arm64/deps)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+=== android-arm64
+ANDROID_ABI=arm64-v8a
+ANDROID_NDK_HOME=/opt/android-ndk
+ANDROID_TRIPLE=aarch64-linux-android
+API=28
+AR=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+CC=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang
+CROSS_HOST=aarch64-linux-android
+CXX=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++
+LDFLAGS=-Wl,-z,max-page-size=16384
+NM=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm
+RANLIB=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib
+STRIP=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip
+TOOLCHAIN=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64
+declare -a CMAKE_CROSS_ARGS=([0]="-DCMAKE_TOOLCHAIN_FILE=/opt/android-ndk/build/cmake/android.toolchain.cmake" [1]="-DANDROID_ABI=arm64-v8a" [2]="-DANDROID_PLATFORM=android-28")
+declare -a MESON_CROSS_ARGS=([0]="--cross-file" [1]="{ROOT}/.work/legacy/android-arm64/toolchain/android-meson.ini")
+--- toolchain/android-meson.ini
+[binaries]
+c = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang'
+cpp = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++'
+ar = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+strip = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+pkg-config = 'pkg-config'
+[host_machine]
+system = 'android'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'
+[properties]
+pkg_config_libdir = '{ROOT}/.work/legacy/android-arm64/deps/lib/pkgconfig'
+needs_exe_wrapper = true
+[built-in options]
+c_args = ['-I{ROOT}/.work/legacy/android-arm64/deps/include']
+cpp_args = ['-I{ROOT}/.work/legacy/android-arm64/deps/include']
+c_link_args = ['-L{ROOT}/.work/legacy/android-arm64/deps/lib']
+cpp_link_args = ['-L{ROOT}/.work/legacy/android-arm64/deps/lib']
+=== android-x64
+ANDROID_ABI=x86_64
+ANDROID_NDK_HOME=/opt/android-ndk
+ANDROID_TRIPLE=x86_64-linux-android
+API=28
+AR=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+CC=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android28-clang
+CROSS_HOST=x86_64-linux-android
+CXX=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android28-clang++
+LDFLAGS=-Wl,-z,max-page-size=16384
+NM=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm
+RANLIB=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib
+STRIP=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip
+TOOLCHAIN=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64
+declare -a CMAKE_CROSS_ARGS=([0]="-DCMAKE_TOOLCHAIN_FILE=/opt/android-ndk/build/cmake/android.toolchain.cmake" [1]="-DANDROID_ABI=x86_64" [2]="-DANDROID_PLATFORM=android-28")
+declare -a MESON_CROSS_ARGS=([0]="--cross-file" [1]="{ROOT}/.work/legacy/android-x64/toolchain/android-meson.ini")
+--- toolchain/android-meson.ini
+[binaries]
+c = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android28-clang'
+cpp = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android28-clang++'
+ar = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+strip = '/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+pkg-config = 'pkg-config'
+[host_machine]
+system = 'android'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+[properties]
+pkg_config_libdir = '{ROOT}/.work/legacy/android-x64/deps/lib/pkgconfig'
+needs_exe_wrapper = true
+[built-in options]
+c_args = ['-I{ROOT}/.work/legacy/android-x64/deps/include']
+cpp_args = ['-I{ROOT}/.work/legacy/android-x64/deps/include']
+c_link_args = ['-L{ROOT}/.work/legacy/android-x64/deps/lib']
+cpp_link_args = ['-L{ROOT}/.work/legacy/android-x64/deps/lib']

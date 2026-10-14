@@ -1,0 +1,249 @@
+name: Release
+
+# Engine releases, two ways, both published by this workflow:
+#
+# - Nightly: when anything the npm package ships changed since the newest vX.Y.Z release (scripts/release-due.ts: the
+#   code, the engine data, a runtime dependency; not docs, tests or CI), CI runs on main, then the next patch is cut
+#   (tag and GitHub release with generated notes) and published.
+# - By hand, for a minor or major (or the first release): publish a GitHub release on a commit of main, e.g.
+#   `gh release create v1.3.0 --target main --generate-notes`. Its tag sets the version.
+#
+# Publishing: npm with trusted publishing (no token; the publisher on npmjs.com is bound to this file, release.yml),
+# provenance, a build attestation, and the tarball and an SPDX SBOM attached to the release. Then the major tag (v0)
+# moves to the release, which is what consumers' `uses: devenvy/ffmpeg-build/.github/workflows/<file>@v0` resolve to;
+# a prerelease (v1.3.0-rc.1) goes to npm's `next` dist-tag and leaves the major tag.
+#
+# The nightly release is created with GITHUB_TOKEN, so it starts no second run; the release a person publishes starts
+# this one. Moving the major tag runs as the devenvy-bot app when the org has it (DEVENVY_BOT_CLIENT_ID): GITHUB_TOKEN
+# may not move a tag across commits that change workflow files.
+#
+# If publishing fails, fix it on main, then run this workflow by hand with the release's tag: it runs CI and publishes
+# the tag's code again (a version already on npm is skipped).
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish again (e.g. v1.2.0); empty cuts the nightly release if one is due
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # What this run publishes: the release that started it, the tag given by hand, or the nightly release if one is due.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      ci-ref: ${{ steps.tag.outputs.ci-ref }}
+      version: ${{ steps.tag.outputs.version }}
+      cut: ${{ steps.tag.outputs.cut }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name || inputs.tag }} # the nightly: the run's own commit
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false # no dependency cache in a release workflow (cache poisoning)
+      - id: tag
+        name: the release to publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+        run: |
+          tag="${RELEASE_TAG:-${INPUT_TAG}}"
+          cut=false
+          if [ -z "$tag" ]; then
+            if [ "$REF" != refs/heads/main ]; then
+              echo "::error::the nightly release is cut from main; run it there, or give a tag"
+              exit 1
+            fi
+            tag="$(node scripts/release-due.ts)"
+            if [ -z "$tag" ]; then
+              echo "No release due: nothing the package ships changed since the last release." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            cut=true
+          else
+            if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::\"$tag\" is not a release tag like v1.2.0"
+              exit 1
+            fi
+            marked="${RELEASE_PRERELEASE:-$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)}"
+            status="$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$tag" --jq .status)"
+            if [ "$status" != identical ] && [ "$status" != behind ]; then
+              echo "::error::$tag is not on main"
+              exit 1
+            fi
+          fi
+          version="${tag#v}"
+          # a prerelease by its version (v1.3.0-rc.1) or as GitHub marks it: npm's next dist-tag, and the major tag stays
+          case "$version" in *-*) prerelease=true ;; *) prerelease="${marked:-false}" ;; esac
+          # CI checks the commit that is published: the tag's (the nightly's tag doesn't exist yet: the run's own commit)
+          ci_ref="$tag"
+          if [ "$cut" = true ]; then ci_ref=; fi
+          { echo "tag=$tag"; echo "version=$version"; echo "cut=$cut"; echo "prerelease=$prerelease"; echo "ci-ref=$ci_ref"; } >> "$GITHUB_OUTPUT"
+
+  ci:
+    needs: plan
+    if: needs.plan.outputs.tag != ''
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.plan.outputs.ci-ref }}
+    permissions:
+      contents: read
+      pull-requests: write # ci.yml's coverage-report job declares it; it runs on pull requests only
+
+  # The nightly release, once CI passed on the commit it tags.
+  cut:
+    needs: [plan, ci]
+    if: needs.plan.outputs.cut == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # the tag and the GitHub release
+    steps:
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          SHA: ${{ github.sha }}
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --generate-notes
+
+  publish:
+    needs: [plan, ci, cut]
+    if: ${{ !cancelled() && needs.plan.outputs.tag != '' && needs.ci.result == 'success' && (needs.cut.result == 'success' || needs.cut.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC), npm provenance and the build attestation
+      attestations: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.tag }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          # no dependency cache in the job that holds id-token: write (cache poisoning)
+          package-manager-cache: false
+      - name: npm supports trusted publishing (11.5.1+, bundled with Node 24)
+        run: |
+          version=$(npm --version)
+          oldest=$(printf '%s\n' 11.5.1 "$version" | sort -V | head -n 1)
+          if [ "$oldest" != 11.5.1 ]; then echo "npm $version is older than 11.5.1"; exit 1; fi
+      - run: pnpm install --frozen-lockfile
+      - name: Set the version from the tag
+        run: npm pkg set "version=$VERSION"
+      - name: Pack and write the SBOM
+        id: pack
+        run: |
+          mkdir release-assets
+          pnpm pack --pack-destination release-assets
+          pnpm sbom --sbom-format spdx --prod --out release-assets/ffmpeg-build.spdx.json
+          # ./ prefix: npm publish reads "dir/file.tgz" as a GitHub owner/repo shorthand
+          echo "tarball=$(ls ./release-assets/*.tgz)" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.pack.outputs.tarball }}
+      - name: Publish (skipped when the version already exists)
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        # Unauthenticated registry read: setup-node's placeholder NODE_AUTH_TOKEN can make `npm view` fail.
+        run: |
+          name="$(node -p 'require("./package.json").name')"
+          if curl -fsS -o /dev/null "https://registry.npmjs.org/${name/\//%2f}/$VERSION"; then
+            echo "$name@$VERSION is already published; skipping." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$PRERELEASE" = true ]; then
+            npm publish "$TARBALL" --provenance --access public --tag next
+          else
+            npm publish "$TARBALL" --provenance --access public
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: release-assets/
+          if-no-files-found: error
+
+  # Attaches the published tarball and its SBOM to the GitHub release. Separate from publish so the job that can write
+  # to the repository never holds id-token: write.
+  release-assets:
+    needs: [plan, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # upload release assets
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: release-assets
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: gh release upload "$TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Consumers call the reusable workflows at the major tag (v0): it follows the newest release of that major.
+  major-tag:
+    needs: [plan, publish]
+    if: needs.plan.outputs.prerelease != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # moving the tag when the app isn't there
+    steps:
+      - id: app-token
+        if: vars.DEVENVY_BOT_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DEVENVY_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.DEVENVY_BOT_PRIVATE_KEY }}
+          # moving a tag to a commit whose workflow files differ
+          permission-contents: write
+          permission-workflows: write
+      - name: Move the major tag
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          major="v${VERSION%%.*}"
+          sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          # a newer release of the same major already moved it: leave it there
+          newest="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -r --arg major "$major." '[add // [] | .[] | select((.prerelease | not) and (.draft | not)) | .tag_name | select(test("^v[0-9]+[.][0-9]+[.][0-9]+$")) | select(startswith($major))] | sort_by(ltrimstr("v") | split(".") | map(tonumber)) | last')"
+          if [ "$newest" != "$TAG" ]; then
+            echo "$major stays: $newest is newer than $TAG" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$major" > /dev/null 2>&1; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$major" -f sha="$sha" -F force=true > /dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$major" -f sha="$sha" > /dev/null
+          fi
+          echo "$major -> $sha ($TAG)" >> "$GITHUB_STEP_SUMMARY"

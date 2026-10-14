@@ -1,0 +1,28 @@
+name: libdrm
+provides: drm
+license: MIT
+license-files: [{ recipe: LICENSE }]
+configure: [--enable-libdrm]
+source: { git: https://gitlab.freedesktop.org/mesa/drm.git, ref: 'libdrm-{version}' }
+versions: { git-tags: '^libdrm-(\d+\.\d+\.\d+)$' }
+platforms: [linux-*]
+build:
+  system: meson
+  args:
+    [
+      -Dtests=false,
+      -Dman-pages=disabled,
+      -Dvalgrind=disabled,
+      -Dcairo-tests=disabled,
+      -Dintel=disabled,
+      -Dradeon=disabled,
+      -Damdgpu=disabled,
+      -Dnouveau=disabled,
+      -Dvmwgfx=disabled,
+      -Dvc4=disabled,
+      -Detnaviv=disabled,
+      -Dfreedreno=disabled,
+      -Domap=disabled,
+      -Dexynos=disabled,
+      -Dtegra=disabled,
+    ]

@@ -1,0 +1,98 @@
+# Recipe checks: a change to a recipe builds that library (and what it builds against, not FFmpeg) on every canary
+# target that uses it, at the canary lock's versions. A change to the toolchains (src/build, images, platforms.yml)
+# is toolchains.yml's: it builds the small test targets in full.
+name: recipes
+on:
+  pull_request:
+    paths: ['recipes/**']
+  push:
+    branches: [main]
+    paths: ['recipes/**']
+
+permissions:
+  contents: read
+
+jobs:
+  changed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      any: ${{ steps.plan.outputs.any }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        run: corepack pnpm install --frozen-lockfile && npm link
+      - id: plan
+        name: what changed, and which canary targets build it
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then BASE="$(git rev-parse HEAD~1)"; fi
+          git diff --name-only "${BASE}" HEAD > "${RUNNER_TEMP}/changed"
+          sed -n 's#^recipes/\([^/]*\)/.*#\1#p' "${RUNNER_TEMP}/changed" | sort -u > "${RUNNER_TEMP}/recipes"
+          (cd examples/canary && ffmpeg-build plan --json) > "${RUNNER_TEMP}/plan.json"
+          (cd examples/canary && ffmpeg-build releases --json --offline) > "${RUNNER_TEMP}/releases.json"
+          # shellcheck disable=SC2016 # the script is JavaScript: its ${...} are JavaScript's, not the shell's
+          node -e '
+            const fs = require("fs");
+            const [planFile, relFile, recipesFile] = process.argv.slice(1);
+            const changed = fs.readFileSync(recipesFile, "utf8").split("\n").filter(Boolean);
+            const runner = Object.fromEntries(JSON.parse(fs.readFileSync(relFile, "utf8")).flatMap((r) => r.targets.map((t) => [t.name, { runner: t.runner, cacheKey: t.cacheKey, platform: t.platform }])));
+            const include = [];
+            for (const t of JSON.parse(fs.readFileSync(planFile, "utf8"))) {
+              const only = changed.filter((c) => t.builds.some((b) => b.libraries.includes(c)));
+              if (only.length) include.push({ target: t.target, only: only.join(","), ...runner[t.target] });
+            }
+            const out = fs.openSync(process.env.GITHUB_OUTPUT, "a");
+            fs.writeSync(out, `matrix=${JSON.stringify({ include })}\nany=${include.length > 0}\n`);
+            const unused = changed.filter((c) => !include.some((i) => i.only.split(",").includes(c)));
+            if (unused.length) console.log(`::notice::no canary target builds ${unused.join(", ")}; build it by hand on its platform`);
+          ' "${RUNNER_TEMP}/plan.json" "${RUNNER_TEMP}/releases.json" "${RUNNER_TEMP}/recipes"
+
+  recipe:
+    needs: changed
+    if: needs.changed.outputs.any == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.changed.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      FFMPEG_BUILD_IMAGE_CACHE: gha
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        run: corepack pnpm install --frozen-lockfile && npm link
+      # Apple targets (the osx canary's MoltenVK) build natively with Homebrew's tools; the rest in Docker
+      - name: Apple build tools
+        if: runner.os == 'macOS'
+        run: sed 's/#.*//' platforms/apple-brew.txt | xargs brew install
+      - name: buildx with the Actions cache
+        if: runner.os == 'Linux'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: expose the Actions cache to buildx
+        if: runner.os == 'Linux'
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ffmpeg-build
+          key: ${{ matrix.cacheKey }}
+          restore-keys: ffmpeg-build-libs-${{ matrix.platform }}-
+      - name: build ${{ matrix.only }} for ${{ matrix.target }}
+        working-directory: examples/canary
+        env:
+          MATRIX_TARGET: ${{ matrix.target }}
+          MATRIX_ONLY: ${{ matrix.only }}
+        run: ffmpeg-build build --target "${MATRIX_TARGET}" --only "${MATRIX_ONLY}" --out "${RUNNER_TEMP}/dist"

@@ -1,0 +1,11 @@
+# Ogg bitstream container; a build dependency of libvorbis (FFmpeg has no option of its own for it here).
+name: libogg
+license: BSD-3-Clause
+license-files: [COPYING]
+source: { git: https://github.com/xiph/ogg, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
+platforms: all
+build:
+  system: autotools
+  args: [--disable-shared, --enable-static, --with-pic]
+  before: [[./autogen.sh]]

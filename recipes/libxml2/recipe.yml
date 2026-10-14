@@ -1,0 +1,25 @@
+name: libxml2
+provides: xml2
+license: MIT
+license-files: [Copyright]
+configure: [--enable-libxml2]
+needs: [zlib]
+source: { git: https://github.com/GNOME/libxml2, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  args: [
+      -DLIBXML2_WITH_PYTHON=OFF,
+      -DLIBXML2_WITH_ICU=OFF,
+      -DLIBXML2_WITH_LZMA=OFF,
+      -DLIBXML2_WITH_ICONV=OFF,
+      -DLIBXML2_WITH_ZLIB=ON,
+      -DLIBXML2_WITH_TESTS=OFF,
+      -DLIBXML2_WITH_PROGRAMS=OFF,
+      -DLIBXML2_WITH_HTTP=OFF,
+      -DLIBXML2_WITH_MODULES=OFF,
+      # the default catalog's path (file://<sysconfdir>/xml/catalog) is compiled in: the system's, never the deps
+      # folder (which GNUInstallDirs makes /etc/opt/<prefix>, or a build folder on a Mac)
+      -DCMAKE_INSTALL_SYSCONFDIR=/etc,
+    ]

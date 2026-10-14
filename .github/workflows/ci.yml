@@ -1,0 +1,260 @@
+name: CI
+
+# The engine's checks, in the DevEnvy layout (`code-guidelines check` verifies it): pr-title, lint, test, build, audit,
+# dependency-review, the repository's own jobs (shellcheck, package), Dependabot auto-merge, and result as the single
+# required status check. release.yml calls it for a release commit before it publishes anything.
+on:
+  pull_request:
+    # edited: re-check after a PR title is fixed (titles become release-please commit messages)
+    types: [opened, synchronize, reopened, edited]
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_call:
+    inputs:
+      ref:
+        description: "The commit to check (release.yml: the tag it publishes); empty for the run's own"
+        type: string
+        default: ''
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Squash merges use the PR title as the commit message, and release-please reads those, so titles must be
+  # conventional commits (feat:, fix:, feat!:, chore:, ...).
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run guidelines:check
+      - run: pnpm run lint
+      - run: pnpm run format:check
+      - run: pnpm run typecheck
+      - run: pnpm run knip
+      - name: actionlint
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false # fail the job on findings instead of uploading SARIF
+
+  # Linux: the driver tests stand in for curl, tar and git with scripts on PATH, which a Windows runner's own
+  # System32 tools shadow. Native Windows builds are tested for real by toolchains.yml (examples/native, in MSYS2).
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:ci
+      - if: github.event_name == 'pull_request' && !cancelled()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+
+  # The coverage summary as a PR comment, in a job of its own so the tests never hold a write token. Dependabot and
+  # fork PRs get a read-only token and cannot comment; the thresholds in the test run are the gate either way.
+  coverage-report:
+    needs: test
+    if: >-
+      ${{ github.event_name == 'pull_request' && !cancelled()
+      && github.actor != 'dependabot[bot]'
+      && !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write # the coverage comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: coverage
+          path: coverage
+      - uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2.13.0
+
+  # The published artifact: the compiled CLI, packed as npm will publish it (dist/ and the engine data, no src/).
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: pack
+        run: |
+          pnpm pack --pack-destination "${RUNNER_TEMP}"
+          tar -tzf "${RUNNER_TEMP}"/devenvy-ffmpeg-build-*.tgz > "${RUNNER_TEMP}/files.txt"
+          grep -qx 'package/dist/cli.js' "${RUNNER_TEMP}/files.txt"
+          if grep -q '^package/src/' "${RUNNER_TEMP}/files.txt"; then echo "::error::the package ships src/"; exit 1; fi
+
+  # New advisories in unrelated packages must not block PRs; they fail main and the weekly run.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm audit --prod --audit-level high
+
+  # Fails a PR that adds a dependency with a known vulnerability (any severity) or a license outside the allow-list.
+  # Only changes in the PR count, so unrelated advisories never block.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: low
+          fail-on-scopes: runtime, development
+          allow-licenses: >-
+            MIT, MIT-0, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0,
+            CC0-1.0, CC-BY-4.0, MPL-2.0, Unlicense, Python-2.0
+
+  # Builds are Node; the shell scripts left are the comparison scripts and test fixtures.
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - name: shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 -r docker run --rm -v "${PWD}:/mnt" -w /mnt mirror.gcr.io/koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb -S warning -s bash
+
+  # What npm will publish, installed as a user installs it: the packed package's compiled worker runs a real build.
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: pack and install it
+        run: |
+          pnpm pack --pack-destination "${RUNNER_TEMP}"
+          npm install --global "${RUNNER_TEMP}"/devenvy-ffmpeg-build-*.tgz
+          [ ! -d "$(npm root --global)/@devenvy/ffmpeg-build/src" ] # the package ships dist/ only
+      - name: build tools (a native build)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq build-essential cmake meson ninja-build nasm pkg-config git curl autoconf automake libtool binutils patchelf xxd python3 gperf xz-utils diffutils
+      - name: check and build a library with the installed package
+        working-directory: examples/test-builds
+        run: |
+          ffmpeg-build check
+          ffmpeg-build build --target linux-x64-lgplv3 --only dav1d --in here --out "${RUNNER_TEMP}/out"
+
+  # Dependabot PRs merge themselves once the required check passes. Runs as the devenvy-bot app so the merge triggers
+  # release.yml. Needs the org Dependabot secrets DEVENVY_BOT_CLIENT_ID and DEVENVY_BOT_PRIVATE_KEY. Not a base image
+  # bump (dependabot/docker/...): it changes every toolchain, and the builds that prove it (toolchains.yml) aren't part
+  # of the required check, so a person merges it once they pass.
+  dependabot-auto-merge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/docker/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.DEVENVY_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.DEVENVY_BOT_PRIVATE_KEY }}
+          # enabling auto-merge
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --auto --squash
+
+  # Single required status check.
+  result:
+    if: always()
+    needs: [pr-title, lint, test, build, audit, dependency-review, shellcheck, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: All jobs passed
+        env:
+          PR_TITLE: ${{ needs.pr-title.result }}
+          DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
+          BUILD: ${{ needs.build.result }}
+          AUDIT: ${{ needs.audit.result }}
+          SHELLCHECK: ${{ needs.shellcheck.result }}
+          PACKAGE: ${{ needs.package.result }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+        # pr-title and dependency-review only run on pull requests; the audit is informational there
+        run: |
+          for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE"; do test "$result" = "success"; done
+          if [ "$IS_PR" = "true" ]; then
+            test "$PR_TITLE" = "success"
+            test "$DEPENDENCY_REVIEW" = "success"
+          else
+            test "$AUDIT" = "success"
+          fi

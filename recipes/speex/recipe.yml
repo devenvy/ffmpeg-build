@@ -1,0 +1,14 @@
+name: speex
+provides: speex
+license: BSD-3-Clause
+license-files: [COPYING]
+configure: [--enable-libspeex]
+source: { git: https://github.com/xiph/speex, ref: 'Speex-{version}' }
+versions: { git-tags: '^Speex-(\d+\.\d+(?:\.\d+)*)$' }
+platforms: all
+build:
+  system: autotools
+  args: [--disable-shared, --enable-static, --with-pic, --disable-binaries]
+  # The git tree ships no generated configure — regenerate it (autoconf/automake/libtool are in
+  # the build env). Xiph's autogen.sh runs autoreconf; run it quietly, and autoreconf -fi if it fails.
+  bootstrap: [autogen, autoreconf]

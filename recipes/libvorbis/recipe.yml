@@ -1,0 +1,19 @@
+name: libvorbis
+provides: vorbis
+license: BSD-3-Clause
+license-files: [COPYING]
+configure: [--enable-libvorbis]
+needs: [libogg]
+source: { git: https://github.com/xiph/vorbis, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
+platforms: all
+build:
+  system: autotools
+  args: [--disable-shared, --enable-static, '--with-ogg={deps}', --with-pic]
+  before: [[./autogen.sh]]
+  make-targets: [-C, lib, libvorbis.la, libvorbisenc.la, libvorbisfile.la]
+  install-targets: []
+  after:
+    - [make, -C, lib, install-libLTLIBRARIES]
+    - [make, -C, include, install]
+    - [make, install-pkgconfigDATA]

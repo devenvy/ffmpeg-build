@@ -1,0 +1,10 @@
+# Studio: ingest, stream, hardware encode. Lightweight on purpose.
+name: studio
+ffmpeg: 9
+platforms: [linux-x64, linux-arm64]
+license: nonfree
+with: [nvenc, vaapi, srt, dav1d, opus]
+pin:
+  nvenc: '13.0'
+patches: [patches/acme-muxer]
+tests: [./tests/acme-roundtrip.sh]

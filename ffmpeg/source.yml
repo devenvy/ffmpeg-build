@@ -1,0 +1,11 @@
+# Where FFmpeg's own versions come from (its release tags, n9.0.2), and its source tarball.
+git: https://github.com/FFmpeg/FFmpeg
+versions: { git-tags: '^n(\d+\.\d+(?:\.\d+)?)$' }
+url: 'https://ffmpeg.org/releases/ffmpeg-{version}.tar.xz'
+# ffmpeg.lock pins the tarball's sha256, so a fallback must serve the same file byte for byte: these are copies of
+# ffmpeg.org's .tar.xz (Debian's orig tarball is upstream's, checked against its signature; the BLFS mirror keeps
+# upstream's file). Neither keeps every release (Debian only the ones it packages now), so they help for many
+# versions, not all. A forge's generated archive (GitHub's n<version>.tar.gz) never matches the pin: it isn't here.
+mirrors:
+  - 'https://deb.debian.org/debian/pool/main/f/ffmpeg/ffmpeg_{version}.orig.tar.xz'
+  - 'https://ftp2.osuosl.org/pub/blfs/conglomeration/ffmpeg/ffmpeg-{version}.tar.xz'

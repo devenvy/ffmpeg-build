@@ -1,0 +1,166 @@
+# REUSABLE, for products that use a published FFmpeg build rather than building one. Moves the pin file
+# (`owner/repo@tag`) to the newest release of the same FFmpeg major that has the product's target, and opens or
+# refreshes one pull request on the `branch` input (default one per pin file, `ffmpeg-build/update-pin/<pin file
+# slug>`); the product's own CI tests it against the new build. Runs for the same branch queue.
+name: update-pin
+
+on:
+  workflow_call:
+    inputs:
+      pin-file:
+        type: string
+        default: ffmpeg.version
+      branch:
+        description: the PR's branch, starting with ffmpeg-build/ (default ffmpeg-build/update-pin/<pin file slug>, e.g. ffmpeg-build/update-pin/ffmpeg-version for ffmpeg.version)
+        type: string
+        default: ''
+      target:
+        description: the target the product takes from each release, e.g. linux-x64-lgplv3
+        type: string
+        required: true
+      automerge:
+        description: label the PR ffmpeg-build:automerge, so the automerge workflow merges it once its CI passes
+        type: boolean
+        default: false
+      ci-workflow:
+        description: the CI workflow to dispatch on the PR's branch when no token secret is given (GITHUB_TOKEN's pushes start no CI); empty dispatches nothing
+        type: string
+        default: ci.yml
+      engine:
+        description: ffmpeg-build to run, a version or a git/npm spec like github:owner/repo#ref (default 0, npm's newest 0.x, the engines these @v0 workflows run; "source" builds this repository)
+        type: string
+        default: '0'
+      app-client-id:
+        description: a GitHub App's client ID (with the app-private-key secret) to push and open the PR as, so the PR starts CI and code scanning like any other; takes the place of the token secret
+        type: string
+        default: ''
+    secrets:
+      token:
+        description: read access to a private release repository, and pushes that trigger CI
+        required: false
+      app-private-key:
+        description: the GitHub App's private key, with the app-client-id input
+        required: false
+
+# actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # one run per repository and branch at a time; one under way is never cancelled (it may be pushing)
+    concurrency:
+      group: ffmpeg-build-update-pin-${{ github.repository }}-${{ inputs.branch || inputs.pin-file }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.token || github.token }}
+      GITHUB_TOKEN: ${{ secrets.token || github.token }}
+      PIN: ${{ inputs.pin-file }}
+    steps:
+      # the branch input, else one per pin file: two pin files' bumps in one repository never share (or overwrite) a PR
+      - name: branch
+        env:
+          WANTED: ${{ inputs.branch }}
+          SOURCE: ${{ inputs.pin-file }}
+        run: |
+          if [ -n "${WANTED}" ]; then
+            branch="${WANTED}"
+          else
+            # a flat slug (a/b -> a-b): ffmpeg-build/update-pin/a and ffmpeg-build/update-pin/a/b can't both exist
+            slug="$(printf '%s' "${SOURCE}" | sed -E 's#^(\./)+##; s#[^A-Za-z0-9_-]+#-#g; s#^-+##; s#-+$##')"
+            branch="ffmpeg-build/update-pin/${slug:-root}"
+          fi
+          case "${branch}" in
+            ffmpeg-build/?*) ;;
+            *) echo "::error::branch \"${branch}\" must start with ffmpeg-build/ (automerge.yml merges only those)"; exit 1 ;;
+          esac
+          git check-ref-format --branch "${branch}" > /dev/null || { echo "::error::\"${branch}\" isn't a valid branch name"; exit 1; }
+          echo "BRANCH=${branch}" >> "$GITHUB_ENV"
+      # a GitHub App's token, when one is given: its pushes and PRs start workflows (GITHUB_TOKEN's start none)
+      - id: app
+        if: inputs.app-client-id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
+          # the update branch, its pull request, and the automerge label
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      # no credential kept: the engine this job installs and runs never sees a write token; the push below carries its own
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        env:
+          ENGINE: ${{ inputs.engine }} # through env, never into the script text
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      # the compatibility contract: the @v0 workflows run any 0.x engine, and no other
+      - name: the engine suits these workflows
+        env:
+          WORKFLOWS_MAJOR: '0'
+        run: |
+          have="$(ffmpeg-build --version)"
+          if [ "${have%%.*}" != "${WORKFLOWS_MAJOR}" ]; then
+            echo "::error::ffmpeg-build ${have} is a ${have%%.*}.x engine, but these workflows (@v${WORKFLOWS_MAJOR}) run ${WORKFLOWS_MAJOR}.x engines only: call the workflows @v${have%%.*}, or set the engine input (or ffmpeg.lock's engine:) to a ${WORKFLOWS_MAJOR}.x release"
+            exit 1
+          fi
+      - name: newer release?
+        id: bump
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          change="$(ffmpeg-build fetch --update "${PIN}" --target "${TARGET}")"
+          echo "${change}" >> "$GITHUB_STEP_SUMMARY"
+          echo "change=${change}" >> "$GITHUB_OUTPUT"
+      - name: open or refresh the pull request
+        if: ${{ !contains(steps.bump.outputs.change, 'up to date') }}
+        env:
+          CHANGE: ${{ steps.bump.outputs.change }}
+          AUTOMERGE: ${{ inputs.automerge }}
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.token || github.token }}
+          HAS_TOKEN: ${{ steps.app.outputs.token != '' || secrets.token != '' }}
+          DISPATCH_TOKEN: ${{ github.token }}
+          LABEL: ffmpeg-build:automerge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "${BRANCH}"
+          git add -- "${PIN}"
+          git commit --quiet -m "${CHANGE}"
+          # the token reaches git for this push only, in the remote's URL (never written to .git/config)
+          remote="https://x-access-token:${GH_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git push --force "${remote}" "HEAD:refs/heads/${BRANCH}"
+          if [ -n "$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number')" ]; then
+            gh pr edit "${BRANCH}" --title "${CHANGE}" --body "${CHANGE}"
+          else
+            gh pr create --head "${BRANCH}" --title "${CHANGE}" --body "${CHANGE}"
+          fi
+          # automerge: the label the automerge job looks for once the PR's CI passes (no repository settings needed);
+          # added before CI is started, so even a quick CI run finds it
+          if [ "${AUTOMERGE}" = true ]; then
+            gh label create "${LABEL}" --force --color 0e8a16 --description "ffmpeg-build merges this PR once its CI passes"
+            gh pr edit "${BRANCH}" --add-label "${LABEL}"
+          fi
+          # the PR's CI: a token's push starts it; GITHUB_TOKEN's pushes start nothing, but it may dispatch a run
+          if [ "${HAS_TOKEN}" != true ] && [ -n "${CI_WORKFLOW}" ]; then
+            GH_TOKEN="${DISPATCH_TOKEN}" gh workflow run "${CI_WORKFLOW}" --ref "${BRANCH}"
+          fi

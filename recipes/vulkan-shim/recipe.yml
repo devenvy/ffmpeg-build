@@ -1,0 +1,45 @@
+name: vulkan-shim
+license: MIT
+license-files: [LICENSE, Vulkan-Headers/LICENSE.md]
+# A static stub that loads the real Vulkan loader at run time (LoadLibrary("vulkan-1.dll")) instead of importing it,
+# so a Windows machine without a Vulkan driver still starts ffmpeg.exe; whisper's ggml-vulkan links it in place of an
+# import library. BtbN/FFmpeg-Builds uses it for the same reason. No release tags: pinned to a reviewed commit.
+source: { git: https://github.com/BtbN/Vulkan-Shim-Loader, submodules: { depth: 1 } }
+versions: { git-branch: master }
+platforms: [win-*]
+build:
+  # Vulkan-Shim-Loader (MIT), static, in IMPERSONATE mode: the archive is named vulkan-1 (libvulkan-1.a) so it takes the
+  # place an import library would. Ported from devenvy/ffmpeg scripts/deps/vulkan-shim.sh. Its generator reads the
+  # Vulkan-Headers submodule (fetched with the source) directly, so the submodule is needed even though the
+  # vulkan-headers recipe installs headers too. CMAKE_CXX_COMPILER is required (the cross arguments' toolchain file):
+  # the submodule's own CMakeLists enables CXX.
+  system: none
+  steps:
+    - [
+        cmake,
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5,
+        -B,
+        _build,
+        '-DCMAKE_INSTALL_PREFIX={deps}',
+        -DCMAKE_INSTALL_LIBDIR=lib,
+        -DCMAKE_BUILD_TYPE=Release,
+        -DVULKAN_SHIM_IMPERSONATE=ON,
+        '{cmake-cross-args}',
+      ]
+    - [cmake, --build, _build, '-j{jobs}']
+    # Installed by hand rather than `cmake --install`: what's needed is precisely the impersonating archive.
+    - find:
+        {
+          var: archive,
+          glob: ['_build/**/libvulkan-1.a', '_build/**/libvulkan.a'],
+          required: the Vulkan shim built no libvulkan-1.a / libvulkan.a,
+        }
+    # If this were ever an import library, the hard vulkan-1.dll dependency would silently come back.
+    - check:
+        {
+          output: [file, -b, '{archive}'],
+          matches: archive,
+          ignore-case: true,
+          message: 'the Vulkan shim is not a static archive: {archive}',
+        }
+    - copy: { from: '{archive}', into: '{deps}/lib' }

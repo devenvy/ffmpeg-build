@@ -1,0 +1,147 @@
+name: moltenvk
+# FFmpeg's vulkan option on iOS and Mac Catalyst, where MoltenVK is linked statically (on macOS the Khronos loader is
+# the option's library, and needs this one: see vulkan-loader).
+provides: vulkan
+# MoltenVK's own licence; its static library also carries SPIRV-Cross and SPIRV-Tools (Apache-2.0), cereal
+# (BSD-3-Clause) and the SPIR-V headers (MIT), which fetchDependencies clones into External/ at the revisions
+# MoltenVK pins.
+license: Apache-2.0
+license-files:
+  [
+    LICENSE,
+    External/SPIRV-Cross/LICENSE,
+    External/SPIRV-Tools/LICENSE,
+    External/SPIRV-Tools/external/spirv-headers/LICENSE,
+    External/cereal/LICENSE,
+  ]
+# iOS and Mac Catalyst: FFmpeg resolves --enable-vulkan-static only through
+#   check_lib vulkan "vulkan/vulkan.h" vkGetInstanceProcAddr -lvulkan
+# and never reads vulkan.pc's Libs: line for it (the check_pkg_config branch before it passes a "defined
+# VK_VERSION_1_3" cpp condition into the funcs slot, which cannot compile, so that branch always fails). So the
+# archive is installed as libvulkan.a too, and the libraries MoltenVK itself calls into go through --extra-libs,
+# which configure appends to the link line of that very check_lib test. Consumers of the libav* frameworks link the
+# same system frameworks (README.md, Platforms).
+# UIKit on both: MoltenVK builds its surface code under VK_USE_PLATFORM_IOS_MVK for Catalyst too, so MVKSurface.mm
+# imports UIKit/UIView.h, and MoltenVK sets CLANG_ENABLE_MODULES=NO so nothing autolinks it.
+# IOKit on Catalyst only: MoltenVK defines MVK_MACOS as (TARGET_OS_OSX || TARGET_OS_MACCATALYST), so on macabi
+# MVKDevice.mm's `#if MVK_MACOS` block (IOServiceGetMatchingService / IORegistryEntrySearchCFProperty, to identify
+# the GPU) is compiled in; without -framework IOKit configure's check_lib probe fails, reported only as "vulkan
+# requested but not found".
+configure:
+  - --enable-vulkan
+  - --enable-vulkan-static
+  - '--extra-libs=-lc++ -framework Metal -framework IOSurface -framework Foundation -framework QuartzCore -framework CoreGraphics -framework UIKit'
+  - '--extra-libs=-framework IOKit': { platforms: [maccatalyst-*] }
+# FFmpeg compiles against the Khronos headers (vulkan/vulkan.h, and the SPIR-V headers they bring)
+needs: [vulkan-headers]
+source: { git: https://github.com/KhronosGroup/MoltenVK, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# Upstream: every Apple RID with BUILD_VULKAN, which is all of them but the lean ios-sim-arm64 slice.
+platforms: [osx-*, ios-arm64, maccatalyst-*]
+# macOS ships the dylib and its ICD manifest beside FFmpeg's libraries: the loader finds the driver through
+# VK_ICD_FILENAMES pointing at MoltenVK_icd.json (README.md, Platforms). Nothing ships for iOS and Mac Catalyst:
+# MoltenVK is inside the libav* frameworks.
+runtime:
+  - 'lib/libMoltenVK.dylib': { platforms: [osx-*] }
+  - 'lib/MoltenVK_icd.json': { platforms: [osx-*] }
+build:
+  # MoltenVK: the Vulkan-over-Metal driver (Apache-2.0). Ported from devenvy/ffmpeg scripts/deps/moltenvk.sh.
+  # Apple has no native Vulkan, so this is what makes FFmpeg's --enable-vulkan GPU filters (scale_vulkan,
+  # gblur_vulkan, ...) run on Metal; there is no Metal equivalent in FFmpeg's filtergraph. Built for macOS, iOS and
+  # Mac Catalyst (v3 only: Apache-2.0), but consumed differently: macOS ships the dylib and reaches it through the
+  # Khronos Vulkan-Loader and the ICD manifest; iOS and Mac Catalyst link the static archive into the libav*
+  # frameworks (--enable-vulkan-static), because FFmpeg's dlopen fallback only tries the leaf names libvulkan.dylib /
+  # libvulkan.1.dylib / libMoltenVK.dylib, none of which resolves from inside an app bundle.
+  #
+  # MoltenVK publishes no prebuilt binaries per release, so it is built from source with Xcode. fetchDependencies and
+  # make's output paths have shifted across versions, so the built binary is found by name, not a fixed path.
+  system: none
+  # Which MoltenVK make target (and fetchDependencies --<target>) builds this platform. MoltenVK spells Catalyst
+  # "maccat", not "maccatalyst" (fetchDependencies rejects --maccatalyst with "Unsupported option").
+  platforms:
+    'osx-*': { vars: { target: macos } }
+    ios-arm64: { vars: { target: ios } }
+    'maccatalyst-*': { vars: { target: maccat } }
+  steps:
+    # MoltenVK's own dependencies (SPIRV-Cross, SPIRV-Tools, cereal, ...), cloned at its pinned revisions and built
+    # for this target, then MoltenVK itself
+    - ['./fetchDependencies', '--{target}']
+    - [make, '{target}']
+
+    # macOS wants the DYNAMIC binary (the loader + ICD path), so a framework-shaped slice is an acceptable match.
+    - find:
+        var: lib
+        glob:
+          - Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib
+          - Package/**/libMoltenVK.dylib
+          - Package/**/MoltenVK.framework/MoltenVK
+        required: MoltenVK's build left no libMoltenVK.dylib under Package/
+      when: { platforms: [osx-*] }
+    - copy: { from: '{lib}', to: '{deps}/lib/libMoltenVK.dylib' }
+      when: { platforms: [osx-*] }
+    # The loader dlopens the driver its manifest names; the manifest ships beside the dylib, so it names the file
+    # relative to itself and the folder can move.
+    - find:
+        var: icd
+        glob:
+          [
+            Package/Release/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json,
+            Package/**/MoltenVK_icd.json,
+          ]
+        required: MoltenVK's build left no MoltenVK_icd.json under Package/
+      when: { platforms: [osx-*] }
+    - copy: { from: '{icd}', to: '{deps}/lib/MoltenVK_icd.json' }
+      when: { platforms: [osx-*] }
+    - replace-in-file:
+        path: '{deps}/lib/MoltenVK_icd.json'
+        from: '"library_path"\s*:\s*"[^"]*"'
+        to: '"library_path": "./libMoltenVK.dylib"'
+        regex: true
+      when: { platforms: [osx-*] }
+    # Xcode's Release build keeps a debug map naming its object files (in DerivedData, under the home folder), which
+    # the staged-binary check rejects; drop it and the local symbols, as FFmpeg's install does to its own libraries.
+    - run: [strip, -S, -x, '{deps}/lib/libMoltenVK.dylib']
+      when: { platforms: [osx-*] }
+
+    # iOS and Mac Catalyst want the STATIC archive, and must never match a framework binary. MoltenVK's Package tree
+    # carries both flavours for the same slice --
+    #   Package/Release/MoltenVK/dynamic/MoltenVK.xcframework/<slice>/MoltenVK.framework/MoltenVK
+    #   Package/Release/MoltenVK/static/MoltenVK.xcframework/<slice>/libMoltenVK.a
+    # -- so match the archive name only, preferring the static/ subtree and this platform's slice. Several Catalyst
+    # spellings are tried because MoltenVK's Package layout for macabi is not stable across releases.
+    - find:
+        var: lib
+        glob:
+          - Package/Release/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a
+          - Package/**/static/**/ios-arm64/libMoltenVK.a
+          - Package/**/libMoltenVK.a
+        required: MoltenVK's build left no libMoltenVK.a under Package/
+      when: { platforms: [ios-arm64] }
+    - find:
+        var: lib
+        glob:
+          - Package/**/static/**/*maccatalyst*/libMoltenVK.a
+          - Package/**/static/**/*maccat*/libMoltenVK.a
+          - Package/**/static/**/*macabi*/libMoltenVK.a
+          - Package/**/libMoltenVK.a
+        ignore-case: true
+        required: MoltenVK's build left no libMoltenVK.a under Package/
+      when: { platforms: [maccatalyst-*] }
+    - copy: { from: '{lib}', to: '{deps}/lib/libMoltenVK.a' }
+      when: { platforms: [ios-arm64, maccatalyst-*] }
+    # The whole premise of --enable-vulkan-static: if MoltenVK's packaging shifts and a dylib is picked up, FFmpeg's
+    # static link test would fail late and confusingly (or silently disable Vulkan). Fail here, where the cause is
+    # obvious.
+    - check:
+        output: [file, -b, '{deps}/lib/libMoltenVK.a']
+        matches: archive
+        ignore-case: true
+        message: 'MoltenVK built no static archive for {platform} (its packaging moved; look for libMoltenVK.a under Package/)'
+      when: { platforms: [ios-arm64, maccatalyst-*] }
+    # Xcode's debug info names the build folders; the libav* frameworks it is linked into must not.
+    - run: [strip, -S, '{deps}/lib/libMoltenVK.a']
+      when: { platforms: [ios-arm64, maccatalyst-*] }
+    # FFmpeg's check_lib links -lvulkan, and no Khronos loader is built for iOS here, so nothing else provides that
+    # name: the same archive under it.
+    - copy: { from: '{deps}/lib/libMoltenVK.a', to: '{deps}/lib/libvulkan.a' }
+      when: { platforms: [ios-arm64, maccatalyst-*] }

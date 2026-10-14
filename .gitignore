@@ -1,0 +1,59 @@
+# >>> @devenvy/code-guidelines >>>
+# Dependencies and package manager logs
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output and packed packages
+/dist/
+/tmp/
+/out-tsc/
+/bazel-out/
+*.tsbuildinfo
+*.tgz
+
+# Tool caches and test output
+/coverage/
+/.angular/cache/
+/.nx/cache/
+.sass-cache/
+.eslintcache
+/test-results/
+__screenshots__/
+chrome-profiler-events*.json
+
+# Local environment files (commit an .env.example instead)
+.env
+.env.*
+!.env.example
+
+# Editors: the shared VS Code files are committed, the rest is personal
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/mcp.json
+.history/
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.swp
+
+# AI assistant state and working notes
+.claude/
+.superpowers/
+docs/superpowers/
+
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini
+# <<< @devenvy/code-guidelines <<<

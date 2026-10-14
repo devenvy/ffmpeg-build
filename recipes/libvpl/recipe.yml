@@ -1,0 +1,48 @@
+name: libvpl
+provides: vpl
+license: MIT
+license-files: [LICENSE]
+configure: [--enable-libvpl]
+source: { git: https://github.com/intel/libvpl, ref: 'v{version}' }
+# 2.x only: the repo still carries the old oneVPL tags (v2022.x, v2023.x), which would read as newer
+versions: { git-tags: '^v(2\.\d+\.\d+)$' }
+platforms: [linux-x64, linux-musl-x64, win-x64]
+build:
+  # libvpl (oneVPL): Intel Video Processing Library dispatcher (MIT) for Quick Sync Video (QSV) hardware transcode,
+  # static. Ported from devenvy/ffmpeg scripts/deps/libvpl.sh.
+  # Upstream's own cmake line (not the standard one): no CMAKE_BUILD_TYPE, and its explicit C/CXX flags.
+  system: none
+  steps:
+    - - cmake
+      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - -G
+      - Ninja
+      - -B
+      - _build
+      - '{cmake-cross-args}'
+      - '-DCMAKE_INSTALL_PREFIX={deps}'
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DBUILD_DISPATCHER=ON
+      - -DBUILD_DEV=ON
+      - -DBUILD_PREVIEW=OFF
+      - -DBUILD_TOOLS=OFF
+      - -DBUILD_TOOLS_ONEVPL_EXPERIMENTAL=OFF
+      - -DINSTALL_EXAMPLE_CODE=OFF
+      - -DBUILD_SHARED_LIBS=OFF
+      - -DBUILD_TESTS=OFF
+      - -DCMAKE_C_FLAGS=-static-libgcc -O2
+      - -DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2
+    - [cmake, --build, _build, '-j{jobs}']
+    - [cmake, --install, _build]
+    # Windows needs the COM/GDI system libs; Linux's dispatcher just needs libdl
+    # (it dlopens the QSV runtime) and libstdc++ (it is C++).
+    - pkg-config:
+        file: vpl
+        name: libvpl
+        description: Intel Video Processing Library (oneVPL)
+        version: '2.16'
+        libs: '-lvpl {system-libs}'
+        cflags: '-I${includedir}/vpl'
+  vars: { system-libs: -lstdc++ -ldl }
+  platforms:
+    'win-*': { vars: { system-libs: -lole32 -lgdi32 -luuid -lstdc++ } }

@@ -1,0 +1,84 @@
+# Differences scripts/compare-published-macos.sh, compare-published-frameworks.sh and compare-published-ios-bundle.sh expect between an ffmpeg-build
+# Apple archive and the published devenvy/ffmpeg one, per platform: "<platform> <section> <diff line>", where the
+# section is files, root, slices, plist, flags, deps, binaries, symbols, encoders, decoders, filters, formats, protocols, hwaccels or bsfs, and the
+# diff line starts with - (published) or + (built). Each group says why. Anything not listed here fails the comparison.
+
+# osx-x64 is cross-compiled on Apple silicon; upstream built it natively on an Intel Mac. FFmpeg is told the target.
+osx-x64 flags +--arch=x86_64
+osx-x64 flags +--enable-cross-compile
+
+# Upstream publishes one universal Catalyst slice: this x86_64 build lipo-fused with maccatalyst-arm64 at release
+# (step 6, bundle, does the fusing here).
+maccatalyst-x64 binaries -libavcodec x86_64 arm64 platform 6
+maccatalyst-x64 binaries +libavcodec x86_64 platform 6
+maccatalyst-x64 binaries -libavfilter x86_64 arm64 platform 6
+maccatalyst-x64 binaries +libavfilter x86_64 platform 6
+maccatalyst-x64 binaries -libavformat x86_64 arm64 platform 6
+maccatalyst-x64 binaries +libavformat x86_64 platform 6
+maccatalyst-x64 binaries -libavutil x86_64 arm64 platform 6
+maccatalyst-x64 binaries +libavutil x86_64 platform 6
+maccatalyst-x64 binaries -libswresample x86_64 arm64 platform 6
+maccatalyst-x64 binaries +libswresample x86_64 platform 6
+maccatalyst-x64 binaries -libswscale x86_64 arm64 platform 6
+maccatalyst-x64 binaries +libswscale x86_64 platform 6
+
+# Upstream publishes one universal Catalyst slice: this arm64 build lipo-fused with maccatalyst-x64 at release
+# (bundle --apple does it).
+maccatalyst-arm64 binaries -libavcodec x86_64 arm64 platform 6
+maccatalyst-arm64 binaries -libavfilter x86_64 arm64 platform 6
+maccatalyst-arm64 binaries -libavformat x86_64 arm64 platform 6
+maccatalyst-arm64 binaries -libavutil x86_64 arm64 platform 6
+maccatalyst-arm64 binaries -libswresample x86_64 arm64 platform 6
+maccatalyst-arm64 binaries -libswscale x86_64 arm64 platform 6
+maccatalyst-arm64 binaries +libavcodec arm64 platform 6
+maccatalyst-arm64 binaries +libavfilter arm64 platform 6
+maccatalyst-arm64 binaries +libavformat arm64 platform 6
+maccatalyst-arm64 binaries +libavutil arm64 platform 6
+maccatalyst-arm64 binaries +libswresample arm64 platform 6
+maccatalyst-arm64 binaries +libswscale arm64 platform 6
+
+# Licence texts: upstream's archives carry a legal/ folder; ffmpeg-build carries one THIRD-PARTY-NOTICES.txt at the
+# root instead (the owner's decision). Frameworks: what sits beside them.
+osx-arm64 files -legal
+osx-arm64 files +THIRD-PARTY-NOTICES.txt
+osx-x64 files -legal
+osx-x64 files +THIRD-PARTY-NOTICES.txt
+ios-arm64 root -legal
+ios-arm64 root +THIRD-PARTY-NOTICES.txt
+ios-sim-arm64 root -legal
+ios-sim-arm64 root +THIRD-PARTY-NOTICES.txt
+maccatalyst-arm64 root -legal
+maccatalyst-arm64 root +THIRD-PARTY-NOTICES.txt
+maccatalyst-x64 root -legal
+maccatalyst-x64 root +THIRD-PARTY-NOTICES.txt
+
+# The xcframework bundle (compare-published-ios-bundle.sh, platform ios). Upstream signed only the fused Catalyst
+# frameworks; ffmpeg-build's Node iOS staging signs every framework ad hoc after install_name_tool, so the device
+# and simulator frameworks carry _CodeSignature/ too.
+ios binaries -ios-arm64-simulator/libavcodec.framework arm64 platform 7 unsigned
+ios binaries +ios-arm64-simulator/libavcodec.framework arm64 platform 7 signed
+ios binaries -ios-arm64-simulator/libavfilter.framework arm64 platform 7 unsigned
+ios binaries +ios-arm64-simulator/libavfilter.framework arm64 platform 7 signed
+ios binaries -ios-arm64-simulator/libavformat.framework arm64 platform 7 unsigned
+ios binaries +ios-arm64-simulator/libavformat.framework arm64 platform 7 signed
+ios binaries -ios-arm64-simulator/libavutil.framework arm64 platform 7 unsigned
+ios binaries +ios-arm64-simulator/libavutil.framework arm64 platform 7 signed
+ios binaries -ios-arm64-simulator/libswresample.framework arm64 platform 7 unsigned
+ios binaries +ios-arm64-simulator/libswresample.framework arm64 platform 7 signed
+ios binaries -ios-arm64-simulator/libswscale.framework arm64 platform 7 unsigned
+ios binaries +ios-arm64-simulator/libswscale.framework arm64 platform 7 signed
+ios binaries -ios-arm64/libavcodec.framework arm64 platform 2 unsigned
+ios binaries +ios-arm64/libavcodec.framework arm64 platform 2 signed
+ios binaries -ios-arm64/libavfilter.framework arm64 platform 2 unsigned
+ios binaries +ios-arm64/libavfilter.framework arm64 platform 2 signed
+ios binaries -ios-arm64/libavformat.framework arm64 platform 2 unsigned
+ios binaries +ios-arm64/libavformat.framework arm64 platform 2 signed
+ios binaries -ios-arm64/libavutil.framework arm64 platform 2 unsigned
+ios binaries +ios-arm64/libavutil.framework arm64 platform 2 signed
+ios binaries -ios-arm64/libswresample.framework arm64 platform 2 unsigned
+ios binaries +ios-arm64/libswresample.framework arm64 platform 2 signed
+ios binaries -ios-arm64/libswscale.framework arm64 platform 2 unsigned
+ios binaries +ios-arm64/libswscale.framework arm64 platform 2 signed
+# Licence texts: legal/ upstream, one THIRD-PARTY-NOTICES.txt holding the four builds' notices here.
+ios root -legal
+ios root +THIRD-PARTY-NOTICES.txt

@@ -1,0 +1,18 @@
+name: mbedtls
+license: Apache-2.0 OR GPL-2.0-or-later
+license-files: [LICENSE]
+source:
+  {
+    url: 'https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-{version}/mbedtls-{version}.tar.bz2',
+  }
+versions: { git-tags: '^v(3\.\d+\.\d+)$', repo: https://github.com/Mbed-TLS/mbedtls }
+platforms: all
+build:
+  system: cmake
+  args:
+    [
+      -DUSE_SHARED_MBEDTLS_LIBRARY=OFF,
+      -DUSE_STATIC_MBEDTLS_LIBRARY=ON,
+      -DENABLE_TESTING=OFF,
+      -DENABLE_PROGRAMS=OFF,
+    ]

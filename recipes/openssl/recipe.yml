@@ -1,0 +1,126 @@
+name: openssl
+provides: openssl
+license: Apache-2.0
+license-files: [LICENSE.txt]
+configure: [--enable-openssl]
+group: tls
+source: { git: https://github.com/openssl/openssl, ref: 'openssl-{version}' }
+versions: { git-tags: '^openssl-(3\.5\.\d+)$' }
+platforms: [linux-*, android-*, maccatalyst-*]
+build:
+  # OpenSSL 3.x: TLS/https backend for FFmpeg (Apache-2.0), static. Ported from devenvy/ffmpeg scripts/deps/openssl.sh.
+  # Built only where the OS gives FFmpeg no usable TLS: Linux and Android (and Mac Catalyst, see below). Windows uses
+  # SChannel and Apple uses SecureTransport, both OS-native. Apache-2.0 is GPL/LGPL-compatible only under version 3, so
+  # FFmpeg's --enable-version3 is a license matter (the profile's license), never this recipe's.
+  #
+  # OpenSSL drives its own toolchain (a Configure target + CROSS_COMPILE / NDK environment), not autotools --host.
+  # Static libs, PIC (they link into FFmpeg's shared objects), no apps/tests/docs; make install_sw: libs + headers +
+  # pkg-config, no man pages.
+  #
+  # libcrypto compiles in its folders (OPENSSLDIR, the engines and modules folders, from the prefix) and its compiler
+  # line (`openssl version -a`), which names the build's work folder in -ffile-prefix-map. So it is configured for the
+  # neutral /opt/ffmpeg-build/deps prefix (the container builds' deps folder) with the system's /etc/ssl, installed
+  # into a staging folder and copied into the real deps folder, and its build-info header is generated first with a
+  # plain compiler line. Nothing of this machine's folders reaches the library.
+  system: none
+  steps:
+    - remove: { path: '{src}/_stage', recursive: true }
+    - [
+        ./Configure,
+        '{target}',
+        no-shared,
+        no-apps,
+        no-tests,
+        no-docs,
+        -fPIC,
+        --prefix=/opt/ffmpeg-build/deps,
+        --openssldir=/etc/ssl,
+        --libdir=lib,
+        '{args}',
+      ]
+    - [make, crypto/buildinf.h, CC=cc, LIB_CFLAGS=, CPPFLAGS_Q=]
+    - [make, '-j{jobs}']
+    # on make's command line: OpenSSL's Makefile sets DESTDIR itself, which an environment variable can't override
+    - [make, install_sw, 'DESTDIR={src}/_stage']
+    - check:
+        {
+          exists: '{src}/_stage/opt/ffmpeg-build/deps/lib/libcrypto.a',
+          message: 'OpenSSL staged install produced no lib/libcrypto.a under {src}/_stage/opt/ffmpeg-build/deps',
+        }
+    - copy:
+        {
+          from: '{src}/_stage/opt/ffmpeg-build/deps',
+          to: '{deps}',
+          recursive: true,
+          preserve: true,
+        }
+    - replace-in-file:
+        {
+          path: '{deps}/lib/pkgconfig/libcrypto.pc',
+          from: '^prefix=.*',
+          to: 'prefix={deps}',
+          regex: true,
+        }
+    - replace-in-file:
+        {
+          path: '{deps}/lib/pkgconfig/libssl.pc',
+          from: '^prefix=.*',
+          to: 'prefix={deps}',
+          regex: true,
+        }
+    - replace-in-file:
+        {
+          path: '{deps}/lib/pkgconfig/openssl.pc',
+          from: '^prefix=.*',
+          to: 'prefix={deps}',
+          regex: true,
+        }
+    - check:
+        {
+          file: '{deps}/lib/pkgconfig/libcrypto.pc',
+          line: 'prefix={deps}',
+          message: failed to repoint OpenSSL's pkg-config files at the deps folder,
+        }
+  platforms:
+    linux-x64: { vars: { target: linux-x86_64 } }
+    linux-musl-x64: { vars: { target: linux-x86_64 } }
+    linux-arm64: { vars: { target: linux-aarch64 } }
+    linux-musl-arm64: { vars: { target: linux-aarch64 } }
+    linux-armhf: { vars: { target: linux-armv4 }, env: { CROSS_COMPILE: arm-linux-gnueabihf- } }
+    # Let OpenSSL's android target pick the NDK clang via PATH; our exported
+    # CC/AR/etc. (the NDK wrappers) would confuse its own detection.
+    android-arm64:
+      vars: { target: android-arm64 }
+      args: ['-D__ANDROID_API__={API}']
+      unset: [CC, CXX, AR, RANLIB, NM, STRIP]
+      env: { ANDROID_NDK_ROOT: '{ANDROID_NDK_HOME}', PATH: '{TOOLCHAIN}/bin:{PATH}' }
+    android-x64:
+      vars: { target: android-x86_64 }
+      args: ['-D__ANDROID_API__={API}']
+      unset: [CC, CXX, AR, RANLIB, NM, STRIP]
+      env: { ANDROID_NDK_ROOT: '{ANDROID_NDK_HOME}', PATH: '{TOOLCHAIN}/bin:{PATH}' }
+    # Catalyst is the only Apple platform that builds OpenSSL: macOS and iOS use
+    # SecureTransport, but the SDK marks that unavailable on macabi,
+    # so Catalyst takes the Linux/Android TLS ladder instead.
+    #
+    # OpenSSL has no macabi target, and it does not need one: the darwin64 targets select the
+    # arch and assembler, while the platform comes from the -target triple already exported in
+    # CFLAGS/LDFLAGS. CC carries it explicitly too, because Configure builds its own
+    # compile lines rather than simply inheriting CFLAGS.
+    #
+    # The flags go in CC, NOT in Configure's argument list. Configure treats any argument that
+    # does not start with "-" as a TARGET name, so the two-token forms "-target <triple>" and
+    # "-isysroot <path>" had their second halves parsed as extra targets:
+    #   target already defined - darwin64-arm64-cc (offending arg: arm64-apple-ios14.0-macabi)
+    # Folding them into CC sidesteps the argument parser entirely and is what Configure uses
+    # to build every compile line.
+    maccatalyst-arm64:
+      {
+        vars: { target: darwin64-arm64-cc },
+        env: { CC: '+= -target {MCAT_TARGET} -isysroot {MCAT_SYSROOT}' },
+      }
+    maccatalyst-x64:
+      {
+        vars: { target: darwin64-x86_64-cc },
+        env: { CC: '+= -target {MCAT_TARGET} -isysroot {MCAT_SYSROOT}' },
+      }

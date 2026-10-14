@@ -1,0 +1,29 @@
+name: libva
+provides: vaapi
+license: MIT
+license-files: [COPYING]
+configure: [--enable-vaapi]
+needs: [libdrm]
+source: { git: https://github.com/intel/libva, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+platforms: [linux-*]
+build:
+  system: meson
+  args: [-Dwith_x11=no, -Dwith_glx=no, -Dwith_wayland=no, -Dwith_win32=no, -Ddisable_drm=false]
+  before:
+    - replace-in-file: { path: va/meson.build, from: 'shared_library(', to: 'library(' }
+  # Static libva dlopens the VA driver at runtime, so its consumers need -ldl; libva-drm
+  # also pulls in libva + libdrm. Make sure pkg-config --static exposes these for FFmpeg.
+  after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libva.pc',
+          optional: true,
+          libs-private: { set: -ldl, missing: after-libs },
+        }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libva-drm.pc',
+          optional: true,
+          libs-private: { set: -ldl, missing: after-libs },
+        }

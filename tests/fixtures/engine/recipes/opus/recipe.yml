@@ -1,0 +1,9 @@
+name: opus
+provides: opus
+license: BSD-3-Clause
+license-files: [COPYING]
+configure: [--enable-libopus]
+source: { git: https://github.com/xiph/opus, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
+platforms: all
+build: { system: none, steps: [['true']] }

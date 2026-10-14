@@ -1,0 +1,35 @@
+# The engine's toolchain check: a change to the toolchains (src/build, images, platforms.yml) builds and tests
+# examples/test-builds (one small target per kind of runner) in full with the reusable build workflow, and
+# examples/native (the same targets built natively: Linux, and Windows in MSYS2), running the engine from this
+# repository's source. It never publishes. Run it by hand from the Actions tab
+# too.
+name: toolchains
+on:
+  pull_request:
+    paths: ['platforms/**', 'images/**', 'platforms.yml', 'src/build/**']
+  push:
+    branches: [main]
+    paths: ['platforms/**', 'images/**', 'platforms.yml', 'src/build/**']
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  # contents: write although nothing is published: GitHub refuses to start a run whose called workflow has a job
+  # (the skipped release job) asking for more than the caller grants
+  build:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: write
+    with:
+      folder: examples/test-builds
+      engine: source
+      publish: never
+  native:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: write
+    with:
+      folder: examples/native
+      engine: source
+      publish: never

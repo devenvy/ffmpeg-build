@@ -1,0 +1,11 @@
+# The engine's native-build test: the same small targets as examples/test-builds, built with each runner's own
+# toolchain instead of a Docker image (ffmpeg-build build --in here): Linux with its distribution's compilers, Windows
+# in MSYS2's MinGW environment on a Windows runner. Built by .github/workflows/toolchains.yml.
+build:
+  linux-x64: { in: here }
+  win-x64: { runner: windows-2025, in: here }
+bases:
+  small: { with: [dav1d, opus] }
+targets:
+  linux-x64-lgplv3: { platform: linux-x64, license: lgplv3, ffmpeg: 9, base: [small] }
+  win-x64-lgplv3: { platform: win-x64, license: lgplv3, ffmpeg: 9, base: [small] }

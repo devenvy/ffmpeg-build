@@ -1,0 +1,32 @@
+# A consumer's lock updates (copy into .github/workflows/): one PR with the update summary (newer libraries, FFmpeg
+# releases and the newest engine of the lock's major), merged when CI passes (ci.yml's last job, automerge.yml). No
+# token is needed: the workflow dispatches your CI (ci-workflow, which needs workflow_dispatch:) on the PR's branch,
+# since GITHUB_TOKEN's pushes start none. UPDATE_TOKEN is optional: a fine-grained token with contents and
+# pull-requests write, whose pushes start CI by themselves.
+#
+# Repository setting: Settings, Actions, General, "Allow GitHub Actions to create and approve pull requests" (or the
+# UPDATE_TOKEN secret), so the workflow can open the PR.
+# Permissions: actions: write, contents: write and pull-requests: write (below).
+name: update-lock
+on:
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write # to dispatch the PR's CI
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    uses: devenvy/ffmpeg-build/.github/workflows/update-lock.yml@v0
+    with:
+      automerge: true
+      ci-workflow: ci.yml # your CI workflow's file name (examples/workflows/ci.yml)
+      # with a GitHub App, the PR is opened as the app and starts CI and code scanning by itself (as a PR opened by
+      # GITHUB_TOKEN can't): its client ID here, its private key as a secret below
+      # app-client-id: ${{ vars.APP_CLIENT_ID }}
+    secrets:
+      token: ${{ secrets.UPDATE_TOKEN }}
+      # app-private-key: ${{ secrets.APP_PRIVATE_KEY }}

@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/devenvy/ffmpeg-build/v0/schema/ffmpeg-build.schema.json",
+  "title": "ffmpeg-build.yml",
+  "description": "The builds (targets) of an ffmpeg-build folder, and what each gets",
+  "type": "object",
+  "properties": {
+    "build": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": [
+          "string",
+          "number"
+        ],
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "runner": {
+            "anyOf": [
+              {
+                "type": [
+                  "string",
+                  "number"
+                ],
+                "minLength": 1
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "number"
+                  ],
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "in": {
+            "type": "string",
+            "enum": [
+              "docker",
+              "here"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "bases": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "with": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            }
+          },
+          "without": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            }
+          },
+          "pin": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number"
+              ],
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pin": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number"
+        ],
+        "minLength": 1
+      }
+    },
+    "notify": {
+      "type": "object",
+      "properties": {
+        "new-ffmpeg": {
+          "type": [
+            "string",
+            "boolean"
+          ],
+          "enum": [
+            "true",
+            "false",
+            true,
+            false
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "allow-removal": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+      }
+    },
+    "private-release": {
+      "type": "string",
+      "enum": [
+        "internal"
+      ]
+    },
+    "targets": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "minLength": 1
+          },
+          "license": {
+            "type": "string",
+            "enum": [
+              "lgplv2",
+              "lgplv3",
+              "gplv2",
+              "gplv3",
+              "nonfree"
+            ]
+          },
+          "ffmpeg": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "minLength": 1
+          },
+          "base": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            }
+          },
+          "with": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            }
+          },
+          "without": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            }
+          },
+          "pin": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number"
+              ],
+              "minLength": 1
+            }
+          },
+          "patches": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ],
+              "minLength": 1
+            }
+          },
+          "tests": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ],
+              "minLength": 1
+            }
+          },
+          "release-group": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+          },
+          "allow-removal": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            }
+          }
+        },
+        "required": [
+          "platform",
+          "license",
+          "ffmpeg"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "targets"
+  ],
+  "additionalProperties": false
+}

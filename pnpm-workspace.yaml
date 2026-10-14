@@ -1,0 +1,5 @@
+allowBuilds:
+  unrs-resolver: false
+# Our own packages skip the release-age wait, as they skip Dependabot's cooldown.
+minimumReleaseAgeExclude:
+  - '@devenvy/*'

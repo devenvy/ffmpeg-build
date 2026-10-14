@@ -1,0 +1,65 @@
+name: vulkan-loader
+provides: vulkan
+license: Apache-2.0
+license-files:
+  [
+    LICENSE.txt,
+    LICENSES/Apache-2.0.txt,
+    LICENSES/MIT.txt,
+    LICENSES/MIT-Khronos-old.txt,
+    LICENSES/HPND-Kevlin-Henney.txt,
+  ]
+configure: [--enable-vulkan]
+# spirv-headers: upstream installs them wherever Vulkan is enabled, because FFmpeg's own Vulkan code needs them
+# too (n9's swscale SPIR-V backend compiles only behind HAVE_SPIRV_HEADERS_SPIRV_H / HAVE_SPIRV_UNIFIED1_SPIRV_H).
+# macOS has no native Vulkan: the loader is paired with MoltenVK (Vulkan-over-Metal), which ships beside it with its
+# ICD manifest, so --enable-vulkan actually runs on Metal.
+needs: [vulkan-headers, spirv-headers, { moltenvk: { platforms: [osx-*] } }]
+source: { git: https://github.com/KhronosGroup/Vulkan-Loader, ref: 'vulkan-sdk-{version}' }
+versions: { git-tags: '^vulkan-sdk-(\d+\.\d+\.\d+\.\d+)$' }
+# released together as one Vulkan SDK: the lock gives all three one SDK version (devenvy/ffmpeg's Renovate rule did too)
+version-group: vulkan-sdk
+# Upstream's BUILD_VULKAN_LOADER: glibc and musl Linux, and macOS paired with MoltenVK (iOS and Mac Catalyst link
+# MoltenVK statically instead: see moltenvk).
+platforms: [linux-x64, linux-arm64, linux-musl-*, osx-*] # not linux-armhf: upstream uses the headers there
+runtime:
+  - 'lib/libvulkan.so*': { platforms: [linux-*] }
+  - 'lib/libvulkan*.dylib': { platforms: [osx-*] }
+build:
+  # Vulkan-Loader: minimal SHARED Vulkan ICD loader (Apache-2.0), built with WSI disabled so it's libc-only and can
+  # be bundled in the artifact (recipe.yml runtime:). Ported from devenvy/ffmpeg scripts/deps/vulkan-loader.sh.
+  #
+  # On glibc Linux, whisper's ggml-vulkan HARD-LINKS the loader (FFmpeg itself only
+  # dlopens it -- vulkan.pc stays header-only). Rather than depend on the
+  # system libvulkan (which is built with X11/xcb WSI and would re-introduce an
+  # install requirement), build a minimal shared Vulkan-Loader with WSI disabled --
+  # its only dependency is libc -- so it can be bundled in the artifact. It still
+  # dlopens the system GPU ICD driver at runtime (GPU when present, CPU fallback).
+  #
+  # The Vulkan-Headers CMake package its find_package needs is installed by the vulkan-headers recipe.
+  # Its own cmake line (not the standard one): shared, no prefix path, no cross arguments but on macOS.
+  system: none
+  platforms:
+    # macOS: the toolchain's arguments (osx-x64 is cross-compiled on Apple silicon; both keep Homebrew's packages
+    # out). And /etc as the configuration folder the loader searches: by default it compiles in the install prefix's
+    # etc/, which is a folder of the build machine (the staged-binary check rejects its path) and of no user's.
+    'osx-*': { args: ['{cmake-cross-args}', -DSYSCONFDIR=/etc] }
+  steps:
+    - - cmake
+      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - -S
+      - .
+      - -B
+      - _build
+      - '-DCMAKE_INSTALL_PREFIX={deps}'
+      - '-DVULKAN_HEADERS_INSTALL_DIR={deps}'
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_TESTS=OFF
+      - -DBUILD_WSI_XLIB_SUPPORT=OFF
+      - -DBUILD_WSI_XCB_SUPPORT=OFF
+      - -DBUILD_WSI_WAYLAND_SUPPORT=OFF
+      - -DBUILD_WSI_DIRECTFB_SUPPORT=OFF
+      - '{args}'
+    - [cmake, --build, _build, -j, '{jobs}']
+    - [cmake, --install, _build]

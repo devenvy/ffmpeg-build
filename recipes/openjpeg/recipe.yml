@@ -1,0 +1,25 @@
+name: openjpeg
+provides: openjpeg
+license: BSD-2-Clause
+license-files: [LICENSE]
+configure: [--enable-libopenjpeg]
+source: { git: https://github.com/uclouvain/openjpeg.git, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  args: [-DBUILD_CODEC=OFF, -DBUILD_TESTING=OFF]
+  after:
+    # OpenJPEG 2.5.x emits a malformed Libs.private in libopenjp2.pc — its CMake prepends -l to an
+    # already-complete thread flag, giving "-l-lpthread" (glibc, thread lib = -lpthread) or
+    # "-l-pthread" (NDK/others, thread flag = -pthread). FFmpeg's static pkg-config link test then
+    # looks for a library literally named "-lpthread"/"-pthread" and fails ("libopenjp2 not found").
+    # Repair both forms in place (a no-op where the token isn't emitted).
+    - replace-in-file:
+        {
+          path: '{deps}/lib/pkgconfig/libopenjp2.pc',
+          from: '-l(-l?pthread)',
+          to: '$1',
+          regex: true,
+          optional: true,
+        }

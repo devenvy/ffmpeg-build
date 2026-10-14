@@ -1,0 +1,322 @@
+name: whisper.cpp
+provides: whisper
+license: MIT
+license-files: [LICENSE]
+configure: [--enable-whisper]
+# linux-*: the ggml Vulkan backend links OUR bundled libc-only loader (vulkan-loader, which brings vulkan-headers)
+# and finds SPIRV-Headers' CMake config (spirv-headers). The loader is optional: builds whose license leaves it out
+# (Apache-2.0: the v2 builds) get the CPU backend (its build: steps choose, from what the deps folder holds). Windows and Android compile against the headers alone
+# (Apache-2.0 OR MIT, so every license); Android links the NDK's libvulkan, so its v2 builds keep Vulkan.
+needs: [
+    { spirv-headers: { platforms: [linux-*, win-*, android-*] } },
+    { vulkan-headers: { platforms: [win-*, android-*] } },
+  ] # SPIR-V for the Vulkan backend; Apple uses Metal
+# Vulkan where the license allows it: the loader on linux, the static shim on Windows (vulkan-1.dll resolved at run
+# time); without them, the CPU backend (the build: steps choose)
+uses:
+  [
+    { vulkan-loader: { platforms: [linux-x64, linux-arm64, linux-musl-*] } },
+    { vulkan-shim: { platforms: [win-*] } },
+  ]
+source: { git: https://github.com/ggml-org/whisper.cpp, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# Upstream builds whisper on every platform. The build: steps keep every platform's arm (win: the static Vulkan shim;
+# android: the NDK libvulkan; Apple: Metal), each with its dependencies limited to it.
+platforms: [linux-*, osx-*, win-*, ios-*, maccatalyst-*, android-*]
+build:
+  # whisper.cpp: on-device speech-to-text engine (MIT) behind FFmpeg's af_whisper filter, static, with a per-platform
+  # GGML backend (Vulkan / Metal / CPU). Ported from devenvy/ffmpeg scripts/deps/whisper.sh.
+  #
+  # The backend: Vulkan on Linux (glibc and musl), Windows and Android; Metal on Apple; the CPU on linux-armhf (no
+  # dependable 32-bit-ARM GPU path for ggml). On Linux the Vulkan loader is optional (recipe.yml uses:), so it is in the
+  # build only where the license allows it; a build without it (the v2 builds: the loader is Apache-2.0) gets the CPU
+  # backend, as upstream's 04_select_license.sh did. Windows likewise with the static Vulkan shim. Android gets Vulkan
+  # from the NDK sysroot in every license.
+  #
+  # The standard cmake build (Release: without a build type a single-configuration generator leaves whisper/ggml with
+  # NO optimisation flags; the prefix, lib dir, prefix path, BUILD_SHARED_LIBS=OFF and PIC upstream listed here).
+  system: cmake
+  args:
+    - -DGGML_NATIVE=OFF
+    - -DGGML_OPENMP=OFF
+    - -DWHISPER_BUILD_EXAMPLES=OFF
+    - -DWHISPER_BUILD_TESTS=OFF
+    - -DWHISPER_BUILD_SERVER=OFF
+    - -DGGML_BUILD_TESTS=OFF
+    - -DGGML_BUILD_EXAMPLES=OFF
+    - '{release-flags}'
+    - '{backend-args}'
+    - '{compat-flags}'
+  vars:
+    backend: cpu
+    gpu: '' # set for a GPU backend, whose archive must then be installed
+    vulkan: '' # set where Vulkan is available
+    backend-args: [-DGGML_CPU=ON]
+    release-flags: []
+    compat-flags: []
+    # the system libraries whisper.pc's Libs.private ends with. Linux (glibc/musl) keeps libstdc++ for the CPU
+    # backend; musl and the Vulkan backends say otherwise below.
+    system-libs: -lstdc++ -lm -lpthread
+  platforms:
+    # musl links the C++ runtime STATICALLY rather than depending on it. A base Alpine image ships
+    # no libstdc++.so.6/libgcc_s.so.1, so a dynamic link makes the artifact unable to start at all:
+    #   Error loading shared library libstdc++.so.6: No such file or directory
+    # Bundling the runtimes would fix that, but it means REDISTRIBUTING GPLv3 libraries -- the GCC
+    # Runtime Library Exception covers our linked output, not shipping the runtime itself, so it
+    # would pull a GPLv3 section 6 corresponding-source obligation into every musl artifact,
+    # including the lgplv2 cell. Static linking avoids the obligation instead of complying with it:
+    # the result is "Target Code" under the Exception, which is exactly what the Exception exists to
+    # permit. It also matches what BtbN ships -- their libavcodec has no libstdc++ dependency.
+    #
+    # -l:libstdc++.a is the same archive-name trick win-arm64 uses for -l:libc++.a: a bare -lstdc++ resolves to the
+    # shared library, and -static-libstdc++ is a driver flag the C link does not honour here. Verified on a shared
+    # library with C++ exceptions: the result has only libc and the loader in DT_NEEDED, and still runs.
+    #
+    # libstdc++.a comes from Alpine's libstdc++-dev, pulled in transitively by build-base -> g++.
+    # That chain is not ours to control, and if it ever stops holding the failure would surface
+    # as an obscure "cannot find -l:libstdc++.a" deep inside FFmpeg's configure link tests, with
+    # whisper silently reported as "not found". Check it up front and say what to install.
+    'linux-musl-*':
+      vars: { system-libs: -l:libstdc++.a -lm -lpthread }
+      before:
+        - check:
+            output: ['{CC|gcc}', -print-file-name=libstdc++.a]
+            matches: /
+            message: >-
+              libstdc++.a not found on this musl toolchain. {platform} links the C++ runtime statically so the
+              artifact needs none at runtime. Install it with: apk add libstdc++-dev (normally transitive via
+              build-base -> g++)
+        - vars: { vulkan: 'yes' }
+          when: { exists: '{deps}/lib/libvulkan.so*' }
+        - &vulkan-headers
+          check:
+            {
+              exists: '{deps}/include/vulkan',
+              message: '{platform} whisper needs Vulkan-Headers in {deps}/include (the vulkan-headers recipe).',
+            }
+          when: { set: '{vulkan}' }
+        # ggml-vulkan does find_package(SPIRV-Headers) (CONFIG mode), so point it straight at the config dir the
+        # spirv-headers recipe installed (avoids cross-toolchain find-root-path issues).
+        - &spirv-headers
+          find:
+            {
+              var: spirv,
+              glob: '{deps}/**/spirv-headers*config.cmake',
+              ignore-case: true,
+              dirname: true,
+            }
+          when: { set: '{vulkan}' }
+        - vars:
+            backend: vulkan
+            gpu: 'yes'
+            backend-args:
+              [
+                -DGGML_VULKAN=ON,
+                -DGGML_CPU=ON,
+                '-DVulkan_INCLUDE_DIR={deps}/include',
+                '-DSPIRV-Headers_DIR={spirv}',
+              ]
+            system-libs: -lvulkan -l:libstdc++.a -lm -lpthread
+          when: { set: '{vulkan}' }
+    # glibc Linux links OUR bundled libc-only Vulkan loader (the vulkan-loader recipe), not the system one -- so the
+    # artifact has no external libvulkan dependency. Headers come from the deps folder (vulkan-headers), SPIRV-Headers
+    # too (spirv-headers).
+    linux-x64: &glibc
+      before:
+        - vars: { vulkan: 'yes' }
+          when: { exists: '{deps}/lib/libvulkan.so*' }
+        - *vulkan-headers
+        - *spirv-headers
+        - vars:
+            backend: vulkan
+            gpu: 'yes'
+            backend-args:
+              [
+                -DGGML_VULKAN=ON,
+                -DGGML_CPU=ON,
+                '-DVulkan_INCLUDE_DIR={deps}/include',
+                '-DSPIRV-Headers_DIR={spirv}',
+                '-DVulkan_INCLUDE_DIR={deps}/include',
+                '-DVulkan_LIBRARY={deps}/lib/libvulkan.so',
+              ]
+            system-libs: -lvulkan -lstdc++ -lm -lpthread
+          when: { set: '{vulkan}' }
+    linux-arm64: *glibc
+    # mingw ships no Windows Vulkan loader import-lib. We used to synthesize one from the
+    # headers with dlltool, which worked but made vulkan-1.dll a HARD import of the
+    # resulting libavfilter -- so ffmpeg.exe would not start at all on a machine without
+    # the Vulkan runtime (any host with no GPU driver: headless server, container, fresh
+    # VM). Link the static shim instead (the vulkan-shim recipe, which installs its impersonating archive into
+    # {deps}/lib as libvulkan-1.a or libvulkan.a); it resolves vulkan-1.dll through
+    # LoadLibraryExA on first use, so the import disappears while the capability stays.
+    #
+    # mingw-w64 headers lack the Win10 THREAD_POWER_THROTTLING_* definitions that ggml-cpu.c
+    # uses unconditionally on _WIN32 (they exist in the real Windows SDK but are gated out at
+    # MinGW's default NTDDI level). Force-include a shim so ggml-cpu compiles. ggml-cpu is built
+    # by EVERY backend, so this applies to all Windows platforms, CPU backend included. llvm-mingw (win-arm64) bundles
+    # the same mingw-w64 headers with the same NTDDI gating, so ggml-cpu.c fails there identically.
+    'win-*':
+      vars:
+        {
+          compat-flags:
+            [
+              '-DCMAKE_C_FLAGS=-include {src}/win_ggml_compat.h',
+              '-DCMAKE_CXX_FLAGS=-include {src}/win_ggml_compat.h',
+            ],
+        }
+      before:
+        - vars: { vulkan: 'yes' }
+          when: { exists: '{deps}/lib/libvulkan*.a' }
+        - *vulkan-headers
+        - *spirv-headers
+        - find:
+            var: shim
+            glob: ['{deps}/lib/libvulkan-1.a', '{deps}/lib/libvulkan.a']
+            required: '{platform} whisper needs the Vulkan shim, but it is not in {deps}/lib.'
+          when: { set: '{vulkan}' }
+        - find:
+            {
+              var: shim-name,
+              glob: ['{deps}/lib/libvulkan-1.a', '{deps}/lib/libvulkan.a'],
+              basename: true,
+            }
+          when: { set: '{vulkan}' }
+        - vars:
+            backend: vulkan
+            gpu: 'yes'
+            backend-args:
+              [
+                -DGGML_VULKAN=ON,
+                -DGGML_CPU=ON,
+                '-DVulkan_INCLUDE_DIR={deps}/include',
+                '-DSPIRV-Headers_DIR={spirv}',
+                '-DVulkan_LIBRARY={shim}',
+              ]
+          when: { set: '{vulkan}' }
+        - write-file:
+            path: '{src}/win_ggml_compat.h'
+            text: |
+              #ifndef WHISPER_WIN_GGML_COMPAT_H
+              #define WHISPER_WIN_GGML_COMPAT_H
+              #include <windows.h>
+              #ifndef THREAD_POWER_THROTTLING_CURRENT_VERSION
+              typedef struct _THREAD_POWER_THROTTLING_STATE {
+                  ULONG Version; ULONG ControlMask; ULONG StateMask;
+              } THREAD_POWER_THROTTLING_STATE, *PTHREAD_POWER_THROTTLING_STATE;
+              #define THREAD_POWER_THROTTLING_CURRENT_VERSION 1
+              #define THREAD_POWER_THROTTLING_EXECUTION_SPEED 0x1
+              #define THREAD_POWER_THROTTLING_VALID_FLAGS THREAD_POWER_THROTTLING_EXECUTION_SPEED
+              #endif
+              #endif
+    # win-x64: the debug symbols archive (upstream's issue #20; symbols-<version>-<target>.tar.gz): CMake's own GCC
+    # Release flags plus -g, so code generation is the same as before and only DWARF is added; the shipped avfilter
+    # DLL is stripped at install, and staging checks ggml's frames resolve in the symbols.
+    win-x64:
+      vars:
+        {
+          release-flags:
+            [-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -g, -DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -g],
+        }
+      before:
+        - vars: { system-libs: '-l:{shim-name} -lstdc++ -lm' }
+          when: { set: '{vulkan}' }
+    # llvm-mingw (win-arm64) must take the static libc++ archive, never a bare -lstdc++ (it resolves to libc++.dll.a
+    # there and collides with the static libc++ from -static-libstdc++). -lpthread is omitted too -- it does not exist
+    # under mingw, whose threading is built in.
+    win-arm64:
+      vars: { system-libs: -l:libc++.a -lm }
+      before:
+        - vars: { system-libs: '-l:{shim-name} -l:libc++.a -lm' }
+          when: { set: '{vulkan}' }
+    # NDK API-28 sysroot libvulkan.so exports the Vulkan 1.1 symbols ggml links directly. Android/Bionic has no
+    # libstdc++ (it uses libc++) and pthread lives in libc, so -lstdc++/-lpthread don't resolve there.
+    'android-*':
+      vars: { vulkan: 'yes', system-libs: -lc++ -lm }
+      before:
+        - *vulkan-headers
+        - *spirv-headers
+        - vars:
+            backend: vulkan
+            gpu: 'yes'
+            backend-args:
+              [
+                -DGGML_VULKAN=ON,
+                -DGGML_CPU=ON,
+                '-DVulkan_INCLUDE_DIR={deps}/include',
+                '-DSPIRV-Headers_DIR={spirv}',
+                '-DVulkan_LIBRARY={TOOLCHAIN}/sysroot/usr/lib/{ANDROID_TRIPLE}/{API}/libvulkan.so',
+              ]
+            system-libs: -lvulkan -lc++ -lm
+    # GGML_BLAS_VENDOR is pinned to Apple rather than left to ggml's platform
+    # detection. That detection works for a native macOS build but not through the
+    # macabi cross-build, where it fell back to a generic BLAS search and failed:
+    #   -- x86 detected / Could NOT find BLAS (missing: BLAS_LIBRARIES)
+    #   CMake Error at ggml/src/ggml-blas/CMakeLists.txt:98
+    # Accelerate is present in the macOS SDK for Catalyst, so naming the vendor is
+    # enough; every Apple platform wants Apple here, so this is not Catalyst-specific.
+    # Apple auto-enables the BLAS backend (Accelerate); its archive is picked up by the
+    # installed-archive enumeration below. Frameworks: Metal + Foundation + Accelerate.
+    'osx-*': &metal
+      vars:
+        backend: metal
+        gpu: 'yes'
+        backend-args:
+          [-DGGML_BLAS_VENDOR=Apple, -DGGML_METAL=ON, -DGGML_METAL_EMBED_LIBRARY=ON, -DGGML_CPU=ON]
+        system-libs: -lc++ -lm -framework Foundation -framework Metal -framework MetalKit -framework Accelerate
+    'ios-*': *metal
+    'maccatalyst-*': *metal
+  after:
+    # Some toolchains (notably mingw) install the ggml archives WITHOUT the 'lib' prefix
+    # (ggml.a instead of libggml.a), so -lggml won't resolve at FFmpeg link time. Normalize
+    # to libggml*.a so whisper.pc works uniformly across platforms.
+    - move: { from: '{deps}/lib/ggml.a', to: '{deps}/lib/libggml.a' }
+      when: { exists: '{deps}/lib/ggml.a' }
+    - move: { from: '{deps}/lib/ggml-base.a', to: '{deps}/lib/libggml-base.a' }
+      when: { exists: '{deps}/lib/ggml-base.a' }
+    - move: { from: '{deps}/lib/ggml-cpu.a', to: '{deps}/lib/libggml-cpu.a' }
+      when: { exists: '{deps}/lib/ggml-cpu.a' }
+    - move: { from: '{deps}/lib/ggml-vulkan.a', to: '{deps}/lib/libggml-vulkan.a' }
+      when: { exists: '{deps}/lib/ggml-vulkan.a' }
+    - move: { from: '{deps}/lib/ggml-metal.a', to: '{deps}/lib/libggml-metal.a' }
+      when: { exists: '{deps}/lib/ggml-metal.a' }
+    - move: { from: '{deps}/lib/ggml-blas.a', to: '{deps}/lib/libggml-blas.a' }
+      when: { exists: '{deps}/lib/ggml-blas.a' }
+    # Assemble the ggml archive link line from what actually got INSTALLED (not a hardcoded
+    # per-backend guess). The ggml registry (libggml.a) references every backend it was
+    # compiled with — including the BLAS backend ggml auto-enables on Apple — so list the
+    # registry first, then all backends present, then libggml-base last (all depend on it).
+    - vars: { ggml: -lggml }
+    - vars: { ggml: '{ggml} -lggml-cpu' }
+      when: { exists: '{deps}/lib/libggml-cpu.a' }
+    - vars: { ggml: '{ggml} -lggml-metal' }
+      when: { exists: '{deps}/lib/libggml-metal.a' }
+    - vars: { ggml: '{ggml} -lggml-vulkan' }
+      when: { exists: '{deps}/lib/libggml-vulkan.a' }
+    - vars: { ggml: '{ggml} -lggml-blas' }
+      when: { exists: '{deps}/lib/libggml-blas.a' }
+    - vars: { ggml: '{ggml} -lggml-base' }
+    # Assembling from "whatever got installed" is right for the OPTIONAL backends (ggml auto-enables
+    # BLAS on Apple, for instance) but it silently tolerates the REQUESTED one going missing. If
+    # ggml's cmake cannot find Vulkan/Metal it falls back to CPU without failing, so libggml-vulkan.a
+    # simply would not exist and whisper would register and transcribe -- on the CPU. Every test would
+    # pass: the filter is there, inference works, and nothing states which backend ran. So require the
+    # archive of the backend asked for.
+    - check:
+        {
+          exists: '{deps}/lib/libggml-{backend}.a',
+          message: 'whisper requested the {backend} ggml backend on {platform}, but {deps}/lib/libggml-{backend}.a was not installed - ggml fell back to CPU silently.',
+        }
+      when: { set: '{gpu}' }
+    - check:
+        {
+          exists: '{deps}/lib/libggml-cpu.a',
+          message: 'libggml-cpu.a missing - whisper has no CPU fallback path on {platform}.',
+        }
+    # whisper.cpp installs no pkg-config file; write one. Static link: Libs.private lists the ggml archives +
+    # loader/toolchain in dependency order.
+    - pkg-config:
+        name: whisper
+        description: whisper.cpp speech recognition
+        version: '{version}'
+        libs: -lwhisper
+        libs-private: '{ggml} {system-libs}'

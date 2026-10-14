@@ -1,0 +1,90 @@
+# Nightly FFmpeg support check (the engine's own): keeps ffmpeg/<major>.yml's releases equal to FFmpeg's release tags,
+# and reports options a new FFmpeg release adds, removes or reclassifies, and new majors. It opens or refreshes one
+# pull request when ffmpeg/ changed: the release lists are data and can merge once CI passes; anything else in the
+# report is for a person. A report with findings but no data change refreshes an open pull request's text, or else
+# stays in the run summary as a warning.
+#
+# It runs as the devenvy-bot app when the org has it (DEVENVY_BOT_CLIENT_ID): the app's push starts the pull
+# request's CI. Without it, GITHUB_TOKEN pushes (which start no workflows) and then dispatches ci.yml on the branch.
+name: ffmpeg-support
+on:
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: write # dispatching the pull request's CI when GITHUB_TOKEN pushed
+      contents: write # the pull request's branch
+      pull-requests: write # opening or refreshing it
+    env:
+      BRANCH: ffmpeg-build/ffmpeg-support
+    steps:
+      - id: app-token
+        if: vars.DEVENVY_BOT_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DEVENVY_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.DEVENVY_BOT_PRIVATE_KEY }}
+          # the pull request's branch, and the pull request
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
+      - name: check FFmpeg's releases and configure
+        run: |
+          node scripts/ffmpeg-support.ts --write --report "${RUNNER_TEMP}/support.md"
+          pnpm exec prettier --write ffmpeg/
+          cat "${RUNNER_TEMP}/support.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: open or refresh the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          HAS_APP: ${{ steps.app-token.outputs.token != '' }}
+          DISPATCH_TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          findings=false
+          if grep -qE '\*\*(new in|gone from|licence class|New FFmpeg major)' "${RUNNER_TEMP}/support.md"; then findings=true; fi
+          open="$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number')"
+          # a conventional title: merged, it ships in the next nightly engine release
+          title="fix(ffmpeg): FFmpeg support check"
+          if git diff --quiet -- ffmpeg/; then
+            if [ "${findings}" = false ]; then
+              echo "FFmpeg support is current" >> "$GITHUB_STEP_SUMMARY"
+            elif [ -n "${open}" ]; then
+              gh pr edit "${BRANCH}" --title "${title}" --body-file "${RUNNER_TEMP}/support.md"
+            else
+              echo "::warning::the FFmpeg support check has findings for a person (see the run summary); no data changed, so no pull request"
+            fi
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "${BRANCH}"
+          git add -- ffmpeg/
+          git commit --quiet -m "${title}"
+          # the same data as the open pull request already has: refresh its text only, without a new push
+          if git fetch --quiet "${remote}" "${BRANCH}" 2>/dev/null && git diff --quiet FETCH_HEAD HEAD -- ffmpeg/ && [ -n "${open}" ]; then
+            gh pr edit "${BRANCH}" --title "${title}" --body-file "${RUNNER_TEMP}/support.md"
+            exit 0
+          fi
+          git push --force "${remote}" "HEAD:refs/heads/${BRANCH}"
+          if [ -n "${open}" ]; then
+            gh pr edit "${BRANCH}" --title "${title}" --body-file "${RUNNER_TEMP}/support.md"
+          else
+            gh pr create --head "${BRANCH}" --title "${title}" --body-file "${RUNNER_TEMP}/support.md"
+          fi
+          # GITHUB_TOKEN's push starts no CI, but it may dispatch it; the app's push starts it by itself
+          if [ "${HAS_APP}" != true ]; then GH_TOKEN="${DISPATCH_TOKEN}" gh workflow run ci.yml --ref "${BRANCH}"; fi

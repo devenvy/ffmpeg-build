@@ -1,0 +1,30 @@
+name: Feature request
+description: A library, platform, option or workflow ffmpeg-build should support
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For something large (a new platform, a change to the `ffmpeg-build.yml` format), describe it here first so the
+        design can be agreed before the work (DEVELOPMENT.md).
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need
+      description: What you are trying to build or do, and what stops you today
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: The command, `ffmpeg-build.yml` entry or workflow input you have in mind, if any
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: ffmpeg-build version
+      description: '`ffmpeg-build --version`'
+    validations:
+      required: false

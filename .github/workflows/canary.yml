@@ -1,0 +1,82 @@
+# Weekly canary: moves the canary folder's lock to the newest upstream versions (in the run only; nothing is
+# committed) and builds every canary target in full. A failure is the first sign that a new upstream release broke a
+# recipe, before any consumer's update PR meets it. The engine itself ships no versions; this is how it watches them.
+name: canary
+on:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        run: corepack pnpm install --frozen-lockfile && npm link
+      - id: plan
+        name: newest upstream versions
+        working-directory: examples/canary
+        run: |
+          ffmpeg-build update --summary "${RUNNER_TEMP}/update.md"
+          cat "${RUNNER_TEMP}/update.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "matrix=$(ffmpeg-build releases --json --offline | jq -c '{include: [.[].targets[] | {target: .name, platform, runner, cacheKey}]}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: canary-lock
+          path: examples/canary/ffmpeg.lock
+          retention-days: 7
+
+  build:
+    needs: update
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.update.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    env:
+      FFMPEG_BUILD_IMAGE_CACHE: gha
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: engine
+        run: corepack pnpm install --frozen-lockfile && npm link
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: canary-lock
+          path: examples/canary
+      # Apple targets (the osx canary's MoltenVK) build natively with Homebrew's tools; the rest in Docker
+      - name: Apple build tools
+        if: runner.os == 'macOS'
+        run: sed 's/#.*//' platforms/apple-brew.txt | xargs brew install
+      - name: buildx with the Actions cache
+        if: runner.os == 'Linux'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: expose the Actions cache to buildx
+        if: runner.os == 'Linux'
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ffmpeg-build
+          key: ${{ matrix.cacheKey }}
+          restore-keys: ffmpeg-build-libs-${{ matrix.platform }}-
+      - name: build ${{ matrix.target }}
+        working-directory: examples/canary
+        env:
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: ffmpeg-build build --target "${MATRIX_TARGET}" --out "${RUNNER_TEMP}/dist"

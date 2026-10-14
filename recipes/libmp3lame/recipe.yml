@@ -1,0 +1,34 @@
+# LAME releases are SourceForge tarballs only; no git mirror carries matching release tags. The Debian
+# .orig.tar.gz is the fallback (verified byte-identical upstream for lame 4.0). Versions come from the
+# SourceForge folder listing (one folder per release: 4.0/, 3.100/, ...); beta folders are left out by the
+# regex.
+name: libmp3lame
+provides: mp3lame
+license: LGPL-2.0-or-later
+license-files: [COPYING, LICENSE]
+configure: [--enable-libmp3lame]
+source:
+  url: 'https://downloads.sourceforge.net/project/lame/lame/{version}/lame-{version}.tar.gz'
+  mirrors: ['https://deb.debian.org/debian/pool/main/l/lame/lame_{version}.orig.tar.gz']
+versions:
+  { listing: 'https://sourceforge.net/projects/lame/files/lame/', files: '^(\d+(?:\.\d+)+)$' }
+platforms: all
+build:
+  system: autotools
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --disable-frontend,
+      --disable-decoder,
+      --enable-nasm,
+      --with-pic,
+    ]
+  platforms:
+    'ios-*': { env: { ac_cv_header_stdc: yes } }
+    'maccatalyst-*': { env: { ac_cv_header_stdc: yes } }
+  before:
+    # LAME 3.100 exports lame_init_old in its symbol file but no longer defines it,
+    # which breaks the link on strict toolchains. Drop that line.
+    - replace-in-file:
+        { path: include/libmp3lame.sym, from: '^[^\n]*lame_init_old[^\n]*\n?', to: '', regex: true }

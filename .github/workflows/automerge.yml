@@ -1,0 +1,46 @@
+# REUSABLE. Merges an ffmpeg-build pull request (update-lock.yml or update-pin.yml with `automerge: true`) once
+# its CI passes, without depending on repository settings (auto-merge, branch protection, required checks). Call it as
+# the last job of the CI workflow, after the jobs that must pass:
+#
+#   merge:
+#     needs: build
+#     uses: devenvy/ffmpeg-build/.github/workflows/automerge.yml@v0
+#
+# (Not from a workflow_run workflow: update-lock.yml and update-pin.yml start the PR's CI with GITHUB_TOKEN, and such
+# runs trigger no workflow_run.) It merges only the open PR whose branch is the run's, starts with ffmpeg-build/, carries the
+# ffmpeg-build:automerge label, and whose head is still the commit the run tested (a newer push is never merged untested).
+# Any other run (a person's pull request, a push) it leaves alone.
+name: automerge
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # the run's branch and commit reach the script through env, never its text: a pull_request run's are its head's
+      BRANCH: ${{ github.head_ref || github.ref_name }}
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      LABEL: ffmpeg-build:automerge
+    steps:
+      - name: merge the labelled pull request the run tested
+        run: |
+          case "${BRANCH}" in ffmpeg-build/*) ;; *) echo "${BRANCH} isn't an ffmpeg-build branch"; exit 0 ;; esac
+          found="$(gh pr list --head "${BRANCH}" --state open --label "${LABEL}" --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"' | head -1)"
+          if [ -z "${found}" ]; then echo "no open pull request on ${BRANCH} labelled ${LABEL}"; exit 0; fi
+          read -r number head <<< "${found}"
+          if [ "${head}" != "${SHA}" ]; then echo "#${number} moved on to ${head} since the run tested ${SHA}; its own run decides"; exit 0; fi
+          if ! gh pr merge "${number}" --squash --match-head-commit "${SHA}"; then
+            # required checks still running (code scanning, say): GitHub merges it once they pass, when the
+            # repository allows auto-merge (else this fails, and the PR waits for a person)
+            gh pr merge "${number}" --auto --squash --match-head-commit "${SHA}"
+          fi
+          echo "merged #${number} (${SHA})" >> "$GITHUB_STEP_SUMMARY"
