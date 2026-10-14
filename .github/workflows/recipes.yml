@@ -34,7 +34,11 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then BASE="$(git rev-parse HEAD~1)"; fi
+          # an unknown base (a push that created the branch): the commit before; a repository's first commit has none, so
+          # everything in it is new (git's empty tree)
+          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE="$(git rev-parse -q --verify 'HEAD~1^{commit}' || git hash-object -t tree /dev/null)"
+          fi
           git diff --name-only "${BASE}" HEAD > "${RUNNER_TEMP}/changed"
           sed -n 's#^recipes/\([^/]*\)/.*#\1#p' "${RUNNER_TEMP}/changed" | sort -u > "${RUNNER_TEMP}/recipes"
           (cd examples/canary && ffmpeg-build plan --json) > "${RUNNER_TEMP}/plan.json"
