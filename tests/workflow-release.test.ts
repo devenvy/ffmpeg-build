@@ -132,6 +132,15 @@ describe('release.yml', () => {
     expect(job('publish').if).toContain("needs.ci.result == 'success'");
   });
 
+  it('attaches the assets and moves the major tag for a release published by hand, when the nightly cut is skipped', () => {
+    // GitHub skips a job when any job before it in its needs chain was skipped, unless its if says otherwise: publish
+    // follows cut, which only the nightly runs, so what follows publish must say when it runs
+    for (const name of ['release-assets', 'major-tag']) {
+      expect(job(name).if, name).toContain('!cancelled()');
+      expect(job(name).if, name).toContain("needs.publish.result == 'success'");
+    }
+  });
+
   it('publishes through npm trusted publishing: OIDC, no token, never with write access to the repository', () => {
     expect(job('publish').permissions).toEqual({
       contents: 'read',
@@ -204,7 +213,9 @@ describe('release.yml', () => {
     ];
 
     it('moves to the newest release of its major, or is created', () => {
-      expect(job('major-tag').if).toBe("needs.plan.outputs.prerelease != 'true'");
+      expect(job('major-tag').if).toBe(
+        `\${{ !cancelled() && needs.publish.result == 'success' && needs.plan.outputs.prerelease != 'true' }}`,
+      );
       const moved = run(move(), { TAG: 'v1.0.10', VERSION: '1.0.10' }, { releases });
       expect(moved.status, moved.out).toBe(0);
       expect(moved.calls).toContain(
