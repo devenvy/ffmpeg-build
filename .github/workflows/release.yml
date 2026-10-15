@@ -17,8 +17,8 @@ name: Release
 # this one. Moving the major tag runs as the devenvy-bot app when the org has it (DEVENVY_BOT_CLIENT_ID): GITHUB_TOKEN
 # may not move a tag across commits that change workflow files.
 #
-# If publishing fails, fix it on main, then run this workflow by hand with the release's tag: it runs CI and publishes
-# the tag's code again (a version already on npm is skipped).
+# If publishing fails, fix it on main, then run this workflow by hand on main with the release's tag: it runs CI on
+# main and publishes the tag's code again (a version already on npm is skipped).
 on:
   release:
     types: [published]
@@ -45,7 +45,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      ci-ref: ${{ steps.tag.outputs.ci-ref }}
       version: ${{ steps.tag.outputs.version }}
       cut: ${{ steps.tag.outputs.cut }}
       prerelease: ${{ steps.tag.outputs.prerelease }}
@@ -96,17 +95,14 @@ jobs:
           version="${tag#v}"
           # a prerelease by its version (v1.3.0-rc.1) or as GitHub marks it: npm's next dist-tag, and the major tag stays
           case "$version" in *-*) prerelease=true ;; *) prerelease="${marked:-false}" ;; esac
-          # CI checks the commit that is published: the tag's (the nightly's tag doesn't exist yet: the run's own commit)
-          ci_ref="$tag"
-          if [ "$cut" = true ]; then ci_ref=; fi
-          { echo "tag=$tag"; echo "version=$version"; echo "cut=$cut"; echo "prerelease=$prerelease"; echo "ci-ref=$ci_ref"; } >> "$GITHUB_OUTPUT"
+          { echo "tag=$tag"; echo "version=$version"; echo "cut=$cut"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
 
   ci:
     needs: plan
     if: needs.plan.outputs.tag != ''
+    # the run's own commit: a published release's tag, or main (the nightly, or a tag published again by hand, which
+    # the plan checked is on main, whose every commit passed CI as a pull request)
     uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ needs.plan.outputs.ci-ref }}
     permissions:
       contents: read
       pull-requests: write # ci.yml's coverage-report job declares it; it runs on pull requests only

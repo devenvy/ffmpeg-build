@@ -47,7 +47,7 @@ const run = (step: Step, vars: Record<string, string>) => {
   const r = spawnSync(bash!, ['-c', step.run!], {
     cwd: dir,
     encoding: 'utf8',
-    env: { ...process.env, GITHUB_ENV: join(dir, 'env').replaceAll('\\', '/'), ...vars },
+    env: { ...process.env, GITHUB_OUTPUT: join(dir, 'out').replaceAll('\\', '/'), ...vars },
   });
   return { code: r.status ?? -1, stdout: r.stdout };
 };

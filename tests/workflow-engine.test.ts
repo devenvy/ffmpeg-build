@@ -16,6 +16,7 @@ interface Step {
   run?: string;
   env?: Record<string, string>;
   uses?: string;
+  if?: string;
 }
 interface Workflow {
   jobs: Record<string, { steps: Step[] }>;
@@ -279,11 +280,12 @@ describe.skipIf(!bash)("the PR's CI and automerge, without a token or repository
 
   it('ffmpeg-support.yml dispatches the engine ci.yml after a GITHUB_TOKEN push only (an app push starts it)', () => {
     const s = step('ffmpeg-support.yml', 'open or refresh the pull request');
-    writeFileSync(join(tmpdir(), 'support.md'), '**new in 9.1.0**\n');
+    const temp = mkdtempSync(join(tmpdir(), 'ffmpeg-build-support-'));
+    writeFileSync(join(temp, 'support.md'), '**new in 9.1.0**\n');
     const vars = {
       BRANCH: 'ffmpeg-build/ffmpeg-support',
       DISPATCH_TOKEN: 'github-token',
-      RUNNER_TEMP: tmpdir(),
+      RUNNER_TEMP: temp,
     };
     expect(calls(s, { ...vars, HAS_APP: 'false' })).toContain(
       'gh[github-token] workflow run ci.yml --ref ffmpeg-build/ffmpeg-support',
@@ -317,7 +319,7 @@ describe.skipIf(!bash)("the PR's CI and automerge, without a token or repository
   });
 });
 
-/** Runs a workflow's `branch` step; the BRANCH it sets for the job, or its exit status and message. */
+/** Runs a workflow's `branch` step; the branch it outputs, or its exit status and message. */
 function branch(
   file: string,
   vars: { WANTED?: string; SOURCE: string },
@@ -327,7 +329,7 @@ function branch(
   const r = spawnSync(bash!, ['-e', '-c', step(file, 'branch').run!], {
     cwd: dir,
     encoding: 'utf8',
-    env: { ...process.env, WANTED: '', ...vars, GITHUB_ENV: env },
+    env: { ...process.env, WANTED: '', ...vars, GITHUB_OUTPUT: env },
   });
   let text = '';
   try {
@@ -338,7 +340,7 @@ function branch(
   return {
     status: r.status,
     out: `${r.stdout}${r.stderr}`,
-    branch: /^BRANCH=(.*)$/m.exec(text)?.[1],
+    branch: /^name=(.*)$/m.exec(text)?.[1],
   };
 }
 
@@ -789,3 +791,71 @@ describe.skipIf(!bash || spawnSync('jq', ['--version']).status !== 0)(
     });
   },
 );
+
+describe.skipIf(!bash)('the Android emulator test', () => {
+  const PREPARE = 'the emulator and its system image, retried (a download can arrive broken)';
+
+  /** Runs the prepare step with a stand-in sdkmanager that installs nothing for its first `broken` calls. */
+  function prepare(broken: number) {
+    const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-sdk-'));
+    const home = join(dir, 'sdk').replaceAll('\\', '/');
+    const bin = join(dir, 'bin');
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, 'sdkmanager'),
+      [
+        '#!/usr/bin/env bash',
+        `n=$(( $(cat "${home}.calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "${home}.calls"`,
+        `echo "sdkmanager $*" >> "${home}.log"`,
+        `[ "$n" -le ${String(broken)} ] && { echo "Warning: An error occurred while preparing SDK package Android Emulator: Error on ZipFile unknown archive."; exit 0; }`,
+        `mkdir -p "${home}/emulator" "${home}/system-images/android-35/google_apis/x86_64"`,
+        `touch "${home}/emulator/emulator" "${home}/system-images/android-35/google_apis/x86_64/system.img"`,
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    );
+    const r = spawnSync(bash!, ['-e', '-c', step('build.yml', PREPARE).run!], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ANDROID_HOME: home,
+        RETRY_DELAY: '0',
+        PATH: `${bin}${delimiter}${process.env['PATH'] ?? ''}`,
+      },
+    });
+    let tries = 0;
+    try {
+      tries = Number(readFileSync(`${home}.calls`, 'utf8'));
+    } catch {
+      /* none */
+    }
+    return { status: r.status, out: `${r.stdout}${r.stderr}`, tries };
+  }
+
+  it('gets the emulator ready before the action that runs it, so a broken download is retried', () => {
+    const steps = Object.values(
+      (
+        parse(
+          readFileSync(join(packageRoot, '.github', 'workflows', 'build.yml'), 'utf8'),
+        ) as Workflow
+      ).jobs,
+    ).flatMap((j) => j.steps);
+    const ready = steps.findIndex((s) => s.name === PREPARE);
+    const emulator = steps.findIndex((s) =>
+      s.uses?.startsWith('reactivecircus/android-emulator-runner@'),
+    );
+    expect(ready).toBeGreaterThan(-1);
+    expect(ready).toBeLessThan(emulator);
+    expect(steps[ready]!.if).toBe(steps[emulator]!.if);
+  });
+
+  it('installs again when sdkmanager says it did but the files are missing, and stops after three tries', () => {
+    const once = prepare(1);
+    expect(once.status, once.out).toBe(0);
+    expect(once.tries).toBe(2);
+    const never = prepare(9);
+    expect(never.status).not.toBe(0);
+    expect(never.tries).toBe(3);
+    expect(never.out).toContain('the Android emulator or its system image is still missing');
+  });
+});

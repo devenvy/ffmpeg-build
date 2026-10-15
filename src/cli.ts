@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Command, CommanderError } from 'commander';
@@ -45,6 +45,7 @@ import { LOCK_FILE, LockError, readFolderLock } from './lockfile.ts';
 import { ManifestError, parseManifest } from './manifest.ts';
 import { dataRoot, packageRoot, packageVersion } from './paths.ts';
 import { EditError } from './profile-edit.ts';
+import { readPlainFile } from './read-file.ts';
 import { selectedNames } from './select.ts';
 import { GitMissingError } from './upstream.ts';
 
@@ -534,7 +535,8 @@ program
             'say what to fetch: owner/repo@tag, or a pin file (e.g. ffmpeg.version)',
           );
         }
-        const text = existsSync(pin) && statSync(pin).isFile() ? readFileSync(pin, 'utf8') : pin;
+        // a pin file's text, or the argument itself (owner/repo@tag)
+        const text = readPlainFile(pin) ?? pin;
         return {
           output: await fetchRelease(text, { ...sel, dev: opts.dev === true }, opts.out),
           exitCode: 0,

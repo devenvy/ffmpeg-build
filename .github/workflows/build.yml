@@ -278,6 +278,25 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo apt-get -o Acquire::Retries=5 update -qq
           sudo apt-get -o Acquire::Retries=5 install -y -q patchelf
+      # The emulator action downloads these itself and can't retry: a broken download ("Error on ZipFile unknown
+      # archive", which sdkmanager only warns about) left it with no emulator to start. Installed here first, checked
+      # and retried, they're already there when the action asks for them.
+      - name: the emulator and its system image, retried (a download can arrive broken)
+        if: inputs.tests != 'none' && startsWith(matrix.platform, 'android-')
+        env:
+          RETRY_DELAY: '15'
+        run: |
+          image='system-images;android-35;google_apis;x86_64'
+          for attempt in 1 2 3; do
+            sdkmanager --install emulator "${image}" --channel=0 > /dev/null || true
+            if [ -f "${ANDROID_HOME}/emulator/emulator" ] && [ -n "$(ls -A "${ANDROID_HOME}/system-images/android-35/google_apis/x86_64" 2>/dev/null)" ]; then
+              exit 0
+            fi
+            echo "::warning::the Android emulator or its system image didn't install (attempt ${attempt} of 3)"
+            [ "${attempt}" = 3 ] || sleep "${RETRY_DELAY}"
+          done
+          echo "::error::the Android emulator or its system image is still missing after 3 attempts"
+          exit 1
       - name: test ${{ matrix.target }} on an Android emulator
         if: inputs.tests != 'none' && startsWith(matrix.platform, 'android-')
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
