@@ -2,7 +2,7 @@
 # packages upstream's 03_install_packages.sh installs for musl. Artifacts link libgcc and libstdc++ statically, so
 # they run on any musl system. The library cache keys on this image's Docker ID.
 FROM mirror.gcr.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS toolchain
-FROM mirror.gcr.io/library/node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436 AS node
+FROM mirror.gcr.io/library/node:24.20.0-alpine3.23@sha256:0388af2af070cd4736a1567cfed02469ba117848845b4165d87a333edb53d2ca AS node
 FROM mirror.gcr.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 COPY --from=node /usr/local/ /usr/local/
 
