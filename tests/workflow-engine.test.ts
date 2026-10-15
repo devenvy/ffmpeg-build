@@ -100,10 +100,10 @@ describe.skipIf(!bash)("the workflows' engine input", () => {
 
   it('every workflow installs an engine the same way (one block, kept identical: a reusable workflow cannot run a script of its own repository)', () => {
     const block = (s: Step) => /case "\$\{ENGINE\}" in[\s\S]*?esac/.exec(s.run!)?.[0];
-    const blocks = ['build.yml', 'update-lock.yml', 'update-pin.yml'].flatMap((f) =>
+    const blocks = ['build.yml', 'check.yml', 'update-lock.yml', 'update-pin.yml'].flatMap((f) =>
       engineSteps(f).map(block),
     );
-    expect(blocks).toHaveLength(7);
+    expect(blocks).toHaveLength(8);
     expect(new Set(blocks).size).toBe(1);
     expect(blocks[0]).toBeDefined();
   });
@@ -156,7 +156,7 @@ describe.skipIf(!bash)(
         .flatMap((j) => j.steps)
         .find((s) => s.name === 'the engine suits these workflows');
 
-    for (const file of ['build.yml', 'update-lock.yml', 'update-pin.yml']) {
+    for (const file of ['build.yml', 'check.yml', 'update-lock.yml', 'update-pin.yml']) {
       it(`${file}: checks the installed engine's major, which is package.json's`, () => {
         const s = contract(file)!;
         expect(s, file).toBeDefined();

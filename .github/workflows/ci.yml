@@ -231,9 +231,18 @@ jobs:
         run: gh pr merge "$PR_URL" --auto --squash
 
   # Single required status check.
+  # check.yml, the consumers' pull-request check, against the example folder with this commit's engine
+  check:
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+    with:
+      folder: examples/test-builds
+      engine: source
+
   result:
     if: always()
-    needs: [pr-title, lint, test, build, audit, dependency-review, shellcheck, package]
+    needs: [pr-title, lint, test, build, audit, dependency-review, shellcheck, package, check]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -248,10 +257,11 @@ jobs:
           AUDIT: ${{ needs.audit.result }}
           SHELLCHECK: ${{ needs.shellcheck.result }}
           PACKAGE: ${{ needs.package.result }}
+          CHECK: ${{ needs.check.result }}
           IS_PR: ${{ github.event_name == 'pull_request' }}
         # pr-title and dependency-review only run on pull requests; the audit is informational there
         run: |
-          for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE"; do test "$result" = "success"; done
+          for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE" "$CHECK"; do test "$result" = "success"; done
           if [ "$IS_PR" = "true" ]; then
             test "$PR_TITLE" = "success"
             test "$DEPENDENCY_REVIEW" = "success"

@@ -1,12 +1,12 @@
-# A consumer's pull-request check (copy into .github/workflows/): builds and tests the releases that changed since
-# they were last published (`due: true`; remove it to build every release on every pull request), publishes nothing,
-# and merges ffmpeg-build's own PRs (update-lock.yml or update-pin.yml with automerge: true) once the build passes.
+# A consumer's pull-request check (copy into .github/workflows/): checks that ffmpeg-build.yml is valid, that
+# ffmpeg.lock covers it and that every target can be planned, in a minute and without building anything (the release
+# builds every target before it publishes, and keeps a release that fails a draft). It merges ffmpeg-build's own PRs
+# (update-lock.yml or update-pin.yml with automerge: true) once the check passes.
 #
 # Repository setting: none for this workflow. (update-lock.yml needs "Allow GitHub Actions to create and approve pull
 # requests" to open the PRs it checks.)
-# Permissions: contents: write and pull-requests: write (below), for the automerge job and because GitHub checks the
-# called workflow's release job against them even though it is skipped.
-name: ci
+# Permissions: contents: read for the check; contents: write and pull-requests: write for the merge job only.
+name: CI
 on:
   pull_request:
   workflow_dispatch: # update-lock.yml and update-pin.yml start it on its PR's branch (GITHUB_TOKEN's pushes start nothing)
@@ -21,28 +21,22 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    uses: devenvy/ffmpeg-build/.github/workflows/build.yml@v0
-    # contents: write although nothing is published: GitHub refuses to start a run whose called workflow has a job
-    # (here the skipped release job) asking for more than the caller grants
+  check:
+    uses: devenvy/ffmpeg-build/.github/workflows/check.yml@v0
     permissions:
-      contents: write
-    with:
-      publish: never
-      due: true
-      # tests: build-runner   # no Windows test runners (a private repository pays twice the Linux rate for them)
-  # one check for a branch ruleset to require, whatever the build ran
+      contents: read
+  # one check for a branch ruleset to require, whatever ran
   result:
-    needs: build
+    needs: check
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     steps:
-      - name: the build passed
+      - name: the check passed
         env:
-          BUILD: ${{ needs.build.result }}
-        run: test "${BUILD}" = success
+          CHECK: ${{ needs.check.result }}
+        run: test "${CHECK}" = success
   merge:
     needs: result
     uses: devenvy/ffmpeg-build/.github/workflows/automerge.yml@v0
