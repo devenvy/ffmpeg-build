@@ -139,7 +139,8 @@ export function swapFiles(
     );
   }
   const done: { path: string; backup?: string }[] = [];
-  let current = staged[0]!;
+  // the write under way when one fails (set before anything in the loop can throw)
+  let current: (typeof staged)[number] | undefined;
   try {
     for (const s of staged) {
       current = s;
@@ -165,7 +166,7 @@ export function swapFiles(
     for (const s of staged) {
       rmSync(s.temp, { force: true });
     }
-    const head = `Couldn't write ${displayPath(current.path)}: ${why(e)}.`;
+    const head = `Couldn't write ${displayPath(current!.path)}: ${why(e)}.`;
     throw new WriteError(
       stuck.length
         ? `${head} Some files were changed and ${stuck.join('; ')}`
