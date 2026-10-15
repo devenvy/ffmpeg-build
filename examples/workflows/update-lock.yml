@@ -14,13 +14,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write # to dispatch the PR's CI
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update:
     uses: devenvy/ffmpeg-build/.github/workflows/update-lock.yml@v0
+    permissions:
+      actions: write # to dispatch the PR's CI
+      contents: write
+      pull-requests: write
     with:
       automerge: true
       ci-workflow: ci.yml # your CI workflow's file name (examples/workflows/ci.yml)

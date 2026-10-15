@@ -45,6 +45,16 @@ const callers = [
     .map((f) => join(packageRoot, '.github', 'workflows', f)),
 ];
 
+describe('workflow permissions', () => {
+  // the top level only reads; each write is the job's that needs it (OpenSSF Scorecard's Token-Permissions)
+  for (const path of callers) {
+    it(`${relative(packageRoot, path).replaceAll('\\', '/')} writes nothing at its top level`, () => {
+      const top = read(path).permissions;
+      expect(top === 'write-all' || Object.values(asMap(top)).includes('write')).toBe(false);
+    });
+  }
+});
+
 describe('reusable workflow callers', () => {
   // each job that calls one of the engine's reusable workflows, with the file it calls
   const calls = callers.flatMap((path) => {

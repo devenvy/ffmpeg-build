@@ -42,15 +42,16 @@ on:
         description: the GitHub App's private key, with the app-client-id input
         required: false
 
-# actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
-permissions:
-  actions: write
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   bump:
     runs-on: ubuntu-24.04
+    # actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
     timeout-minutes: 15
     # one run per repository and branch at a time; one under way is never cancelled (it may be pushing)
     concurrency:
