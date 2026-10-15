@@ -795,16 +795,20 @@ describe.skipIf(!bash || spawnSync('jq', ['--version']).status !== 0)(
 describe.skipIf(!bash)('the Android emulator test', () => {
   const PREPARE = 'the emulator and its system image, retried (a download can arrive broken)';
 
-  /** Runs the prepare step with a stand-in sdkmanager that installs nothing for its first `broken` calls. */
+  /**
+   * Runs the prepare step with a stand-in sdkmanager where the runner keeps it (under ANDROID_HOME, not on PATH) that
+   * installs nothing for its first `broken` install calls.
+   */
   function prepare(broken: number) {
     const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-sdk-'));
     const home = join(dir, 'sdk').replaceAll('\\', '/');
-    const bin = join(dir, 'bin');
-    mkdirSync(bin);
+    const bin = join(home, 'cmdline-tools', 'latest', 'bin');
+    mkdirSync(bin, { recursive: true });
     writeFileSync(
       join(bin, 'sdkmanager'),
       [
         '#!/usr/bin/env bash',
+        '[ "$1" = --licenses ] && exit 0',
         `n=$(( $(cat "${home}.calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "${home}.calls"`,
         `echo "sdkmanager $*" >> "${home}.log"`,
         `[ "$n" -le ${String(broken)} ] && { echo "Warning: An error occurred while preparing SDK package Android Emulator: Error on ZipFile unknown archive."; exit 0; }`,
@@ -820,7 +824,6 @@ describe.skipIf(!bash)('the Android emulator test', () => {
         ...process.env,
         ANDROID_HOME: home,
         RETRY_DELAY: '0',
-        PATH: `${bin}${delimiter}${process.env['PATH'] ?? ''}`,
       },
     });
     let tries = 0;

@@ -286,9 +286,12 @@ jobs:
         env:
           RETRY_DELAY: '15'
         run: |
+          # where the runner keeps it: it isn't on PATH (the emulator action adds it for its own steps)
+          sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           image='system-images;android-35;google_apis;x86_64'
+          yes | "${sdkmanager}" --licenses > /dev/null || true
           for attempt in 1 2 3; do
-            sdkmanager --install emulator "${image}" --channel=0 > /dev/null || true
+            "${sdkmanager}" --install emulator "${image}" --channel=0 > /dev/null || true
             if [ -f "${ANDROID_HOME}/emulator/emulator" ] && [ -n "$(ls -A "${ANDROID_HOME}/system-images/android-35/google_apis/x86_64" 2>/dev/null)" ]; then
               exit 0
             fi
