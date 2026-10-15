@@ -10,7 +10,7 @@
 # runs trigger no workflow_run.) It merges only the open PR whose branch is the run's, starts with ffmpeg-build/, carries the
 # ffmpeg-build:automerge label, and whose head is still the commit the run tested (a newer push is never merged untested).
 # Any other run (a person's pull request, a push) it leaves alone.
-name: automerge
+name: Automerge
 
 on:
   workflow_call:

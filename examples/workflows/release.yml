@@ -3,7 +3,7 @@
 #
 # Repository setting: none.
 # Permissions: contents: write (below), to create the GitHub releases.
-name: release
+name: Release
 on:
   schedule:
     - cron: '17 7 * * *'

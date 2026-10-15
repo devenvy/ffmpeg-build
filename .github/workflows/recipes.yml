@@ -1,7 +1,7 @@
 # Recipe checks: a change to a recipe builds that library (and what it builds against, not FFmpeg) on every canary
 # target that uses it, at the canary lock's versions. A change to the toolchains (src/build, images, platforms.yml)
 # is toolchains.yml's: it builds the small test targets in full.
-name: recipes
+name: Recipes
 on:
   pull_request:
     paths: ['recipes/**']

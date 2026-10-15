@@ -6,7 +6,7 @@
 #
 # The engine is installed with the same block as every other workflow (tests/workflow-engine.test.ts keeps the copies
 # identical; build.yml's header says why it isn't a script of its own).
-name: check
+name: Check
 
 on:
   workflow_call:

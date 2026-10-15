@@ -8,7 +8,7 @@
 # Repository setting: Settings, Actions, General, "Allow GitHub Actions to create and approve pull requests" (or the
 # FFMPEG_READ_TOKEN secret, with pull-requests write), so the workflow can open the PR.
 # Permissions: actions: write, contents: write and pull-requests: write (below).
-name: update-pin
+name: Update pin
 on:
   schedule:
     - cron: '11 6 * * *'

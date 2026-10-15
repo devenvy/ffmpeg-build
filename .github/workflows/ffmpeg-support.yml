@@ -6,7 +6,7 @@
 #
 # It runs as the devenvy-bot app when the org has it (DEVENVY_BOT_CLIENT_ID): the app's push starts the pull
 # request's CI. Without it, GITHUB_TOKEN pushes (which start no workflows) and then dispatches ci.yml on the branch.
-name: ffmpeg-support
+name: FFmpeg support
 on:
   schedule:
     - cron: '37 3 * * *'
