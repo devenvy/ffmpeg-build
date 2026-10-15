@@ -3,7 +3,7 @@
 # examples/native (the same targets built natively: Linux, and Windows in MSYS2), running the engine from this
 # repository's source. It never publishes. Run it by hand from the Actions tab
 # too.
-name: toolchains
+name: Toolchains
 on:
   pull_request:
     paths: ['platforms/**', 'images/**', 'platforms.yml', 'src/build/**']

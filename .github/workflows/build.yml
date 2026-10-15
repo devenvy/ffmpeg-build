@@ -9,7 +9,7 @@
 # Every job installs the engine with the same block (tests/workflow-engine.test.ts keeps the copies identical). It
 # isn't a script under .github/scripts/: a reusable workflow's checkout is the caller's repository, and the workflow
 # isn't told which ref of its own repository it runs at, so it has no reliable way to fetch a file of its own.
-name: build
+name: Build
 
 on:
   workflow_call:

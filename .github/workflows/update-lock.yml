@@ -4,7 +4,7 @@
 # workflow with `publish: never`) checks the PR: dispatched on its branch when there is no token secret. With
 # `automerge: true` the PR is labelled, and the automerge workflow merges it once that CI passes. It runs the newest
 # engine of the lock's major, which `update` records: the lock's engine moves forward with its other versions.
-name: update-lock
+name: Update lock
 
 on:
   workflow_call:

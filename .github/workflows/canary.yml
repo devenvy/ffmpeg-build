@@ -1,7 +1,7 @@
 # Weekly canary: moves the canary folder's lock to the newest upstream versions (in the run only; nothing is
 # committed) and builds every canary target in full. A failure is the first sign that a new upstream release broke a
 # recipe, before any consumer's update PR meets it. The engine itself ships no versions; this is how it watches them.
-name: canary
+name: Canary
 on:
   schedule:
     - cron: '23 4 * * 1'

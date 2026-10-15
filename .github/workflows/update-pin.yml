@@ -2,7 +2,7 @@
 # (`owner/repo@tag`) to the newest release of the same FFmpeg major that has the product's target, and opens or
 # refreshes one pull request on the `branch` input (default one per pin file, `ffmpeg-build/update-pin/<pin file
 # slug>`); the product's own CI tests it against the new build. Runs for the same branch queue.
-name: update-pin
+name: Update pin
 
 on:
   workflow_call:
