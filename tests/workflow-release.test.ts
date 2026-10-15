@@ -121,10 +121,16 @@ describe('release.yml', () => {
   it('publishes only after CI passed, and cuts the nightly release only then', () => {
     expect(job('ci').uses).toBe('./.github/workflows/ci.yml');
     expect(job('ci').needs).toBe('plan');
-    // CI checks the commit that is published: the tag's, also when it is published again by hand
-    expect((job('ci') as Job & { with?: Record<string, string> }).with).toEqual({
-      ref: `\${{ needs.plan.outputs.ci-ref }}`,
-    });
+    // CI checks the run's own commit, never a ref handed to it (CodeQL: cache poisoning, untrusted checkout): the
+    // published release's tag, or main, which a tag published again by hand must be on
+    expect((job('ci') as Job & { with?: Record<string, string> }).with).toBeUndefined();
+    const ci = parse(
+      readFileSync(join(packageRoot, '.github', 'workflows', 'ci.yml'), 'utf8'),
+    ) as Workflow;
+    expect(ci.on['workflow_call']).toBeNull();
+    expect(readFileSync(join(packageRoot, '.github', 'workflows', 'ci.yml'), 'utf8')).not.toContain(
+      'inputs.ref',
+    );
     expect(job('cut').needs).toEqual(['plan', 'ci']);
     expect(job('cut').if).toBe("needs.plan.outputs.cut == 'true'");
     expect(job('cut').permissions).toEqual({ contents: 'write' });
@@ -161,9 +167,7 @@ describe('release.yml', () => {
     it('takes the published release, or the tag given by hand, when it is on main', () => {
       const r = run(plan(), { RELEASE_TAG: 'v1.2.3' });
       expect(r.status, r.out).toBe(0);
-      expect(r.outputs).toBe(
-        'tag=v1.2.3\nversion=1.2.3\ncut=false\nprerelease=false\nci-ref=v1.2.3\n',
-      );
+      expect(r.outputs).toBe('tag=v1.2.3\nversion=1.2.3\ncut=false\nprerelease=false\n');
       expect(run(plan(), { INPUT_TAG: 'v1.3.0-rc.1' }).outputs).toContain('prerelease=true');
       // marked a prerelease on GitHub, whatever its version says
       expect(run(plan(), { INPUT_TAG: 'v1.3.0' }, { marked: true }).outputs).toContain(
@@ -183,8 +187,7 @@ describe('release.yml', () => {
     it('cuts the nightly release from main when one is due, and nothing when none is', () => {
       const due = run(plan(), { REF: 'refs/heads/main' }, { due: 'v1.0.4' });
       expect(due.status, due.out).toBe(0);
-      // CI checks the run's own commit, which the release then tags
-      expect(due.outputs).toBe('tag=v1.0.4\nversion=1.0.4\ncut=true\nprerelease=false\nci-ref=\n');
+      expect(due.outputs).toBe('tag=v1.0.4\nversion=1.0.4\ncut=true\nprerelease=false\n');
       const none = run(plan(), { REF: 'refs/heads/main' });
       expect(none.status, none.out).toBe(0);
       expect(none.outputs).toBe('');

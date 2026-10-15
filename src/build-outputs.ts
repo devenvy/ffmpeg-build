@@ -19,7 +19,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  readFileSync,
   renameSync,
   rmSync,
 } from 'node:fs';
@@ -27,6 +26,7 @@ import { basename, join } from 'node:path';
 
 import { writeDurably } from './atomic-write.ts';
 import { acquireLock, type HeldLock } from './file-lock.ts';
+import { readPlainFile } from './read-file.ts';
 import { symbolsName } from './targets.ts';
 
 /** The files and folder of an artifact's set, the log included. */
@@ -90,11 +90,11 @@ function readJournal(path: string, items: readonly string[]): Journal | undefine
     list.every((item) => typeof item === 'string' && items.includes(item));
   try {
     // a plain, small file: never followed through a link, or read from a device or FIFO
-    const kind = lstatSync(path);
-    if (!kind.isFile() || kind.size > MAX_JOURNAL_BYTES) {
+    const text = readPlainFile(path, { maxBytes: MAX_JOURNAL_BYTES, noFollow: true });
+    if (text === undefined) {
       return undefined;
     }
-    const j = JSON.parse(readFileSync(path, 'utf8')) as Journal;
+    const j = JSON.parse(text) as Journal;
     if (own(j.old) && own(j.new) && typeof j.committed === 'boolean') {
       return j;
     }

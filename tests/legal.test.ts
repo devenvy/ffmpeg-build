@@ -98,7 +98,7 @@ describe('license-files in recipe.yml', () => {
     for (const bad of ['../COPYING', '/COPYING', 'a/./b', 'a\\b']) {
       expect(
         engineErrors({
-          'recipes/a/recipe.yml': recipe(`license-files: ["${bad.replace('\\', '\\\\')}"]\n`),
+          'recipes/a/recipe.yml': recipe(`license-files: ["${bad.replaceAll('\\', '\\\\')}"]\n`),
         })[0],
       ).toMatch(/license-files\[0\]: expected a path in the source like COPYING/);
     }

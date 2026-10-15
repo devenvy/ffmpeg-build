@@ -55,6 +55,16 @@ describe('workflow permissions', () => {
   }
 });
 
+describe('step outputs', () => {
+  // a value written to $GITHUB_ENV reaches every later step, and one built from an input is what CodeQL's
+  // envvar-injection query flags: a step passes what it works out as a step output, to the steps that need it
+  for (const path of callers) {
+    it(`${relative(packageRoot, path).replaceAll('\\', '/')} writes nothing to GITHUB_ENV`, () => {
+      expect(readFileSync(path, 'utf8')).not.toContain('GITHUB_ENV');
+    });
+  }
+});
+
 describe('reusable workflow callers', () => {
   // each job that calls one of the engine's reusable workflows, with the file it calls
   const calls = callers.flatMap((path) => {
