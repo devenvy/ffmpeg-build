@@ -16,15 +16,17 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# contents: write although nothing is published: GitHub refuses to start a run whose called workflow has a job (here
-# the skipped release job) asking for more than the caller grants. Pull requests from forks get a read-only token anyway.
+# Each job grants what it needs; nothing else writes. Pull requests from forks get a read-only token anyway.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   build:
     uses: devenvy/ffmpeg-build/.github/workflows/build.yml@v0
+    # contents: write although nothing is published: GitHub refuses to start a run whose called workflow has a job
+    # (here the skipped release job) asking for more than the caller grants
+    permissions:
+      contents: write
     with:
       publish: never
       due: true
@@ -44,3 +46,6 @@ jobs:
   merge:
     needs: result
     uses: devenvy/ffmpeg-build/.github/workflows/automerge.yml@v0
+    permissions:
+      contents: write
+      pull-requests: write

@@ -9,9 +9,10 @@
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately, through GitHub's private vulnerability reporting: **Report a vulnerability**
-on the repository's Security tab (Security, Advisories). Please don't open a public issue. You'll get an answer
-within a week, and the fix and advisory are published together.
+Please report vulnerabilities privately, through GitHub's private vulnerability reporting:
+[report a vulnerability](https://github.com/devenvy/ffmpeg-build/security/advisories/new) (Security, Advisories,
+**Report a vulnerability**). Please don't open a public issue. You'll get an answer within a week, and the fix and
+advisory are published together.
 
 In scope: the CLI and its handling of untrusted input (archives `fetch` unpacks, release manifests, upstream version
 listings, `ffmpeg-build.yml`), the build driver and recipes (what they download and how they check it), the toolchain
