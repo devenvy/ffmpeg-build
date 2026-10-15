@@ -1,12 +1,13 @@
 // scripts/release-due.ts: the nightly engine release cuts the next patch only when what the package ships changed.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { nextRelease } from '../scripts/release-due.ts';
+import { nextRelease, REUSABLE_WORKFLOWS } from '../scripts/release-due.ts';
+import { packageRoot } from '../src/paths.ts';
 
 const pkg = (extra: Record<string, unknown> = {}): string =>
   `${JSON.stringify({ name: 'x', version: '1.0.0', files: ['dist', 'recipes', 'docs/guide.md'], dependencies: { yaml: '2.9.1' }, ...extra }, null, 2)}\n`;
@@ -93,6 +94,26 @@ describe('release-due', () => {
       'package.json scripts.prepare',
       'package.json devDependencies.typescript',
     ]);
+  });
+
+  it('counts the reusable workflows consumers call at the major tag, which the release moves', () => {
+    const r = repo();
+    r.tag('v1.0.0');
+    r.commit({ '.github/workflows/update-lock.yml': 'b\n' });
+    expect(nextRelease(r.dir)?.why).toEqual(['.github/workflows/update-lock.yml']);
+  });
+
+  it('knows every workflow the example workflows call', () => {
+    const examples = join(packageRoot, 'examples', 'workflows');
+    const called = readdirSync(examples).flatMap((name) =>
+      [
+        ...readFileSync(join(examples, name), 'utf8').matchAll(
+          /ffmpeg-build\/(\.github\/workflows\/[\w-]+\.yml)@/g,
+        ),
+      ].map((m) => m[1]!),
+    );
+    expect(called.length).toBeGreaterThan(0);
+    expect([...new Set(called)].filter((w) => !REUSABLE_WORKFLOWS.includes(w))).toEqual([]);
   });
 
   it('ignores release tags that are not on HEAD', () => {
