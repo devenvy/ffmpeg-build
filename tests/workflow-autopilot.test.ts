@@ -72,7 +72,7 @@ describe('the example CI', () => {
 
   it('has one check to require, and merges only after it', () => {
     expect(ci.jobs['result']?.if).toBe('always()');
-    expect(ci.jobs['result']?.needs).toBe('build');
+    expect(ci.jobs['result']?.needs).toBe('check');
     expect(ci.jobs['merge']?.needs).toBe('result');
   });
 });

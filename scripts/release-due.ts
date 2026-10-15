@@ -41,6 +41,7 @@ const BUILD_FILES = ['tsconfig.json', 'tsconfig.build.json'];
 /** The reusable workflows consumers call at the major tag (@v1), which a release moves: they ship too. */
 export const REUSABLE_WORKFLOWS = [
   '.github/workflows/build.yml',
+  '.github/workflows/check.yml',
   '.github/workflows/automerge.yml',
   '.github/workflows/update-lock.yml',
   '.github/workflows/update-pin.yml',
