@@ -13,6 +13,7 @@ import {
 import { basename, dirname, join, relative } from 'node:path';
 
 import { retry, run } from './run.ts';
+import { readFileIfPresent } from '../read-file.ts';
 import { listTarGzMembers } from '../untar.ts';
 
 import type { Source } from './plan.ts';
@@ -276,7 +277,7 @@ async function disableArchiveAttributes(repo: string): Promise<void> {
   const attributes = join(gitDir, 'info', 'attributes');
   mkdirSync(dirname(attributes), { recursive: true });
   const line = '* -export-ignore -export-subst';
-  if (!existsSync(attributes) || !readFileSync(attributes, 'utf8').split(/\r?\n/).includes(line)) {
+  if (!(readFileIfPresent(attributes) ?? '').split(/\r?\n/).includes(line)) {
     appendFileSync(attributes, `${line}\n`);
   }
 }

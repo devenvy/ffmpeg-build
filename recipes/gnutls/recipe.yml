@@ -54,6 +54,8 @@ build:
         - ./configure
         - '--prefix={deps}'
         - '--libdir={deps}/lib'
+        # the system priority file (<sysconfdir>/gnutls/config) is compiled in: the system's, never the deps folder
+        - --sysconfdir=/etc
         - --disable-shared
         - --enable-static
         - --with-included-unistring

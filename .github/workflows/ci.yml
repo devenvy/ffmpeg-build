@@ -9,12 +9,9 @@ on:
     types: [opened, synchronize, reopened, edited]
   schedule:
     - cron: '17 6 * * 1'
+  # release.yml, on the commit it publishes: the run's own (never a ref handed in: a checkout of an input is what
+  # CodeQL's cache-poisoning and untrusted-checkout queries flag)
   workflow_call:
-    inputs:
-      ref:
-        description: "The commit to check (release.yml: the tag it publishes); empty for the run's own"
-        type: string
-        default: ''
   workflow_dispatch:
 
 permissions:
@@ -45,7 +42,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -73,7 +69,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -120,7 +115,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -144,7 +138,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -174,7 +167,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref }}
       - name: shellcheck
         run: git ls-files -z '*.sh' | xargs -0 -r docker run --rm -v "${PWD}:/mnt" -w /mnt mirror.gcr.io/koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb -S warning -s bash
 
@@ -186,7 +178,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -231,9 +222,18 @@ jobs:
         run: gh pr merge "$PR_URL" --auto --squash
 
   # Single required status check.
+  # check.yml, the consumers' pull-request check, against the example folder with this commit's engine
+  check:
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+    with:
+      folder: examples/test-builds
+      engine: source
+
   result:
     if: always()
-    needs: [pr-title, lint, test, build, audit, dependency-review, shellcheck, package]
+    needs: [pr-title, lint, test, build, audit, dependency-review, shellcheck, package, check]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -248,10 +248,11 @@ jobs:
           AUDIT: ${{ needs.audit.result }}
           SHELLCHECK: ${{ needs.shellcheck.result }}
           PACKAGE: ${{ needs.package.result }}
+          CHECK: ${{ needs.check.result }}
           IS_PR: ${{ github.event_name == 'pull_request' }}
         # pr-title and dependency-review only run on pull requests; the audit is informational there
         run: |
-          for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE"; do test "$result" = "success"; done
+          for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE" "$CHECK"; do test "$result" = "success"; done
           if [ "$IS_PR" = "true" ]; then
             test "$PR_TITLE" = "success"
             test "$DEPENDENCY_REVIEW" = "success"

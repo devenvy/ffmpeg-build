@@ -15,13 +15,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write # to dispatch the PR's CI
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   bump:
     uses: devenvy/ffmpeg-build/.github/workflows/update-pin.yml@v0
+    permissions:
+      actions: write # to dispatch the PR's CI
+      contents: write
+      pull-requests: write
     with:
       pin-file: ffmpeg.version
       target: linux-x64-lgplv3

@@ -41,15 +41,16 @@ on:
         description: the GitHub App's private key, with the app-client-id input
         required: false
 
-# actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
-permissions:
-  actions: write
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   update:
     runs-on: ubuntu-24.04
+    # actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
     timeout-minutes: 30
     # one run per repository and branch at a time; one under way is never cancelled (it may be pushing)
     concurrency:
@@ -60,6 +61,7 @@ jobs:
     steps:
       # the branch input, else one per folder: two folders' updates in one repository never share (or overwrite) a PR
       - name: branch
+        id: branch
         env:
           WANTED: ${{ inputs.branch }}
           SOURCE: ${{ inputs.folder }}
@@ -83,7 +85,7 @@ jobs:
             *) echo "::error::branch \"${branch}\" must start with ffmpeg-build/ (automerge.yml merges only those)"; exit 1 ;;
           esac
           git check-ref-format --branch "${branch}" > /dev/null || { echo "::error::\"${branch}\" isn't a valid branch name"; exit 1; }
-          echo "BRANCH=${branch}" >> "$GITHUB_ENV"
+          echo "name=${branch}" >> "$GITHUB_OUTPUT"
       # a GitHub App's token, when one is given: its pushes and PRs start workflows (GITHUB_TOKEN's start none)
       - id: app
         if: inputs.app-client-id != ''
@@ -99,7 +101,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - name: engine
@@ -154,6 +156,7 @@ jobs:
           fi
       - name: open or refresh the pull request
         env:
+          BRANCH: ${{ steps.branch.outputs.name }}
           AUTOMERGE: ${{ inputs.automerge }}
           CI_WORKFLOW: ${{ inputs.ci-workflow }}
           GH_TOKEN: ${{ steps.app.outputs.token || secrets.token || github.token }}

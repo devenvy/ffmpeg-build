@@ -34,6 +34,7 @@ import {
 } from './recipe-ops.ts';
 import { run, step } from './run.ts';
 import { platformMatches } from '../platforms.ts';
+import { readFileIfPresent } from '../read-file.ts';
 import { cxxRuntime, type Toolchain } from './toolchain.ts';
 import { PC_FIELDS, type Recipe } from '../schema/engine.ts';
 
@@ -445,13 +446,14 @@ async function runStep(item: BuildStep, scope: RecipeScope, env: NodeJS.ProcessE
   } else if ('edit-pkg-config' in item) {
     const operation = item['edit-pkg-config'];
     const path = scope.path(operation.path);
-    if (!existsSync(path)) {
+    const found = readFileIfPresent(path);
+    if (found === undefined) {
       if (operation.optional) {
         return;
       }
       throw new Error(`edit-pkg-config: there is no ${operation.path}`);
     }
-    let text = readFileSync(path, 'utf8');
+    let text = found;
     const value = (v: string | undefined): string | undefined =>
       v === undefined ? undefined : scope.text(v);
     for (const field of Object.keys(PC_FIELDS) as (keyof typeof PC_FIELDS)[]) {

@@ -52,7 +52,7 @@ builds FFmpeg again, and CI keeps the cache between runs.
    approve pull requests", so the lock updates can open their pull requests. Nothing else is needed: no tokens,
    branch protection or auto-merge.
 3. **Copy the example workflows** from [`examples/workflows/`](../examples/workflows) into `.github/workflows/`:
-   - `ci.yml`: the pull-request check. It builds and tests what changed (publishing nothing) and merges ffmpeg-build's
+   - `ci.yml`: the pull-request check. It checks `ffmpeg-build.yml` and `ffmpeg.lock` in a minute (building nothing) and merges ffmpeg-build's
      own update pull requests once they pass.
    - `release.yml`: the daily release train. It publishes every release whose builds changed since it was last
      published.

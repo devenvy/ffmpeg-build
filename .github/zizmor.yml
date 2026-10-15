@@ -7,6 +7,7 @@ rules:
   adhoc-packages:
     ignore:
       - build.yml
+      - check.yml
       - update-lock.yml
       - update-pin.yml
       - ci.yml

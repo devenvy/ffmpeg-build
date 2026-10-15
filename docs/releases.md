@@ -60,8 +60,8 @@ names their concurrency groups and `update-lock.yml`'s branch, so it has one spe
   the builds that runner can't run tested on one that can (`test-runner:`: Windows); the iOS bundle on macOS, and the
   release (`bundle`, then a GitHub release with every asset), which needs every test to pass.
   `publish: changed-only | always | never`; `never` is a pull-request check, and builds every release unless
-  `due: true` narrows it to the releases that changed since they were last published (the example `ci.yml` does;
-  `due` with any other `publish` stops the run). `tests: all | build-runner | none`
+  `due: true` narrows it to the releases that changed since they were last published (`due` with any other
+  `publish` stops the run). `tests: all | build-runner | none`
   (default `all`): `build-runner` skips the Windows test runners, `none` every test (in a private repository Windows
   minutes cost twice and macOS ten times Linux's; [what CI tests](building.md#what-ci-tests)). Any other value of
   either stops the run before anything builds. `platforms: 'linux-*,win-*'` builds only those targets (default every
@@ -71,6 +71,10 @@ names their concurrency groups and `update-lock.yml`'s branch, so it has one spe
   One `all-builds` job to require. Its caller grants `contents: write` even with
   `never`: GitHub won't start a run whose called workflow has a job (the skipped release job) asking for more than
   the caller grants.
+- **`check.yml`**: the pull-request check the example `ci.yml` calls. It builds nothing: `check`, then
+  `releases --json --due` (is `ffmpeg-build.yml` valid, does `ffmpeg.lock` cover it, can every target be planned),
+  and the run's summary says which releases the next release would publish. Whether a target builds is the engine's
+  to test; the release builds every target before it publishes. It reads only (`contents: read`).
 - **`update-lock.yml`**: `ffmpeg-build update` in `folder`, then one pull request with the update summary, on the
   `branch` input: by default one per folder, `ffmpeg-build/update-lock/<folder slug>` (`root` for `.`, `builds-linux`
   for `builds/linux`), so two folders in one repository get two pull requests. Opening the pull request needs the

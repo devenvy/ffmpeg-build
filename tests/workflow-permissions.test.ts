@@ -45,6 +45,26 @@ const callers = [
     .map((f) => join(packageRoot, '.github', 'workflows', f)),
 ];
 
+describe('workflow permissions', () => {
+  // the top level only reads; each write is the job's that needs it (OpenSSF Scorecard's Token-Permissions)
+  for (const path of callers) {
+    it(`${relative(packageRoot, path).replaceAll('\\', '/')} writes nothing at its top level`, () => {
+      const top = read(path).permissions;
+      expect(top === 'write-all' || Object.values(asMap(top)).includes('write')).toBe(false);
+    });
+  }
+});
+
+describe('step outputs', () => {
+  // a value written to $GITHUB_ENV reaches every later step, and one built from an input is what CodeQL's
+  // envvar-injection query flags: a step passes what it works out as a step output, to the steps that need it
+  for (const path of callers) {
+    it(`${relative(packageRoot, path).replaceAll('\\', '/')} writes nothing to GITHUB_ENV`, () => {
+      expect(readFileSync(path, 'utf8')).not.toContain('GITHUB_ENV');
+    });
+  }
+});
+
 describe('reusable workflow callers', () => {
   // each job that calls one of the engine's reusable workflows, with the file it calls
   const calls = callers.flatMap((path) => {

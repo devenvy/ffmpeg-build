@@ -1,0 +1,92 @@
+# REUSABLE. A folder of targets calls it as its pull-request check: is ffmpeg-build.yml valid, does ffmpeg.lock cover
+# it, and can every target be planned (check, then releases --json --due)? It builds nothing, so it takes a minute:
+# whether a target builds is ffmpeg-build's to test, and the release (build.yml) builds every target before it
+# publishes, keeping a release that fails a draft. The run's summary says which releases the next release would
+# publish.
+#
+# The engine is installed with the same block as every other workflow (tests/workflow-engine.test.ts keeps the copies
+# identical; build.yml's header says why it isn't a script of its own).
+name: check
+
+on:
+  workflow_call:
+    inputs:
+      folder:
+        description: folder holding ffmpeg-build.yml and ffmpeg.lock, relative to the repository root and written one way, . or e.g. builds/linux (no leading ./, no trailing /, no .., no backslashes)
+        type: string
+        default: .
+      engine:
+        description: ffmpeg-build to run, a version or a git/npm spec like github:owner/repo#ref (default the version ffmpeg.lock records; "source" builds this repository)
+        type: string
+        default: ''
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: inputs
+        env:
+          FOLDER: ${{ inputs.folder }}
+        run: |
+          case "${FOLDER}" in
+            .) ;;
+            ''|/*|./*|*/|..|../*|*/..|*/../*|*/.|*/./*|*//*|*"\\"*)
+              echo "::error::check.yml input folder is \"${FOLDER}\"; write it as . (the repository root) or a relative path like builds/linux: no leading ./ or /, no trailing /, no . or .. parts, no backslashes"
+              exit 1 ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - id: engine
+        name: engine version
+        working-directory: ${{ inputs.folder }}
+        env:
+          WANTED: ${{ inputs.engine }}
+        run: |
+          version="${WANTED:-$(sed -n 's/^engine: *//p' ffmpeg.lock | head -1)}"
+          [ -n "${version}" ] || { echo "::error::no engine version: ffmpeg.lock has none and the engine input is empty"; exit 1; }
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: install the engine
+        env:
+          ENGINE: ${{ steps.engine.outputs.version }}
+        run: |
+          # "source": this repository is the engine. A git or npm spec (with : or /, e.g. github:owner/repo#ref) is packed
+          # first: npm install --global <git spec> skips the devDependencies its prepare build needs. Else an npm version.
+          case "${ENGINE}" in
+            source) (cd "${GITHUB_WORKSPACE}" && corepack pnpm install --frozen-lockfile && npm link) ;;
+            *[:/]*)
+              tgz="$(npm pack --silent --pack-destination "${RUNNER_TEMP}" "${ENGINE}" | tail -1)"
+              [ -n "${tgz}" ] || { echo "::error::npm pack ${ENGINE} made no package"; exit 1; }
+              npm install --global "${RUNNER_TEMP}/${tgz}" ;;
+            *) npm install --global "@devenvy/ffmpeg-build@${ENGINE}" ;;
+          esac
+      # the compatibility contract: the @v0 workflows run any 0.x engine, and no other
+      - name: the engine suits these workflows
+        env:
+          WORKFLOWS_MAJOR: '0'
+        run: |
+          have="$(ffmpeg-build --version)"
+          if [ "${have%%.*}" != "${WORKFLOWS_MAJOR}" ]; then
+            echo "::error::ffmpeg-build ${have} is a ${have%%.*}.x engine, but these workflows (@v${WORKFLOWS_MAJOR}) run ${WORKFLOWS_MAJOR}.x engines only: call the workflows @v${have%%.*}, or set the engine input (or ffmpeg.lock's engine:) to a ${WORKFLOWS_MAJOR}.x release"
+            exit 1
+          fi
+      - name: every target can be planned
+        working-directory: ${{ inputs.folder }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ffmpeg-build check
+          if ! ffmpeg-build releases --json --due > "${RUNNER_TEMP}/releases.json"; then
+            # a failure is {"error", "problems"}: each problem is an annotation of its own (or the error, when there are none)
+            jq -r 'if ((.problems? // []) | length) > 0 then .problems[] else (.error? // empty) end' "${RUNNER_TEMP}/releases.json" 2>/dev/null | sed 's/^/::error::/'
+            exit 1
+          fi
+          jq -r '.[] | "\(.tag): \(if .due then "due" else "unchanged" end) — \(.reasons | join("; "))"' "${RUNNER_TEMP}/releases.json" >> "$GITHUB_STEP_SUMMARY"

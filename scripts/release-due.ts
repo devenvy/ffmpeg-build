@@ -1,9 +1,9 @@
 // The nightly engine release: node scripts/release-due.ts
 // Prints the next patch tag (v1.2.4 after v1.2.3) when anything the npm package ships changed since the newest vX.Y.Z
 // tag on HEAD's history, and nothing otherwise. What ships is package.json's `files` (dist/ stands for src/, which it
-// is compiled from, and the tsconfig that compiles it), the package.json fields an install reads, and the build's
-// scripts and compiler; docs (*.md) and everything outside the package (tests, CI, scripts) don't count, so they never
-// make every consumer's builds due. Minor and major releases are cut by hand.
+// is compiled from, and the tsconfig that compiles it), the package.json fields an install reads, the build's scripts
+// and compiler, and the reusable workflows consumers call at the major tag; docs (*.md) and everything else outside the
+// package (tests, CI, scripts) don't count, so they never make every consumer's builds due. Minor and major releases are cut by hand.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -38,6 +38,14 @@ const PACKAGE_FIELDS = [
 ];
 /** Files that build dist/ from src/. */
 const BUILD_FILES = ['tsconfig.json', 'tsconfig.build.json'];
+/** The reusable workflows consumers call at the major tag (@v1), which a release moves: they ship too. */
+export const REUSABLE_WORKFLOWS = [
+  '.github/workflows/build.yml',
+  '.github/workflows/check.yml',
+  '.github/workflows/automerge.yml',
+  '.github/workflows/update-lock.yml',
+  '.github/workflows/update-pin.yml',
+];
 const RELEASE_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
 
 const git = (dir: string, args: string[]): string =>
@@ -63,7 +71,16 @@ export function shippedChanges(dir: string, tag: string): string[] {
     .map((f) => (f === 'dist' ? 'src' : f))
     .filter((f) => !f.endsWith('.md'));
   const files = paths.length
-    ? git(dir, ['diff', '--name-only', tag, 'HEAD', '--', ...paths, ...BUILD_FILES])
+    ? git(dir, [
+        'diff',
+        '--name-only',
+        tag,
+        'HEAD',
+        '--',
+        ...paths,
+        ...BUILD_FILES,
+        ...REUSABLE_WORKFLOWS,
+      ])
         .split('\n')
         .filter((f) => f && !f.endsWith('.md'))
     : [];
