@@ -9,7 +9,8 @@ versions:
     listing: 'https://ftp.gnu.org/gnu/libtasn1/',
     files: '^libtasn1-(\d+\.\d+(?:\.\d+)?)\.tar\.gz$',
   }
-platforms: all
+# only gnutls builds against it, and only where gnutls builds
+platforms: [linux-*, android-*, maccatalyst-*]
 build:
   system: autotools
   args: ['--libdir={deps}/lib', --disable-shared, --enable-static, --with-pic, --disable-doc]

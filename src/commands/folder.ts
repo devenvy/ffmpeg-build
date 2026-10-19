@@ -186,7 +186,7 @@ function folderProblems(
     const key = `${t.releaseGroup ? `${t.releaseGroup}-` : ''}${ffmpeg ? releaseVersion(ffmpeg) : t.ffmpeg}`;
     releases.set(key, [...(releases.get(key) ?? []), t]);
   }
-  for (const [key, targets] of releases) {
+  for (const [key, targets] of folder.libraryOnly ? [] : releases) {
     for (const p of frameworkSliceProblems(targets)) {
       errors.push(releases.size > 1 ? `${key}: ${p}` : p);
     }

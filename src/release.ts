@@ -289,7 +289,7 @@ export function planReleases(
       by.set(base, rel);
     }
   }
-  for (const rel of by.values()) {
+  for (const rel of folder.libraryOnly ? [] : by.values()) {
     for (const p of frameworkSliceProblems(rel.targets.map((x) => x.target))) {
       errors.push(`${rel.base}: ${p}`);
     }

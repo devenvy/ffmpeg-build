@@ -7,7 +7,8 @@ source:
   mirrors: ['https://ftp.gnu.org/gnu/nettle/nettle-{version}.tar.gz']
 versions:
   { listing: 'https://ftp.gnu.org/gnu/nettle/', files: '^nettle-(\d+\.\d+(?:\.\d+)?)\.tar\.gz$' }
-platforms: all
+# only gnutls builds against it, and only where gnutls builds
+platforms: [linux-*, android-*, maccatalyst-*]
 build:
   system: autotools
   args: ['--libdir={deps}/lib', --disable-shared, --enable-static, --disable-documentation]

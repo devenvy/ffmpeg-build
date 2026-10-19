@@ -34,6 +34,7 @@ import {
 } from './commands/folder.ts';
 import { runMigrate } from './commands/migrate.ts';
 import { runOptions } from './commands/options.ts';
+import { runRecipeCheck } from './commands/recipe-check.ts';
 import { runReleases } from './commands/releases.ts';
 import { runTest } from './commands/test.ts';
 import { UpstreamFailure, WriteError } from './commands/versions.ts';
@@ -496,6 +497,55 @@ program
         }),
       );
     }),
+  );
+
+program
+  .command('recipe-check')
+  .description(
+    "build recipes (and what builds against them) on every platform they claim, without FFmpeg, at the canary lock's versions: what CI does for a recipe change",
+  )
+  .argument('<recipes...>', 'the recipes, e.g. zlib libpng')
+  .option('--platform <patterns>', "only these platforms, e.g. 'linux-*,win-x64'")
+  .option('--plan', 'write the folder and say what would build where, without building')
+  .option('--json', 'machine-readable output (with --plan: the CI matrix)')
+  .option('--lock <file>', "the lock whose versions to build (default: the engine's canary lock)")
+  .option(
+    '--dir <dir>',
+    'the folder to write the check targets to (default: a temporary one); one written for the same recipes is reused',
+  )
+  .option('--out <dir>', 'where the build logs go (default: <dir>/dist)')
+  .option('--in <where>', 'docker or here, as build takes it')
+  .option('--dry-run', 'say what would be built, without building')
+  .action(
+    async (
+      names: string[],
+      opts: {
+        platform?: string;
+        plan?: boolean;
+        json?: boolean;
+        lock?: string;
+        dir?: string;
+        out?: string;
+        in?: string;
+        dryRun?: boolean;
+      },
+    ) =>
+      run(async () => {
+        if (opts.in !== undefined && opts.in !== 'docker' && opts.in !== 'here') {
+          throw new UsageError(`--in takes docker or here, not ${opts.in}`);
+        }
+        const where = opts.in;
+        return runRecipeCheck(data(), names, {
+          ...(opts.platform !== undefined ? { platform: opts.platform } : {}),
+          ...(opts.lock !== undefined ? { lock: opts.lock } : {}),
+          ...(opts.dir !== undefined ? { dir: opts.dir } : {}),
+          ...(opts.out !== undefined ? { out: opts.out } : {}),
+          ...(where ? { in: where } : {}),
+          plan: opts.plan === true,
+          json: opts.json === true,
+          dryRun: opts.dryRun === true,
+        });
+      }),
   );
 
 program
