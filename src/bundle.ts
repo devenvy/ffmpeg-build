@@ -486,7 +486,9 @@ export async function bundle(
   let previousSlices = o.previousSlices;
   if (!previous && repo) {
     try {
-      const last = (await previousReleases(repo, rel.group, rel.ffmpeg)).lastInMajor;
+      // the first release on a new major: the group's last one before it
+      const found = await previousReleases(repo, rel.group, rel.ffmpeg);
+      const last = found.lastInMajor ?? found.lastBefore;
       previous = last?.manifest;
       previousSlices = last?.slices;
     } catch (e) {

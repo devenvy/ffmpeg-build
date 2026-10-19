@@ -25,7 +25,9 @@ Start with bare targets and a couple of libraries: the first build then takes mi
 
 `init` writes `ffmpeg-build.yml` with one target, `linux-x64-lgplv3`; `profile add` gives it the dav1d (AV1) decoder
 and the Opus codec; `check` says the target is possible; `lock` looks up the newest FFmpeg 9 release and library
-versions and writes them to `ffmpeg.lock`. `ffmpeg-build options` lists every name a target can take, with the
+versions and writes them to `ffmpeg.lock`. The target says `ffmpeg: 9`; write `ffmpeg: latest` instead to follow
+each new FFmpeg major as the engine supports it: the daily lock update (below) then moves it, in a pull request your
+CI checks ([targets](targets.md#always-the-newest-ffmpeg-ffmpeg-latest)). `ffmpeg-build options` lists every name a target can take, with the
 licenses and platforms each allows.
 
     ffmpeg-build build --target linux-x64-lgplv3

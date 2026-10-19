@@ -38,6 +38,8 @@ export interface ReleaseRow {
   group: string;
   ffmpeg: string;
   previous?: string;
+  /** the group's last release of a lower major, when it has none in this one: what removals are judged against */
+  lastBefore?: string;
   due: boolean;
   reasons: string[];
   removals: string[];
@@ -98,14 +100,17 @@ export async function releaseRows(
       follows && !follows.manifest
         ? [`${follows.tag} has no manifest.yml (made before ffmpeg-build)`]
         : changesSince(rel, follows?.manifest);
+    // the first release on a new major is judged for removals against the group's last one before it
+    const judged = follows ?? found.lastBefore;
     rows.push({
       tag: `${rel.base}.${prev ? prev.build + 1 : 0}`,
       group: rel.group,
       ffmpeg: rel.ffmpeg,
       ...(follows ? { previous: follows.tag } : {}),
+      ...(found.lastBefore ? { lastBefore: found.lastBefore.tag } : {}),
       due: reasons.length > 0,
       reasons,
-      removals: removals(rel, follows?.manifest, folder, follows?.slices),
+      removals: removals(rel, judged?.manifest, folder, judged?.slices),
       targets: rel.targets.map((t) => ({
         name: t.target.name,
         platform: t.target.platform,

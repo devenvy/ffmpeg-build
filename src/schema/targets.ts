@@ -28,12 +28,19 @@ const components = z
 
 const SOURCE_OFFER = 'expected who to ask for the source, like an email address';
 
-const base = z.strictObject({ with: names, without: names, pin: pins, components });
+// ffmpeg: on a base is the series its targets build unless they say their own (one base for `ffmpeg: latest`)
+const base = z.strictObject({
+  ffmpeg: text.optional(),
+  with: names,
+  without: names,
+  pin: pins,
+  components,
+});
 
 const target = z.strictObject({
   platform: text,
   license: z.enum(LICENSES, { error: `expected one of ${LICENSES.join(', ')}` }),
-  ffmpeg: text,
+  ffmpeg: text.optional(), // else its last base's that has one
   base: names,
   with: names,
   without: names,

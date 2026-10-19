@@ -22,6 +22,7 @@ export interface Target {
   platform: string;
   license: License;
   ffmpeg: string; // one series: 9, 9.0 or latest
+  ffmpegFrom?: string; // the base it took ffmpeg: from, when the target doesn't say its own
   base: string[];
   with: string[]; // what the build gets, after its bases and its own lists
   without: string[]; // what it turns down (declined): never suggested, never built
@@ -40,6 +41,7 @@ export interface Folder {
   bases: Record<
     string,
     {
+      ffmpeg?: string;
       with: string[];
       without: string[];
       pin: Record<string, string>;
@@ -57,7 +59,8 @@ export interface Folder {
 export type FolderResult =
   { ok: true; folder: Folder } | { ok: false; file: string; errors: string[] };
 
-const BUILD_KEYS = ['platform', 'license', 'ffmpeg'];
+const BUILD_KEYS = ['platform', 'license'];
+const SERIES_FIX = 'write 9, 9.0 or latest';
 
 export function loadFolder(dir: string): FolderResult {
   let text: string;
@@ -96,7 +99,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       for (const k of BUILD_KEYS) {
         if (v && typeof v === 'object' && k in v) {
           errors.push(
-            `bases.${b}: ${k} belongs on a target, not a base (a base only holds with, without, pin and components)`,
+            `bases.${b}: ${k} belongs on a target, not a base (a base only holds ffmpeg, with, without, pin and components)`,
           );
         }
       }
@@ -120,6 +123,9 @@ export function parseFolderText(text: string, dir: string): FolderResult {
   };
   for (const [b, layer] of Object.entries(data.bases)) {
     both(`bases.${b}`, layer);
+    if (layer.ffmpeg !== undefined && !isFfmpegSeries(layer.ffmpeg)) {
+      errors.push(`bases.${b}: ffmpeg: ${layer.ffmpeg} is not an FFmpeg series (${SERIES_FIX})`);
+    }
   }
   for (const pattern of Object.keys(data.build)) {
     if (!expandPlatformPattern(pattern).length) {
@@ -127,7 +133,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
     }
   }
   /** A target with its bases applied, once all of them are defined. */
-  const layered = (t: string, d: (typeof data.targets)[string]): Target => {
+  const layered = (t: string, d: (typeof data.targets)[string], ffmpeg: string): Target => {
     // a later layer overwrites an earlier one, name by name: included, or declined
     const state = new Map<string, boolean>();
     const origin = new Map<string, string>();
@@ -159,7 +165,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       name: t,
       platform: d.platform,
       license: d.license,
-      ffmpeg: d.ffmpeg,
+      ffmpeg,
       base: d.base,
       with: [...state].filter(([, inc]) => inc).map(([n]) => n),
       without: [...state].filter(([, inc]) => !inc).map(([n]) => n),
@@ -178,16 +184,27 @@ export function parseFolderText(text: string, dir: string): FolderResult {
     if (!PLATFORMS.includes(d.platform)) {
       errors.push(`${label}: platform ${d.platform} is not a platform ffmpeg-build knows`);
     }
-    if (!isFfmpegSeries(d.ffmpeg)) {
-      errors.push(`${label}: ffmpeg: ${d.ffmpeg} is not an FFmpeg series (write 9, 9.0 or latest)`);
+    if (d.ffmpeg !== undefined && !isFfmpegSeries(d.ffmpeg)) {
+      errors.push(`${label}: ffmpeg: ${d.ffmpeg} is not an FFmpeg series (${SERIES_FIX})`);
     }
     const unknown = d.base.filter((b) => !(b in data.bases));
     for (const b of unknown) {
       errors.push(`${label}: base ${b} is not defined under bases:`);
     }
     both(label, d);
-    if (!unknown.length) {
-      targets.push(layered(t, d));
+    // its own ffmpeg:, else the last of its bases that has one
+    const ffmpegFrom =
+      d.ffmpeg === undefined
+        ? d.base.findLast((b) => data.bases[b]?.ffmpeg !== undefined)
+        : undefined;
+    const series = d.ffmpeg ?? (ffmpegFrom ? data.bases[ffmpegFrom]!.ffmpeg : undefined);
+    if (series === undefined && !unknown.length) {
+      errors.push(
+        `${label}: no ffmpeg: (write ffmpeg: 9, 9.0 or latest on the target, or on one of its bases)`,
+      );
+    }
+    if (!unknown.length && series !== undefined) {
+      targets.push({ ...layered(t, d, series), ...(ffmpegFrom ? { ffmpegFrom } : {}) });
     }
   }
   if (!Object.keys(data.targets).length) {

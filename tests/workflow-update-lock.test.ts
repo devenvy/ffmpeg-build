@@ -73,6 +73,32 @@ describe.skipIf(!bash)('update-lock.yml and a new FFmpeg major', () => {
     expect(r.added).toBe(`${note}\n`);
   });
 
+  it('raises ffmpeg: latest staying on its major too: that may change no lock either', () => {
+    const latest = (held?: { version: string; errors: string[] }) => ({
+      ...nothing,
+      rows: [
+        {
+          what: 'FFmpeg latest',
+          from: '9.0.2',
+          to: held ? '9.0.2' : '10.0.1',
+          newMajor: { from: '9', to: '10', targets: ['a'], ...(held ? { held } : {}) },
+        },
+      ],
+    });
+    const why =
+      'FFmpeg latest stays on 9: on FFmpeg 10.0.1, pin x: no target builds x; remove the pin';
+    const held = raise(
+      formatFolderSummary(
+        parsed.folder,
+        latest({ version: '10.0.1', errors: ['pin x: no target builds x; remove the pin'] }),
+      ),
+    );
+    expect(held.stdout).toBe(`::warning title=FFmpeg latest held back::${why}\n`);
+    expect(held.added).toBe(`${why}\n`);
+    // a move is the PR itself: nothing to raise
+    expect(raise(formatFolderSummary(parsed.folder, latest())).stdout).toBe('');
+  });
+
   it('says nothing without one', () => {
     const r = raise(formatFolderSummary(parsed.folder, nothing));
     expect(r).toEqual({ code: 0, stdout: '', added: '' });

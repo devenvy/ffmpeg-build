@@ -172,7 +172,10 @@ variables, and the platform's environment (`{CC}`, `{CROSS_PREFIX}`, `{TOOLCHAIN
   consumer's update PR meets it.
 - **Every night** (`ffmpeg-support.yml`): `scripts/ffmpeg-support.ts` keeps `ffmpeg/<major>.yml`'s releases equal to
   FFmpeg's tags and reports what a new release's configure adds, drops or reclassifies. When `ffmpeg/` changed it
-  opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. It runs as the devenvy-bot app when the
+  opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. A new major is only reported: adding its
+  `ffmpeg/<major>.yml` (and `ffmpeg/components/<major>.yml`, which `scripts/ffmpeg-support.ts --write` writes once the
+  major's file exists) is a person's review, and the engine release that ships it moves every consumer's
+  `ffmpeg: latest` targets to that major in their next lock update. It runs as the devenvy-bot app when the
   organization has it, and the app's push starts the pull request's CI; without it, `GITHUB_TOKEN` pushes and then
   dispatches `ci.yml` on the branch.
 - **Every night** (`release.yml`, below): the next patch release, when anything the package ships changed.

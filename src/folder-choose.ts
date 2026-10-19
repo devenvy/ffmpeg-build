@@ -12,7 +12,7 @@ import {
   resolveName,
 } from './engine-data.ts';
 import { isCommit, satisfies } from './ranges.ts';
-import { availability, type Cell, type CellPlan, planProfile } from './resolve.ts';
+import { type CellPlan, planProfile } from './resolve.ts';
 import { type Folder, type Target, targetProfile } from './targets.ts';
 import { andList } from './text.ts';
 import { compareVersions, inSeries, isVersion } from './versions.ts';
@@ -28,6 +28,16 @@ export interface FolderRow extends Row {
     adds: string[];
     missing: string[];
     missingIn: Record<string, string[]>;
+  };
+  /**
+   * `ffmpeg: latest` reaching a newer major: from and to (majors), the targets that move, and (`held`) when it stays
+   * on `from` because no lock fits the folder on the new major, that release and why.
+   */
+  newMajor?: {
+    from: string;
+    to: string;
+    targets: string[];
+    held?: { version: string; errors: string[] };
   };
 }
 export interface FolderChoice {
@@ -54,6 +64,10 @@ const MINOR_PARTS = 2;
 const minorOf = (v: string) => v.split('.').slice(0, MINOR_PARTS).join('.');
 const newest = (versions: readonly string[]) => [...versions].sort(compareVersions).at(-1);
 
+/**
+ * The folder's versions. `ffmpeg: latest` moves to a new major whatever the targets' checks will say there (the update
+ * PR's CI judges that); only when no lock fits the folder on the new major at all does it stay where it was, saying why.
+ */
 export function chooseFolder(
   folder: Folder,
   data: EngineData,
@@ -61,11 +75,44 @@ export function chooseFolder(
   upstreams: Upstreams,
   mode: Mode,
 ): FolderChoice {
+  const moved = chooseFolderAt(folder, data, old, upstreams, mode, false);
+  const row = moved.rows.find((r) => r.newMajor);
+  if (!moved.errors.length || !row) {
+    return moved;
+  }
+  const held = chooseFolderAt(folder, data, old, upstreams, mode, true);
+  if (held.errors.length) {
+    return moved; // wrong on the old major too: nothing to do with the move
+  }
+  const heldRow = held.rows.find((r) => r.what === row.what);
+  if (heldRow) {
+    heldRow.newMajor = { ...row.newMajor!, held: { version: row.to, errors: moved.errors } };
+  }
+  return held;
+}
+
+function chooseFolderAt(
+  folder: Folder,
+  data: EngineData,
+  old: FolderLock | undefined,
+  upstreams: Upstreams,
+  mode: Mode,
+  holdMajor: boolean,
+): FolderChoice {
   const rows: FolderRow[] = [];
   const missing = new Set<string>();
   const errors: string[] = [];
 
-  const ffmpeg = chooseFfmpegSeries(folder, data, old, upstreams, mode, rows, missing, errors);
+  const ffmpeg = chooseFfmpegSeries(
+    folder,
+    data,
+    old,
+    upstreams,
+    { mode, holdMajor },
+    rows,
+    missing,
+    errors,
+  );
   if (missing.size || errors.length) {
     return { lock: { ffmpeg, libraries: {} }, rows, missing: [...missing], errors };
   }
@@ -210,15 +257,16 @@ function alignGroup(
 }
 
 /**
- * Each series the targets build, chosen once. `latest` targets share one major; it moves to a newer major only if no
- * `latest` target would lose something it lists there.
+ * Each series the targets build, chosen once. `latest` targets share one major: the newest the engine has data for
+ * (ffmpeg/<major>.yml, added once a person has reviewed that major) with a release upstream. `holdMajor` keeps it on
+ * its locked major.
  */
 function chooseFfmpegSeries(
   folder: Folder,
   data: EngineData,
   old: FolderLock | undefined,
   upstreams: Upstreams,
-  mode: Mode,
+  { mode, holdMajor }: { mode: Mode; holdMajor: boolean },
   rows: FolderRow[],
   missing: Set<string>,
   errors: string[],
@@ -242,6 +290,7 @@ function chooseFfmpegSeries(
     const newestIn = (s: string) => newest(all.filter((v) => inSeries(v, s)));
     let version: string | undefined;
     let skipped: Skipped | undefined;
+    let newMajor: FolderRow['newMajor'];
     if (series !== 'latest') {
       version = newestIn(series);
       if (!version) {
@@ -261,19 +310,18 @@ function chooseFfmpegSeries(
       }
       const was = before ? majorOf(before) : undefined;
       if (was && Number(major) > Number(was) && data.ffmpeg.has(was) && newestIn(was)) {
-        const lost = folder.targets
-          .filter((t) => t.ffmpeg === 'latest')
-          .flatMap((t) => lostOn(data, t, newestIn(was)!, newestIn(major!)!));
-        if (lost.length) {
-          skipped = {
-            version: newestIn(major)!,
-            reason: `${andList([...new Set(lost)])} wouldn't be available on FFmpeg ${major}`,
-          };
+        if (holdMajor) {
           major = was;
+        } else {
+          newMajor = {
+            from: was,
+            to: major,
+            targets: folder.targets.filter((t) => t.ffmpeg === 'latest').map((t) => t.name),
+          };
         }
       }
       version = newestIn(major)!;
-      if (!skipped && top && compareVersions(top, version) > 0) {
+      if (!holdMajor && top && compareVersions(top, version) > 0) {
         skipped = {
           version: top,
           reason: `ffmpeg-build has no data for FFmpeg ${majorOf(top)} yet`,
@@ -287,6 +335,9 @@ function chooseFfmpegSeries(
     }
     if (skipped) {
       row.skipped = skipped;
+    }
+    if (newMajor) {
+      row.newMajor = newMajor;
     }
     if (
       before &&
@@ -340,23 +391,6 @@ function newMinorFindings(
     missing: Object.keys(missingIn),
     missingIn,
   };
-}
-
-/** Options target `t` lists that build on release `from` but nowhere on release `to`. */
-function lostOn(data: EngineData, t: Target, from: string, to: string): string[] {
-  const at = (version: string): Cell => ({
-    series: 'latest',
-    major: majorOf(version),
-    version,
-    license: t.license,
-    platform: t.platform,
-  });
-  return t.with.flatMap((n) => {
-    const option = resolveName(data, n);
-    return option && !availability(data, at(from), option) && availability(data, at(to), option)
-      ? [option]
-      : [];
-  });
 }
 
 /** For each library some build needs: every pin that applies to it, the highest option minimum, and its targets. */

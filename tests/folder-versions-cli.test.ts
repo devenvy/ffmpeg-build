@@ -207,7 +207,7 @@ describe('update: moving forward, and writing nothing when something fails', () 
 });
 
 describe('update with ffmpeg: latest', () => {
-  it('stays on the locked major when the next one would lose something a target asks for', async () => {
+  it('moves to the new major, and the PR says what check finds there and how to stay', async () => {
     const ffmpeg = makeGitRepo(['n8.1.0', 'n9.0.0']);
     const ra = makeGitRepo(['v1.0']);
     const recipe = (n: string, url: string) =>
@@ -221,6 +221,7 @@ describe('update with ffmpeg: latest', () => {
       'recipes/rb/recipe.yml': recipe('rb', ra.url),
     });
     writeFileSync(join(ffmpeg.dir, 'ffmpeg-8.1.0.tar.xz'), 'ffmpeg 8.1.0 tarball');
+    writeFileSync(join(ffmpeg.dir, 'ffmpeg-9.0.0.tar.xz'), 'ffmpeg 9.0.0 tarball');
     const d = folder(
       'targets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [b] }\n',
     );
@@ -237,14 +238,92 @@ describe('update with ffmpeg: latest', () => {
       env: { FFMPEG_BUILD_DATA: engine, FFMPEG_BUILD_CACHE: s.cache },
     });
     expect(r.exitCode).toBe(0);
-    expect(lockOf(d)).toMatchObject({ ffmpeg: { latest: '8.1.0' }, libraries: { rb: '1.0' } }); // only pins were added
-    expect(readFileSync(join(d, 'pr.md'), 'utf8')).toContain(
-      "- **FFmpeg 9.0.0**: b wouldn't be available on FFmpeg 9",
+    // the move is the lock's diff: latest is FFmpeg 9 from here on
+    expect(lockOf(d)).toMatchObject({ ffmpeg: { latest: '9.0.0' }, libraries: {} });
+    expect(r.err).toContain(
+      'note: FFmpeg latest is now 9: t moves from 8.1.0 to 9.0.0; check finds 1 problem there',
     );
+    const pr = readFileSync(join(d, 'pr.md'), 'utf8');
+    expect(pr).toContain('## ⚠ FFmpeg latest is now 9: t moves from 8.1.0 to 9.0.0');
+    expect(pr).toContain("This PR's check fails until these are fixed");
+    expect(pr).toMatch(/- t: .*\bb\b/);
+    expect(pr).toContain('To stay on FFmpeg 8, write `ffmpeg: 8` on a target');
+    expect(pr).toContain('| FFmpeg latest | 8.1.0 | **9.0.0** | |');
+    // and check, on the new lock, fails the PR, saying how to stay
+    const check = await runCliAsync(['check'], {
+      cwd: d,
+      env: { FFMPEG_BUILD_DATA: engine, FFMPEG_BUILD_CACHE: s.cache },
+    });
+    expect(check.exitCode).toBe(1);
+    expect(check.stdout).toContain(
+      'ffmpeg: latest is FFmpeg 9 in ffmpeg.lock; a target not ready for it can name its major (ffmpeg: 8)',
+    );
+  });
+
+  it('says why latest stays on its major when no lock fits the new one', async () => {
+    const ffmpeg = makeGitRepo(['n8.1.0', 'n9.0.0']);
+    const ra = makeGitRepo(['v1.0']);
+    const recipe = (n: string, url: string) =>
+      `name: ${n}\nlicense: MIT\nsource: { git: ${url}, ref: "v{version}" }\nversions: { git-tags: '^v(\\d+\\.\\d+)$' }\nplatforms: all\n`;
+    const engine = writeEngine({
+      'ffmpeg/source.yml': `git: ${ffmpeg.url}\nversions: { git-tags: '^n(\\d+\\.\\d+(?:\\.\\d+)?)$' }\nurl: ${ffmpeg.url}/ffmpeg-{version}.tar.xz\n`,
+      'ffmpeg/8.yml':
+        'major: 8\nreleases: [8.1.0]\noptions:\n  a: { needs: ra }\n  b: { needs: rb }\n',
+      'ffmpeg/9.yml': 'major: 9\nreleases: [9.0.0]\noptions:\n  a: { needs: ra }\n',
+      'recipes/ra/recipe.yml': recipe('ra', ra.url),
+      'recipes/rb/recipe.yml': recipe('rb', ra.url),
+    });
+    writeFileSync(join(ffmpeg.dir, 'ffmpeg-8.1.0.tar.xz'), 'ffmpeg 8.1.0 tarball');
+    const d = folder(
+      'pin:\n  rb: "1.0"\ntargets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [b] }\n',
+    );
+    const lock = formatFolderLock({
+      engine: packageVersion(),
+      ffmpeg: { latest: '8.1.0' },
+      libraries: { rb: '1.0' },
+    });
+    writeFileSync(join(d, 'ffmpeg.lock'), lock);
+    const r = await runCliAsync(['update', '--summary', 'pr.md'], {
+      cwd: d,
+      env: { FFMPEG_BUILD_DATA: engine, FFMPEG_BUILD_CACHE: s.cache },
+    });
+    expect(r.exitCode).toBe(0);
+    expect(lockOf(d)).toMatchObject({ ffmpeg: { latest: '8.1.0' }, libraries: { rb: '1.0' } });
+    const why =
+      'FFmpeg latest stays on 8: on FFmpeg 9.0.0, pin rb: no target builds rb; remove the pin';
+    expect(r.err).toContain(`note: ${why}`);
+    expect(readFileSync(join(d, 'pr.md'), 'utf8')).toContain(`## ${why}`);
   });
 });
 
 describe('outdated', () => {
+  it('says which targets ffmpeg: latest would take to a new major, and how to keep one', async () => {
+    const d = folder(
+      [
+        'bases:',
+        '  newest: { ffmpeg: latest, with: [dav1d] }',
+        'targets:',
+        '  a: { platform: linux-x64, license: gplv3, base: [newest] }',
+        '  b: { platform: win-x64, license: gplv3, base: [newest] }',
+        '',
+      ].join('\n'),
+    );
+    writeFileSync(
+      join(d, 'ffmpeg.lock'),
+      formatFolderLock({
+        engine: packageVersion(),
+        ffmpeg: { latest: '8.1.3' },
+        libraries: { dav1d: '1.5.5' },
+      }),
+    );
+    const r = await runCliAsync(['outdated'], { cwd: d, env: s.env });
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toMatch(/FFmpeg latest +8\.1\.3 +-> 9\.1\.0\n/);
+    expect(r.stdout).toContain(
+      'new FFmpeg major 9: a and b move to it (`ffmpeg: 8` on a target keeps it on 8)',
+    );
+  });
+
   it('prints the same rows as JSON with --json', async () => {
     const r = await runCliAsync(['outdated', '--json'], { cwd: folder(), env: s.env });
     expect(r.exitCode).toBe(0);
@@ -380,6 +459,38 @@ describe('the removal guard in update', () => {
       );
       expect(r.stdout).toContain('Nothing was written.');
       expect(existsSync(join(d, 'ffmpeg.lock'))).toBe(false);
+    } finally {
+      await gh.close();
+    }
+  });
+
+  it("puts what a latest move to a new major would lose in the PR instead: the PR's CI stops it", async () => {
+    const { fakeGitHub } = await import('./github-fake.ts');
+    const gh = await fakeGitHub();
+    try {
+      gh.publish('8.1.3.0', [
+        { name: 'a', platform: 'linux-x64', components: { dav1d: '1.5.5', zimg: '3.0' } },
+      ]);
+      const d = folder(
+        'targets:\n  a: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [dav1d] }\n',
+      );
+      writeFileSync(
+        join(d, 'ffmpeg.lock'),
+        formatFolderLock({
+          engine: packageVersion(),
+          ffmpeg: { latest: '8.1.3' },
+          libraries: { dav1d: '1.5.5' },
+        }),
+      );
+      const r = await runCliAsync(['update', '--summary', 'pr.md'], {
+        cwd: d,
+        env: { ...s.env, ...gh.env, GITHUB_REPOSITORY: 'o/r' },
+      });
+      expect(r.exitCode).toBe(0);
+      expect(lockOf(d).ffmpeg).toEqual({ latest: '9.1.0' });
+      expect(readFileSync(join(d, 'pr.md'), 'utf8')).toContain(
+        '- 9.1.0.0: a: zimg was in 8.1.3.0 and is gone now; if that is intended, add allow-removal: [zimg] to the target',
+      );
     } finally {
       await gh.close();
     }

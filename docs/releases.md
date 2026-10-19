@@ -15,7 +15,10 @@ the sources archive.
   it). It finds the last releases on GitHub, from `GITHUB_REPOSITORY` or the folder's git remote; `--offline` treats
   every release as new.
 - **Nothing disappears silently.** A target that would lose a component its last release had stops `update` and the
-  release, until you say so with `allow-removal: [x264]` (on the target, or at the top for every target).
+  release, until you say so with `allow-removal: [x264]` (on the target, or at the top for every target). The last
+  release is the group's newest of the same FFmpeg major, or, for the first release on a new major (`ffmpeg: latest`
+  having moved), its newest of the major before. That case doesn't stop `update`: the move goes into its PR, whose
+  text lists the losses, and the PR's CI (`releases`) stops there.
 - **Where releases go is checked before anything builds.** A public repository takes no nonfree target. A private
   one takes any; its builds' `THIRD-PARTY-NOTICES.txt` make a written offer of their source, since nobody outside
   could open a link into it (`source-offer:` names who to ask). `releases` checks this in CI's plan step, so nothing is built (or uploaded as a workflow artifact) that couldn't be published,
