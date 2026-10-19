@@ -219,6 +219,11 @@ function calls(s: Step, vars: Record<string, string>, ghOut = ''): string[] {
     `#!/usr/bin/env bash\necho "gh[$GH_TOKEN] $*" >> "${log}"\n[ "$1 $2" = "pr list" ] && printf '%s' "${ghOut}"\nexit 0\n`,
     { mode: 0o755 },
   );
+  // what the update jobs hand their publish jobs, in RUNNER_TEMP/update
+  mkdirSync(join(bin, 'update'));
+  for (const f of ['ffmpeg.lock', 'pr.md', 'ffmpeg.version']) {
+    writeFileSync(join(bin, 'update', f), 'x\n');
+  }
   // git as a function: it wins over any git on PATH (Git Bash puts its own first)
   const fakeGit = 'git() { if [ "$1" = diff ]; then return 1; fi; return 0; }\n';
   const r = spawnSync(bash!, ['-e', '-c', fakeGit + s.run!], {
@@ -245,6 +250,7 @@ function calls(s: Step, vars: Record<string, string>, ghOut = ''): string[] {
 describe.skipIf(!bash)("the PR's CI and automerge, without a token or repository settings", () => {
   const base = {
     FOLDER: '.',
+    PIN: 'ffmpeg.version',
     CHANGE: 'ffmpeg.version: o/r@9.0.2.3',
     CI_WORKFLOW: 'ci.yml',
     DISPATCH_TOKEN: 'github-token',
@@ -264,9 +270,17 @@ describe.skipIf(!bash)("the PR's CI and automerge, without a token or repository
       expect(without).toContain(
         'gh[job-token] label create ffmpeg-build:automerge --force --color 0e8a16 --description ffmpeg-build merges this PR once its CI passes',
       );
-      expect(without).toContain(
+      // a new PR opens with the label, so the CI its opening starts finds it (no label race)
+      expect(without.find((c) => c.includes(' pr create '))).toMatch(
+        / --label ffmpeg-build:automerge$/,
+      );
+      expect(without.some((c) => c.includes('--add-label'))).toBe(false);
+      // an open PR gets the label before the push that starts its CI
+      const open = calls(s, { ...base, HAS_TOKEN: 'false', AUTOMERGE: 'true' }, '12');
+      expect(open).toContain(
         'gh[job-token] pr edit ffmpeg-build/update-lock/root --add-label ffmpeg-build:automerge',
       );
+      expect(open.some((c) => c.includes(' pr create '))).toBe(false);
       // a token's push starts CI itself; no automerge, no label; an empty ci-workflow dispatches nothing
       const withToken = calls(s, { ...base, HAS_TOKEN: 'true', AUTOMERGE: 'false' });
       expect(withToken.filter((c) => / workflow run | label /.test(c))).toEqual([]);
@@ -375,16 +389,36 @@ describe.skipIf(!bash)(
           WANTED: `\${{ inputs.branch }}`,
           SOURCE: `\${{ inputs.${input} }}`,
         });
-        // every input reaches every script through env, never its text
-        for (const s of job.steps) {
+        // every input reaches every script through env, never its text, in every job
+        for (const s of Object.values(w.jobs).flatMap((j) => j.steps)) {
           expect(s.run ?? '').not.toContain('${{');
         }
       });
 
-      it(`${file}: one run per repository and branch at a time, never cancelled`, () => {
-        const c = Object.values(read(file).jobs)[0]!.concurrency!;
+      it(`${file}: the engine runs with a read-only token, and only the publish job, which runs no engine, writes`, () => {
+        const w = read(file) as Called & {
+          jobs: Record<string, { permissions?: Record<string, string>; needs?: string }>;
+        };
+        const [update, publish] = Object.values(w.jobs);
+        expect(update!.permissions).toEqual({ contents: 'read' });
+        expect(update!.steps.some((s) => s.run?.includes('npm install --global'))).toBe(true);
+        expect(publish!.permissions).toEqual({
+          actions: 'write',
+          contents: 'write',
+          'pull-requests': 'write',
+        });
+        // no engine command, no npm (the label's description names ffmpeg-build, which is fine)
+        const runsEngine = /^\s*(ffmpeg-build|npm|npx|corepack)\s/m;
+        expect(publish!.steps.some((s) => runsEngine.test(s.run ?? ''))).toBe(false);
+        expect(update!.steps.some((s) => runsEngine.test(s.run ?? ''))).toBe(true);
+      });
+
+      it(`${file}: one push per repository and resolved branch at a time, never cancelled`, () => {
+        const [first, publish] = Object.values(read(file).jobs);
+        expect(first!.concurrency).toBeUndefined();
+        const c = publish!.concurrency!;
         expect(c.group).toBe(
-          `ffmpeg-build-${kind}-\${{ github.repository }}-\${{ inputs.branch || inputs.${input} }}`,
+          `ffmpeg-build-${kind}-\${{ github.repository }}-\${{ needs.${kind === 'update-lock' ? 'update' : 'bump'}.outputs.branch }}`,
         );
         expect(c['cancel-in-progress']).toBe(false);
       });
