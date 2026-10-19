@@ -752,6 +752,14 @@ describe('rav1e', () => {
         : [],
     );
     expect(last.env['CARGO_HOME']).toBe(apple ? `${h.src}/_cargo` : undefined);
+    // Apple: the platform's flags reach the target's compiles only, not the build scripts compiled for the Mac
+    const crossApple = apple && platform !== 'osx-arm64';
+    expect(last.env[`CFLAGS_${target.replaceAll('-', '_')}`]).toBe(
+      crossApple ? h.context.env['EXTRA_CFLAGS'] : undefined,
+    );
+    expect('CFLAGS' in last.env && last.env['CFLAGS'] === null).toBe(
+      apple && h.base['CFLAGS'] !== undefined,
+    );
     expect(apple ? h.calls[1]!.env : { CC: null, CFLAGS: null }).toMatchObject({
       CC: null,
       CFLAGS: null,

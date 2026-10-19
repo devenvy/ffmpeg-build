@@ -81,19 +81,51 @@ build:
         CC_x86_64_linux_android: '{CC}'
         AR_x86_64_linux_android: '{AR}'
     osx-arm64: { vars: { target: aarch64-apple-darwin } }
-    osx-x64: { vars: { target: x86_64-apple-darwin } }
-    ios-arm64: { vars: { target: aarch64-apple-ios } }
-    ios-sim-arm64: { vars: { target: aarch64-apple-ios-sim } }
-    maccatalyst-arm64: { vars: { target: aarch64-apple-ios-macabi } }
-    maccatalyst-x64: { vars: { target: x86_64-apple-ios-macabi } }
+    osx-x64:
+      vars: { target: x86_64-apple-darwin }
+      env:
+        {
+          CFLAGS_x86_64_apple_darwin: '{EXTRA_CFLAGS}',
+          CXXFLAGS_x86_64_apple_darwin: '{EXTRA_CXXFLAGS}',
+        }
+    ios-arm64:
+      vars: { target: aarch64-apple-ios }
+      env:
+        {
+          CFLAGS_aarch64_apple_ios: '{EXTRA_CFLAGS}',
+          CXXFLAGS_aarch64_apple_ios: '{EXTRA_CXXFLAGS}',
+        }
+    ios-sim-arm64:
+      vars: { target: aarch64-apple-ios-sim }
+      env:
+        {
+          CFLAGS_aarch64_apple_ios_sim: '{EXTRA_CFLAGS}',
+          CXXFLAGS_aarch64_apple_ios_sim: '{EXTRA_CXXFLAGS}',
+        }
+    maccatalyst-arm64:
+      vars: { target: aarch64-apple-ios-macabi }
+      env:
+        {
+          CFLAGS_aarch64_apple_ios_macabi: '{EXTRA_CFLAGS}',
+          CXXFLAGS_aarch64_apple_ios_macabi: '{EXTRA_CXXFLAGS}',
+        }
+    maccatalyst-x64:
+      vars: { target: x86_64-apple-ios-macabi }
+      env:
+        {
+          CFLAGS_x86_64_apple_ios_macabi: '{EXTRA_CFLAGS}',
+          CXXFLAGS_x86_64_apple_ios_macabi: '{EXTRA_CXXFLAGS}',
+        }
     # Apple: Rust and cargo-c in the build's own folder, through Homebrew's (keg-only) rustup and its cargo and rustc
-    # proxies, which run the toolchain RUSTUP_TOOLCHAIN names
+    # proxies, which run the toolchain RUSTUP_TOOLCHAIN names. The platform's flags go to the target's C compiles only
+    # (CFLAGS_<target>, above): the generic CFLAGS would also reach the build scripts compiled for this Mac.
     'osx-*': &apple
       env:
         RUSTUP_HOME: '{src}/_rustup'
         CARGO_HOME: '{src}/_cargo'
         RUSTUP_TOOLCHAIN: 1.98.1
         PATH: '{src}/_cargo/bin:{HOMEBREW_PREFIX|/opt/homebrew}/opt/rustup/bin:{PATH}'
+      unset: [CFLAGS, CXXFLAGS, LDFLAGS]
       before:
         - [rustup, toolchain, install, 1.98.1, --profile, minimal, --target, '{target}']
         # cargo-c is a program for this Mac: built without the platform's compilers and flags
