@@ -3,7 +3,7 @@ engine: 0.0.1
 ffmpeg:
   "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
 libraries:
-  amf: { version: 1.5.3, commit: 8c648005e07d4309033282bfd9947df2c7e76104 }
+  amf: { version: 1.5.3, commit: 57ee0cfb0e1a08d9041f77435653794c1b012be0 }
   aom: { version: 3.15.1, commit: 44d0a57786f432d933ff64b653347c66f4d0fa1d }
   brotli: { version: 1.2.0, commit: 028fb5a23661f123017c060daa546b55cf4bde29 }
   chromaprint: { version: 1.6.1, commit: aed8eba2202dd9d7b3b0a56c77904cc805490d72 }
