@@ -77,6 +77,28 @@ describe('a pinned git source', () => {
     );
   });
 
+  it('says how to accept a tag moved upstream: update keeps the pin of a version it already has', async () => {
+    const f = folders();
+    const repo = makeGitRepo([]);
+    execFileSync(
+      'git',
+      ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'moved'],
+      { cwd: repo.dir },
+    );
+    addTag(repo.dir, '1.5.4');
+    const error = await fetchSource(
+      { git: repo.url, ref: '1.5.4', commit: repo.head },
+      f.dest,
+      'dav1d',
+      f.sources,
+      f.work,
+    ).catch((e: unknown) => e as Error);
+    expect((error as Error).message).toContain(
+      "if upstream moved it on purpose, delete dav1d's entry in ffmpeg.lock and run ffmpeg-build lock to pin the new commit",
+    );
+    expect((error as Error).message).not.toContain('ffmpeg-build update');
+  });
+
   it('checks a branch library’s commit too', async () => {
     const f = folders();
     const repo = makeGitRepo([]);
@@ -113,6 +135,12 @@ describe('a pinned tarball', () => {
     await expect(
       fetchSource({ archives: [t.url], sha256: pin }, f.dest, 'lame', f.sources, f.work),
     ).rejects.toThrow(`lame: ${t.url} has sha256 ${sha(t.bytes)}, but ffmpeg.lock pins ${pin}`);
+    // update keeps the pin of a version the lock already has: only a new entry takes the new content
+    await expect(
+      fetchSource({ archives: [t.url], sha256: pin }, f.dest, 'lame', f.sources, f.work),
+    ).rejects.toThrow(
+      "if upstream really replaced it, delete lame's entry in ffmpeg.lock and run ffmpeg-build lock to pin the new content",
+    );
     expect(existsSync(join(f.dest, 'README'))).toBe(false);
     expect(existsSync(join(f.sources, 'lame', 'lame-4.0.tar.gz'))).toBe(false);
   });

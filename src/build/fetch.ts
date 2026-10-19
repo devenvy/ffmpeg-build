@@ -207,7 +207,8 @@ export async function fetchSource(
     rmSync(dest, { recursive: true, force: true });
     if (mismatches.length) {
       throw new SourceIntegrityError(
-        `${name}: ${mismatches.join('; ')}, but ffmpeg.lock pins ${String(pin)}; if upstream really replaced it, run ffmpeg-build update (or delete its entry in ffmpeg.lock and run ffmpeg-build lock) to pin the new content`,
+        // update keeps the pin of a version the lock already has, so only a new lock entry takes the new content
+        `${name}: ${mismatches.join('; ')}, but ffmpeg.lock pins ${String(pin)}; if upstream really replaced it, delete ${name}'s entry in ffmpeg.lock and run ffmpeg-build lock to pin the new content`,
       );
     }
     throw new Error(`could not download from any of: ${source.archives.join(' ')}`);
@@ -230,7 +231,8 @@ export async function fetchSource(
     rmSync(dest, { recursive: true, force: true });
     throw new SourceIntegrityError(
       'ref' in source
-        ? `${name}: ref ${source.ref} of ${origin} is commit ${head}, but ffmpeg.lock pins ${source.commit}; if upstream moved it on purpose, run ffmpeg-build update (or delete its entry in ffmpeg.lock and run ffmpeg-build lock) to pin the new commit`
+        ? // update keeps the pin of a version the lock already has, so only a new lock entry takes the new commit
+          `${name}: ref ${source.ref} of ${origin} is commit ${head}, but ffmpeg.lock pins ${source.commit}; if upstream moved it on purpose, delete ${name}'s entry in ffmpeg.lock and run ffmpeg-build lock to pin the new commit`
         : `${name}: ${origin} gave commit ${head}, not ${source.commit}`,
     );
   }
