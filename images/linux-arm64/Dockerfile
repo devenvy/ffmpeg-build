@@ -2,9 +2,9 @@
 # 2.28, so the artifacts run on any glibc >= 2.28), provisioned as images/linux-x64 is. An arm64 image: it runs
 # natively on an arm64 host and under qemu on an x64 one, as upstream builds it on arm64 runners. Builds use
 # gcc-toolset-14, which the driver enables. The library cache keys on this image's Docker ID.
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.10-1@sha256:abd1230aa9e4058a74b89d27cd14ba18c0db036d7bfe6e6f219a29ea63c24eb6 AS toolchain
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.16-1@sha256:b873ffc316ffe8a154e3dc4872871de2ebd170db4876c8bbd983d42ff320001e AS toolchain
 FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.18.1-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.10-1@sha256:abd1230aa9e4058a74b89d27cd14ba18c0db036d7bfe6e6f219a29ea63c24eb6
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.16-1@sha256:b873ffc316ffe8a154e3dc4872871de2ebd170db4876c8bbd983d42ff320001e
 COPY --from=node /usr/local/ /usr/local/
 
 # vim-common supplies xxd (libvmaf's built-in models silently vanish without it).
