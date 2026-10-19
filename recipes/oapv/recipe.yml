@@ -1,0 +1,22 @@
+name: oapv
+provides: oapv
+license: BSD-3-Clause
+license-files: [LICENSE]
+configure: [--enable-liboapv]
+source: { git: https://github.com/AcademySoftwareFoundation/openapv, ref: 'v{version}' }
+# 0.x only: OpenAPV 1.x changed oapvm_create(), and FFmpeg 8.x and 9.0.x call the 0.x one (FFmpeg's master handles
+# both, so a later FFmpeg release can take 1.x)
+versions: { git-tags: '^v(0\.\d+\.\d+\.\d+)$' }
+# Not linux-armhf: its NEON code uses AArch64-only intrinsics.
+platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # OpenAPV: the Advanced Professional Video codec (BSD-3-Clause), static, for FFmpeg's liboapv encoder (found through
+  # oapv.pc, 0.2.0.0 or later; FFmpeg decodes APV itself). The static library alone: no shared one, apps or tests.
+  # Static, its oapv.pc carries -DOAPV_STATIC_DEFINE, which keeps oapv.h from declaring its API dllimport.
+  system: cmake
+  args: [-DOAPV_BUILD_SHARED_LIB=OFF, -DOAPV_BUILD_APPS=OFF, -DENABLE_TESTS=OFF]
+  before:
+    # a NEON helper it forgot to make static, which XEVE's library defines under the same name: renamed, so a build
+    # with both links on ARM
+    - replace-in-file:
+        { path: src/neon/oapv_sad_neon.c, from: sad_16b_neon_8x2n, to: oapv_sad_16b_neon_8x2n }
