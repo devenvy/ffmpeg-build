@@ -14,8 +14,16 @@ build:
   # Khronos OpenCL ICD loader (Apache-2.0), static, for FFmpeg's opencl (the OpenCL filters and hwcontext). Linked into
   # libavutil, it finds the vendors' drivers at run time (the registry on Windows, /etc/OpenCL/vendors on Linux) as the
   # system's libOpenCL would, so the build needs no OpenCL library on the machine it runs on: without a driver, OpenCL
-  # simply has no platforms. Static, as Khronos allows "in controlled environments"; FFmpeg's libraries export only
-  # their own symbols, so the loader's can't clash with a system libOpenCL. Neither the layer-info tool nor the tests.
+  # simply has no platforms. FFmpeg's libraries export only their own symbols, so the loader's can't clash with a
+  # system libOpenCL. Neither the layer-info tool nor the tests are built.
+  #
+  # Static on purpose, against Khronos's general advice (its CMakeLists.txt prefers the shared loader, so vendors and
+  # users can update it, and allows static only "in some controlled environments", which an archive anyone unpacks
+  # isn't). Linked to the shared loader, FFmpeg imports it at load time: an OpenCL build would refuse to start at all,
+  # even for CPU-only work, on a machine without a GPU driver's libOpenCL.so.1 or OpenCL.dll, and turning opencl on
+  # must not take that away. Shipping the shared loader beside FFmpeg instead (as vulkan-loader is on Linux) would
+  # shadow the system's anyway (the program's folder, $ORIGIN, is searched first), so gains nothing over this. Using a
+  # newer system loader would need FFmpeg to load OpenCL at run time (dlopen/LoadLibrary), which it doesn't.
   # Its OpenCL.pc carries most of what a static link needs (-ldl and threads; cfgmgr32 and runtimeobject on Windows);
   # on Windows it also calls ole32's StringFromGUID2, which the .pc leaves out.
   system: cmake
