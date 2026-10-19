@@ -7,10 +7,10 @@ import { chooseFolder, type FolderChoice, type FolderRow } from '../folder-choos
 import { type FolderLock, formatFolderLock, LOCK_FILE, readFolderLock } from '../lockfile.ts';
 import { packageVersion } from '../paths.ts';
 import { defaultPinSource, pinLock, type PinSource } from '../source-pins.ts';
-import { JSON_INDENT } from '../text.ts';
+import { andList, JSON_INDENT } from '../text.ts';
 import { compareVersions } from '../versions.ts';
 import { cacheRoot } from './build.ts';
-import { folderCheck, jsonFailure, runFolderCheck } from './folder.ts';
+import { folderCheck, jsonFailure, runFolderCheck, targetProblemsAt } from './folder.ts';
 import { releaseRows } from './releases.ts';
 import { type Fetch, shortVersion, stageAndSwap, upstreamFetcher } from './versions.ts';
 
@@ -72,6 +72,40 @@ function newMajorNote(
 const fold = (folder: Folder, r: FolderRow) =>
   r.targets && r.targets.length < folder.targets.length ? r.targets.join(', ') : '';
 
+/** "t moves" / "a and b move" */
+const moving = (targets: string[]) =>
+  `${andList(targets)} ${targets.length === 1 ? 'moves' : 'move'}`;
+
+/** One line for `ffmpeg: latest` reaching a new major: the move, or why it stays (the PR heading, and a note). */
+function newMajorLine(r: FolderRow): string {
+  const m = r.newMajor!;
+  if (m.held) {
+    return `FFmpeg latest stays on ${m.from}: on FFmpeg ${m.held.version}, ${m.held.errors.join('; ')}`;
+  }
+  return `FFmpeg latest is now ${m.to}: ${moving(m.targets)} from ${r.from!} to ${r.to}`;
+}
+
+/** What the update PR's CI will stop on after a major move: check's problems, and what releases would lose. */
+export interface MoveFindings {
+  check: string[];
+  removals: string[];
+}
+
+const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`;
+
+/** The note on stderr for a major move: the move, and how much check finds on the new major. */
+function newMajorNotes(choice: FolderChoice, findings: MoveFindings): string[] {
+  const found = [
+    `check finds ${findings.check.length ? count(findings.check.length, 'problem') : 'no problems'} there`,
+    ...(findings.removals.length ? [count(findings.removals.length, 'removal')] : []),
+  ].join(', and ');
+  return choice.rows
+    .filter((r) => r.newMajor)
+    .map((r) =>
+      r.newMajor!.held ? `note: ${newMajorLine(r)}` : `note: ${newMajorLine(r)}; ${found}`,
+    );
+}
+
 /** The engine's move in the lock, when the update runs a different ffmpeg-build than the lock recorded. */
 export interface EngineChange {
   from: string;
@@ -84,6 +118,7 @@ export function formatFolderSummary(
   choice: FolderChoice,
   note?: string,
   engine?: EngineChange,
+  findings: MoveFindings = { check: [], removals: [] },
 ): string {
   const out = [
     '# ffmpeg: update ffmpeg.lock',
@@ -95,6 +130,29 @@ export function formatFolderSummary(
       '',
       `## Engine: ffmpeg-build ${engine.from} -> ${engine.to}`,
       `The lock now records ffmpeg-build ${engine.to}; the builds and releases run it from here on, so every release is due once this merges (its builds are made again with the new engine).`,
+    );
+  }
+  for (const r of choice.rows.filter((x) => x.newMajor?.held)) {
+    const m = r.newMajor!;
+    out.push(
+      '',
+      `## ${newMajorLine(r)}`,
+      `No lock fits this folder on FFmpeg ${m.to}, so the targets on \`ffmpeg: latest\` stay on ${m.from} and the rest of the update goes ahead. Fix the folder for FFmpeg ${m.to} and the next update moves them.`,
+    );
+  }
+  for (const r of choice.rows.filter((x) => x.newMajor && !x.newMajor.held)) {
+    const m = r.newMajor!;
+    const stopping = [...findings.check, ...findings.removals];
+    out.push(
+      '',
+      `## ⚠ ${newMajorLine(r)}`,
+      `The targets on \`ffmpeg: latest\` build FFmpeg ${m.to} once this merges, as new releases (tagged ${m.to}.x).`,
+      stopping.length
+        ? "This PR's check fails until these are fixed (on the default branch: the next update refreshes this PR):"
+        : `\`check\` finds nothing wrong with them on FFmpeg ${m.to}; this PR's builds, \`ffmpeg-build test\` and your own tests decide.`,
+      ...stopping.map((p) => `- ${p}`),
+      '',
+      `To stay on FFmpeg ${m.from}, write \`ffmpeg: ${m.from}\` on a target (a target's own \`ffmpeg:\` wins over its base's).`,
     );
   }
   for (const r of choice.rows.filter((x) => x.newMinor)) {
@@ -124,7 +182,7 @@ export function formatFolderSummary(
   for (const r of changes) {
     const who = fold(folder, r);
     out.push(
-      `| ${r.what} | ${r.from ? shortVersion(r.from) : '-'} | ${r.newMinor ? `**${r.to}**` : shortVersion(r.to)} |${who ? ` ${who} ` : ' '}|`,
+      `| ${r.what} | ${r.from ? shortVersion(r.from) : '-'} | ${r.newMinor || r.newMajor ? `**${r.to}**` : shortVersion(r.to)} |${who ? ` ${who} ` : ' '}|`,
     );
   }
   const skipped = choice.rows.filter((r) => r.skipped);
@@ -147,15 +205,25 @@ async function removalGuard(
   folder: Folder,
   data: EngineData,
   lock: FolderLock,
-): Promise<{ errors: string[]; notes: string[] }> {
+  moved: readonly string[],
+): Promise<{ errors: string[]; findings: string[]; notes: string[] }> {
   try {
     // targets that can't build yet have no releases to compare with
     const { rows } = await releaseRows(folder, data, { lock, skipUnbuildable: true });
-    return { errors: rows.flatMap((r) => r.removals), notes: [] };
+    // a release that `ffmpeg: latest` takes to a new major in this update goes to a PR whatever it loses: its CI
+    // (`releases`) stops it there, saying what; any other removal stops the update, as always
+    const movedHere = (r: (typeof rows)[number]) =>
+      Boolean(r.lastBefore) && r.targets.some((t) => moved.includes(t.name));
+    return {
+      errors: rows.filter((r) => !movedHere(r)).flatMap((r) => r.removals),
+      findings: rows.filter(movedHere).flatMap((r) => r.removals.map((e) => `${r.tag}: ${e}`)),
+      notes: [],
+    };
   } catch (e) {
     if (e instanceof FetchError) {
       return {
         errors: [],
+        findings: [],
         notes: [`note: couldn't read the last releases to check for removals (${e.message})`],
       };
     }
@@ -192,8 +260,16 @@ export async function runFolderLockOrUpdate(
     };
   }
   const versions: FolderLock = { engine: packageVersion(), ...choice.lock };
+  // `ffmpeg: latest` moved to a new major: what the PR's CI will stop on there goes in its text
+  const moved = choice.rows.flatMap((r) =>
+    r.newMajor && !r.newMajor.held ? r.newMajor.targets : [],
+  );
   // the removal guard: nothing a target had in its last release may disappear unless the folder allows it
-  const guard = await removalGuard(folder, data, versions);
+  const guard = await removalGuard(folder, data, versions, moved);
+  const findings: MoveFindings = {
+    check: targetProblemsAt(folder, data, versions, moved),
+    removals: guard.findings,
+  };
   if (guard.errors.length) {
     return {
       output: [
@@ -219,15 +295,16 @@ export async function runFolderLockOrUpdate(
   if (options.summary) {
     writes.push({
       path: options.summary,
-      text: formatFolderSummary(folder, choice, note, engine),
+      text: formatFolderSummary(folder, choice, note, engine, findings),
     });
   }
   stageAndSwap(writes);
   return {
     output: `${LOCK_FILE}: ${changed ? 'updated' : 'no changes'}${engine ? ` (engine ffmpeg-build ${engine.from} -> ${engine.to})` : ''}`,
     exitCode: 0,
-    // a new major changes no lock, so it is said whether or not the lock changed (and a CI log shows it)
-    notes: [...guard.notes, ...(note ? [`note: ${note}`] : [])],
+    // a new major changes no lock, so it is said whether or not the lock changed (and a CI log shows it); so is
+    // `ffmpeg: latest` moving to one, or staying where it is
+    notes: [...guard.notes, ...newMajorNotes(choice, findings), ...(note ? [`note: ${note}`] : [])],
   }; // notes: stderr
 }
 
@@ -278,6 +355,11 @@ export async function runFolderOutdated(
     const who = fold(folder, r);
     out.push(`  ${r.what.padEnd(w)}${from(r).padEnd(fw)}${change}${who ? `   (${who})` : ''}`);
     const indent = `  ${''.padEnd(w)}`;
+    if (r.newMajor) {
+      out.push(
+        `${indent}${r.newMajor.held ? `stays on ${r.newMajor.from}: on FFmpeg ${r.newMajor.held.version}, ${r.newMajor.held.errors.join('; ')}` : `new FFmpeg major ${r.newMajor.to}: ${moving(r.newMajor.targets)} to it (\`ffmpeg: ${r.newMajor.from}\` on a target keeps it on ${r.newMajor.from})`}`,
+      );
+    }
     if (r.newMinor) {
       const lacking = Object.entries(r.newMinor.missingIn).map(
         ([o, ts]) => `${o} not in ${ts.join(', ')}`,

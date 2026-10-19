@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureEngineRoot } from './helpers.ts';
+import { fixtureData, fixtureEngineRoot, writeEngine } from './helpers.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { chooseFolder, folderLockMatches } from '../src/folder-choose.ts';
 import { packageRoot } from '../src/paths.ts';
@@ -219,5 +219,95 @@ describe('the Vulkan SDK libraries', () => {
     for (const r of ['vulkan-headers', 'vulkan-loader', 'spirv-headers']) {
       expect(shipped.recipes.get(r)!['version-group'], r).toBe('vulkan-sdk');
     }
+  });
+});
+
+const recipeText = (n: string) =>
+  `name: ${n}\nlicense: MIT\nsource: { git: https://example.com/${n}.git, ref: "v{version}" }\nversions: { git-tags: '^v(\\d+\\.\\d+)$' }\nplatforms: all\n`;
+
+describe('ffmpeg: latest across a new major', () => {
+  // FFmpeg 8 has options a and b; 9 has only a (b's library is gone)
+  const majors = () =>
+    loadEngineData(
+      writeEngine({
+        'ffmpeg/8.yml':
+          'major: 8\nreleases: [8.1.0]\noptions:\n  a: { needs: ra }\n  b: { needs: rb }\n',
+        'ffmpeg/9.yml': 'major: 9\nreleases: [9.0.0]\noptions:\n  a: { needs: ra }\n',
+        'recipes/ra/recipe.yml': recipeText('ra'),
+        'recipes/rb/recipe.yml': recipeText('rb'),
+      }),
+    );
+  const libs = upstreams(['8.1.0', '9.0.0'], { ra: ['1.0'], rb: ['1.0'] });
+  const old = { engine: '0.0.1', ffmpeg: { latest: '8.1.0' }, libraries: { ra: '1.0' } };
+
+  it('moves to the newest major, saying which targets move from where', () => {
+    const f = folder(
+      [
+        'targets:',
+        '  x: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [a] }',
+        '  y: { platform: win-x64, license: gplv3, ffmpeg: latest, with: [a] }',
+        '  z: { platform: win-x64, license: gplv3, ffmpeg: 8, with: [a] }',
+        '',
+      ].join('\n'),
+    );
+    const c = chooseFolder(
+      f,
+      majors(),
+      { ...old, ffmpeg: { ...old.ffmpeg, '8': '8.1.0' } },
+      libs,
+      'update',
+    );
+    expect(c.errors).toEqual([]);
+    expect(c.lock.ffmpeg).toEqual({ '8': '8.1.0', latest: '9.0.0' });
+    expect(c.rows.find((r) => r.what === 'FFmpeg latest')).toEqual({
+      what: 'FFmpeg latest',
+      from: '8.1.0',
+      to: '9.0.0',
+      newMajor: { from: '8', to: '9', targets: ['x', 'y'] },
+    });
+  });
+
+  it('moves even when a target asks for something the new major lacks: check says so in the PR', () => {
+    const f = folder(
+      'targets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [a, b] }\n',
+    );
+    const c = chooseFolder(f, majors(), old, libs, 'update');
+    expect(c.errors).toEqual([]);
+    expect(c.lock.ffmpeg).toEqual({ latest: '9.0.0' });
+    expect(c.rows[0]!.newMajor).toEqual({ from: '8', to: '9', targets: ['t'] });
+  });
+
+  it('stays on its major, saying why, when no lock can be chosen on the new one', () => {
+    // the folder pins rb, which nothing builds on FFmpeg 9: no lock fits the folder there
+    const f = folder(
+      'pin:\n  rb: "1.0"\ntargets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [a, b] }\n',
+    );
+    const c = chooseFolder(
+      f,
+      majors(),
+      { ...old, libraries: { ra: '1.0', rb: '1.0' } },
+      libs,
+      'update',
+    );
+    expect(c.errors).toEqual([]);
+    expect(c.lock.ffmpeg).toEqual({ latest: '8.1.0' });
+    expect(c.rows[0]).toEqual({
+      what: 'FFmpeg latest',
+      from: '8.1.0',
+      to: '8.1.0',
+      newMajor: {
+        from: '8',
+        to: '9',
+        targets: ['t'],
+        held: { version: '9.0.0', errors: ['pin rb: no target builds rb; remove the pin'] },
+      },
+    });
+  });
+
+  it('keeps the locked major under lock (only update moves it)', () => {
+    const f = folder(
+      'targets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: latest, with: [a] }\n',
+    );
+    expect(chooseFolder(f, majors(), old, libs, 'keep').lock.ffmpeg).toEqual({ latest: '8.1.0' });
   });
 });

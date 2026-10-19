@@ -61,6 +61,13 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "ffmpeg": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "minLength": 1
+          },
           "with": {
             "default": [],
             "type": "array",
@@ -421,8 +428,7 @@
         },
         "required": [
           "platform",
-          "license",
-          "ffmpeg"
+          "license"
         ],
         "additionalProperties": false
       }

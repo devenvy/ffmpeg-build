@@ -83,36 +83,47 @@ const later = (x: number[], y: number[]) => {
 /**
  * A release's predecessors among the published (not draft) releases: `sameBase`, the highest build of the same group
  * and FFmpeg version (it numbers the next build); `lastInMajor`, the newest release of the same group and FFmpeg major
- * (what the release follows on from: a move from 9.0.2 to 9.0.3 still compares with 9.0.2's last build).
+ * (what the release follows on from: a move from 9.0.2 to 9.0.3 still compares with 9.0.2's last build); and, when
+ * the group has none in this major yet, `lastBefore`, its newest release of a lower major (the first release after
+ * `ffmpeg: latest` moved to a new major is still judged against what its targets last shipped).
  */
 export async function previousReleases(
   repo: string,
   group: string,
   ffmpeg: string,
-): Promise<{ sameBase?: Previous; lastInMajor?: Previous }> {
+): Promise<{ sameBase?: Previous; lastInMajor?: Previous; lastBefore?: Previous }> {
+  const major = Number(ffmpeg.split('.')[0]);
   let same: { tag: string; build: number } | undefined;
   let last: { tag: string; build: number; key: number[] } | undefined;
-  for (const r of await listReleases(repo)) {
+  let before: { tag: string; build: number; key: number[] } | undefined;
+  const published = (await listReleases(repo)).flatMap((r) => {
     const t = parseTag(r.tag_name);
-    if (!r.draft && t?.group === group && t.ffmpeg.split('.')[0] === ffmpeg.split('.')[0]) {
+    return !r.draft && t?.group === group ? [{ r, t }] : [];
+  });
+  for (const { r, t } of published) {
+    const k = key(t.ffmpeg, t.build);
+    const its = Number(t.ffmpeg.split('.')[0]);
+    if (its === major) {
       if (t.ffmpeg === ffmpeg && (!same || t.build > same.build)) {
         same = { tag: r.tag_name, build: t.build };
       }
-      const k = key(t.ffmpeg, t.build);
       if (!last || later(k, last.key)) {
         last = { tag: r.tag_name, build: t.build, key: k };
       }
+    } else if (its < major && (!before || later(k, before.key))) {
+      before = { tag: r.tag_name, build: t.build, key: k };
     }
+  }
+  if (!last) {
+    return before
+      ? { lastBefore: await withManifest(repo, { tag: before.tag, build: before.build }) }
+      : {};
   }
   return {
     ...(same ? { sameBase: await withManifest(repo, same) } : {}),
-    ...(last
-      ? {
-          lastInMajor:
-            last.tag === same?.tag
-              ? await withManifest(repo, same)
-              : await withManifest(repo, { tag: last.tag, build: last.build }),
-        }
-      : {}),
+    lastInMajor:
+      last.tag === same?.tag
+        ? await withManifest(repo, same)
+        : await withManifest(repo, { tag: last.tag, build: last.build }),
   };
 }

@@ -434,6 +434,20 @@ describe('ffmpeg-build bundle', () => {
     ).resolves.toMatchObject({ tag: '9.1.0.1' });
   });
 
+  it("judges a group's first release on a new major against its last release of the major before", async () => {
+    gh.publish('8.1.3.4', [
+      {
+        name: 'linux-x64-lgplv3',
+        platform: 'linux-x64',
+        components: { dav1d: '1.5.4', opus: '1.6.1', zimg: '3.0' },
+      },
+    ]);
+    const { dist, folder } = builtFolder();
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot, repo: 'o/r' }),
+    ).rejects.toThrow('linux-x64-lgplv3: zimg was in 8.1.3.4 and is gone now');
+  });
+
   it('is latest only with the highest FFmpeg of its group', async () => {
     gh.publish('9.2.0.0', [{ name: 'linux-x64-lgplv3', platform: 'linux-x64' }]);
     const { dist, folder } = builtFolder();

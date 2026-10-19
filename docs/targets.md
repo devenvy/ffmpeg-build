@@ -14,7 +14,7 @@ targets:
   linux-x64: # the name is also the build's: ffmpeg-<version>-linux-x64
     platform: linux-x64
     license: lgplv3 # lgplv2, lgplv3, gplv2, gplv3 or nonfree
-    ffmpeg: 9 # 9, 9.0 or latest
+    ffmpeg: 9 # 9, 9.0 or latest (the newest major: see below)
     base: [streaming]
     with: [vaapi] # by FFmpeg's own names
   linux-arm64:
@@ -46,6 +46,48 @@ for one) complete and check it. Add that line to a file you wrote by hand to get
 - **Look before you build.** `check` says whether every target is possible, `plan` what each builds,
   `show <target>` what one target gets and which base gave it, and `show --has <name>` which targets get something
   and why the others don't.
+
+## Always the newest FFmpeg: `ffmpeg: latest`
+
+`ffmpeg:` is a major (`9`: its newest release), a minor (`9.0`: its newest 9.0.x) or `latest`: the newest FFmpeg
+major this engine supports. A base can say it too, for every target that takes the base and doesn't say its own (a
+target's own `ffmpeg:` wins; otherwise the last of its bases that has one):
+
+```yaml
+bases:
+  newest: { ffmpeg: latest }
+targets:
+  linux-x64: { platform: linux-x64, license: lgplv3, base: [newest, streaming] }
+  win-x64: { platform: win-x64, license: lgplv3, base: [newest, streaming] }
+  legacy: { platform: linux-x64, license: lgplv3, base: [newest, streaming], ffmpeg: 8 } # held back
+```
+
+- **What latest is.** The newest major with an `ffmpeg/<major>.yml` in the engine (added, with its component list,
+  once someone has gone through that major's configure) that has a release upstream. A new FFmpeg major therefore
+  reaches `latest` through an engine release, never straight from upstream.
+- **The lock says which major.** `ffmpeg.lock` records the release `latest` stands for (`latest: 9.0.2`), so every
+  build is reproducible and `lock` never moves it. `update` does: when the engine knows a newer major, the lock
+  update's pull request moves every `latest` target to it (with the engine release that brought the major), and the
+  lock's diff is the move (`latest: 9.0.2` -> `latest: 10.0.1`).
+- **The PR says what it means.** Its text opens with `⚠ FFmpeg latest is now 10: a and b move from 9.0.2 to 10.0.1`,
+  lists what `check` finds wrong with them on FFmpeg 10 (a `components:` name FFmpeg 10 doesn't have, a patch set
+  without a `10/` folder or not declaring 10 in its `about.yml`, a `with:` FFmpeg 10 dropped) and what their releases
+  would lose, and says how to stay: `ffmpeg: 9` on a target. `update` and `outdated` print the same on the terminal.
+- **CI decides.** The move is one more change in the lock update's PR, which your CI checks like any other. The
+  example `ci.yml` runs `check.yml`: `check` and `releases` stop it on everything the PR text lists. To stop it on
+  the builds too (a patch that no longer applies fails the build, naming the patch and the file and line of the hunk
+  that failed), `ffmpeg-build test` and your own tests, have the PR's CI call `build.yml` with `publish: never` and
+  `due: true` ([CI](releases.md#ci-github-actions)); otherwise the release builds after the merge, and a failing
+  build keeps that release a draft. Fix the folder on your default branch (add the `10/` patches, change the
+  `components:`, or keep a target with `ffmpeg: 9`); the next update refreshes the PR. Automerge merges only a green
+  PR; making CI's `result` a required check stops a merge by hand too.
+- **When no lock fits.** If no lock can be chosen for the folder on the new major at all (a pin on a library no
+  target builds any more there), `latest` stays where it is, the rest of the update goes ahead, and the PR text and
+  `update-lock.yml`'s run say why (`FFmpeg latest stays on 9: on FFmpeg 10.0.1, pin ...`), every run until it's fixed.
+- **Releases.** A release is one release group at one FFmpeg version, so `latest` targets moving to 10 make new
+  releases, tagged `10.x.y.<build>`, and the group's 9.x releases stay as they were. The first release on the new
+  major is judged against the group's last release on the old one: a library it no longer has stops it unless
+  `allow-removal:` says so.
 
 ## Some targets at a time, and where they build
 
@@ -206,10 +248,10 @@ targets:
   moving a version.
 
 - **New FFmpeg versions.** When `update` moves to a new FFmpeg minor, the PR text lists what it adds and which
-  targets don't list it. When a new major is out, it says so (`notify: { new-ffmpeg: false }` turns that off): in
-  the PR text, on stderr, and, in `update-lock.yml`, as a warning on every run until the folder builds it, even when
-  the lock didn't change and there is no PR.
-  You decide; nothing is opted in.
+  targets don't list it. When a new major is out and targets name an older one, it says so (`notify: { new-ffmpeg:
+false }` turns that off): in the PR text, on stderr, and, in `update-lock.yml`, as a warning on every run until the
+  folder builds it, even when the lock didn't change and there is no PR. You decide; nothing is opted in, except by
+  `ffmpeg: latest`, which follows new majors by itself ([above](#always-the-newest-ffmpeg-ffmpeg-latest)).
 - **Versions come from upstream.** `lock`, `outdated` and `update` read upstream git tags, branches and release
   pages (they need `git` on PATH, and no API tokens).
 
