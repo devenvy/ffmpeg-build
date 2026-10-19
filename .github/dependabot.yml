@@ -53,7 +53,7 @@ updates:
   # The toolchain images' base images (images/<name>/Dockerfile FROM lines, each pinned tag@sha256): a new tag, or a
   # new digest for the same tag (bookworm, 24.04: security fixes), in one PR. The Docker Hub images come through
   # mirror.gcr.io (tests/image-registry.test.ts), which serves the registry API Dependabot reads, so the prefix stays.
-  # A base image is the toolchain: ci.yml doesn't merge these PRs by itself; toolchains.yml builds them first. What an
+  # A base image is the toolchain: toolchains.yml merges these PRs once every toolchain builds and tests on it. What an
   # image downloads (NDK, llvm-mingw, shaderc, meson) is pinned by sha256 or commit in the Dockerfile and isn't tracked
   # here: those move by hand.
   - package-ecosystem: docker
