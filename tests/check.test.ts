@@ -323,3 +323,40 @@ describe('runtime libraries a platform ships', () => {
     expect(text).toContain("✗ linux-x64 ships libfoo.so (Apache-2.0), which lgplv2 doesn't allow");
   });
 });
+
+describe('components in check', () => {
+  const withComponents = (components: Record<string, string[]>, w = '[dav1d]') => {
+    const loaded = parseProfileText(
+      `name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: gplv3\nwith: ${w}\n`,
+      't.yml',
+    );
+    if (!loaded.ok) {
+      throw new Error(loaded.errors.join('\n'));
+    }
+    return formatReport(
+      checkProfile({ ok: true, profile: { ...loaded.profile, components } }, data),
+    );
+  };
+
+  it('passes names FFmpeg has', () => {
+    expect(withComponents({ decoders: ['h264', 'hevc'], muxers: ['mp4', 'null'] })).not.toContain(
+      '✗',
+    );
+  });
+
+  it('refuses a name FFmpeg 9 has no component of that kind for', () => {
+    const text = withComponents({ decoders: ['h264', 'h265'], filters: ['scale', 'blur'] });
+    expect(text).toContain('✗ components: decoders: h265');
+    expect(text).toContain(
+      "FFmpeg 9 has no decoder called h265 (it's spelled as `ffmpeg -decoders` lists it)",
+    );
+    expect(text).toContain('✗ components: filters: blur');
+  });
+
+  it("says which option a library's component comes with when that option is off", () => {
+    const text = withComponents({ encoders: ['aac', 'libx265'] });
+    expect(text).toContain('✗ components: encoders: libx265');
+    expect(text).toContain('libx265 comes with x265: add x265 to with:');
+    expect(withComponents({ encoders: ['aac', 'libx265'] }, '[dav1d, x265]')).not.toContain('✗');
+  });
+});

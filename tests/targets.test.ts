@@ -57,6 +57,37 @@ describe('the folder file', () => {
     expect(t.origin.get('dav1d')).toBe('common');
   });
 
+  it('takes components: from its bases, a later layer replacing a kind; none means none restricted', () => {
+    const f = ok(
+      [
+        'bases:',
+        '  slim: { components: { decoders: [h264, hevc], filters: [scale] } }',
+        '  audio: { components: { decoders: [aac, opus] } }',
+        'targets:',
+        '  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, base: [slim, audio], components: { filters: [scale, fps] } }',
+        '  b: { platform: linux-x64, license: lgplv3, ffmpeg: 9 }',
+        '',
+      ].join('\n'),
+    );
+    const [a, b] = f.targets;
+    // audio's decoders replace slim's; the target's filters replace slim's; kinds nobody lists stay unrestricted
+    expect(a!.components).toEqual({ decoders: ['aac', 'opus'], filters: ['scale', 'fps'] });
+    expect(b!.components).toEqual({});
+  });
+
+  it('refuses components: of a kind FFmpeg has no list for, or names FFmpeg could never have', () => {
+    expect(
+      errors(
+        'targets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, components: { codecs: [h264] } }\n',
+      ).join('\n'),
+    ).toContain('codecs');
+    expect(
+      errors(
+        'targets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, components: { filters: ["Scale Up"] } }\n',
+      ).join('\n'),
+    ).toContain('expected a component name');
+  });
+
   it('turns a target into one build: one platform, one license, one series, no conditions, no pins', () => {
     const f = ok(layered);
     const p = targetProfile(f, f.targets[0]!);
@@ -93,7 +124,7 @@ describe('the folder file', () => {
         'bases:\n  b: { platform: linux-x64, with: [a] }\ntargets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: 9 }\n',
       ),
     ).toEqual([
-      'bases.b: platform belongs on a target, not a base (a base only holds with, without and pin)',
+      'bases.b: platform belongs on a target, not a base (a base only holds with, without, pin and components)',
     ]);
     expect(errors('targets:\n  t: { platform: linux-x86, license: gplv3, ffmpeg: 9 }\n')).toEqual([
       'targets.t: platform linux-x86 is not a platform ffmpeg-build knows',

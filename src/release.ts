@@ -226,6 +226,8 @@ export function targetFacts(
       without: [...t.without].sort(),
       pin: { ...folder.pin, ...t.pin },
       tests: t.tests,
+      // only when it has some: a target without components: keeps the definition it always had
+      ...(Object.keys(t.components).length ? { components: t.components } : {}),
     }),
   );
   // how and where it builds, when that changes the build (a native build depends on its machine)

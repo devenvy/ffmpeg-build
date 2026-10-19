@@ -36,7 +36,7 @@ const dep = z.union(
 );
 
 /** The lists a built FFmpeg reports its components in: `ffmpeg -<kind>`, or the libraries' own lookups. */
-const SHIPPED_KINDS = [
+export const SHIPPED_KINDS = [
   'encoders',
   'decoders',
   'filters',

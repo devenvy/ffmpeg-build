@@ -8,6 +8,7 @@
 bases:
   small: { with: [dav1d, opus] }
 targets:
+  # components: a restricted build, so the --disable-<kind> / --enable-<kind>=a,b path is built and tested for real
   linux-x64-lgplv3:
     {
       platform: linux-x64,
@@ -15,6 +16,7 @@ targets:
       ffmpeg: 9,
       base: [small],
       with: [cuda-llvm, opencl, vdpau],
+      components: { muxers: [mp4, matroska, null], protocols: [file, pipe] },
     }
   linux-arm64-lgplv3:
     {

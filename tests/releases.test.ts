@@ -143,6 +143,23 @@ describe('ffmpeg-build releases', () => {
     expect(r.stdout).toContain('studio-9.1.0.1 (last: studio-9.1.0.0): unchanged, 1 target');
   });
 
+  it("is due when a target's components: change, and a target without any keeps its definition", async () => {
+    const d = folder();
+    publishCurrent(d, '9.1.0', 3);
+    writeFileSync(
+      join(d, 'ffmpeg-build.yml'),
+      FOLDER.replace(
+        'with: [dav1d, opus] }',
+        'with: [dav1d, opus], components: { decoders: [h264, libdav1d] } }',
+      ),
+    );
+    const r = await runCliAsync(['releases'], { cwd: d, env });
+    expect(r.stdout).toContain(
+      '9.1.0.4 (last: 9.1.0.3): due, 2 targets\n  linux-x64-lgplv3: definition',
+    );
+    expect(r.stdout).not.toContain('linux-x64-gplv3: definition');
+  });
+
   it('is due when a pinned source moved at the same version, and only for the targets built from it', async () => {
     const pinned = {
       ...LOCK,
