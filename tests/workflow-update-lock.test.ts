@@ -58,12 +58,10 @@ function raise(summary: string) {
 }
 
 describe.skipIf(!bash)('update-lock.yml and a new FFmpeg major', () => {
-  it('runs the step right after update, before the pull request step that ends early on an unchanged lock', () => {
+  it('runs the step right after update, before the step that ends early on an unchanged lock', () => {
     const names = steps.map((s) => s.name);
     expect(names.indexOf('a new FFmpeg major')).toBe(names.indexOf('update') + 1);
-    expect(names.indexOf('open or refresh the pull request')).toBeGreaterThan(
-      names.indexOf('a new FFmpeg major'),
-    );
+    expect(names.indexOf('result')).toBeGreaterThan(names.indexOf('a new FFmpeg major'));
   });
 
   it('raises the note update wrote as a warning and in the run summary', () => {

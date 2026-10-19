@@ -85,6 +85,9 @@ names their concurrency groups and `update-lock.yml`'s branch, so it has one spe
 
 A `branch` you choose must start with `ffmpeg-build/`, the branches `automerge.yml` merges. Runs for the same
 repository and branch queue (`concurrency:`) rather than race on one pull request; a run under way is never cancelled.
+Each runs in two jobs: the engine works out the change with a read-only `GITHUB_TOKEN`, and a second job, which runs no
+engine, pushes it and opens the pull request; with `automerge: true` the pull request carries its label from the moment
+it opens.
 
 - **`automerge.yml`**: the last job of your CI; merges the PR of `update-lock.yml` or `update-pin.yml` with
   `automerge: true` once the CI's other jobs pass.
