@@ -1,4 +1,3 @@
-# recipe-check proof: this comment only makes CI build zimg on every platform (reverted before merge)
 name: zimg
 provides: zimg
 license: WTFPL
