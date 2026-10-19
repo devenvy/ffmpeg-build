@@ -1,0 +1,57 @@
+name: davs2
+provides: davs2
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-libdavs2]
+source: { git: https://github.com/pkuvcl/davs2, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+)$' }
+platforms:
+  [linux-x64, linux-musl-x64, win-x64, linux-arm64, linux-musl-arm64, android-arm64, android-x64]
+build:
+  # davs2: AVS2 (IEEE 1857.4) video decoder from Peking University (GPL-2.0-or-later), static, for FFmpeg's libdavs2
+  # decoder; GPL builds only. Found through davs2.pc (1.6.0 or later). x264's configure, in build/linux; the library
+  # alone (no CLI). Its sources are C++ (.cc), but davs2.pc names no C++ runtime: it gains one.
+  #
+  # - version.sh counts origin/master's commits for the version's last number, which a tag's shallow clone hasn't
+  #   got (it would write "1.6." and fail FFmpeg's >= 1.6.0): 0 instead, as outside git.
+  # - Its endianness probe greps the compiled object for marker strings that clang doesn't leave in it, and dies
+  #   when it can't find them; every platform here is little-endian (the default it keeps), so that failure is
+  #   skipped.
+  system: none
+  vars: { cross: [] }
+  # its configure compiles with $CC, the C++ compiler by default (g++), and passes it -std=gnu++11: where the
+  # platform sets CC to a C compiler, the platform's C++ compiler instead (clang refuses C++ flags for C)
+  env: { CC: '{CXX|g++}' }
+  platforms:
+    win-x64: { vars: { cross: ['--cross-prefix={CROSS_PREFIX}-', --host=x86_64-w64-mingw32] } }
+    # its ARM assembly is listed in the Makefile but isn't in the repository: plain C++ on ARM
+    linux-arm64: { args: [--disable-asm] }
+    linux-musl-arm64: { args: [--disable-asm] }
+    # its x86-64 assembly crashes on musl as xavs2's does (alignment it assumes musl's threads don't give): plain C++
+    linux-musl-x64: { args: [--disable-asm] }
+    android-arm64:
+      {
+        vars: { cross: [--host=aarch64-linux-android, '--sysroot={TOOLCHAIN}/sysroot'] },
+        args: [--disable-asm],
+      }
+    # the NDK's x86-64 assembly would need text relocations
+    android-x64:
+      {
+        vars: { cross: [--host=x86_64-linux-android, '--sysroot={TOOLCHAIN}/sysroot'] },
+        args: [--disable-asm],
+      }
+  steps:
+    - replace-in-file:
+        { path: version.sh, from: 'VER_R=`git rev-list --count origin/master`', to: VER_R=0 }
+    - replace-in-file: { path: build/linux/configure, from: 'elif !(', to: 'elif false && !(' }
+    - run: [./configure, '--prefix={deps}', --disable-cli, --enable-pic, '{cross}', '{args}']
+      cwd: build/linux
+    - run: [make, '-j{jobs}', lib-static]
+      cwd: build/linux
+    - run: [make, install-lib-static]
+      cwd: build/linux
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/davs2.pc',
+          libs-private: { add: '{cxx-runtime}', missing: after-libs },
+        }

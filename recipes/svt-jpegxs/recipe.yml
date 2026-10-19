@@ -1,0 +1,33 @@
+name: svt-jpegxs
+provides: svtjpegxs
+license: BSD-2-Clause-Patent
+# its own licence, and cpuinfo's (BSD-2-Clause), which is built into the library on x86-64
+license-files: [LICENSE.md, third_party/cpuinfo/LICENSE]
+configure: [--enable-libsvtjpegxs]
+# FFmpeg needs 0.10.0, which main is (its CMake project version) but no tag names yet: the only tag is v0.9.0. So the
+# branch head, pinned by commit in the lock, until a release is tagged.
+source: { git: https://github.com/OpenVisualCloud/SVT-JPEG-XS }
+versions: { git-branch: main }
+platforms: all
+build:
+  # SVT-JPEG-XS: Intel's JPEG XS encoder and decoder (BSD-2-Clause-Patent), static, for FFmpeg's libsvtjpegxs
+  # decoder and encoder (8.1 and later; found through SvtJpegxs.pc, 0.10.0 or later). x86-64 assembly (nasm) and
+  # AArch64 NEON; plain C elsewhere. The library alone, without link-time optimisation (a static archive of LTO
+  # objects is no use to FFmpeg's link).
+  system: cmake
+  args: [-DBUILD_APPS=OFF, -DBUILD_TESTING=OFF, -DJPEGXS_LTO=OFF]
+  before:
+    # with clang on Unix (Android's NDK) its CMake swaps in llvm-ar and llvm-ranlib by bare name, for LTO, which aren't
+    # on PATH: the toolchain's own archiver stays
+    - replace-in-file:
+        {
+          path: CMakeLists.txt,
+          from: 'if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND UNIX AND NOT APPLE)',
+          to: if(FALSE),
+        }
+  platforms:
+    # Android's C library has the threads; there is no libpthread to link
+    'android-*':
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/SvtJpegxs.pc', libs-private: { remove: -lpthread } }

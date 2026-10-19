@@ -1,0 +1,28 @@
+# xavs's own repository is SourceForge Subversion, untouched since r55 (2011), with no releases or tarballs. This is
+# the git-svn mirror media-autobuild_suite builds from; its trunk branch is r55, pinned by commit in the lock.
+name: xavs
+provides: xavs
+# no licence file: the sources' headers say GPL version 2 "or (at your option) any later version", and xavs.h is
+# the notice kept with the build
+license: GPL-2.0-or-later
+license-files: [xavs.h]
+configure: [--enable-libxavs]
+source: { git: https://github.com/Distrotech/xavs }
+versions: { git-branch: trunk }
+# x86-64 Linux and Windows: an x264 fork of 2011 whose configure knows no other targets FFmpeg builds for
+platforms: [linux-x64, linux-musl-x64, win-x64]
+build:
+  # xavs: AVS (GB/T 20090.2, "AVS1") video encoder (GPL-2.0-or-later), static, for FFmpeg's libxavs encoder; GPL
+  # builds only. FFmpeg finds it with `-lxavs` (no pkg-config). Its x264-era configure and Makefile: the archive
+  # only (`make libxavs.a`), installed by hand with xavs.h. Plain C: its assembly is yasm's, which the images don't
+  # have. On mingw its configure sends probe output to NUL, a file outside Windows: /dev/null instead.
+  system: none
+  vars: { cross: [] }
+  platforms:
+    win-x64: { vars: { cross: [--host=x86_64-w64-mingw32, '--cross-prefix={CROSS_PREFIX}-'] } }
+  steps:
+    - replace-in-file: { path: configure, from: 'DEVNULL="NUL"', to: 'DEVNULL="/dev/null"' }
+    - [./configure, '--prefix={deps}', --disable-asm, --enable-pic, '{cross}']
+    - [make, '-j{jobs}', libxavs.a]
+    - copy: { from: libxavs.a, into: '{deps}/lib' }
+    - copy: { from: xavs.h, into: '{deps}/include' }

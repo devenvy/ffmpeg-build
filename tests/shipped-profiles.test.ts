@@ -1184,6 +1184,16 @@ describe('codec libraries', () => {
   const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
   const V3 = ['lgplv3', 'gplv3', 'nonfree'];
   const GPL = ['gplv2', 'gplv3', 'nonfree'];
+  const NOT_ARMHF = PLATFORMS.filter((p) => p !== 'linux-armhf');
+  const AVS2 = [
+    'linux-x64',
+    'linux-arm64',
+    'linux-musl-x64',
+    'linux-musl-arm64',
+    'win-x64',
+    'android-arm64',
+    'android-x64',
+  ];
   const where: Record<
     string,
     {
@@ -1253,6 +1263,73 @@ describe('codec libraries', () => {
       licenses: V3,
       ships: { encoders: ['libilbc'], decoders: ['libilbc'] },
     },
+    // AVS: all three of FFmpeg's class gpl; xavs only where its 2011 configure works, davs2 and xavs2 on x86-64 (with
+    // their assembly) and 64-bit ARM (plain C)
+    xavs: {
+      platforms: ['linux-x64', 'linux-musl-x64', 'win-x64'],
+      recipes: ['xavs'],
+      flags: ['--enable-libxavs'],
+      licenses: GPL,
+      ships: { encoders: ['libxavs'] },
+    },
+    davs2: {
+      platforms: AVS2,
+      recipes: ['davs2'],
+      flags: ['--enable-libdavs2'],
+      licenses: GPL,
+      ships: { decoders: ['libdavs2'] },
+    },
+    // xavs2: not Android (its thread pool calls pthread_setaffinity_np)
+    xavs2: {
+      platforms: AVS2.filter((p) => !p.startsWith('android-')),
+      recipes: ['xavs2'],
+      flags: ['--enable-libxavs2'],
+      licenses: GPL,
+      ships: { encoders: ['libxavs2'] },
+    },
+    uavs3d: {
+      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      recipes: ['uavs3d'],
+      flags: ['--enable-libuavs3d'],
+      licenses: ALL,
+      ships: { decoders: ['libuavs3d'] },
+    },
+    xeve: {
+      platforms: NOT_ARMHF,
+      recipes: ['xeve'],
+      flags: ['--enable-libxeve'],
+      licenses: ALL,
+      ships: { encoders: ['libxeve'] },
+    },
+    xevd: {
+      platforms: NOT_ARMHF,
+      recipes: ['xevd'],
+      flags: ['--enable-libxevd'],
+      licenses: ALL,
+      ships: { decoders: ['evc'] },
+    },
+    oapv: {
+      platforms: NOT_ARMHF,
+      recipes: ['oapv'],
+      flags: ['--enable-liboapv'],
+      licenses: ALL,
+      ships: { encoders: ['liboapv'] },
+    },
+    svtjpegxs: {
+      platforms: PLATFORMS,
+      recipes: ['svt-jpegxs'],
+      flags: ['--enable-libsvtjpegxs'],
+      licenses: ALL,
+      ships: { encoders: ['libsvtjpegxs'], decoders: ['libsvtjpegxs'] },
+    },
+    // its COPYING's terms keep it out of GPL builds
+    'lcevc-dec': {
+      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      recipes: ['lcevcdec'],
+      flags: ['--enable-liblcevc-dec'],
+      licenses: ['lgplv2', 'lgplv3', 'nonfree'],
+      ships: { filters: ['lcevc'] },
+    },
   };
   const CODECS = Object.keys(where);
   const text = (platform: string, license: string, option: string) =>
@@ -1269,7 +1346,9 @@ describe('codec libraries', () => {
 
   const builds = CODECS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
   it.each(builds)('%s builds on %s', (option, platform) => {
-    const plan = planOn(platform, 'gplv3', option);
+    // a license that takes it (gplv3, but for LCEVC)
+    const license = where[option]!.licenses.includes('gplv3') ? 'gplv3' : 'lgplv3';
+    const plan = planOn(platform, license, option);
     expect(plan.errors).toEqual([]);
     const cell = plan.cells[0]!;
     expect(cell.options).toEqual([option]);

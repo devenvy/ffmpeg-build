@@ -1,0 +1,21 @@
+name: uavs3d
+provides: uavs3d
+license: BSD-3-Clause
+license-files: [COPYING]
+configure: [--enable-libuavs3d]
+source: { git: https://github.com/uavs3/uavs3d, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+)$' }
+# Not win-arm64: its AArch64 assembly is ELF-only.
+platforms: [linux-*, win-x64, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # uavs3d: AVS3 video decoder (BSD-3-Clause), static, 8- and 10-bit, for FFmpeg's libuavs3d decoder (found through
+  # uavs3d.pc, 1.1.41 or later: version.sh writes 1.2.<commits in the clone>). Its decoder program is always built,
+  # never installed.
+  system: cmake
+  args: [-DCOMPILE_10BIT=1]
+  platforms:
+    # Android's C library has the threads; there is no libpthread to link (its CMake links one, and its .pc names it)
+    'android-*':
+      before:
+        - replace-in-file:
+            { path: source/CMakeLists.txt, from: if(CMAKE_USE_PTHREADS_INIT), to: if(FALSE) }
