@@ -54,8 +54,14 @@ function builtFolder(
     name: string,
     sources: { libraries: { name: string; version: string }[] },
   ) => void = ignore,
+  // files the folder holds besides its ffmpeg-build.yml and lock (a patch set)
+  files: Record<string, string> = {},
 ): { dir: string; dist: string; folder: Folder } {
   const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-bundle-'));
+  for (const [f, content] of Object.entries(files)) {
+    mkdirSync(join(dir, f, '..'), { recursive: true });
+    writeFileSync(join(dir, f), content);
+  }
   writeFileSync(join(dir, 'ffmpeg-build.yml'), text);
   writeFileSync(join(dir, 'ffmpeg.lock'), formatFolderLock(LOCK));
   const r = loadFolder(dir);
@@ -107,7 +113,7 @@ function builtFolder(
           ...record(n, v),
           cached: false,
         })),
-        patches: [],
+        patches: p.facts.patches,
       };
       edit(name, sources);
       writeFileSync(join(dist, `${name}.sources.json`), JSON.stringify(sources));
@@ -377,6 +383,39 @@ describe('ffmpeg-build bundle', () => {
     expect(m.targets[0]!.redistributable).toBe('false');
     expect(readFileSync(join(internal.dist, 'release-notes.md'), 'utf8')).toContain(
       '**Internal use only:**',
+    );
+  });
+
+  it("keeps a release's sources archive to the patch sets its own targets apply: another group's stay out", async () => {
+    gh.private = true;
+    const text = [
+      'private-release: internal',
+      'targets:',
+      '  linux-x64-lgplv3: { platform: linux-x64, license: lgplv3, ffmpeg: 9, with: [dav1d] }',
+      '  server: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d], patches: [patches/acme], release-group: server }',
+      '',
+    ].join('\n');
+    const files = {
+      'patches/acme/about.yml':
+        'name: acme\nlicense: proprietary\nlicense-files: [LICENSE]\nffmpeg: 9\n',
+      'patches/acme/LICENSE': 'all rights reserved\n',
+      'patches/acme/9/0001-acme.patch': '--- /dev/null\n+++ b/A\n@@ -0,0 +1 @@\n+a\n',
+    };
+    const archived = async (tag: string, archive: string) => {
+      const { dist, folder } = builtFolder(text, ignore, files);
+      await bundle(folder, data, LOCK, { tag, dist, engineRoot: packageRoot, repo: 'o/r' });
+      return readTarGz(readFileSync(join(dist, archive))).map((e) => e.name);
+    };
+    // the public LGPL release, whose sources go to anyone it is distributed to: no trace of the proprietary set
+    const lgpl = await archived('9.1.0.0', 'ffmpeg-9.1.0-sources.tar.gz');
+    expect(lgpl.filter((n) => n.includes('patches/acme'))).toEqual([]);
+    // the internal release that applies it carries it
+    const server = await archived('server-9.1.0.0', 'ffmpeg-9.1.0-server-sources.tar.gz');
+    expect(server).toEqual(
+      expect.arrayContaining([
+        'ffmpeg-9.1.0-server-sources/build/patches/acme/about.yml',
+        'ffmpeg-9.1.0-server-sources/build/patches/acme/9/0001-acme.patch',
+      ]),
     );
   });
 
