@@ -26,6 +26,8 @@ const components = z
   )
   .default({});
 
+const SOURCE_OFFER = 'expected who to ask for the source, like an email address';
+
 const base = z.strictObject({ with: names, without: names, pin: pins, components });
 
 const target = z.strictObject({
@@ -61,7 +63,12 @@ export const folderSchema = z.strictObject({
     })
     .optional(),
   'allow-removal': names, // components any target may lose since the last release
-  'private-release': z.enum(['internal'], { error: 'expected internal' }).optional(), // releases go to a private repository, acknowledged
+  // who THIRD-PARTY-NOTICES.txt's written offer names to ask for the source (none: whoever distributed the build)
+  'source-offer': z
+    .string({ error: SOURCE_OFFER })
+    .trim()
+    .min(1, { error: SOURCE_OFFER })
+    .optional(),
   targets: z.record(name, target, {
     error: 'expected targets: a name for each build, with platform, license and ffmpeg',
   }),

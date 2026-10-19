@@ -268,7 +268,7 @@ describe('ffmpeg-build releases', () => {
     expect(r.exitCode).toBe(1);
   });
 
-  it('refuses, before anything builds, a nonfree target for a public repository and a private one not acknowledged', async () => {
+  it('refuses, before anything builds, a nonfree target for a public repository, but not for a private one', async () => {
     const nonfree = folder(
       `${FOLDER}  studio-internal: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d] }\n`,
     );
@@ -278,15 +278,10 @@ describe('ffmpeg-build releases', () => {
       'studio-internal is nonfree: internal use only, never published to a public repository (o/r is public)',
     );
     gh.private = true;
-    const unacknowledged = await runCliAsync(['releases'], { cwd: folder(), env });
-    expect(unacknowledged.exitCode).toBe(1);
-    expect(unacknowledged.stdout).toContain(
-      'o/r is private: its releases, and the source their notices link to, reach only people with access to it',
-    );
     expect(
       (
         await runCliAsync(['releases'], {
-          cwd: folder(`private-release: internal\n${FOLDER}`),
+          cwd: folder(),
           env,
         })
       ).exitCode,

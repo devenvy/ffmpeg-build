@@ -49,7 +49,7 @@ export interface Folder {
   pin: Record<string, string>; // folder-wide version constraints
   notify: { newFfmpeg: boolean };
   allowRemoval: string[]; // components any target may lose since the last release
-  privateRelease?: 'internal'; // releases go to a private repository: builds and their source only for those with access
+  sourceOffer?: string; // who the notices' written offer names to ask for the source
   build: BuildSettingEntry[]; // where and how platforms build (the build: section), in the file's order
   targets: Target[];
 }
@@ -205,7 +205,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       pin: data.pin,
       notify: { newFfmpeg: data.notify?.['new-ffmpeg'] !== 'false' },
       allowRemoval: data['allow-removal'],
-      ...(data['private-release'] ? { privateRelease: data['private-release'] } : {}),
+      ...(data['source-offer'] ? { sourceOffer: data['source-offer'] } : {}),
       build: Object.entries(data.build).map(([pattern, s]) => ({
         pattern,
         ...(s.runner !== undefined ? { runner: s.runner } : {}),
@@ -265,5 +265,6 @@ export function targetProfile(folder: Folder, t: Target): Profile {
     components: t.components,
     patches: t.patches,
     tests: t.tests,
+    ...(folder.sourceOffer ? { sourceOffer: folder.sourceOffer } : {}),
   };
 }

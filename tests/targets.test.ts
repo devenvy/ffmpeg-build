@@ -57,6 +57,23 @@ describe('the folder file', () => {
     expect(t.origin.get('dav1d')).toBe('common');
   });
 
+  it("gives each target the folder's source-offer: contact, and none when it has none", () => {
+    const one = 'targets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9 }\n';
+    const profile = (text: string) => {
+      const f = ok(text);
+      return targetProfile(f, f.targets[0]!);
+    };
+    expect(profile(`source-offer: support@example.com\n${one}`).sourceOffer).toBe(
+      'support@example.com',
+    );
+    expect(profile(one).sourceOffer).toBeUndefined();
+    expect(errors(`source-offer: ""\n${one}`).join('\n')).toContain(
+      'expected who to ask for the source, like an email address',
+    );
+    // private-release: is gone: the engine reads the repository's visibility itself
+    expect(errors(`private-release: internal\n${one}`).join('\n')).toContain('private-release');
+  });
+
   it('takes components: from its bases, a later layer replacing a kind; none means none restricted', () => {
     const f = ok(
       [
@@ -169,7 +186,7 @@ describe('the editor schema for ffmpeg-build.yml', () => {
       'build',
       'notify',
       'pin',
-      'private-release',
+      'source-offer',
       'targets',
     ]);
     expect(schema.additionalProperties).toBe(false);

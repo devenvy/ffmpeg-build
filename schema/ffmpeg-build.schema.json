@@ -221,11 +221,12 @@
         "pattern": "^[a-z0-9][a-z0-9._+-]*$"
       }
     },
-    "private-release": {
-      "type": "string",
-      "enum": [
-        "internal"
-      ]
+    "source-offer": {
+      "type": [
+        "string",
+        "number"
+      ],
+      "minLength": 1
     },
     "targets": {
       "type": "object",

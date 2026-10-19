@@ -52,6 +52,7 @@ import {
 } from '../cache-admin.ts';
 import { BuildFailure, CliError, type ExitCode } from '../cli-errors.ts';
 import { depsOn, type EngineData } from '../engine-data.ts';
+import { FetchError, repoIsPrivate } from '../fetch.ts';
 import { LockBusyError } from '../file-lock.ts';
 import { Interrupted, withInterrupts } from '../interrupt.ts';
 import { LOCK_FILE, type LockedProfile, readFolderLock } from '../lockfile.ts';
@@ -88,6 +89,36 @@ function isRemoteUrl(remote: string): boolean {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(remote)
     ? !/^file:/i.test(remote)
     : /^[\w.-]+@[\w.-]+:(?!\/)/.test(remote);
+}
+
+/**
+ * The release a build ships in (FFMPEG_BUILD_RELEASE, set by the build workflow), the repository it is published in,
+ * and whether that repository is private: a private one's notices make a written offer of the source, since nobody
+ * outside it can open a link into it. Never guessed: unreadable visibility fails the build.
+ */
+export async function releaseIdentity(
+  dir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<{ release?: string; repository?: string; privateRepo?: boolean }> {
+  const release = setting(env['FFMPEG_BUILD_RELEASE']);
+  if (!release) {
+    return {};
+  }
+  const repository = setting(env['GITHUB_REPOSITORY']) ?? publishingRepo(dir);
+  if (!repository) {
+    return { release };
+  }
+  try {
+    return { release, repository, privateRepo: await repoIsPrivate(repository) };
+  } catch (e) {
+    if (!(e instanceof FetchError)) {
+      throw e;
+    }
+    throw new CliError(
+      `can't read whether ${repository} is private, which decides where its notices say the source is: ${e.message}`,
+      e.exitCode,
+    );
+  }
 }
 
 /**
@@ -385,8 +416,7 @@ async function runJob(job: Job, data: EngineData): Promise<Result> {
     // (FFMPEG_BUILD_RELEASE, set by the build workflow) with the repository it is published in
     const folderDir = profile.dir ?? process.cwd();
     const source = sourceIdentity(folderDir);
-    const releaseTag = setting(process.env['FFMPEG_BUILD_RELEASE']);
-    const repository = releaseTag ? publishingRepo(folderDir) : undefined;
+    const published = await releaseIdentity(folderDir);
     for (const { cell, variant, name, group, only } of job.builds) {
       const full = makeBuildPlan({
         profile,
@@ -397,8 +427,7 @@ async function runJob(job: Job, data: EngineData): Promise<Result> {
         cacheDir: libs,
         variant,
         source,
-        ...(releaseTag ? { release: releaseTag } : {}),
-        ...(repository ? { repository } : {}),
+        ...published,
         ...(group ? { group } : {}),
         ...(name ? { name } : {}),
         ...(paths ? { depsDir: paths.depsDir } : {}),

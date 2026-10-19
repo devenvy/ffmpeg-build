@@ -202,10 +202,14 @@ build needs. FFmpeg comes first:
   the target has patch sets, that FFmpeg was modified and by which.
 - **BUILD:** FFmpeg's configure line as built (what `ffmpeg -buildconf` prints), the platform and the toolchain
   identity.
-- **SOURCE:** where the complete corresponding source is, all of it public. A build in a release names the release's
-  sources archive by its download URL; one that isn't in a release says its source is recorded in
-  `<name>.sources.json` and kept in the cache, and that it must be published with its sources archive before it is
-  distributed. It also links the build definition at its commit (`FFMPEG_BUILD_SOURCE_REPO` and
+- **SOURCE:** where the complete corresponding source is. A build in a release of a public repository names the
+  release's sources archive by its download URL. One in a release of a private repository (nobody outside it can open
+  that URL) names the archive and makes a written offer of it instead; so does a build in no release, whose source is
+  recorded in `<name>.sources.json` and kept in the cache (keep its sources archive while the offer holds). The offer
+  names who to ask: `source-offer:` at the top of `ffmpeg-build.yml` (an email address, say), else whoever
+  distributed the build. With `source-offer:` set, a public release makes the offer too. A nonfree build makes none:
+  it isn't distributed. The build reads the release repository's visibility as it builds, and fails if it can't. It
+  also links the build definition at its commit (`FFMPEG_BUILD_SOURCE_REPO` and
   `FFMPEG_BUILD_SOURCE_REF` when set, as CI does, else the folder's git remote and HEAD, `-dirty` with local changes),
   and FFmpeg's upstream tarball. The release and its repository come from `FFMPEG_BUILD_RELEASE` (the build workflow
   sets it) and `GITHUB_REPOSITORY` or the folder's remote.
