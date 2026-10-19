@@ -37,17 +37,35 @@ bases:
         nvenc,
         vpl,
         svtav1,
+        theora,
+        vvenc,
+        twolame,
+        shine,
+        codec2,
       ]
   linux:
     with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
   gplv2:
-    with: [x264, x265]
+    with: [x264, x265, xvid]
   gplv3:
-    with: [x264, x265, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan, opencl]
+    with:
+      [
+        x264,
+        x265,
+        xvid,
+        lc3,
+        ilbc,
+        opencore-amrnb,
+        opencore-amrwb,
+        placebo,
+        vo-amrwbenc,
+        vulkan,
+        opencl,
+      ]
   lgplv3:
-    with: [kvazaar, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan, opencl]
+    with: [kvazaar, lc3, ilbc, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan, opencl]
 targets:
   # MoltenVK, which no Linux or Windows target builds: on macOS its dylib and ICD manifest ship beside the Khronos
   # loader. Just Vulkan and libplacebo on it, to keep the macOS run short, and iconv, the one library only Apple and

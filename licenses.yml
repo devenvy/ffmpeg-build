@@ -20,7 +20,9 @@ licenses:
   Unicode-DFS-2016: all
   WTFPL: all
   TU-Berlin-2.0: all
+  LGPL-2.0-only: all
   LGPL-2.0-or-later: all
+  LGPL-2.1-only: all
   LGPL-2.1-or-later: all
   MPL-2.0: all
   LGPL-3.0-or-later: [lgplv3, gplv3, nonfree]
