@@ -31,6 +31,8 @@ licenses:
   Apache-2.0: [lgplv3, gplv3, nonfree]
   # The LLVM exception lets Apache-2.0 code combine with GPLv2 (the NDK's libc++_shared.so, which Android archives ship).
   Apache-2.0 WITH LLVM-exception: all
+  # libmodplug's COPYING: "ModPlug-XMMS and libmodplug are now in the public domain." (SPDX has no identifier for it)
+  LicenseRef-libmodplug-public-domain: all
   # BSD-3-Clause-Clear plus COPYING's terms that the library never takes the licence of the work it is part of: not
   # GPL builds (whose licence covers the whole work)
   LicenseRef-LCEVCdec: [lgplv2, lgplv3, nonfree]

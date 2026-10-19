@@ -1330,6 +1330,35 @@ describe('codec libraries', () => {
       licenses: ['lgplv2', 'lgplv3', 'nonfree'],
       ships: { filters: ['lcevc'] },
     },
+    // already an option (the shipped targets have it); its decoder side is now part of what `test` checks
+    openh264: {
+      platforms: PLATFORMS,
+      recipes: ['openh264'],
+      flags: ['--enable-libopenh264'],
+      licenses: ALL,
+      ships: { encoders: ['libopenh264'], decoders: ['libopenh264'] },
+    },
+    gme: {
+      platforms: PLATFORMS,
+      recipes: ['libgme'],
+      flags: ['--enable-libgme'],
+      licenses: ALL,
+      ships: { demuxers: ['libgme'] },
+    },
+    modplug: {
+      platforms: PLATFORMS,
+      recipes: ['libmodplug'],
+      flags: ['--enable-libmodplug'],
+      licenses: ALL,
+      ships: { demuxers: ['libmodplug'] },
+    },
+    openmpt: {
+      platforms: PLATFORMS,
+      recipes: ['libopenmpt'],
+      flags: ['--enable-libopenmpt'],
+      licenses: ALL,
+      ships: { demuxers: ['libopenmpt'] },
+    },
   };
   const CODECS = Object.keys(where);
   const text = (platform: string, license: string, option: string) =>
@@ -1392,7 +1421,8 @@ describe('codec libraries', () => {
 
   it('turns on in no shipped target', () => {
     for (const c of cells) {
-      expect(c.options.filter((o) => CODECS.includes(o))).toEqual([]);
+      // openh264 is in the shipped targets already: the new options stay off
+      expect(c.options.filter((o) => CODECS.includes(o) && o !== 'openh264')).toEqual([]);
     }
   });
 });

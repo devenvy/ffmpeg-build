@@ -47,6 +47,9 @@ bases:
         xevd,
         oapv,
         svtjpegxs,
+        gme,
+        modplug,
+        openmpt,
       ]
   linux:
     with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau]

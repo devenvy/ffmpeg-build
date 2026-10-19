@@ -1,0 +1,49 @@
+# OpenMPT's autotools tarball (its git has only a plain Makefile, which knows no Android, Apple-cross or win-arm64).
+name: libopenmpt
+provides: openmpt
+license: BSD-3-Clause
+license-files: [LICENSE]
+configure: [--enable-libopenmpt]
+source:
+  {
+    url: 'https://lib.openmpt.org/files/libopenmpt/src/libopenmpt-{version}+release.autotools.tar.gz',
+  }
+versions:
+  {
+    listing: 'https://lib.openmpt.org/files/libopenmpt/src/',
+    files: '^libopenmpt-(\d+\.\d+\.\d+)\+release\.autotools\.tar\.gz$',
+  }
+platforms: all
+build:
+  # libopenmpt: OpenMPT's tracker module player (MOD, S3M, XM, IT, MPTM and many more; BSD-3-Clause), static, for
+  # FFmpeg's libopenmpt demuxer (found through libopenmpt.pc, 0.2.6557 or later). C++17. The library alone: no
+  # openmpt123 player, examples or tests, and none of its optional libraries (zlib, mpg123, Ogg/Vorbis: compressed
+  # samples inside some modules; those modules' samples play silent). libopenmpt.pc takes what a static link needs
+  # beyond the library from CXXSTDLIB_PCLIBSPRIVATE: this platform's C++ runtime, and libm.
+  system: autotools
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --with-pic,
+      --disable-openmpt123,
+      --disable-examples,
+      --disable-tests,
+      --disable-doxygen-doc,
+      --without-zlib,
+      --without-mpg123,
+      --without-ogg,
+      --without-vorbis,
+      --without-vorbisfile,
+      --without-pulseaudio,
+      --without-portaudio,
+      --without-portaudiocpp,
+      --without-sdl2,
+      --without-sndfile,
+      --without-flac,
+      'CXXSTDLIB_PCLIBSPRIVATE={cxx-runtime} -lm',
+    ]
+  platforms:
+    # C++20's <memory> pulls in std::mutex, which win32-thread GCC 13 (win-x64's mingw-w64) only has when targeting
+    # Vista or later
+    win-x64: { env: { CPPFLAGS: '+= -D_WIN32_WINNT=0x0601' } }

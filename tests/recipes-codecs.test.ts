@@ -586,3 +586,120 @@ describe.each(['xeve'])('%s on musl', (name) => {
     }
   });
 });
+
+// Batch c3: game and tracker module music.
+
+/** The C++ runtime a static link needs, as the engine's {cxx-runtime} names it. */
+const cxxRuntime = (platform: string) => {
+  if (/^(osx|ios|maccatalyst|android)-/.test(platform)) {
+    return '-lc++';
+  }
+  if (platform === 'win-arm64') {
+    return '-l:libc++.a';
+  }
+  return platform.startsWith('linux-musl-') ? '-l:libstdc++.a' : '-lstdc++';
+};
+
+// Game_Music_Emu's static library alone, without zlib; its .pc's Libs.private (the compiler's implicit link line)
+// becomes the platform's C++ runtime and libm.
+describe('libgme', () => {
+  it.each(platformsOf('libgme'))('%s', async (platform) => {
+    const h = fake(platform);
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        put(
+          pcPath(h, 'libgme'),
+          `Libs: -L\${libdir} -lgme\nLibs.private: -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc\n`,
+        );
+      }
+      return undefined;
+    };
+    await build(h, 'libgme');
+    // musl's headers don't bring in <ctime> by the way, as glibc's do
+    const musl = platform.startsWith('linux-musl-')
+      ? ` [CXXFLAGS=${env(h, 'CXXFLAGS')} -include ctime]`
+      : '';
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DGME_BUILD_SHARED=OFF',
+        '-DGME_BUILD_STATIC=ON',
+        '-DGME_BUILD_EXAMPLES=OFF',
+        '-DGME_BUILD_TESTING=OFF',
+        '-DGME_ENABLE_UBSAN=OFF',
+        '-DGME_ZLIB=OFF',
+        '-DGME_BUILD_FRAMEWORK=OFF',
+      ]).map((line) => line + musl),
+    );
+    expect(h.read(pcPath(h, 'libgme'))).toBe(
+      `Libs: -L\${libdir} -lgme\nLibs.private: ${cxxRuntime(platform)} -lm\n`,
+    );
+  });
+});
+
+// libmodplug from its last release tarball, as C++14; its .pc's -lstdc++ the platform's runtime, and on Windows the
+// define that makes modplug.h declare the static library's symbols.
+describe('libmodplug', () => {
+  it.each(platformsOf('libmodplug'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(
+      pcPath(h, 'libmodplug'),
+      `Libs: -L\${libdir} -lmodplug\nLibs.private: -lstdc++ -lm\nCflags: -I\${includedir}\n`,
+    );
+    await build(h, 'libmodplug');
+    const cxxflags = ` [CXXFLAGS=${env(h, 'CXXFLAGS')} -std=gnu++14]`;
+    expect(commands(h)).toEqual(
+      [
+        'autoreconf -fi',
+        configureLine(h, ['--disable-shared', '--enable-static', '--with-pic']),
+        'make -j4',
+        'make install',
+      ].map((line) => `${line}${cxxflags}`),
+    );
+    const win = platform.startsWith('win-') ? ' -DMODPLUG_STATIC' : '';
+    expect(h.read(pcPath(h, 'libmodplug'))).toBe(
+      `Libs: -L\${libdir} -lmodplug\nLibs.private: ${cxxRuntime(platform)} -lm\nCflags: -I\${includedir}${win}\n`,
+    );
+  });
+  it('is public domain, allowed in every build', () => {
+    expect(recipe('libmodplug').license).toBe('LicenseRef-libmodplug-public-domain');
+  });
+});
+
+// libopenmpt's autotools tarball: the library alone, none of its optional libraries, and the platform's C++ runtime
+// for its .pc.
+describe('libopenmpt', () => {
+  it.each(platformsOf('libopenmpt'))('%s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libopenmpt');
+    // win32-thread GCC 13 has std::mutex only when targeting Vista or later
+    const vista =
+      platform === 'win-x64' ? ` [CPPFLAGS=${env(h, 'CPPFLAGS')} -D_WIN32_WINNT=0x0601]` : '';
+    expect(commands(h)).toEqual(
+      [
+        configureLine(h, [
+          '--disable-shared',
+          '--enable-static',
+          '--with-pic',
+          '--disable-openmpt123',
+          '--disable-examples',
+          '--disable-tests',
+          '--disable-doxygen-doc',
+          '--without-zlib',
+          '--without-mpg123',
+          '--without-ogg',
+          '--without-vorbis',
+          '--without-vorbisfile',
+          '--without-pulseaudio',
+          '--without-portaudio',
+          '--without-portaudiocpp',
+          '--without-sdl2',
+          '--without-sndfile',
+          '--without-flac',
+          `CXXSTDLIB_PCLIBSPRIVATE=${cxxRuntime(platform)} -lm`,
+        ]),
+        'make -j4',
+        'make install',
+      ].map((line) => line + vista),
+    );
+  });
+});
