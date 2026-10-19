@@ -1,10 +1,17 @@
 // What FFmpeg itself offers, read from its configure script, against what the engine's ffmpeg/<major>.yml says: the
 // nightly support check (scripts/ffmpeg-support.ts, .github/workflows/ffmpeg-support.yml). Releases are pure data and
 // are corrected from upstream's tags; new or changed options are reported for a person to decide.
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { type EngineData, knownMajors, optionsOf, valuesOn } from './engine-data.ts';
+import {
+  type Components,
+  componentsFilePath,
+  formatComponentsFile,
+  parseComponentsFile,
+  sameComponents,
+} from './ffmpeg-components.ts';
 import { compareVersions } from './versions.ts';
 
 export type LicenseClass = 'gpl' | 'version3' | 'gplv3' | 'nonfree' | '';
@@ -72,6 +79,8 @@ export interface SupportReport {
   newOptions: { name: string; license: LicenseClass }[]; // in the newest release's configure, not in the previous one's
   gone: string[]; // engine options whose configure name the previous release had and the newest no longer has
   reclassed: { option: string; data: string; configure: LicenseClass }[];
+  /** the release whose components differ from ffmpeg/components/<major>.yml's (absent when they match) */
+  components?: string;
 }
 
 const DATA_CLASS: Record<LicenseClass, string[]> = {
@@ -154,6 +163,11 @@ export function formatSupport(reports: SupportReport[], majors: string[], applie
         `- **gone from configure**, still in the data: ${r.gone.map((g) => `\`${g}\``).join(', ')}`,
       );
     }
+    if (r.components) {
+      out.push(
+        `- components: from ${r.components} (${applied ? 'applied' : 'run with --write to apply'})`,
+      );
+    }
     for (const c of r.reclassed) {
       out.push(
         `- **licence class changed:** \`${c.option}\` is ${c.data} in the data, ${c.configure} in configure`,
@@ -192,6 +206,8 @@ export async function supportCheck(o: {
   dataRoot: string;
   upstream: string[];
   configureOf: (version: string) => Promise<Map<string, LicenseClass>>;
+  /** each release's components (FFmpeg's sources at its tag); without it the component lists aren't checked */
+  componentsOf?: (version: string) => Promise<Components>;
   write: boolean;
 }): Promise<string> {
   if (!o.upstream.length) {
@@ -216,6 +232,21 @@ export async function supportCheck(o: {
       await o.configureOf(releases.at(-1)!),
       previous ? await o.configureOf(previous) : undefined,
     );
+    if (o.componentsOf) {
+      const newest = releases.at(-1)!;
+      const components = await o.componentsOf(newest);
+      const file = componentsFilePath(o.dataRoot, major);
+      const kept = existsSync(file)
+        ? parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`)
+        : undefined;
+      if (!kept || kept.release !== newest || !sameComponents(kept.components, components)) {
+        report.components = newest;
+        if (o.write) {
+          mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, formatComponentsFile(major, { release: newest, components }));
+        }
+      }
+    }
     reports.push(report);
     if (
       o.write &&

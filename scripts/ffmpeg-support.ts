@@ -1,11 +1,13 @@
 // The nightly FFmpeg support check: node scripts/ffmpeg-support.ts [--write] [--report <file>]
 // Reads FFmpeg's release tags and the configure script of each handled major's newest release (and the one before it),
-// corrects ffmpeg/<major>.yml's releases with --write, and writes a report of what a person must decide.
+// corrects ffmpeg/<major>.yml's releases and writes ffmpeg/components/<major>.yml (the components of each major's newest
+// release, from its sources at its tag) with --write, and writes a report of what a person must decide.
 // Exit 2 when upstream can't be read or the data can't be corrected.
 import { writeFileSync } from 'node:fs';
 
 import { EXIT_USAGE } from '../src/cli-error.ts';
 import { ffmpegVersionSource, loadEngineData } from '../src/engine-data.ts';
+import { COMPONENT_FILES, type Components, parseComponents } from '../src/ffmpeg-components.ts';
 import {
   type LicenseClass,
   parseConfigure,
@@ -31,13 +33,33 @@ async function configureOf(version: string): Promise<Map<string, LicenseClass>> 
   return parseConfigure(await res.text());
 }
 
+async function componentsOf(version: string): Promise<Components> {
+  const files: Record<string, string> = {};
+  for (const file of COMPONENT_FILES) {
+    const url = `https://raw.githubusercontent.com/FFmpeg/FFmpeg/n${version}/${file}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new SupportError(`FFmpeg ${version}'s ${file}: ${url} answered ${res.status}`);
+    }
+    files[file] = await res.text();
+  }
+  return parseComponents(files);
+}
+
 try {
   const data = loadEngineData(packageRoot);
   const found = await findVersions(ffmpegVersionSource(data), 'FFmpeg');
   const upstream = ('versions' in found ? found.versions : []).filter((v) =>
     /^\d+\.\d+(\.\d+)?$/.test(v),
   );
-  const text = await supportCheck({ data, dataRoot: packageRoot, upstream, configureOf, write });
+  const text = await supportCheck({
+    data,
+    dataRoot: packageRoot,
+    upstream,
+    configureOf,
+    componentsOf,
+    write,
+  });
   if (reportAt) {
     writeFileSync(reportAt, text);
   }

@@ -193,6 +193,22 @@ describe('engine data', () => {
     expect(() => loadEngineData(fixtureProfilesDir)).toThrow(/no ffmpeg\/ folder/);
   });
 
+  it("loads each major's components, which the shipped data has for every major it builds", () => {
+    const data = loadEngineData(packageRoot);
+    for (const major of knownMajors(data)) {
+      const c = data.components.get(major);
+      expect(c, `ffmpeg/components/${major}.yml`).toBeDefined();
+      expect(c!.decoders).toContain('h264');
+      expect(c!.filters).toContain('scale');
+    }
+  });
+
+  it('reports a components file it cannot read, with its name', () => {
+    expect(
+      errorsOf({ 'ffmpeg/9.yml': okFfmpeg, 'ffmpeg/components/9.yml': 'release: 9.0.2\n' }),
+    ).toEqual(['ffmpeg/components/9.yml: decoders: is not a list of names']);
+  });
+
   it('flags FFmpeg data files that are not named <major>.yml', () => {
     expect(errorsOf({ 'ffmpeg/9.yml': okFfmpeg, 'ffmpeg/10.yaml': okFfmpeg })).toEqual([
       'ffmpeg/10.yaml: FFmpeg data files are named <major>.yml, like 9.yml',
