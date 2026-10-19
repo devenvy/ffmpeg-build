@@ -33,3 +33,28 @@ jobs:
       folder: examples/native
       engine: source
       publish: never
+
+  # Dependabot's base image bumps merge once every toolchain built and tested on them. CI's own auto-merge leaves
+  # them alone: its required check (result) doesn't include these builds, so it would merge an untested toolchain.
+  # As devenvy-bot (org variable DEVENVY_BOT_CLIENT_ID, org secret DEVENVY_BOT_PRIVATE_KEY, both also Dependabot
+  # secrets), so the merge starts the workflows on main.
+  dependabot-auto-merge:
+    needs: [build, native]
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' && startsWith(github.head_ref, 'dependabot/docker/') && needs.build.result == 'success' && needs.native.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.DEVENVY_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.DEVENVY_BOT_PRIVATE_KEY }}
+          # enabling auto-merge
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --auto --squash
