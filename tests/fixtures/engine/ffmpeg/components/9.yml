@@ -34,6 +34,7 @@ protocols:
 indevs: []
 outdevs: []
 filters:
+  - deinterlace_vaapi
   - scale
   - scale_cuda
   - transpose_vaapi
@@ -68,6 +69,7 @@ needs:
     libsrt: [libsrt]
     tls: [gnutls|openssl|schannel|securetransport]
   filters:
+    deinterlace_vaapi: [gpl, vaapi]
     scale_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
     transpose_vaapi: [vaapi]
     whisper: [whisper]

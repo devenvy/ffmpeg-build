@@ -45,6 +45,11 @@ describe('component lists', () => {
       // transpose_vaapi is what vaapi needs and ships (on linux-*); not https or tls: openssl brings nothing
       filters: ['transpose_vaapi'],
     });
+    // a GPL filter only in a build whose licence turns --enable-gpl on
+    expect(broughtComponents(fixture, { ...t, license: 'gplv3' }).filters).toEqual([
+      'deinterlace_vaapi',
+      'transpose_vaapi',
+    ]);
     // on android-arm64 vaapi's ships: entry doesn't hold, but the filter still needs only vaapi
     expect(broughtComponents(fixture, { ...t, platform: 'android-arm64' }).filters).toEqual([
       'transpose_vaapi',

@@ -190,7 +190,8 @@ targets:
   libraries, the hardware APIs, whisper: the major's `auto-components:` in `ffmpeg/<major>.yml`), every component of a
   listed kind that needs the option stays: `vaapi` keeps `h264_vaapi`, `hevc_vaapi`, `av1_vaapi`, the VAAPI hwaccels
   and filters; `nvenc` the NVENC encoders, NVDEC hwaccels and CUVID decoders; `vpx` `libvpx_vp8` and `libvpx_vp9`. What
-  needs what is configure's own rules, read from each release (`needs:` in `ffmpeg/components/<major>.yml`). A support
+  needs what is configure's own rules, read from each release (`needs:` in `ffmpeg/components/<major>.yml`; that includes
+  its licence switches: a GPL-only filter comes only in a gpl build). A support
   library brings nothing by itself: with `zlib` on, list `png` if you want it; with `openssl`, list `https` and `tls`;
   with `xml2`, `dash`. FFmpeg's configure then brings in what each component it builds depends on (the parsers and
   bitstream filters a decoder or muxer uses).

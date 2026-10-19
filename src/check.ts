@@ -12,6 +12,7 @@ import {
   type ComponentKind,
   type Components,
   type ComponentsFile,
+  LICENSE_NEEDS,
   type RuntimeNames,
 } from './ffmpeg-components.ts';
 import { allowedBy } from './licenses.ts';
@@ -390,7 +391,12 @@ function unmetNeed(
   name: string,
   needs: readonly string[],
 ): string | undefined {
-  const t = { major: cell.cell.major, platform: cell.cell.platform, options: cell.options };
+  const t = {
+    major: cell.cell.major,
+    platform: cell.cell.platform,
+    options: cell.options,
+    license: cell.cell.license,
+  };
   const on = optionsOn(data, t);
   const need = needs.find((n) => !needsMet([n], on));
   if (!need) {
@@ -404,6 +410,9 @@ function unmetNeed(
     )
     .map((o) => o.name)
     .sort();
+  if (LICENSE_NEEDS.includes(need)) {
+    return `${name} needs configure's --enable-${need}, which a ${t.license} build doesn't have`;
+  }
   if (!providers.length) {
     return `${name} needs ${[...wanted].join(' or ')}, which no option of this engine turns on here`;
   }

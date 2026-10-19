@@ -18,6 +18,8 @@ import {
 import { platformMatches } from './platforms.ts';
 import { unique } from './text.ts';
 
+import type { License } from './schema/profile.ts';
+
 /**
  * An option's FFmpeg flags on a platform, by the rule the build passes them by: its own `configure:`, else its
  * library's, else `--enable-<name>`.
@@ -51,18 +53,32 @@ export interface ComponentTarget {
   major: string;
   platform: string;
   options: readonly string[]; // the options on
+  license?: License; // its build licence: configure's gpl, version3 and nonfree switches
 }
+
+/** The licence switches each build licence turns on (src/build/plan.ts's LICENSE_FLAGS). */
+const LICENSE_ON: Record<License, string[]> = {
+  lgplv2: [],
+  lgplv3: ['version3'],
+  gplv2: ['gpl'],
+  gplv3: ['gpl', 'version3'],
+  nonfree: ['gpl', 'version3', 'nonfree'],
+};
 
 /** The configure options on for a target: its platform's and its options' --enable- flags. */
 export function optionsOn(data: EngineData, t: ComponentTarget): Set<string> {
   const options = optionsOf(data, t.major);
-  return configureOptions([
+  const on = configureOptions([
     ...(data.platforms.get(t.platform)?.configure ?? []),
     ...t.options.flatMap((o) => {
       const info = options.get(o);
       return info ? optionConfigure(data, info, t.platform) : [];
     }),
   ]);
+  for (const l of t.license ? LICENSE_ON[t.license] : []) {
+    on.add(l);
+  }
+  return on;
 }
 
 /**

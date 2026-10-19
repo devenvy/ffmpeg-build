@@ -194,6 +194,7 @@ describe('readComponents', () => {
       'av1_qsv_encoder_select="qsvenc"',
       'qsvenc_select="qsv"',
       'png_decoder_select="inflate_wrapper"',
+      'boxblur_opencl_filter_deps="opencl gpl"',
       'inflate_wrapper_deps="zlib"',
       'loop_a_decoder_select="loop_b"',
       'loop_b_select="loop_a_decoder"',
@@ -210,7 +211,7 @@ describe('readComponents', () => {
       ...readComponents(tree(SOURCE)),
       decoders: ['h264', 'h264_qsv', 'loop_a', 'png'],
       encoders: ['av1_qsv', 'h264_nvenc', 'h264_vaapi'],
-      filters: ['scale', 'scale_cuda'],
+      filters: ['boxblur_opencl', 'scale', 'scale_cuda'],
     };
     const options = new Set([
       'vaapi',
@@ -223,6 +224,7 @@ describe('readComponents', () => {
       'zlib',
       'fontconfig',
       'libfontconfig',
+      'opencl',
     ]);
     expect(readNeeds(configure, components, options)).toEqual({
       decoders: { h264_qsv: ['libmfx|libvpl'], png: ['zlib'] },
@@ -231,7 +233,11 @@ describe('readComponents', () => {
         h264_nvenc: ['ffnvcodec', 'nvenc'],
         h264_vaapi: ['vaapi'],
       },
-      filters: { scale_cuda: ['cuda_llvm|cuda_nvcc', 'ffnvcodec'] },
+      // configure's licence switches count: a GPL filter needs --enable-gpl
+      filters: {
+        boxblur_opencl: ['gpl', 'opencl'],
+        scale_cuda: ['cuda_llvm|cuda_nvcc', 'ffnvcodec'],
+      },
     });
   });
 

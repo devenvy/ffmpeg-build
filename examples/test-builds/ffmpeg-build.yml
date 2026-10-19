@@ -13,7 +13,8 @@ targets:
   # components: a restricted build, so the --disable-<kind> / --enable-<kind>=a,b path is built and tested for real:
   # what its options bring (nvenc's encoders, CUVID decoders and NVDEC hwaccels; the CUDA, OpenCL and VDPAU components;
   # opus and dav1d), and names a build lists otherwise (adpcm_g726 is g726, the pcm_s16le demuxer s16le, mov is
-  # mov,mp4,...). The test's own pattern needs testsrc2, the null muxer and its wrapped_avframe encoder.
+  # mov,mp4,...). The test's own pattern (lavfi testsrc2 into -f null) needs testsrc2, the null muxer, and
+  # wrapped_avframe as both decoder and encoder.
   linux-x64-lgplv3:
     {
       platform: linux-x64,
@@ -23,7 +24,7 @@ targets:
       with: [cuda-llvm, opencl, vdpau, nvenc],
       components:
         {
-          decoders: [h264, hevc, aac, pcm_s16le],
+          decoders: [h264, hevc, aac, pcm_s16le, wrapped_avframe],
           encoders: [aac, adpcm_g726, wrapped_avframe],
           hwaccels: [],
           demuxers: [mov, matroska, pcm_s16le],

@@ -240,6 +240,9 @@ function dependencyLines(
   return out;
 }
 
+/** The licence switches a component can need: --enable-gpl, --enable-version3, --enable-nonfree. */
+export const LICENSE_NEEDS = ['gpl', 'version3', 'nonfree'];
+
 /**
  * The options configure turns on for another: `enabled fontconfig && enable libfontconfig`, and libvpl's check, which
  * is libmfx's (`elif enabled libvpl; then check_pkg_config libmfx ...`). { libmfx: [libvpl] }: libmfx is on with libvpl.
@@ -278,8 +281,10 @@ function implications(configure: string, options: ReadonlySet<string>): Map<stri
 export function readNeeds(
   configure: string,
   components: Components,
-  options: ReadonlySet<string>,
+  configureOptions: ReadonlySet<string>,
 ): ComponentNeeds {
+  // configure's licence switches gate components too (boxblur_opencl needs gpl)
+  const options = new Set([...configureOptions, ...LICENSE_NEEDS]);
   const lines = dependencyLines(configure);
   const implied = implications(configure, options);
   // each need is a set of alternatives: { vaapi }, or { cuda_llvm, cuda_nvcc } for one of them

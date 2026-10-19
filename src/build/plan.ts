@@ -141,6 +141,7 @@ export function configureFlags(
       data,
       {
         major: plan.cell.major,
+        license: plan.cell.license,
         platform: plan.cell.platform,
         options: plan.options,
         ...(plan.components ? { components: plan.components } : {}),

@@ -376,6 +376,27 @@ describe('components in check', () => {
     expect(
       withComponents({ encoders: ['h264_vaapi'], protocols: ['https'] }, '[vaapi, openssl]'),
     ).not.toContain('✗');
+    // a licence switch the target's licence doesn't turn on
+    const lgpl = parseProfileText(
+      'name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: lgplv3\nwith: [vaapi]\n',
+      't.yml',
+    );
+    if (!lgpl.ok) {
+      throw new Error(lgpl.errors.join('\n'));
+    }
+    expect(
+      formatReport(
+        checkProfile(
+          {
+            ok: true,
+            profile: { ...lgpl.profile, components: { filters: ['deinterlace_vaapi'] } },
+          },
+          data,
+        ),
+      ),
+    ).toContain(
+      "deinterlace_vaapi needs configure's --enable-gpl, which a lgplv3 build doesn't have",
+    );
     // a need no option of the engine meets
     expect(withComponents({ decoders: ['png'] })).toContain(
       'png needs zlib, which no option of this engine turns on here',
