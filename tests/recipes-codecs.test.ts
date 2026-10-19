@@ -746,7 +746,7 @@ describe('rav1e', () => {
     expect(calls.slice(0, -1)).toEqual(
       apple
         ? [
-            `rustup-init -y --no-modify-path --profile minimal --default-toolchain 1.98.1 --target ${target}`,
+            `rustup toolchain install 1.98.1 --profile minimal --target ${target}`,
             'cargo install --locked cargo-c@0.10.26',
           ]
         : [],
