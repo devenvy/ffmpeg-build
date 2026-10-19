@@ -175,8 +175,9 @@ describe('codec2', () => {
   });
 });
 
-// libilbc with its abseil submodule; the test program and docs its install adds are removed, and the C++ runtime it
-// needs goes on its .pc and, through configure, on FFmpeg's link (FFmpeg finds it with a plain -lilbc).
+// libilbc with its abseil submodule, the platform's flags kept and its test programs left out; the docs its install
+// adds are removed, and the C++ runtime it needs goes on its .pc and, through configure, on FFmpeg's link (FFmpeg
+// finds it with a plain -lilbc).
 describe('libilbc', () => {
   const runtime = (p: string) => {
     if (/^(osx|ios|maccatalyst|android)-/.test(p)) {
@@ -189,11 +190,19 @@ describe('libilbc', () => {
   };
   it.each(platformsOf('libilbc'))('%s', async (platform) => {
     const h = fake(platform);
+    const cmakeLists = [
+      '    set(CMAKE_C_FLAGS "-Wall -Wextra")',
+      '    set(CMAKE_CXX_FLAGS "-Wall -Wextra")',
+      'add_executable(ilbc_test modules/test.c)',
+      'add_executable(ilbc_test2 iLBC_test2.c)',
+      'install(TARGETS ilbc ilbc_test',
+      '',
+    ];
+    put(join(h.src, 'CMakeLists.txt'), cmakeLists.join('\n'));
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(join(h.deps, 'lib', 'libilbc.a'), '!<arch>\n');
         put(join(h.deps, 'include', 'ilbc.h'), '');
-        put(join(h.deps, 'bin', platform.startsWith('win-') ? 'ilbc_test.exe' : 'ilbc_test'), '');
         put(join(h.deps, 'share', 'doc', 'libilbc', 'README.md'), '');
         put(pcPath(h, 'libilbc'), `Name: libilbc\nLibs: -L\${libdir} -lilbc\n`);
       }
@@ -201,6 +210,17 @@ describe('libilbc', () => {
     };
     await build(h, 'libilbc');
     expect(commands(h)).toEqual(cmakeLines(h, []));
+    // the platform's flags kept, the test programs neither built nor installed
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      [
+        `    set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Wextra")`,
+        `    set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -Wall -Wextra")`,
+        'add_executable(ilbc_test EXCLUDE_FROM_ALL modules/test.c)',
+        'add_executable(ilbc_test2 EXCLUDE_FROM_ALL iLBC_test2.c)',
+        'install(TARGETS ilbc',
+        '',
+      ].join('\n'),
+    );
     expect(h.files(h.deps)).toEqual([
       'include/ilbc.h',
       'lib/libilbc.a',
