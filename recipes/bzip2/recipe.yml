@@ -1,0 +1,36 @@
+name: bzip2
+provides: bzlib
+license: bzip2-1.0.6
+license-files: [LICENSE]
+configure: [--enable-bzlib]
+source: { git: https://sourceware.org/git/bzip2.git, ref: 'bzip2-{version}' }
+versions: { git-tags: '^bzip2-(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libbz2: bzip2 compression (bzip2-1.0.6 licence), static, for FFmpeg's bzlib (bzip2-compressed Matroska tracks).
+  # bzip2 1.0.x has its own Makefile, no configure (the CMake and Meson builds are on 1.1's unreleased branch), which
+  # hardcodes CC = gcc, AR = ar, RANLIB = ranlib and reads nothing from the environment: they are overridden on the
+  # command line, as libgsm's are. The platform's tools where it sets them (Windows, Apple, Android), else the cross
+  # triple's (linux-armhf, the one cross target that sets no CC), else the native ones. Only the library target is
+  # built (not the bzip2 programs or their test run, which a cross build can't run), then the library and its header
+  # copied in by hand. No .pc: FFmpeg finds it with `check_lib bzlib bzlib.h BZ2_bzlibVersion -lbz2`.
+  #
+  # CFLAGS replaces the Makefile's (-Wall -Winline -O2 -g -D_FILE_OFFSET_BITS=64): -fPIC to link into FFmpeg's shared
+  # libraries, and Apple's target flags (EXTRA_CFLAGS). On Windows bzlib.h declares the functions for static linking
+  # (BZ_EXPORT) unless BZ_IMPORT is defined, so nothing more is needed there.
+  system: none
+  vars: { tools: '' }
+  steps:
+    - vars: { tools: '{host}-' }
+      when: { set: '{host}' }
+    - [
+        make,
+        '-j{jobs}',
+        libbz2.a,
+        'CC={CC|{tools}gcc}',
+        'AR={AR|{tools}ar}',
+        'RANLIB={RANLIB|{tools}ranlib}',
+        'CFLAGS=-fPIC -O2 -D_FILE_OFFSET_BITS=64 {EXTRA_CFLAGS|}',
+      ]
+    - copy: { from: libbz2.a, into: '{deps}/lib', preserve: true }
+    - copy: { from: bzlib.h, into: '{deps}/include', preserve: true }

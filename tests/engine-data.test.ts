@@ -157,6 +157,37 @@ describe('engine data', () => {
     );
   });
 
+  it('takes an option built in on some platforms, with a library on the others', () => {
+    const data = loadEngineData(
+      writeEngine({
+        'ffmpeg/9.yml':
+          'major: 9\nreleases: [9.0.0]\noptions:\n  iconv: { builtin: true, needs: [{ libiconv: { platforms: [win-*] } }] }\n',
+        'recipes/libiconv/recipe.yml': okRecipe('libiconv', 'provides: iconv\n').replace(
+          'platforms: all',
+          'platforms: [win-*]',
+        ),
+      }),
+    );
+    expect(optionsOf(data, '9').get('iconv')).toMatchObject({
+      builtin: true,
+      libraries: [{ name: 'libiconv', platforms: ['win-*'] }],
+    });
+    // built in everywhere and a library everywhere can't both be true
+    expect(
+      errorsOf({
+        'ffmpeg/9.yml':
+          'major: 9\nreleases: [9.0.0]\noptions:\n  iconv: { builtin: true, needs: [libiconv] }\n',
+        'recipes/libiconv/recipe.yml': okRecipe('libiconv', 'provides: iconv\n'),
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^ffmpeg\/9\.yml: options\.iconv: .*either `builtin: true` or `needs: <recipe>`/,
+        ),
+      ]),
+    );
+  });
+
   it('names a missing ffmpeg/ or recipes/ folder', () => {
     expect(errorsOf({})).toEqual(['ffmpeg/: no <major>.yml files (like 9.yml)']);
     expect(() => loadEngineData(fixtureProfilesDir)).toThrow(/no ffmpeg\/ folder/);

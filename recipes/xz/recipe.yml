@@ -1,0 +1,27 @@
+name: xz
+provides: lzma
+license: 0BSD
+license-files: [COPYING, COPYING.0BSD]
+configure: [--enable-lzma]
+source: { git: https://github.com/tukaani-project/xz, ref: 'v{version}' }
+# stable releases only: xz tags its alphas and betas v5.7.1alpha, v5.7.2beta
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # liblzma: LZMA/XZ compression (0BSD since xz 5.6; the GPL that COPYING mentions is the xz tools' and scripts', not
+  # built here), static, for FFmpeg's lzma (LZMA-compressed TIFF). Its CMake build (a git checkout has no configure
+  # script) with only the library: no command-line tools, translations, docs or tests. FFmpeg finds it with
+  # `check_lib lzma lzma.h lzma_version_number -llzma`. On Windows lzma.h only declares dllimport for compilers that
+  # aren't GCC or Clang, so the static library links as it is.
+  system: cmake
+  args:
+    [
+      -DXZ_NLS=OFF,
+      -DXZ_TOOL_XZ=OFF,
+      -DXZ_TOOL_XZDEC=OFF,
+      -DXZ_TOOL_LZMADEC=OFF,
+      -DXZ_TOOL_LZMAINFO=OFF,
+      -DXZ_TOOL_SCRIPTS=OFF,
+      -DXZ_DOC=OFF,
+      -DBUILD_TESTING=OFF,
+    ]

@@ -1,0 +1,44 @@
+name: libiconv
+provides: iconv
+license: LGPL-2.1-or-later
+license-files: [COPYING.LIB]
+# FFmpeg's configure (even with --disable-autodetect) looks for iconv in the C library alone unless iconv is
+# disabled; -liconv makes that check, and FFmpeg's link, take this library
+configure: [--enable-iconv, --extra-libs=-liconv]
+source:
+  url: 'https://mirrors.kernel.org/gnu/libiconv/libiconv-{version}.tar.gz'
+  mirrors: ['https://ftp.gnu.org/gnu/libiconv/libiconv-{version}.tar.gz']
+versions:
+  {
+    listing: 'https://ftp.gnu.org/gnu/libiconv/',
+    files: '^libiconv-(\d+\.\d+(?:\.\d+)?)\.tar\.gz$',
+  }
+# Where the C library has no iconv FFmpeg links by itself: Windows has none, and Apple's is a library of its own
+# (/usr/lib/libiconv.2.dylib, not part of libSystem), which only a recipe's flags could link, and a recipe has to build
+# something. glibc, musl and Android (API 28+) have it in libc: the iconv option is built in there (ffmpeg/<major>.yml).
+platforms: [win-*, osx-*, ios-*, maccatalyst-*]
+build:
+  # GNU libiconv: character-set conversion (the library and its header are LGPL-2.1-or-later; the iconv program,
+  # GPL-3.0, isn't built), static, for FFmpeg's iconv (subtitle character sets: -sub_charenc). A release tarball (a
+  # git checkout needs gnulib and autotools to bootstrap): a kernel.org mirror first, then ftp.gnu.org, as gmp's.
+  #
+  # Only the library: `make lib/localcharset.h` builds libcharset, whose source lib/ compiles into libiconv.a, then
+  # lib/ itself, whose install-lib installs libiconv.a. The header is copied by hand: the top-level install-lib that
+  # would install it builds everything first (the program, its gnulib, translations, the tests).
+  # --disable-shared makes iconv.h declare the functions without dllimport on Windows.
+  system: none
+  steps:
+    - [
+        ./configure,
+        '--prefix={deps}',
+        '--libdir={deps}/lib',
+        --disable-shared,
+        --enable-static,
+        --with-pic,
+        --disable-nls,
+        '--host={host?}',
+      ]
+    - [make, lib/localcharset.h]
+    - [make, -C, lib, '-j{jobs}']
+    - [make, -C, lib, install-lib, 'libdir={deps}/lib']
+    - copy: { from: include/iconv.h.inst, to: '{deps}/include/iconv.h' }

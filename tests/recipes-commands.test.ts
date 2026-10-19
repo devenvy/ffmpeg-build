@@ -10,7 +10,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   build,
+  cmakeLines,
   commands,
+  configureLine,
   type Harness,
   harness,
   pcPath,
@@ -56,6 +58,102 @@ describe('zlib', () => {
       'make -j4',
       'make install',
     ]);
+  });
+});
+
+// bzip2 1.0.x has a Makefile of its own (no configure; the CMake/Meson builds are 1.1's, unreleased): only its static
+// library, with the platform's tools as make variables (it reads none from the environment), then the library and its
+// header copied by hand. No .pc: FFmpeg finds it with check_lib -lbz2.
+describe('bzip2', () => {
+  it.each(platformsOf('bzip2'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'libbz2.a'), '!<arch>\n');
+    put(join(h.src, 'bzlib.h'), '/* bzlib */\n');
+    await build(h, 'bzip2');
+    const host = env(h, 'CROSS_HOST');
+    const tool = (name: string, fallback: string) =>
+      env(h, name) || `${host ? `${host}-` : ''}${fallback}`;
+    expect(h.calls.map((c) => [c.command, ...c.args])).toEqual([
+      [
+        'make',
+        '-j4',
+        'libbz2.a',
+        `CC=${tool('CC', 'gcc')}`,
+        `AR=${tool('AR', 'ar')}`,
+        `RANLIB=${tool('RANLIB', 'ranlib')}`,
+        `CFLAGS=-fPIC -O2 -D_FILE_OFFSET_BITS=64 ${env(h, 'EXTRA_CFLAGS')}`,
+      ],
+    ]);
+    expect(h.files(h.deps)).toEqual(['include/bzlib.h', 'lib/libbz2.a']);
+    expect(h.read(join(h.deps, 'include', 'bzlib.h'))).toBe('/* bzlib */\n');
+  });
+  it('builds for the armhf triple, which sets no CC', async () => {
+    const h = fake('linux-armhf');
+    put(join(h.src, 'libbz2.a'), '');
+    put(join(h.src, 'bzlib.h'), '');
+    await build(h, 'bzip2');
+    expect(h.calls[0]!.args.slice(2, 5)).toEqual([
+      'CC=arm-linux-gnueabihf-gcc',
+      'AR=arm-linux-gnueabihf-ar',
+      'RANLIB=arm-linux-gnueabihf-ranlib',
+    ]);
+  });
+});
+
+// GNU libiconv, where the C library has no iconv FFmpeg can link (Windows; Apple's is a library of its own): only the
+// library (libcharset first, which lib/ compiles in), never the GPL iconv program, and the header by hand (top-level
+// install-lib would build everything first).
+describe('libiconv', () => {
+  it.each(platformsOf('libiconv'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'include', 'iconv.h.inst'), '/* iconv */\n');
+    await build(h, 'libiconv');
+    expect(commands(h)).toEqual([
+      configureLine(h, [
+        `--libdir=${h.deps}/lib`,
+        '--disable-shared',
+        '--enable-static',
+        '--with-pic',
+        '--disable-nls',
+      ]),
+      'make lib/localcharset.h',
+      'make -C lib -j4',
+      `make -C lib install-lib libdir=${h.deps}/lib`,
+    ]);
+    expect(h.files(h.deps)).toEqual(['include/iconv.h']);
+    expect(h.read(join(h.deps, 'include', 'iconv.h'))).toBe('/* iconv */\n');
+  });
+  it('builds where the C library has no iconv FFmpeg links by itself', () => {
+    expect(platformsOf('libiconv')).toEqual([
+      'win-x64',
+      'win-arm64',
+      'osx-x64',
+      'osx-arm64',
+      'ios-arm64',
+      'ios-sim-arm64',
+      'maccatalyst-x64',
+      'maccatalyst-arm64',
+    ]);
+  });
+});
+
+// xz's liblzma alone: the command-line tools, translations, docs and tests off.
+describe('xz', () => {
+  it.each(platformsOf('xz'))('%s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'xz');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DXZ_NLS=OFF',
+        '-DXZ_TOOL_XZ=OFF',
+        '-DXZ_TOOL_XZDEC=OFF',
+        '-DXZ_TOOL_LZMADEC=OFF',
+        '-DXZ_TOOL_LZMAINFO=OFF',
+        '-DXZ_TOOL_SCRIPTS=OFF',
+        '-DXZ_DOC=OFF',
+        '-DBUILD_TESTING=OFF',
+      ]),
+    );
   });
 });
 

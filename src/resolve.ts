@@ -108,7 +108,10 @@ export function optionLicenses(
   }
   if (platform) {
     const lib = optionRecipe(info, platform);
-    return lib ? byClass.filter((l) => allowedLicenses(data, lib, platform).includes(l)) : []; // no library there
+    if (!lib) {
+      return info.builtin ? byClass : []; // built in there, or no library there
+    }
+    return byClass.filter((l) => allowedLicenses(data, lib, platform).includes(l));
   }
   // no platform: what every library of the option allows
   return byClass.filter((l) =>
@@ -145,7 +148,7 @@ export function availability(data: EngineData, cell: Cell, option: string): Abse
   }
   // engine data guarantees a recipe's needs build wherever the recipe does, so the recipe decides
   const lib = optionRecipe(info, cell.platform);
-  if (info.libraries.length && !lib) {
+  if (info.libraries.length && !lib && !info.builtin) {
     return { kind: 'platform', reason: `ffmpeg-build has no library for ${option} there` };
   }
   if (lib && !platformMatches(cell.platform, data.recipes.get(lib)!.platforms)) {

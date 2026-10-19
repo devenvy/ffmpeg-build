@@ -141,7 +141,10 @@ variables, and the platform's environment (`{CC}`, `{CROSS_PREFIX}`, `{TOOLCHAIN
 ### Adding a library
 
 1. Write `recipes/<name>/recipe.yml`: the source and versions, the licence and its files, `provides:` and `configure:`
-   if FFmpeg has an option for it (and the option in `ffmpeg/<major>.yml`), `needs:`/`uses:`, the platforms.
+   if FFmpeg has an option for it (and the option in `ffmpeg/<major>.yml`), `needs:`/`uses:`, the platforms. Where
+   the system provides the library on some platforms (iconv, in glibc's, musl's and Android's C library), the option
+   is `builtin: true` with `needs:` naming the library for the other platforms only:
+   `iconv: { builtin: true, needs: [{ libiconv: { platforms: [win-*, osx-*, ...] } }] }`.
 2. Pick the build system and give it `args:`. Per-platform differences go under `platforms:`; anything around the build
    (a .pc to fix, a file to drop, a check) goes in `before:`/`after:` as operations. Only a library with its own build
    tooling needs `system: none` and `steps:`.

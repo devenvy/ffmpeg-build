@@ -116,7 +116,8 @@ function platformValue(value: z.ZodString, error: string) {
 const option = z
   .strictObject({
     builtin: flag.optional(),
-    // its library: one recipe, or one per platform like [{ vulkan-loader: { platforms: [linux-*] } }, ...]
+    // its library: one recipe, or one per platform like [{ vulkan-loader: { platforms: [linux-*] } }, ...]; with
+    // `builtin: true`, the platforms that need a library built (built in everywhere else)
     needs: z.union([name.transform((n): Dep[] => [{ name: n }]), z.array(dep).min(1)]).optional(),
     kind: text.optional(),
     since: version.optional(),
@@ -130,10 +131,18 @@ const option = z
     // what a build with the option on must report (ffmpeg -filters, -encoders, ...): `ffmpeg-build test` checks it
     ships: ships.optional(),
   })
-  .refine((o) => (o.builtin === true) !== (o.needs !== undefined), {
-    error:
-      'an option is either `builtin: true` or `needs: <recipe>` (or a list per platform), not both or neither',
-  });
+  // built in (FFmpeg itself, or what the OS provides), a library, or both: built in where none of its per-platform
+  // libraries applies (iconv: the C library's, and GNU libiconv where the C library has none)
+  .refine(
+    (o) =>
+      o.builtin === true
+        ? (o.needs ?? []).every((d) => d.platforms !== undefined)
+        : o.needs !== undefined,
+    {
+      error:
+        'an option is either `builtin: true` or `needs: <recipe>` (or a list per platform), not neither; with both, each library it needs names its platforms (built in on the others)',
+    },
+  );
 
 export const ffmpegDataSchema = z.strictObject({
   major: z

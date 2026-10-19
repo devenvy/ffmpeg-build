@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
+import { configureFlags } from '../src/build/plan.ts';
+import { optionFacts } from '../src/commands/options.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { loadProfile, parseProfileText, type Profile } from '../src/profile.ts';
 import {
@@ -10,6 +12,7 @@ import {
   type Cell,
   cellBuildOrder,
   conditionMatches,
+  optionLicenses,
   planProfile,
   resolveCell,
   variantsOf,
@@ -324,5 +327,76 @@ describe('an option whose library differs per platform', () => {
       kind: 'platform',
       reason: 'ffmpeg-build has no library for vulkan there',
     });
+  });
+});
+
+// iconv: FFmpeg finds it in the C library on most platforms, and needs a library built for it on the rest
+describe('an option the system provides, with a library where it does not', () => {
+  const engine = () =>
+    loadEngineData(
+      writeEngine({
+        'ffmpeg/9.yml':
+          'major: 9\nreleases: [9.0.0]\noptions:\n  iconv: { builtin: true, needs: [{ libiconv: { platforms: [win-*] } }] }\n',
+        'recipes/libiconv/recipe.yml':
+          "name: libiconv\nlicense: Apache-2.0\nprovides: iconv\nconfigure: [--enable-iconv, --extra-libs=-liconv]\nsource: { git: https://example.com/libiconv }\nversions: { git-tags: '^v(.*)$' }\nplatforms: [win-*]\n",
+      }),
+    );
+  const cellOn = (platform: string, license: Cell['license'] = 'lgplv3'): Cell => ({
+    series: '9',
+    major: '9',
+    version: '9.0.0',
+    license,
+    platform,
+  });
+  const iconvOn = (platform: string) =>
+    resolveCell(
+      profile(`name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: lgplv3\nwith: [iconv]\n`),
+      engine(),
+      cellOn(platform),
+    );
+
+  it('is available everywhere: built in, or its library', () => {
+    for (const platform of ['linux-x64', 'osx-arm64', 'win-x64']) {
+      expect(availability(engine(), cellOn(platform), 'iconv'), platform).toBeUndefined();
+    }
+  });
+
+  it('builds the library only where it is named, and passes its flags there', () => {
+    const linux = iconvOn('linux-x64');
+    expect(linux.recipes).toEqual([]);
+    expect(configureFlags(engine(), linux)).toContain('--enable-iconv');
+    expect(configureFlags(engine(), linux)).not.toContain('--extra-libs=-liconv');
+    const win = iconvOn('win-x64');
+    expect(win.recipes).toEqual(['libiconv']);
+    expect(configureFlags(engine(), win)).toEqual(
+      expect.arrayContaining(['--enable-iconv', '--extra-libs=-liconv']),
+    );
+  });
+
+  it("takes the library's licence only where it builds the library", () => {
+    expect(optionLicenses(engine(), '9', 'iconv', 'linux-x64')).toEqual([
+      'lgplv2',
+      'lgplv3',
+      'gplv2',
+      'gplv3',
+      'nonfree',
+    ]);
+    expect(optionLicenses(engine(), '9', 'iconv', 'win-x64')).toEqual([
+      'lgplv3',
+      'gplv3',
+      'nonfree',
+    ]);
+    expect(availability(engine(), cellOn('win-x64', 'lgplv2'), 'iconv')).toMatchObject({
+      kind: 'license',
+    });
+    expect(availability(engine(), cellOn('linux-x64', 'lgplv2'), 'iconv')).toBeUndefined();
+  });
+
+  it('is listed by options on every platform, with its library where it has one', () => {
+    const iconv = optionFacts(engine(), '9').find((o) => o.name === 'iconv')!;
+    expect(iconv.platforms).toHaveLength(15);
+    expect(iconv.libraries).toEqual([
+      { name: 'libiconv', spdx: 'Apache-2.0', platforms: ['win-x64', 'win-arm64'] },
+    ]);
   });
 });
