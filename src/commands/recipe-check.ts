@@ -3,22 +3,16 @@
 // ffmpeg.lock seeded from the canary's lock, so the versions are the ones CI builds), then builds each target with
 // --only. CI plans once (--plan --json: the matrix, one job per platform) and each job builds its platform from the
 // same folder, so every job builds the same versions.
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { type BuildIn, defaultIn } from '../build-settings.ts';
 import { CliError, EXIT_PROBLEM } from '../cli-error.ts';
-import { LOCK_FILE, readFolderLock } from '../lockfile.ts';
+import { LOCK_FILE, parseFolderLock } from '../lockfile.ts';
 import { packageRoot } from '../paths.ts';
 import { platformMatches } from '../platforms.ts';
+import { readFileIfPresent } from '../read-file.ts';
 import { CHECK_LICENSE, recipeCheckPlan, type RecipeCheckPlan } from '../recipe-check.ts';
 import { runnerOf } from '../release.ts';
 import { defaultPinSource, type PinSource } from '../source-pins.ts';
@@ -82,23 +76,25 @@ async function checkFolder(
 ): Promise<{ folder: Folder; plan: RecipeCheckPlan; dir: string }> {
   const dir = resolve(options.dir ?? mkdtempSync(join(tmpdir(), 'ffmpeg-build-recipe-check-')));
   const planFile = join(dir, PLAN_FILE);
-  const written = existsSync(planFile)
-    ? (JSON.parse(readFileSync(planFile, 'utf8')) as { recipes: string[]; plan: RecipeCheckPlan })
+  const text = readFileIfPresent(planFile);
+  const written = text
+    ? (JSON.parse(text) as { recipes: string[]; plan: RecipeCheckPlan })
     : undefined;
   let plan: RecipeCheckPlan;
   if (written && JSON.stringify(written.recipes) === JSON.stringify(recipes)) {
     plan = written.plan;
   } else {
-    const seedPath = options.lock ?? (existsSync(CANARY_LOCK) ? CANARY_LOCK : undefined);
-    const seed = seedPath ? readFolderLock(seedPath) : undefined;
-    if (seedPath && !seed) {
+    const seedPath = options.lock ?? CANARY_LOCK;
+    const seedText = readFileIfPresent(seedPath);
+    if (options.lock && seedText === undefined) {
       throw new CliError(`--lock ${seedPath}: no such file`);
     }
+    const seed = seedText === undefined ? undefined : parseFolderLock(seedText, seedPath);
     plan = recipeCheckPlan(data, recipes, seed?.ffmpeg ?? {});
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, FOLDER_FILE), folderText(recipes, plan));
-    if (seedPath) {
-      copyFileSync(seedPath, join(dir, LOCK_FILE));
+    if (seedText !== undefined) {
+      writeFileSync(join(dir, LOCK_FILE), seedText);
     }
     if (plan.targets.length) {
       const locked = await runFolderLockOrUpdate(
