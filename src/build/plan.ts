@@ -5,13 +5,13 @@ import { basename, join } from 'node:path';
 import { parseDocument } from 'yaml';
 
 import { androidApiFor, androidApiProblems, isAndroid } from '../android-api.ts';
-import { aboutSchema } from '../check.ts';
+import { type About, aboutSchema, patchAdditions } from '../check.ts';
 import { versionInCell } from '../choose.ts';
+import { componentFlags } from '../component-lists.ts';
 import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
-import { COMPONENT_FLAG, COMPONENT_KINDS } from '../ffmpeg-components.ts';
+import { COMPONENT_KINDS, type Components } from '../ffmpeg-components.ts';
 import { allowedBy } from '../licenses.ts';
 import { packageVersion } from '../paths.ts';
-import { platformMatches } from '../platforms.ts';
 import { availability, type CellPlan } from '../resolve.ts';
 import { releaseVersion } from '../targets.ts';
 import { unique } from '../text.ts';
@@ -125,39 +125,28 @@ function optionFlags(data: EngineData, plan: CellPlan): string[] {
 }
 
 /**
- * A target's components: each kind it lists is built with only those names, and the components its options ship
- * (libx264, whisper, ...), so turning a kind down never takes what an option on needs. These come before every other
- * flag that enables a component: the platform's and the options' own (--enable-hwaccel=..., --enable-decoder=...)
- * and the patch sets', which configure applies after them.
+ * FFmpeg's configure flags for a cell. A target's components: come first (src/component-lists.ts: each kind it lists
+ * turned off, then on for its names, what its options bring and what its patch sets add, `adds`), so the platform's,
+ * the options' and the patch sets' own enables come after them.
  */
-function componentFlags(data: EngineData, plan: CellPlan): string[] {
-  const restricted = plan.components ?? {};
-  const kinds = COMPONENT_KINDS.filter((k) => restricted[k]);
-  if (!kinds.length) {
-    return [];
-  }
-  const options = optionsOf(data, plan.cell.major);
-  // what each option on ships here: its conditions (other options on, platforms) met
-  const needed: Partial<Record<string, string[]>> = {};
-  for (const s of plan.options
-    .flatMap((o) => options.get(o)?.ships ?? [])
-    .filter((x) => !x.with || x.with.every((w) => plan.options.includes(w)))
-    .filter((x) => !x.platforms || platformMatches(plan.cell.platform, x.platforms))) {
-    (needed[s.kind] ??= []).push(s.name);
-  }
-  return kinds.flatMap((k) => {
-    const names = unique([...restricted[k]!, ...(needed[k] ?? [])]);
-    return [
-      `--disable-${k}`,
-      ...(names.length ? [`--enable-${COMPONENT_FLAG[k]}=${names.join(',')}`] : []),
-    ];
-  });
-}
-
-export function configureFlags(data: EngineData, plan: CellPlan, depsDir = DEPS_DIR): string[] {
+export function configureFlags(
+  data: EngineData,
+  plan: CellPlan,
+  depsDir = DEPS_DIR,
+  adds: Partial<Components> = {},
+): string[] {
   return unique([
     ...COMMON_FLAGS,
-    ...componentFlags(data, plan),
+    ...componentFlags(
+      data,
+      {
+        major: plan.cell.major,
+        platform: plan.cell.platform,
+        options: plan.options,
+        ...(plan.components ? { components: plan.components } : {}),
+      },
+      adds,
+    ),
     `--extra-cflags=-I${depsDir}/include`,
     `--extra-ldflags=-L${depsDir}/lib`,
     ...(data.platforms.get(plan.cell.platform)?.configure ?? []),
@@ -327,6 +316,7 @@ export interface PlannedPatchSet {
   files: { name: string; text: string }[];
   licenses: { path: string; text: string }[];
   configure: string[];
+  adds?: Partial<Components>; // the components its patches add (about.yml's adds:), by kind
 }
 
 /** Where the build's definition came from: the repository URL and commit (`-dirty` when it had local changes). */
@@ -643,6 +633,12 @@ export function noticesSource(a: {
   return `${lines.join('\n')}\n`;
 }
 
+/** What a patch set adds (about.yml's adds:), when it adds anything. */
+function additions(about: About): { adds?: Partial<Components> } {
+  const { adds } = patchAdditions(about);
+  return Object.keys(adds).length ? { adds } : {};
+}
+
 /** The patch sets a profile names, read from their folders: about.yml (checked already), patches and licence texts. */
 export function plannedPatches(profile: Profile, major: string): PlannedPatchSet[] {
   return profile.patches.map((p) => {
@@ -666,6 +662,7 @@ export function plannedPatches(profile: Profile, major: string): PlannedPatchSet
         text: readFileSync(join(dir, path), 'utf8'),
       })),
       configure: about.configure ?? [], // what FFmpeg needs to build what the patches add (e.g. --enable-muxer=...)
+      ...additions(about), // only for a set that adds components: the plan is as it was for one that adds none
     };
   });
 }
@@ -788,7 +785,14 @@ export function makeBuildPlan(args: {
       ...(ffmpegSha ? { sha256: ffmpegSha } : {}),
       // the target's flags, then its patch sets' (in the order it names them)
       configure: [
-        ...configureFlags(data, cell, args.depsDir),
+        ...configureFlags(
+          data,
+          cell,
+          args.depsDir,
+          Object.fromEntries(
+            COMPONENT_KINDS.map((k) => [k, unique(patches.flatMap((p) => p.adds?.[k] ?? []))]),
+          ),
+        ),
         ...patches.flatMap((p) => p.configure),
       ],
       verify: verifyNames(data, cell),

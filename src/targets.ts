@@ -7,7 +7,8 @@ import { join, resolve } from 'node:path';
 import { COMPONENT_KINDS, type Components } from './ffmpeg-components.ts';
 import { expandPlatformPattern, PLATFORMS } from './platforms.ts';
 import { formatIssues } from './schema/common.ts';
-import { folderSchema } from './schema/targets.ts';
+import { type ComponentLists, folderSchema } from './schema/targets.ts';
+import { unique } from './text.ts';
 import { isFfmpegSeries } from './versions.ts';
 import { parseYaml, YamlError } from './yaml.ts';
 
@@ -47,7 +48,7 @@ export interface Folder {
       with: string[];
       without: string[];
       pin: Record<string, string>;
-      components: Partial<Components>;
+      components: ComponentLists;
     }
   >;
   pin: Record<string, string>; // folder-wide version constraints
@@ -137,6 +138,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       errors.push(`build: ${pattern} names no platform ffmpeg-build knows`);
     }
   }
+  const addErrors = new Set<string>(); // components: { add: } with nothing before it to add to
   /** A target with its bases applied, once all of them are defined. */
   const layered = (t: string, d: (typeof data.targets)[string], ffmpeg: string): Target => {
     // a later layer overwrites an earlier one, name by name: included, or declined
@@ -156,13 +158,23 @@ export function parseFolderText(text: string, dir: string): FolderResult {
         origin.set(n, layerName);
       }
     }
-    // components: per kind, the last layer that lists it
+    // components: per kind, the last layer that lists it; { add: [...] } adds to what the layers before it gave
     const comps: Partial<Components> = {};
-    for (const layer of [...d.base.map((b) => data.bases[b]!), d]) {
+    for (const [layerName, layer] of [
+      ...d.base.map((b): [string, ComponentLists] => [`bases.${b}`, data.bases[b]!.components]),
+      [`targets.${t}`, d.components] as [string, ComponentLists],
+    ]) {
       for (const k of COMPONENT_KINDS) {
-        const listed = layer.components[k];
-        if (listed) {
+        const listed = layer[k];
+        const earlier = comps[k];
+        if (Array.isArray(listed)) {
           comps[k] = listed;
+        } else if (listed && earlier) {
+          comps[k] = unique([...earlier, ...listed.add]);
+        } else if (listed) {
+          addErrors.add(
+            `${layerName}: components: ${k}: { add: [...] } adds to a list from a base, and no base before it lists ${k}; write the list itself`,
+          );
         }
       }
     }
@@ -217,6 +229,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
   if (!Object.keys(data.targets).length) {
     errors.push('targets: none defined; add one (a name with platform, license and ffmpeg)');
   }
+  errors.push(...addErrors);
   if (errors.length) {
     return { ok: false, file, errors };
   }

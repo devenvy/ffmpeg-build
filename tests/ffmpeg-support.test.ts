@@ -189,8 +189,13 @@ describe('the FFmpeg support check', () => {
       const upstream = ['9.0.0', '9.0.1', '9.0.2', '9.1.0'];
       const componentsOf = async (version: string) =>
         Promise.resolve({
-          ...emptyComponents(),
-          decoders: version === '9.1.0' ? ['aac', 'h264', 'vvc'] : ['aac', 'h264'],
+          components: {
+            ...emptyComponents(),
+            decoders: version === '9.1.0' ? ['aac', 'h264', 'vvc'] : ['aac', 'h264'],
+          },
+          names: { decoders: { vvc: 'vvc_dec' } },
+          needs: { decoders: { h264: ['libfoo'] } },
+          unread: version === '9.1.0' ? ['decoder lost'] : [],
         });
       const text = await supportCheck({
         data: fixtureData(),
@@ -204,11 +209,17 @@ describe('the FFmpeg support check', () => {
         release: string;
         decoders: string[];
         encoders: string[];
+        names: unknown;
+        needs: unknown;
       };
       expect(file.release).toBe('9.1.0');
       expect(file.decoders).toEqual(['aac', 'h264', 'vvc']);
       expect(file.encoders).toEqual([]);
+      expect(file.names).toEqual({ decoders: { vvc: 'vvc_dec' } });
+      expect(file.needs).toEqual({ decoders: { h264: ['libfoo'] } });
       expect(text).toContain('- components: from 9.1.0 (applied)');
+      // a component whose definition wasn't found keeps its configure name: a person looks
+      expect(text).toContain("- **runtime names not read** (configure's used): decoder lost");
       // run again: nothing changed, nothing said
       const again = await supportCheck({
         data: fixtureData(),

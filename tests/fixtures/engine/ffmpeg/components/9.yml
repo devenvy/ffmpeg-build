@@ -5,14 +5,22 @@ release: 9.1.0
 decoders:
   - aac
   - h264
+  - h264_cuvid
   - hevc
   - libdav1d
+  - png
 encoders:
   - aac
+  - h264_nvenc
+  - h264_vaapi
   - libopus
+  - libvpx_vp8
   - libx265
-hwaccels: []
-demuxers: []
+hwaccels:
+  - h264_nvdec
+  - h264_vaapi
+demuxers:
+  - mov
 muxers:
   - mp4
   - 'null'
@@ -21,10 +29,45 @@ bsfs: []
 protocols:
   - file
   - https
-  - srt
+  - libsrt
   - tls
 indevs: []
 outdevs: []
 filters:
   - scale
+  - scale_cuda
+  - transpose_vaapi
   - whisper
+# Each component's own name, where it isn't configure's: what `ffmpeg -encoders`, `-demuxers`, ... list (a format
+# with several names lists them all) and what `ffmpeg-build test` looks for.
+names:
+  encoders:
+    libvpx_vp8: libvpx
+  demuxers:
+    mov: mov,mp4,m4a
+  protocols:
+    libsrt: srt
+# The configure options each component needs (configure's _deps, _select and _deps_any, followed through; `a|b`:
+# one of them). When a target lists a kind, the components of it that its options need come with them.
+needs:
+  decoders:
+    h264_cuvid: [cuvid, ffnvcodec]
+    libdav1d: [libdav1d]
+    png: [zlib]
+  encoders:
+    h264_nvenc: [ffnvcodec, nvenc]
+    h264_vaapi: [vaapi]
+    libopus: [libopus]
+    libvpx_vp8: [libvpx]
+    libx265: [libx265]
+  hwaccels:
+    h264_nvdec: [ffnvcodec, nvdec]
+    h264_vaapi: [vaapi]
+  protocols:
+    https: [gnutls|openssl|schannel|securetransport]
+    libsrt: [libsrt]
+    tls: [gnutls|openssl|schannel|securetransport]
+  filters:
+    scale_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    transpose_vaapi: [vaapi]
+    whisper: [whisper]

@@ -348,9 +348,17 @@ describe('components in check', () => {
     const text = withComponents({ decoders: ['h264', 'h265'], filters: ['scale', 'blur'] });
     expect(text).toContain('✗ components: decoders: h265');
     expect(text).toContain(
-      "FFmpeg 9 has no decoder called h265 (it's spelled as `ffmpeg -decoders` lists it)",
+      "FFmpeg 9 has no decoder called h265 (it's spelled as configure lists it: ./configure --list-decoders)",
     );
     expect(text).toContain('✗ components: filters: blur');
+  });
+
+  it('points from the name a build lists a component by to the one configure takes', () => {
+    const text = withComponents({ encoders: ['libvpx'], protocols: ['srt'] });
+    expect(text).toContain(
+      'FFmpeg 9 has no encoder called libvpx: `ffmpeg -encoders` lists libvpx_vp8 as libvpx; write libvpx_vp8',
+    );
+    expect(text).toContain('`ffmpeg -protocols` lists libsrt as srt; write libsrt');
   });
 
   it("says which option a library's component comes with when that option is off", () => {
@@ -358,5 +366,19 @@ describe('components in check', () => {
     expect(text).toContain('✗ components: encoders: libx265');
     expect(text).toContain('libx265 comes with x265: add x265 to with:');
     expect(withComponents({ encoders: ['aac', 'libx265'] }, '[dav1d, x265]')).not.toContain('✗');
+  });
+
+  it("names the options that would bring a component it lists, from the components file's needs", () => {
+    const text = withComponents({ encoders: ['h264_vaapi'], protocols: ['file', 'https'] });
+    expect(text).toContain('h264_vaapi comes with vaapi: add vaapi to with:');
+    // the TLS options this platform has; schannel and securetransport are Windows' and Apple's
+    expect(text).toContain('https comes with gnutls or openssl: add one of them to with:');
+    expect(
+      withComponents({ encoders: ['h264_vaapi'], protocols: ['https'] }, '[vaapi, openssl]'),
+    ).not.toContain('✗');
+    // a need no option of the engine meets
+    expect(withComponents({ decoders: ['png'] })).toContain(
+      'png needs zlib, which no option of this engine turns on here',
+    );
   });
 });

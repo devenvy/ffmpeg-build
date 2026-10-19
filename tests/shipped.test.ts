@@ -65,7 +65,7 @@ describe('what a build must ship', () => {
       // -hwaccels lists types (vaapi), not these names: configure's own check covers them
       '--disable-hwaccels',
       '--enable-hwaccel=h264_vaapi',
-      // an --enable- of a kind left unrestricted is not a components: list
+      // a component asked for by name in a kind left unrestricted (a patch set's, an option's own) must be there too
       '--enable-filter=scale',
     ].join(' ');
     expect(
@@ -74,7 +74,49 @@ describe('what a build must ship', () => {
       ['components', 'decoders', 'h264'],
       ['components', 'decoders', 'hevc'],
       ['components', 'muxers', 'mp4'],
+      ['components', 'filters', 'scale'],
     ]);
+  });
+
+  it('looks for each component by its own name, as the build lists it, not by configure name', () => {
+    const configure = [
+      '--enable-libsrt',
+      '--disable-encoders',
+      '--enable-encoder=libvpx_vp8,aac',
+      '--disable-demuxers',
+      '--enable-demuxer=mov,acme',
+    ].join(' ');
+    expect(
+      expectedComponents(data, '9', 'linux-x64', configure, {
+        demuxers: { acme: 'acme_fmt' },
+      }).map((e) => `${e.option}: ${e.kind} ${e.name}`),
+    ).toEqual([
+      // srt ships configure's libsrt, which `ffmpeg -protocols` lists as srt
+      'srt: protocols srt',
+      'components: encoders libvpx',
+      'components: encoders aac',
+      // a format with several names: all of them, as the build lists them
+      'components: demuxers mov,mp4,m4a',
+      // a patch set's own name for what it adds (about.yml's listed-as)
+      'components: demuxers acme_fmt',
+    ]);
+  });
+
+  it("doesn't expect what an option ships in a restricted kind that left it out", () => {
+    // openssl is a support library: its https and tls are only there when the target lists them
+    const configure = '--enable-openssl --disable-protocols --enable-protocol=file,https';
+    expect(
+      expectedComponents(data, '9', 'linux-x64', configure).map((e) => `${e.option}: ${e.name}`),
+    ).toEqual(['openssl: https', 'components: file']);
+    // a device type (ships: hwaccels) is no hwaccel component: restricting hwaccels doesn't take it
+    expect(
+      expectedComponents(
+        data,
+        '9',
+        'linux-x64',
+        '--enable-vaapi --disable-hwaccels --enable-hwaccel=h264_vaapi',
+      ).map((e) => `${e.kind} ${e.name}`),
+    ).toEqual(['filters transpose_vaapi', 'hwaccels vaapi']);
   });
 
   it("reads a list as ffmpeg -buildconf records it: FFmpeg's configure quotes an argument with a comma", () => {

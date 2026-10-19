@@ -12,11 +12,18 @@ const pins = z
   .default({});
 
 // components: { decoders: [h264, hevc], filters: [scale] }: the kinds listed are built with only those names (and
-// what the target's options and patch sets need); kinds left out keep FFmpeg's defaults
-const componentNames = z.array(
+// what the target's options and patch sets need); kinds left out keep FFmpeg's defaults. A list replaces the one an
+// earlier layer (a base) gave that kind; { add: [vp9] } adds to it.
+const nameList = z.array(
   z.string().regex(/^[a-z0-9_-]+$/, { error: 'expected a component name like h264 or scale' }),
   { error: 'expected a list of component names, like [h264, hevc]' },
 );
+const componentNames = z.union([nameList, z.strictObject({ add: nameList })], {
+  error:
+    "expected a list of component names, like [h264, hevc], or { add: [...] } to add to a base's",
+});
+/** A layer's components: per kind, its list, or names to add to the list an earlier layer gave. */
+export type ComponentLists = Partial<Record<ComponentKind, string[] | { add: string[] }>>;
 const components = z
   .strictObject(
     Object.fromEntries(COMPONENT_KINDS.map((k) => [k, componentNames.optional()])) as Record<

@@ -198,15 +198,45 @@ describe('engine data', () => {
     for (const major of knownMajors(data)) {
       const c = data.components.get(major);
       expect(c, `ffmpeg/components/${major}.yml`).toBeDefined();
-      expect(c!.decoders).toContain('h264');
-      expect(c!.filters).toContain('scale');
+      expect(c!.components.decoders).toContain('h264');
+      expect(c!.components.filters).toContain('scale');
+      // read from the sources: what `ffmpeg -encoders` calls configure's libvpx_vp8
+      expect(c!.names.encoders?.['libvpx_vp8']).toBe('libvpx');
+      expect(c!.needs.encoders?.['h264_vaapi']).toEqual(['vaapi']);
     }
+  });
+
+  it("spells every option's ships: as configure does, a name that major has", () => {
+    const data = loadEngineData(packageRoot);
+    const wrong: string[] = [];
+    for (const major of knownMajors(data)) {
+      const known = data.components.get(major)!.components;
+      for (const o of optionsOf(data, major).values()) {
+        // -hwaccels lists device types (vaapi, cuda), and a resampler is no component
+        for (const s of o.ships.filter((x) => x.kind !== 'hwaccels' && x.kind !== 'resamplers')) {
+          if (!(known as Record<string, string[]>)[s.kind]!.includes(s.name)) {
+            wrong.push(`ffmpeg/${major}.yml: ${o.name} ships ${s.kind} ${s.name}`);
+          }
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 
   it('reports a components file it cannot read, with its name', () => {
     expect(
       errorsOf({ 'ffmpeg/9.yml': okFfmpeg, 'ffmpeg/components/9.yml': 'release: 9.0.2\n' }),
     ).toEqual(['ffmpeg/components/9.yml: decoders: is not a list of names']);
+  });
+
+  it('marks the options auto-components: names, and refuses a name that is not an option', () => {
+    expect(optionsOf(fixtureData(), '9').get('vaapi')!.autoComponents).toBe(true);
+    expect(optionsOf(fixtureData(), '9').get('openssl')!.autoComponents).toBe(false);
+    expect(
+      errorsOf({
+        'ffmpeg/9.yml': okFfmpeg.replace('options:', 'auto-components: [nope]\noptions:'),
+      }),
+    ).toEqual(['ffmpeg/9.yml: auto-components: nope is not one of its options']);
   });
 
   it('flags FFmpeg data files that are not named <major>.yml', () => {

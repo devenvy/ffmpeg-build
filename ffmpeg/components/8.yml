@@ -2317,3 +2317,670 @@ filters:
   - zoneplate
   - zoompan
   - zscale
+# Each component's own name, where it isn't configure's: what `ffmpeg -encoders`, `-demuxers`, ... list (a format
+# with several names lists them all) and what `ffmpeg-build test` looks for.
+names:
+  decoders:
+    acelp_kelvin: acelp.kelvin
+    adpcm_g722: g722
+    adpcm_g726: g726
+    adpcm_g726le: g726le
+    atrac3p: atrac3plus
+    atrac3pal: atrac3plusal
+    bink: binkvideo
+    ccaption: cc_dec
+    cscd: camstudio
+    eightbps: 8bps
+    eightsvx_exp: 8svx_exp
+    eightsvx_fib: 8svx_fib
+    ffwavesynth: wavesynth
+    fourxm: 4xm
+    h264_oh: h264_ohcodec
+    hevc_oh: hevc_ohcodec
+    hnm4_video: hnm4video
+    idcin: idcinvideo
+    iff_ilbm: iff
+    interplay_acm: interplayacm
+    interplay_video: interplayvideo
+    libaom_av1: libaom-av1
+    libvpx_vp8: libvpx
+    libvpx_vp9: libvpx-vp9
+    libxevd: evc
+    libzvbi_teletext: libzvbi_teletextdec
+    movtext: mov_text
+    msmpeg4v3: msmpeg4
+    ra_144: real_144
+    ra_288: real_288
+    roq: roqvideo
+    smacker: smackvid
+    tscc: camtasia
+    ulti: ultimotion
+    vqa: vqavideo
+    zero12v: 012v
+  encoders:
+    adpcm_g722: g722
+    adpcm_g726: g726
+    adpcm_g726le: g726le
+    h264_oh: h264_ohcodec
+    hevc_oh: hevc_ohcodec
+    libaom_av1: libaom-av1
+    libvpx_vp8: libvpx
+    libvpx_vp9: libvpx-vp9
+    movtext: mov_text
+    msmpeg4v3: msmpeg4
+    ra_144: real_144
+    roq: roqvideo
+    sonic_ls: sonicls
+  demuxers:
+    bintext: bin
+    fourxm: 4xm
+    image2_alias_pix: alias_pix
+    image2_brender_pix: brender_pix
+    image_bmp_pipe: bmp_pipe
+    image_cri_pipe: cri_pipe
+    image_dds_pipe: dds_pipe
+    image_dpx_pipe: dpx_pipe
+    image_exr_pipe: exr_pipe
+    image_gem_pipe: gem_pipe
+    image_gif_pipe: gif_pipe
+    image_hdr_pipe: hdr_pipe
+    image_j2k_pipe: j2k_pipe
+    image_jpeg_pipe: jpeg_pipe
+    image_jpegls_pipe: jpegls_pipe
+    image_jpegxl_pipe: jpegxl_pipe
+    image_jpegxs_pipe: jpegxs_pipe
+    image_pam_pipe: pam_pipe
+    image_pbm_pipe: pbm_pipe
+    image_pcx_pipe: pcx_pipe
+    image_pfm_pipe: pfm_pipe
+    image_pgm_pipe: pgm_pipe
+    image_pgmyuv_pipe: pgmyuv_pipe
+    image_pgx_pipe: pgx_pipe
+    image_phm_pipe: phm_pipe
+    image_photocd_pipe: photocd_pipe
+    image_pictor_pipe: pictor_pipe
+    image_png_pipe: png_pipe
+    image_ppm_pipe: ppm_pipe
+    image_psd_pipe: psd_pipe
+    image_qdraw_pipe: qdraw_pipe
+    image_qoi_pipe: qoi_pipe
+    image_sgi_pipe: sgi_pipe
+    image_sunrast_pipe: sunrast_pipe
+    image_svg_pipe: svg_pipe
+    image_tiff_pipe: tiff_pipe
+    image_vbn_pipe: vbn_pipe
+    image_webp_pipe: webp_pipe
+    image_xbm_pipe: xbm_pipe
+    image_xpm_pipe: xpm_pipe
+    image_xwd_pipe: xwd_pipe
+    matroska: matroska,webm
+    mov: mov,mp4,m4a,3gp,3g2,mj2
+    mpegps: mpeg
+    msnwc_tcp: msnwctcp
+    pcm_alaw: alaw
+    pcm_f32be: f32be
+    pcm_f32le: f32le
+    pcm_f64be: f64be
+    pcm_f64le: f64le
+    pcm_mulaw: mulaw
+    pcm_s16be: s16be
+    pcm_s16le: s16le
+    pcm_s24be: s24be
+    pcm_s24le: s24le
+    pcm_s32be: s32be
+    pcm_s32le: s32le
+    pcm_s8: s8
+    pcm_u16be: u16be
+    pcm_u16le: u16le
+    pcm_u24be: u24be
+    pcm_u24le: u24le
+    pcm_u32be: u32be
+    pcm_u32le: u32le
+    pcm_u8: u8
+    pcm_vidc: vidc
+    segafilm: film_cpk
+    shorten: shn
+    smacker: smk
+    str: psxstr
+    threedostr: 3dostr
+    vc1t: vc1test
+    wc3: wc3movie
+  muxers:
+    matroska_audio: matroska
+    mpeg1system: mpeg
+    mpeg1vcd: vcd
+    mpeg2dvd: dvd
+    mpeg2svcd: svcd
+    mpeg2vob: vob
+    pcm_alaw: alaw
+    pcm_f32be: f32be
+    pcm_f32le: f32le
+    pcm_f64be: f64be
+    pcm_f64le: f64le
+    pcm_mulaw: mulaw
+    pcm_s16be: s16be
+    pcm_s16le: s16le
+    pcm_s24be: s24be
+    pcm_s24le: s24le
+    pcm_s32be: s32be
+    pcm_s32le: s32le
+    pcm_s8: s8
+    pcm_u16be: u16be
+    pcm_u16le: u16le
+    pcm_u24be: u24be
+    pcm_u24le: u24le
+    pcm_u32be: u32be
+    pcm_u32le: u32le
+    pcm_u8: u8
+    pcm_vidc: vidc
+    segafilm: film_cpk
+    stream_segment: stream_segment,ssegment
+    tg2: 3g2
+    tgp: 3gp
+    vc1t: vc1test
+  bsfs:
+    dump_extradata: dump_extra
+    imx_dump_header: imxdump
+    mjpega_dump_header: mjpegadump
+    remove_extradata: remove_extra
+  protocols:
+    android_content: content
+    ipfs_gateway: ipfs
+    ipns_gateway: ipns
+    libamqp: amqp
+    librist: rist
+    librtmp: rtmp
+    librtmpe: rtmpe
+    librtmps: rtmps
+    librtmpt: rtmpt
+    librtmpte: rtmpte
+    libsmbclient: smb
+    libsrt: srt
+    libssh: sftp
+    libzmq: zmq
+  indevs:
+    v4l2: video4linux2,v4l2
+    xcbgrab: x11grab
+  outdevs:
+    v4l2: video4linux2,v4l2
+  filters:
+    amf_capture: vsrc_amf
+# The configure options each component needs (configure's _deps, _select and _deps_any, followed through; `a|b`:
+# one of them). When a target lists a kind, the components of it that its options need come with them.
+needs:
+  decoders:
+    aac_at: [audiotoolbox]
+    aac_mediacodec: [mediacodec]
+    ac3_at: [audiotoolbox]
+    adpcm_ima_qt_at: [audiotoolbox]
+    alac_at: [audiotoolbox]
+    amr_nb_at: [audiotoolbox]
+    amrnb_mediacodec: [mediacodec]
+    amrwb_mediacodec: [mediacodec]
+    apng: [zlib]
+    av1_amf: [amf]
+    av1_cuvid: [cuvid, ffnvcodec]
+    av1_mediacodec: [mediacodec]
+    av1_qsv: [libmfx|libvpl]
+    dxa: [zlib]
+    eac3_at: [audiotoolbox]
+    exr: [zlib]
+    flashsv: [zlib]
+    flashsv2: [zlib]
+    g2m: [zlib]
+    gsm_ms_at: [audiotoolbox]
+    h263_v4l2m2m: [v4l2_m2m]
+    h264_amf: [amf]
+    h264_cuvid: [cuvid, ffnvcodec]
+    h264_mediacodec: [mediacodec]
+    h264_mmal: [mmal]
+    h264_oh: [ohcodec]
+    h264_qsv: [libmfx|libvpl]
+    h264_rkmpp: [rkmpp]
+    h264_v4l2m2m: [v4l2_m2m]
+    hevc_amf: [amf]
+    hevc_cuvid: [cuvid, ffnvcodec]
+    hevc_mediacodec: [mediacodec]
+    hevc_oh: [ohcodec]
+    hevc_qsv: [libmfx|libvpl]
+    hevc_rkmpp: [rkmpp]
+    hevc_v4l2m2m: [v4l2_m2m]
+    ilbc_at: [audiotoolbox]
+    libaom_av1: [libaom]
+    libaribb24: [libaribb24]
+    libaribcaption: [libaribcaption]
+    libcelt: [libcelt]
+    libcodec2: [libcodec2]
+    libdav1d: [libdav1d]
+    libdavs2: [libdavs2]
+    libfdk_aac: [libfdk_aac]
+    libgsm: [libgsm]
+    libgsm_ms: [libgsm]
+    libilbc: [libilbc]
+    libjxl: [libjxl]
+    libjxl_anim: [libjxl]
+    liblc3: [liblc3]
+    libmpeghdec: [libmpeghdec]
+    libopencore_amrnb: [libopencore_amrnb]
+    libopencore_amrwb: [libopencore_amrwb]
+    libopenh264: [libopenh264]
+    libopus: [libopus]
+    librsvg: [librsvg]
+    libspeex: [libspeex]
+    libsvtjpegxs: [libsvtjpegxs]
+    libuavs3d: [libuavs3d]
+    libvorbis: [libvorbis]
+    libvpx_vp8: [libvpx]
+    libvpx_vp9: [libvpx]
+    libxevd: [libxevd|libxevdb]
+    libzvbi_teletext: [libzvbi]
+    lscr: [zlib]
+    mjpeg_cuvid: [cuvid, ffnvcodec]
+    mjpeg_qsv: [libmfx|libvpl]
+    mp1_at: [audiotoolbox]
+    mp2_at: [audiotoolbox]
+    mp3_at: [audiotoolbox]
+    mp3_mediacodec: [mediacodec]
+    mpeg1_cuvid: [cuvid, ffnvcodec]
+    mpeg1_v4l2m2m: [v4l2_m2m]
+    mpeg2_cuvid: [cuvid, ffnvcodec]
+    mpeg2_mediacodec: [mediacodec]
+    mpeg2_mmal: [mmal]
+    mpeg2_qsv: [libmfx|libvpl]
+    mpeg2_v4l2m2m: [v4l2_m2m]
+    mpeg4_cuvid: [cuvid, ffnvcodec]
+    mpeg4_mediacodec: [mediacodec]
+    mpeg4_mmal: [mmal]
+    mpeg4_v4l2m2m: [v4l2_m2m]
+    mscc: [zlib]
+    mvha: [zlib]
+    mwsc: [zlib]
+    pcm_alaw_at: [audiotoolbox]
+    pcm_mulaw_at: [audiotoolbox]
+    pdv: [zlib]
+    png: [zlib]
+    qdm2_at: [audiotoolbox]
+    qdmc_at: [audiotoolbox]
+    rasc: [zlib]
+    rscc: [zlib]
+    screenpresso: [zlib]
+    srgc: [zlib]
+    tdsc: [zlib]
+    tscc: [zlib]
+    vc1_cuvid: [cuvid, ffnvcodec]
+    vc1_mmal: [mmal]
+    vc1_qsv: [libmfx|libvpl]
+    vc1_v4l2m2m: [v4l2_m2m]
+    vp8_cuvid: [cuvid, ffnvcodec]
+    vp8_mediacodec: [mediacodec]
+    vp8_qsv: [libmfx|libvpl]
+    vp8_rkmpp: [rkmpp]
+    vp8_v4l2m2m: [v4l2_m2m]
+    vp9_amf: [amf]
+    vp9_cuvid: [cuvid, ffnvcodec]
+    vp9_mediacodec: [mediacodec]
+    vp9_qsv: [libmfx|libvpl]
+    vp9_rkmpp: [rkmpp]
+    vp9_v4l2m2m: [v4l2_m2m]
+    vvc_qsv: [libmfx|libvpl]
+    wcmv: [zlib]
+    zerocodec: [zlib]
+    zlib: [zlib]
+    zmbv: [zlib]
+  encoders:
+    aac_at: [audiotoolbox]
+    aac_mf: [mediafoundation]
+    ac3_mf: [mediafoundation]
+    alac_at: [audiotoolbox]
+    apng: [zlib]
+    av1_amf: [amf]
+    av1_d3d12va: [d3d12va]
+    av1_mediacodec: [mediacodec]
+    av1_mf: [mediafoundation]
+    av1_nvenc: [ffnvcodec, nvenc]
+    av1_qsv: [libvpl]
+    av1_vaapi: [vaapi]
+    av1_vulkan: [vulkan]
+    exr: [zlib]
+    ffv1_vulkan: [vulkan]
+    flashsv: [zlib]
+    flashsv2: [zlib]
+    h263_v4l2m2m: [v4l2_m2m]
+    h264_amf: [amf]
+    h264_d3d12va: [d3d12va]
+    h264_mediacodec: [mediacodec]
+    h264_mf: [mediafoundation]
+    h264_nvenc: [ffnvcodec, nvenc]
+    h264_oh: [ohcodec]
+    h264_omx: [omx]
+    h264_qsv: [libmfx|libvpl]
+    h264_rkmpp: [rkmpp]
+    h264_v4l2m2m: [v4l2_m2m]
+    h264_vaapi: [vaapi]
+    h264_videotoolbox: [videotoolbox]
+    h264_vulkan: [vulkan]
+    hap: [libsnappy]
+    hevc_amf: [amf]
+    hevc_d3d12va: [d3d12va]
+    hevc_mediacodec: [mediacodec]
+    hevc_mf: [mediafoundation]
+    hevc_nvenc: [ffnvcodec, nvenc]
+    hevc_oh: [ohcodec]
+    hevc_qsv: [libmfx|libvpl]
+    hevc_rkmpp: [rkmpp]
+    hevc_v4l2m2m: [v4l2_m2m]
+    hevc_vaapi: [vaapi]
+    hevc_videotoolbox: [videotoolbox]
+    hevc_vulkan: [vulkan]
+    ilbc_at: [audiotoolbox]
+    libaom_av1: [libaom]
+    libcodec2: [libcodec2]
+    libfdk_aac: [libfdk_aac]
+    libgsm: [libgsm]
+    libgsm_ms: [libgsm]
+    libilbc: [libilbc]
+    libjxl: [libjxl]
+    libjxl_anim: [libjxl]
+    libkvazaar: [libkvazaar]
+    liblc3: [liblc3]
+    libmp3lame: [libmp3lame]
+    liboapv: [liboapv]
+    libopencore_amrnb: [libopencore_amrnb]
+    libopenh264: [libopenh264]
+    libopenjpeg: [libopenjpeg]
+    libopus: [libopus]
+    librav1e: [librav1e]
+    libshine: [libshine]
+    libspeex: [libspeex]
+    libsvtav1: [libsvtav1]
+    libsvtjpegxs: [libsvtjpegxs]
+    libtheora: [libtheora]
+    libtwolame: [libtwolame]
+    libvo_amrwbenc: [libvo_amrwbenc]
+    libvorbis: [libvorbis]
+    libvpx_vp8: [libvpx]
+    libvpx_vp9: [libvpx]
+    libvvenc: [libvvenc]
+    libwebp: [libwebp]
+    libwebp_anim: [libwebp]
+    libx264: [libx264]
+    libx264rgb: [libx264]
+    libx265: [libx265]
+    libxavs: [libxavs]
+    libxavs2: [libxavs2]
+    libxeve: [libxeve|libxeveb]
+    libxvid: [libxvid]
+    mjpeg_qsv: [libmfx|libvpl]
+    mjpeg_vaapi: [vaapi]
+    mp3_mf: [mediafoundation]
+    mpeg2_qsv: [libmfx|libvpl]
+    mpeg2_vaapi: [vaapi]
+    mpeg4_mediacodec: [mediacodec]
+    mpeg4_omx: [omx]
+    mpeg4_v4l2m2m: [v4l2_m2m]
+    pcm_alaw_at: [audiotoolbox]
+    pcm_mulaw_at: [audiotoolbox]
+    png: [zlib]
+    prores_ks_vulkan: [vulkan]
+    prores_videotoolbox: [videotoolbox]
+    vp8_mediacodec: [mediacodec]
+    vp8_v4l2m2m: [v4l2_m2m]
+    vp8_vaapi: [vaapi]
+    vp9_mediacodec: [mediacodec]
+    vp9_qsv: [libmfx|libvpl]
+    vp9_vaapi: [vaapi]
+    zlib: [zlib]
+    zmbv: [zlib]
+  hwaccels:
+    av1_d3d11va: [d3d11va]
+    av1_d3d11va2: [d3d11va]
+    av1_d3d12va: [d3d12va]
+    av1_dxva2: [dxva2]
+    av1_nvdec: [ffnvcodec, nvdec]
+    av1_vaapi: [vaapi]
+    av1_vdpau: [vdpau]
+    av1_videotoolbox: [videotoolbox]
+    av1_vulkan: [vulkan]
+    dpx_vulkan: [vulkan]
+    ffv1_vulkan: [vulkan]
+    h263_vaapi: [vaapi]
+    h263_videotoolbox: [videotoolbox]
+    h264_d3d11va: [d3d11va]
+    h264_d3d11va2: [d3d11va]
+    h264_d3d12va: [d3d12va]
+    h264_dxva2: [dxva2]
+    h264_nvdec: [ffnvcodec, nvdec]
+    h264_vaapi: [vaapi]
+    h264_vdpau: [vdpau]
+    h264_videotoolbox: [videotoolbox]
+    h264_vulkan: [vulkan]
+    hevc_d3d11va: [d3d11va]
+    hevc_d3d11va2: [d3d11va]
+    hevc_d3d12va: [d3d12va]
+    hevc_dxva2: [dxva2]
+    hevc_nvdec: [ffnvcodec, nvdec]
+    hevc_vaapi: [vaapi]
+    hevc_vdpau: [vdpau]
+    hevc_videotoolbox: [videotoolbox]
+    hevc_vulkan: [vulkan]
+    mjpeg_nvdec: [ffnvcodec, nvdec]
+    mjpeg_vaapi: [vaapi]
+    mpeg1_nvdec: [ffnvcodec, nvdec]
+    mpeg1_vdpau: [vdpau]
+    mpeg1_videotoolbox: [videotoolbox]
+    mpeg2_d3d11va: [d3d11va]
+    mpeg2_d3d11va2: [d3d11va]
+    mpeg2_d3d12va: [d3d12va]
+    mpeg2_dxva2: [dxva2]
+    mpeg2_nvdec: [ffnvcodec, nvdec]
+    mpeg2_vaapi: [vaapi]
+    mpeg2_vdpau: [vdpau]
+    mpeg2_videotoolbox: [videotoolbox]
+    mpeg4_nvdec: [ffnvcodec, nvdec]
+    mpeg4_vaapi: [vaapi]
+    mpeg4_vdpau: [vdpau]
+    mpeg4_videotoolbox: [videotoolbox]
+    prores_raw_vulkan: [vulkan]
+    prores_videotoolbox: [videotoolbox]
+    prores_vulkan: [vulkan]
+    vc1_d3d11va: [d3d11va]
+    vc1_d3d11va2: [d3d11va]
+    vc1_d3d12va: [d3d12va]
+    vc1_dxva2: [dxva2]
+    vc1_nvdec: [ffnvcodec, nvdec]
+    vc1_vaapi: [vaapi]
+    vc1_vdpau: [vdpau]
+    vp8_nvdec: [ffnvcodec, nvdec]
+    vp8_vaapi: [vaapi]
+    vp9_d3d11va: [d3d11va]
+    vp9_d3d11va2: [d3d11va]
+    vp9_d3d12va: [d3d12va]
+    vp9_dxva2: [dxva2]
+    vp9_nvdec: [ffnvcodec, nvdec]
+    vp9_vaapi: [vaapi]
+    vp9_vdpau: [vdpau]
+    vp9_videotoolbox: [videotoolbox]
+    vp9_vulkan: [vulkan]
+    vvc_vaapi: [vaapi]
+    wmv3_d3d11va: [d3d11va]
+    wmv3_d3d11va2: [d3d11va]
+    wmv3_d3d12va: [d3d12va]
+    wmv3_dxva2: [dxva2]
+    wmv3_nvdec: [ffnvcodec, nvdec]
+    wmv3_vaapi: [vaapi]
+    wmv3_vdpau: [vdpau]
+  demuxers:
+    avisynth: [avisynth]
+    dash: [libxml2]
+    dvdvideo: [libdvdnav, libdvdread]
+    imf: [libxml2]
+    libgme: [libgme]
+    libmodplug: [libmodplug]
+    libopenmpt: [libopenmpt]
+    vapoursynth: [vapoursynth]
+  muxers:
+    chromaprint: [chromaprint]
+    whip: [gnutls|mbedtls|openssl|schannel]
+  protocols:
+    android_content: [jni]
+    bluray: [libbluray]
+    dtls: [gnutls|mbedtls|openssl|schannel]
+    ffrtmpcrypt: [gcrypt|gmp|mbedtls|openssl]
+    gophers: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+    https: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+    ipfs_gateway: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+    ipns_gateway: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+    libamqp: [librabbitmq]
+    librist: [librist]
+    librtmp: [librtmp]
+    librtmpe: [librtmp]
+    librtmps: [librtmp]
+    librtmpt: [librtmp]
+    librtmpte: [librtmp]
+    libsmbclient: [libsmbclient]
+    libsrt: [libsrt]
+    libssh: [libssh]
+    libzmq: [libzmq]
+    rtmpe: [gcrypt|gmp|mbedtls|openssl]
+    rtmps: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+    rtmpte: [gcrypt|gmp|mbedtls|openssl]
+    rtmpts: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+    tls: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
+  indevs:
+    alsa: [alsa]
+    avfoundation: [avfoundation]
+    decklink: [decklink]
+    iec61883: [libiec61883]
+    jack: [libjack]
+    kmsgrab: [libdrm]
+    libcdio: [libcdio]
+    libdc1394: [libdc1394]
+    openal: [openal]
+    pulse: [libpulse]
+    sndio: [sndio]
+    xcbgrab: [libxcb]
+  outdevs:
+    alsa: [alsa]
+    audiotoolbox: [audiotoolbox]
+    caca: [libcaca]
+    decklink: [decklink]
+    pulse: [libpulse]
+    sndio: [sndio]
+  filters:
+    amf_capture: [amf]
+    asr: [pocketsphinx]
+    ass: [libass]
+    avgblur_opencl: [opencl]
+    avgblur_vulkan: [vulkan]
+    azmq: [libzmq]
+    bilateral_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    blackdetect_vulkan: [vulkan]
+    blend_vulkan: [vulkan]
+    boxblur_opencl: [opencl]
+    bs2b: [libbs2b]
+    bwdif_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    bwdif_vulkan: [vulkan]
+    chromaber_vulkan: [vulkan]
+    chromakey_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    color_vulkan: [vulkan]
+    colorkey_opencl: [opencl]
+    colorspace_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    convolution_opencl: [opencl]
+    coreimage: [appkit, coreimage]
+    coreimagesrc: [appkit, coreimage]
+    ddagrab: [d3d11va]
+    deinterlace_d3d12: [d3d12va]
+    deinterlace_qsv: [libmfx|libvpl]
+    deinterlace_vaapi: [vaapi]
+    denoise_vaapi: [vaapi]
+    derain: [libopenvino|libtensorflow|libtorch]
+    deshake_opencl: [opencl]
+    dilation_opencl: [opencl]
+    dnn_classify: [libopenvino|libtensorflow|libtorch]
+    dnn_detect: [libopenvino|libtensorflow|libtorch]
+    dnn_processing: [libopenvino|libtensorflow|libtorch]
+    drawtext: [libfreetype, libharfbuzz]
+    drawvg: [cairo]
+    erosion_opencl: [opencl]
+    flip_vulkan: [vulkan]
+    flite: [libflite]
+    frei0r: [frei0r]
+    frei0r_src: [frei0r]
+    gblur_vulkan: [vulkan]
+    gfxcapture: [d3d11va]
+    hflip_vulkan: [vulkan]
+    hstack_qsv: [libmfx|libvpl]
+    hwupload_cuda: [ffnvcodec]
+    iccdetect: [lcms2]
+    iccgen: [lcms2]
+    interlace_vulkan: [vulkan]
+    ladspa: [ladspa]
+    lcevc: [liblcevc_dec]
+    lensfun: [liblensfun]
+    libplacebo: [libplacebo, vulkan]
+    libvmaf: [libvmaf]
+    libvmaf_cuda: [ffnvcodec, libvmaf]
+    lv2: [lv2]
+    mestimate_d3d12: [d3d12va]
+    nlmeans_opencl: [opencl]
+    nlmeans_vulkan: [vulkan]
+    ocio: [libopencolorio]
+    ocr: [libtesseract]
+    ocv: [libopencv]
+    openclsrc: [opencl]
+    overlay_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    overlay_opencl: [opencl]
+    overlay_qsv: [libmfx|libvpl]
+    overlay_vaapi: [vaapi]
+    overlay_vulkan: [vulkan]
+    pad_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    pad_opencl: [opencl]
+    prewitt_opencl: [opencl]
+    procamp_vaapi: [vaapi]
+    program_opencl: [opencl]
+    qrencode: [libqrencode]
+    qrencodesrc: [libqrencode]
+    quirc: [libquirc]
+    remap_opencl: [opencl]
+    roberts_opencl: [opencl]
+    rubberband: [librubberband]
+    scale2ref_npp: [ffnvcodec, libnpp]
+    scale_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    scale_d3d11: [d3d11va]
+    scale_d3d12: [d3d12va]
+    scale_npp: [ffnvcodec, libnpp]
+    scale_qsv: [libmfx|libvpl]
+    scale_vaapi: [vaapi]
+    scale_vt: [videotoolbox]
+    scale_vulkan: [vulkan]
+    scdet_vulkan: [vulkan]
+    sharpen_npp: [ffnvcodec, libnpp]
+    sharpness_vaapi: [vaapi]
+    sobel_opencl: [opencl]
+    sofalizer: [libmysofa]
+    sr: [libopenvino|libtensorflow|libtorch]
+    sr_amf: [amf]
+    subtitles: [libass]
+    thumbnail_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    tonemap_opencl: [opencl]
+    tonemap_vaapi: [vaapi]
+    transpose_npp: [ffnvcodec, libnpp]
+    transpose_opencl: [opencl]
+    transpose_vaapi: [vaapi]
+    transpose_vt: [videotoolbox]
+    transpose_vulkan: [vulkan]
+    unsharp_opencl: [opencl]
+    vflip_vulkan: [vulkan]
+    vidstabdetect: [libvidstab]
+    vidstabtransform: [libvidstab]
+    vpp_amf: [amf]
+    vpp_qsv: [libmfx|libvpl]
+    vstack_qsv: [libmfx|libvpl]
+    whisper: [whisper]
+    xfade_opencl: [opencl]
+    xfade_vulkan: [vulkan]
+    xstack_qsv: [libmfx|libvpl]
+    yadif_cuda: [cuda_llvm|cuda_nvcc, ffnvcodec]
+    yadif_videotoolbox: [metal, videotoolbox]
+    zmq: [libzmq]
+    zscale: [libzimg]

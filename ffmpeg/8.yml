@@ -3,12 +3,63 @@
 # reclassifies; those, and the options below, are maintained by a person.
 # Classes (ffmpeg-license) and minimums (min) are copied from FFmpeg 9.0.2's configure (8.x where it differs). Option names are FFmpeg's
 # configure names without a leading `lib`, plus the friendly groupings nvenc (nv-codec), vaapi (libva), whisper.
-# `ships:` is what a build with the option on must report (`ffmpeg -encoders`, `-filters`, `-hwaccels`, ...), each name
-# exact. `ffmpeg-build test` checks it, so an option configure took but the build lost (FFmpeg 8.1.2's Vulkan builds
-# had no Vulkan filters: the glslc was too old) fails the test. Name only what the option always adds, or say what else
-# it needs with `{ name: { with: [option] } }`.
+# `ships:` is what a build with the option on must report, each name as configure spells it (as
+# ffmpeg/components/<major>.yml lists it: libvpx_vp8, which `ffmpeg -encoders` calls libvpx), and under hwaccels: the
+# device types `ffmpeg -hwaccels` lists. `ffmpeg-build test` checks it, so an option configure took but the build lost
+# (FFmpeg 8.1.2's Vulkan builds had no Vulkan filters: the glslc was too old) fails the test. Name only what the option
+# always adds, or say what else it needs with `{ name: { with: [option] } }`.
+# `auto-components:` names the options whose components come with them: when a target lists a kind (`components:`),
+# every component of that kind that needs one of them (the components file's needs:) is kept: libx264, h264_vaapi,
+# scale_cuda. Support libraries (zlib, xml2, harfbuzz, the TLS options, ...) aren't in it: a target lists png, dash or
+# https itself, and `check` says which option each needs.
 major: 8
 releases: [8.0, 8.0.1, 8.0.2, 8.0.3, 8.1, 8.1.1, 8.1.2, 8.1.3]
+auto-components:
+  - mediacodec
+  - d3d11va
+  - dxva2
+  - mediafoundation
+  - amf
+  - v4l2-m2m
+  - videotoolbox
+  - audiotoolbox
+  - nvenc
+  - vaapi
+  - cuda-llvm
+  - opencl
+  - d3d12va
+  - vdpau
+  - rkmpp
+  - vpl
+  - vulkan
+  - placebo
+  - whisper
+  - x264
+  - x265
+  - openh264
+  - kvazaar
+  - dav1d
+  - aom
+  - svtav1
+  - vpx
+  - webp
+  - openjpeg
+  - jxl
+  - zimg
+  - vmaf
+  - opus
+  - vorbis
+  - mp3lame
+  - speex
+  - gsm
+  - opencore-amrnb
+  - opencore-amrwb
+  - vo-amrwbenc
+  - chromaprint
+  - freetype
+  - ass
+  - srt
+  - rist
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
@@ -171,10 +222,10 @@ options:
     { needs: openh264, min: 1.3.0, ships: { encoders: [libopenh264], decoders: [libopenh264] } }
   kvazaar: { needs: kvazaar, min: 2.0.0, ships: { encoders: [libkvazaar] } }
   dav1d: { needs: dav1d, min: 1.0.0, ships: { decoders: [libdav1d] } }
-  aom: { needs: aom, min: 2.0.0, ships: { encoders: [libaom-av1] } }
+  aom: { needs: aom, min: 2.0.0, ships: { encoders: [libaom_av1] } }
   svtav1: { needs: svtav1, min: 0.9.0, ships: { encoders: [libsvtav1] } }
   rav1e: { needs: rav1e, min: 0.5.0, ships: { encoders: [librav1e] } }
-  vpx: { needs: libvpx, min: 1.4.0, ships: { encoders: [libvpx, libvpx-vp9] } }
+  vpx: { needs: libvpx, min: 1.4.0, ships: { encoders: [libvpx_vp8, libvpx_vp9] } }
   webp: { needs: libwebp, min: 0.2.0, ships: { encoders: [libwebp] } }
   openjpeg: { needs: openjpeg, min: 2.1.0, ships: { encoders: [libopenjpeg] } }
   jxl: { needs: libjxl, min: 0.7.0, ships: { decoders: [libjxl] } }
@@ -288,5 +339,5 @@ options:
     }
 
   # network
-  srt: { needs: srt, min: 1.3.0, ships: { protocols: [srt] } }
-  rist: { needs: librist, min: 0.2.7, ships: { protocols: [rist] } }
+  srt: { needs: srt, min: 1.3.0, ships: { protocols: [libsrt] } }
+  rist: { needs: librist, min: 0.2.7, ships: { protocols: [librist] } }
