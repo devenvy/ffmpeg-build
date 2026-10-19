@@ -1,0 +1,36 @@
+name: opencl-icd-loader
+provides: opencl
+license: Apache-2.0
+license-files: [LICENSE]
+configure: [--enable-opencl]
+needs: [opencl-headers]
+source: { git: https://github.com/KhronosGroup/OpenCL-ICD-Loader, ref: 'v{version}' }
+versions: { git-tags: '^v(\d{4}\.\d{2}\.\d{2})$' }
+version-group: opencl-sdk
+# Linux and Windows, where each GPU vendor's driver installs an OpenCL ICD. macOS has OpenCL of its own (a system
+# framework FFmpeg links by itself): the opencl option is built in there (ffmpeg/<major>.yml).
+platforms: [linux-*, win-*]
+build:
+  # Khronos OpenCL ICD loader (Apache-2.0), static, for FFmpeg's opencl (the OpenCL filters and hwcontext). Linked into
+  # libavutil, it finds the vendors' drivers at run time (the registry on Windows, /etc/OpenCL/vendors on Linux) as the
+  # system's libOpenCL would, so the build needs no OpenCL library on the machine it runs on: without a driver, OpenCL
+  # simply has no platforms. Static, as Khronos allows "in controlled environments"; FFmpeg's libraries export only
+  # their own symbols, so the loader's can't clash with a system libOpenCL. Neither the layer-info tool nor the tests.
+  # Its OpenCL.pc carries most of what a static link needs (-ldl and threads; cfgmgr32 and runtimeobject on Windows);
+  # on Windows it also calls ole32's StringFromGUID2, which the .pc leaves out.
+  system: cmake
+  args:
+    [
+      '-DOPENCL_ICD_LOADER_HEADERS_DIR={deps}/include',
+      -DENABLE_OPENCL_LAYERINFO=OFF,
+      -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF,
+      -DBUILD_TESTING=OFF,
+    ]
+  platforms:
+    'win-*':
+      after:
+        # mingw: the loader drops the lib prefix (for OpenCL.dll), so its static library is OpenCL.a, which -lOpenCL
+        # doesn't find
+        - move: { from: '{deps}/lib/OpenCL.a', to: '{deps}/lib/libOpenCL.a' }
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/OpenCL.pc', libs-private: { add: -lole32 } }

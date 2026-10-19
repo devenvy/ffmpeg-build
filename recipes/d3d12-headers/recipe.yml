@@ -1,0 +1,26 @@
+name: d3d12-headers
+provides: d3d12va
+license: LGPL-2.1-or-later
+license-files: [{ recipe: LICENSE }]
+configure: [--enable-d3d12va]
+source: { git: https://github.com/mingw-w64/mingw-w64, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# win-x64's mingw-w64 (Ubuntu's, 11.0.1) has d3d12.h but no d3d12video.h; win-arm64's llvm-mingw has both, so the
+# d3d12va option is built in there (ffmpeg/<major>.yml).
+platforms: [win-x64]
+build:
+  # The Direct3D 12 video headers of a newer mingw-w64 (LGPL-2.1-or-later: generated from Wine's IDL), for FFmpeg's
+  # d3d12va: d3d12video.h (ID3D12VideoDecoder, the encoder and video processor), the d3d12.h it is generated against
+  # (it needs ID3D12ProtectedResourceSession, which 11.0.1's lacks), and the dxva.h with the AV1 and VP9 picture
+  # parameters. Copied over the toolchain's own (-I deps/include comes first); the rest of mingw-w64's headers stay the
+  # toolchain's. Microsoft's DirectX-Headers can't stand in: they need a MIDL-era rpcndr.h mingw-w64 doesn't have.
+  system: none
+  steps:
+    - copy:
+        from:
+          [
+            mingw-w64-headers/include/d3d12.h,
+            mingw-w64-headers/include/d3d12video.h,
+            mingw-w64-headers/include/dxva.h,
+          ]
+        into: '{deps}/include'

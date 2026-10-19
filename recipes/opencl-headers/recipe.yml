@@ -1,0 +1,20 @@
+name: opencl-headers
+license: Apache-2.0
+license-files: [LICENSE]
+source: { git: https://github.com/KhronosGroup/OpenCL-Headers, ref: 'v{version}' }
+versions: { git-tags: '^v(\d{4}\.\d{2}\.\d{2})$' }
+# released together with the ICD loader (one Khronos OpenCL SDK date tag): the lock gives both one version
+version-group: opencl-sdk
+platforms: [linux-*, win-*]
+build:
+  # Khronos OpenCL C headers (Apache-2.0), header-only, for the OpenCL ICD loader's build and FFmpeg's opencl. Their
+  # CMake install puts OpenCL-Headers.pc (which the loader's OpenCL.pc requires) in share/pkgconfig, where pkg-config
+  # isn't pointed: it is moved to lib/pkgconfig. No tests.
+  system: cmake
+  args: [-DBUILD_TESTING=OFF]
+  after:
+    - move:
+        {
+          from: '{deps}/share/pkgconfig/OpenCL-Headers.pc',
+          to: '{deps}/lib/pkgconfig/OpenCL-Headers.pc',
+        }

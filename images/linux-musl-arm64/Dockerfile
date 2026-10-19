@@ -19,3 +19,12 @@ RUN apk add --no-cache \
 RUN printf '#version 460\nvoid main() {}\n' > /tmp/probe.comp \
  && glslc --target-env=vulkan1.4 --target-spv=spv1.6 -std=460 -c /tmp/probe.comp -o /tmp/probe.spv \
  && rm -f /tmp/probe.comp /tmp/probe.spv
+
+# clang for FFmpeg's cuda-llvm option: it compiles the CUDA filters' kernels to PTX (NVIDIA's nvcc is nonfree). Only
+# FFmpeg's configure calls it (as its nvcc); the libraries' builds still find gcc as cc. Probed as configure probes it,
+# so an image whose clang can't emit PTX doesn't build.
+RUN apk add --no-cache clang \
+ && printf '#define __global__ __attribute__((global))\nextern "C" { __global__ void probe(unsigned char *data) {} }\n' > /tmp/probe.cu \
+ && clang --cuda-gpu-arch=sm_30 -O2 -std=c++11 -m64 -S -nocudalib -nocudainc --cuda-device-only /tmp/probe.cu -o /tmp/probe.ptx \
+ && grep -q '^.target sm_30' /tmp/probe.ptx \
+ && rm -f /tmp/probe.cu /tmp/probe.ptx

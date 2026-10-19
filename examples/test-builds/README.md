@@ -14,7 +14,8 @@ toolchain, so every platform's setup, packaging and tests run in CI without buil
 | ios-arm64, ios-sim-arm64, maccatalyst-arm64, maccatalyst-x64 | the four slices of one iOS / Mac Catalyst xcframework bundle           |
 
 ios-arm64 and maccatalyst-arm64 also build Vulkan and libplacebo, with MoltenVK linked statically into their frameworks
-(the canary builds macOS's MoltenVK dylib).
+(the canary builds macOS's MoltenVK dylib). The Linux, Windows and macOS targets also take the GPU options their
+platform offers (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): only a full build and its test show FFmpeg took them.
 
 `.github/workflows/toolchains.yml` builds and tests them through the reusable `build.yml`, with the engine from this
 repository's source (`engine: source`), whenever a toolchain changes (`platforms/`, `images/`, `platforms.yml`,
