@@ -8,7 +8,7 @@ every recipe the engine has (`tests/example-folders.test.ts` checks). (Platform-
 Apple's setup and packaging, and MoltenVK linked statically for iOS and Mac Catalyst, are covered by the
 examples/test-builds targets, which `.github/workflows/toolchains.yml` builds.)
 
-- `.github/workflows/recipes.yml` builds a changed recipe (and what it builds against, not FFmpeg) on each canary
-  target that uses it, at this lock's versions.
+- `.github/workflows/recipes.yml` builds a changed recipe (and what builds against it, not FFmpeg) on every platform it
+  claims, at this lock's versions (`ffmpeg-build recipe-check`, which seeds its own lock from this one).
 - `.github/workflows/canary.yml` moves this lock to the newest upstream versions every week, in the run only, and
   builds every target in full.

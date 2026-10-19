@@ -1,8 +1,8 @@
 name: CI
 
 # The engine's checks, in the DevEnvy layout (`code-guidelines check` verifies it): pr-title, lint, test, build, audit,
-# dependency-review, the repository's own jobs (shellcheck, package), Dependabot auto-merge, and result as the single
-# required status check. release.yml calls it for a release commit before it publishes anything.
+# dependency-review, the repository's own jobs (shellcheck, package, check, recipes), Dependabot auto-merge, and result
+# as the single required status check. release.yml calls it for a release commit before it publishes anything.
 on:
   pull_request:
     # edited: re-check after a PR title is fixed (titles become release-please commit messages)
@@ -231,9 +231,18 @@ jobs:
       folder: examples/test-builds
       engine: source
 
+  # recipes.yml: a pull request that changes recipes/<name>/ builds that library (and what builds against it) on every
+  # platform it claims; one that changes no recipe builds nothing
+  recipes:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/recipes.yml
+    permissions:
+      contents: read
+
   result:
     if: always()
-    needs: [pr-title, lint, test, build, audit, dependency-review, shellcheck, package, check]
+    needs:
+      [pr-title, lint, test, build, audit, dependency-review, shellcheck, package, check, recipes]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -249,13 +258,15 @@ jobs:
           SHELLCHECK: ${{ needs.shellcheck.result }}
           PACKAGE: ${{ needs.package.result }}
           CHECK: ${{ needs.check.result }}
+          RECIPES: ${{ needs.recipes.result }}
           IS_PR: ${{ github.event_name == 'pull_request' }}
-        # pr-title and dependency-review only run on pull requests; the audit is informational there
+        # pr-title, dependency-review and recipes only run on pull requests; the audit is informational there
         run: |
           for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE" "$CHECK"; do test "$result" = "success"; done
           if [ "$IS_PR" = "true" ]; then
             test "$PR_TITLE" = "success"
             test "$DEPENDENCY_REVIEW" = "success"
+            test "$RECIPES" = "success"
           else
             test "$AUDIT" = "success"
           fi

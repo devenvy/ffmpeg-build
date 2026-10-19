@@ -5,7 +5,8 @@ source:
   url: 'https://mirrors.kernel.org/gnu/gmp/gmp-{version}.tar.xz'
   mirrors: ['https://ftp.gnu.org/gnu/gmp/gmp-{version}.tar.xz']
 versions: { listing: 'https://ftp.gnu.org/gnu/gmp/', files: '^gmp-(\d+\.\d+(?:\.\d+)?)\.tar\.xz$' }
-platforms: all
+# only gnutls builds against it, and only where gnutls builds
+platforms: [linux-*, android-*, maccatalyst-*]
 build:
   system: autotools
   args: ['--libdir={deps}/lib', --disable-shared, --enable-static, --with-pic, --enable-cxx=no]

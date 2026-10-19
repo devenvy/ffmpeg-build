@@ -54,6 +54,9 @@ export interface Folder {
   sourceOffer?: string; // who the notices' written offer names to ask for the source
   build: BuildSettingEntry[]; // where and how platforms build (the build: section), in the file's order
   targets: Target[];
+  // recipe-check's folder: its targets build libraries alone (build --only) and are never released, so an Apple
+  // slice needs no xcframework bundle's other three
+  libraryOnly?: true;
 }
 
 export type FolderResult =
