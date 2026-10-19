@@ -97,7 +97,13 @@ export function expectedComponents(
     .flatMap((kind) =>
       flags
         .filter((f) => f.startsWith(`--enable-${COMPONENT_FLAG[kind]}=`))
-        .flatMap((f) => f.slice(f.indexOf('=') + 1).split(','))
+        // -buildconf records the list as configure quoted it: --enable-muxer='mp4,null'
+        .flatMap((f) =>
+          f
+            .slice(f.indexOf('=') + 1)
+            .replace(/^(['"])(.*)\1$/, '$2')
+            .split(','),
+        )
         .filter((name) => name && !has.has(`${kind} ${name}`))
         .map((name) => ({ option: 'components', kind, name })),
     );

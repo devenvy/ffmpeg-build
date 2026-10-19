@@ -1,7 +1,7 @@
 // What FFmpeg itself offers, read from its configure script, against what the engine's ffmpeg/<major>.yml says: the
 // nightly support check (scripts/ffmpeg-support.ts, .github/workflows/ffmpeg-support.yml). Releases are pure data and
 // are corrected from upstream's tags; new or changed options are reported for a person to decide.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { type EngineData, knownMajors, optionsOf, valuesOn } from './engine-data.ts';
@@ -14,6 +14,17 @@ import {
 } from './ffmpeg-components.ts';
 import { compareVersions } from './versions.ts';
 
+/** A file's text, or undefined when there is none (read once: no exists-then-read race). */
+function readIfThere(file: string): string | undefined {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined;
+    }
+    throw e;
+  }
+}
 export type LicenseClass = 'gpl' | 'version3' | 'gplv3' | 'nonfree' | '';
 
 /** configure's external and hwaccel library options, each with its licence class ('' for none). */
@@ -236,9 +247,11 @@ export async function supportCheck(o: {
       const newest = releases.at(-1)!;
       const components = await o.componentsOf(newest);
       const file = componentsFilePath(o.dataRoot, major);
-      const kept = existsSync(file)
-        ? parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`)
-        : undefined;
+      const text = readIfThere(file);
+      const kept =
+        text === undefined
+          ? undefined
+          : parseComponentsFile(text, `ffmpeg/components/${major}.yml`);
       if (kept?.release !== newest || !sameComponents(kept.components, components)) {
         report.components = newest;
         if (o.write) {

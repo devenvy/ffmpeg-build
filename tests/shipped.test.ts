@@ -77,6 +77,14 @@ describe('what a build must ship', () => {
     ]);
   });
 
+  it("reads a list as ffmpeg -buildconf records it: FFmpeg's configure quotes an argument with a comma", () => {
+    const configure =
+      '--disable-muxers --enable-muxer=\'mp4,matroska,null\' --disable-protocols --enable-protocol="file,pipe"';
+    expect(
+      expectedComponents(data, '9', 'linux-x64', configure).map((e) => `${e.kind} ${e.name}`),
+    ).toEqual(['muxers mp4', 'muxers matroska', 'muxers null', 'protocols file', 'protocols pipe']);
+  });
+
   it("asks the smoke program about every component the major's options name, once each", () => {
     expect(smokeProbes(data, '9')).toEqual([
       'decoders:libdav1d',
