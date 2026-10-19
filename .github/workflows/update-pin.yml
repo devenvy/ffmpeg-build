@@ -45,21 +45,18 @@ on:
 permissions: {}
 
 jobs:
+  # The engine (and its npm install) runs here with a read-only GITHUB_TOKEN; publish pushes. The token secret, when
+  # given, is passed too: a pin can name a release in another private repository, which GITHUB_TOKEN can't read.
   bump:
     runs-on: ubuntu-24.04
-    # actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
     permissions:
-      actions: write
-      contents: write
-      pull-requests: write
+      contents: read
     timeout-minutes: 15
-    # one run per repository and branch at a time; one under way is never cancelled (it may be pushing)
-    concurrency:
-      group: ffmpeg-build-update-pin-${{ github.repository }}-${{ inputs.branch || inputs.pin-file }}
-      cancel-in-progress: false
+    outputs:
+      branch: ${{ steps.branch.outputs.name }}
+      change: ${{ steps.bump.outputs.change }}
     env:
       GH_TOKEN: ${{ secrets.token || github.token }}
-      GITHUB_TOKEN: ${{ secrets.token || github.token }}
       PIN: ${{ inputs.pin-file }}
     steps:
       # the branch input, else one per pin file: two pin files' bumps in one repository never share (or overwrite) a PR
@@ -82,18 +79,6 @@ jobs:
           esac
           git check-ref-format --branch "${branch}" > /dev/null || { echo "::error::\"${branch}\" isn't a valid branch name"; exit 1; }
           echo "name=${branch}" >> "$GITHUB_OUTPUT"
-      # a GitHub App's token, when one is given: its pushes and PRs start workflows (GITHUB_TOKEN's start none)
-      - id: app
-        if: inputs.app-client-id != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ inputs.app-client-id }}
-          private-key: ${{ secrets.app-private-key }}
-          # the update branch, its pull request, and the automerge label
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-      # no credential kept: the engine this job installs and runs never sees a write token; the push below carries its own
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -132,11 +117,55 @@ jobs:
           change="$(ffmpeg-build fetch --update "${PIN}" --target "${TARGET}")"
           echo "${change}" >> "$GITHUB_STEP_SUMMARY"
           echo "change=${change}" >> "$GITHUB_OUTPUT"
+      # the bumped pin file, for the publish job
+      - if: ${{ !contains(steps.bump.outputs.change, 'up to date') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ffmpeg-build-update-pin
+          path: ${{ inputs.pin-file }}
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    needs: bump
+    if: ${{ !contains(needs.bump.outputs.change, 'up to date') }}
+    runs-on: ubuntu-24.04
+    # actions: write lets GITHUB_TOKEN dispatch the PR's CI; callers must grant it too
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    timeout-minutes: 10
+    # one run per repository and branch at a time (the resolved branch, so two pin files can't push to it at once);
+    # one under way is never cancelled (it may be pushing)
+    concurrency:
+      group: ffmpeg-build-update-pin-${{ github.repository }}-${{ needs.bump.outputs.branch }}
+      cancel-in-progress: false
+    env:
+      PIN: ${{ inputs.pin-file }}
+    steps:
+      # a GitHub App's token, when one is given: its pushes and PRs start workflows (GITHUB_TOKEN's start none)
+      - id: app
+        if: inputs.app-client-id != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
+          # the update branch, its pull request, and the automerge label
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ffmpeg-build-update-pin
+          path: ${{ runner.temp }}/update
       - name: open or refresh the pull request
-        if: ${{ !contains(steps.bump.outputs.change, 'up to date') }}
         env:
-          BRANCH: ${{ steps.branch.outputs.name }}
-          CHANGE: ${{ steps.bump.outputs.change }}
+          BRANCH: ${{ needs.bump.outputs.branch }}
+          CHANGE: ${{ needs.bump.outputs.change }}
           AUTOMERGE: ${{ inputs.automerge }}
           CI_WORKFLOW: ${{ inputs.ci-workflow }}
           GH_TOKEN: ${{ steps.app.outputs.token || secrets.token || github.token }}
@@ -144,24 +173,28 @@ jobs:
           DISPATCH_TOKEN: ${{ github.token }}
           LABEL: ffmpeg-build:automerge
         run: |
+          cp -- "${RUNNER_TEMP}/update/$(basename -- "${PIN}")" "${PIN}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "${BRANCH}"
           git add -- "${PIN}"
           git commit --quiet -m "${CHANGE}"
+          open="$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number')"
+          # automerge: the label the automerge job looks for once the PR's CI passes (no repository settings needed).
+          # It is on the PR before anything starts that CI: on an open PR before the push, on a new one as it opens
+          labels=()
+          if [ "${AUTOMERGE}" = true ]; then
+            gh label create "${LABEL}" --force --color 0e8a16 --description "ffmpeg-build merges this PR once its CI passes"
+            labels=(--label "${LABEL}")
+            if [ -n "${open}" ]; then gh pr edit "${BRANCH}" --add-label "${LABEL}"; fi
+          fi
           # the token reaches git for this push only, in the remote's URL (never written to .git/config)
           remote="https://x-access-token:${GH_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
           git push --force "${remote}" "HEAD:refs/heads/${BRANCH}"
-          if [ -n "$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number')" ]; then
+          if [ -n "${open}" ]; then
             gh pr edit "${BRANCH}" --title "${CHANGE}" --body "${CHANGE}"
           else
-            gh pr create --head "${BRANCH}" --title "${CHANGE}" --body "${CHANGE}"
-          fi
-          # automerge: the label the automerge job looks for once the PR's CI passes (no repository settings needed);
-          # added before CI is started, so even a quick CI run finds it
-          if [ "${AUTOMERGE}" = true ]; then
-            gh label create "${LABEL}" --force --color 0e8a16 --description "ffmpeg-build merges this PR once its CI passes"
-            gh pr edit "${BRANCH}" --add-label "${LABEL}"
+            gh pr create --head "${BRANCH}" --title "${CHANGE}" --body "${CHANGE}" "${labels[@]}"
           fi
           # the PR's CI: a token's push starts it; GITHUB_TOKEN's pushes start nothing, but it may dispatch a run
           if [ "${HAS_TOKEN}" != true ] && [ -n "${CI_WORKFLOW}" ]; then
