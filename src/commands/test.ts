@@ -19,6 +19,7 @@ import { artifactName, type Folder, FOLDER_FILE, type Target } from '../targets.
 import { extractTarGzFile } from '../untar.ts';
 import { FolderError } from './folder.ts';
 import { expectedComponents, type Has, listedNames, shippedSteps } from './shipped.ts';
+import { scriptEnv, targetTestEnv } from './test-env.ts';
 import { cannotLink, LIBRARY_PLATFORM, testLibrary } from './test-library.ts';
 
 import type { EngineData } from '../engine-data.ts';
@@ -255,6 +256,8 @@ export function dockerArgs(
   args: string[],
   network = false,
   platform?: string,
+  /** variables passed by name (`-e NAME`): docker takes each value from its own environment, off its command line */
+  pass: readonly string[] = [],
 ): string[] {
   return [
     'run',
@@ -265,6 +268,7 @@ export function dockerArgs(
     '-w',
     cwd,
     ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
+    ...pass.flatMap((k) => ['-e', k]),
     image,
     cmd,
     ...args,
@@ -357,6 +361,10 @@ export interface TestOptions {
   docker?: boolean;
   armhf?: boolean;
   env?: NodeJS.ProcessEnv;
+  /** build.yml's test-env secret, taken out of the environment already (takeTestEnv) */
+  testEnv?: ReadonlyMap<string, string>;
+  /** where a workflow command (a mask) goes: stdout, ahead of anything a test prints */
+  print?: (line: string) => void;
 }
 
 export async function runTest(
@@ -380,6 +388,11 @@ export async function runTest(
   const runnable = options.runnable ?? runnablePlatforms();
   const host = (options.runnable ? hostOf(runnable) : undefined) ?? process.platform;
   const env = { ...process.env, ...options.env };
+  const print =
+    options.print ??
+    ((line: string) => {
+      process.stdout.write(`${line}\n`);
+    });
   const skip = (why: string): Result =>
     options.mustRun
       ? { output: `${t.name}: ✗ not run, ${why}, and --must-run says it must`, exitCode: 1 }
@@ -500,12 +513,16 @@ export async function runTest(
       FFMPEG_PLATFORM: target.platform,
     };
     const image = container ? baseImage(container.image) : '';
+    // the test-env: variables only the target's own scripts get (test-env.ts); the smoke test's commands none
+    const secret = options.testEnv ?? new Map<string, string>();
+    const given = targetTestEnv(target.testEnv, secret, env, print);
     const docker = (
       cwd: string,
       vars: Record<string, string>,
       cmd: string,
       args: string[],
       network = false,
+      pass: Record<string, string> = {},
     ): ReturnType<typeof run> =>
       run(
         'docker',
@@ -518,24 +535,17 @@ export async function runTest(
           args,
           network,
           container!.dockerPlatform,
+          Object.keys(pass),
         ),
+        { ...env, ...pass },
       );
-    const exec = (
-      cmd: string,
-      args: string[],
-      vars: Record<string, string> = {},
-      verbatim = false,
-    ): ReturnType<typeof run> =>
-      container
-        ? docker(folder.dir, vars, cmd, args)
-        : run(cmd, args, { ...env, ...vars }, verbatim);
     // the smoke test's ffmpeg finds its libraries only where the archive put them (a container has nothing else)
     const ffmpegRun = (args: string[]): ReturnType<typeof run> =>
       container ? docker(folder.dir, {}, ffmpeg!, args) : run(ffmpeg!, args, archiveEnv(env, host));
     // Alpine has sh, not bash: add bash for a .sh script (the container's network is needed for that one step)
     const inContainer = (c: Container, script: string, test: string): ReturnType<typeof run> => {
       if (!test.endsWith('.sh')) {
-        return exec(script, [], testEnv);
+        return docker(folder.dir, testEnv, script, [], false, given.vars);
       }
       return c.bash === 'apk'
         ? docker(
@@ -544,9 +554,12 @@ export async function runTest(
             'sh',
             ['-c', 'apk add --no-cache -q bash >/dev/null && exec bash "$0"', script],
             true,
+            given.vars,
           )
-        : docker(dirname(script), testEnv, 'bash', [script]);
+        : docker(dirname(script), testEnv, 'bash', [script], false, given.vars);
     };
+    const native = (cmd: string, args: string[], verbatim = false): ReturnType<typeof run> =>
+      run(cmd, args, { ...scriptEnv(env, secret, given.vars, host), ...testEnv }, verbatim);
     if (container) {
       lines.push(
         `  (in ${String(image.split('@')[0])} ${container.dockerPlatform}, a plain ${container.bash === 'apk' ? 'musl' : 'Debian armhf'} system)`,
@@ -620,6 +633,12 @@ export async function runTest(
         step(s.ok, s.what, s.detail);
       }
       // the target's own tests, from the folder
+      if (target.tests.length && given.missing.length) {
+        step(
+          'info',
+          `test-env: ${given.missing.join(', ')} not set, so the tests run without ${given.missing.length > 1 ? 'them' : 'it'} (a run without the secret, like a pull request from a fork's, has none)`,
+        );
+      }
       for (const test of target.tests) {
         const script = join(folder.dir, test);
         const how = container ? undefined : scriptCommand(script);
@@ -627,7 +646,7 @@ export async function runTest(
           step(false, `tests: ${test}`, how.error);
         } else {
           const r = how
-            ? exec(how.cmd, how.args, testEnv, how.verbatim)
+            ? native(how.cmd, how.args, how.verbatim)
             : inContainer(container!, script, test);
           step(r.code === 0, `tests: ${test}`, r.error?.message ?? r.out);
         }

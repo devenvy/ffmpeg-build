@@ -70,6 +70,8 @@ names their concurrency groups and `update-lock.yml`'s branch, so it has one spe
   target); a release is published with all its targets, so when the run publishes, a choice that leaves a due
   release part-built stops it (`releases --whole`), saying which targets are missing. Where each target builds is
   `ffmpeg-build.yml`'s `build:` section, else `platforms.yml` ([targets](targets.md#some-targets-at-a-time-and-where-they-build)).
+  `secrets: { test-env: ... }` (optional): `NAME=value` lines for the targets' test scripts, given to the test steps
+  only ([tests that need a secret](building.md#tests-that-need-a-secret)).
   One `all-builds` job to require. Its caller grants `contents: write` even with
   `never`: GitHub won't start a run whose called workflow has a job (the skipped release job) asking for more than
   the caller grants.

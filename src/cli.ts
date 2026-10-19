@@ -36,6 +36,7 @@ import { runMigrate } from './commands/migrate.ts';
 import { runOptions } from './commands/options.ts';
 import { runRecipeCheck } from './commands/recipe-check.ts';
 import { runReleases } from './commands/releases.ts';
+import { takeTestEnv } from './commands/test-env.ts';
 import { runTest } from './commands/test.ts';
 import { UpstreamFailure, WriteError } from './commands/versions.ts';
 import { EngineDataError, loadEngineData } from './engine-data.ts';
@@ -380,9 +381,18 @@ program
   )
   .action(async (opts: { dist: string; mustRun?: boolean } & Chosen) =>
     run(async () => {
+      // build.yml's test-env secret: out of this process's environment before anything starts, masked on GitHub
+      const testEnv = takeTestEnv(process.env, (line) => {
+        process.stdout.write(`${line}\n`);
+      });
       const folder = openFolder();
       return each(chosenOrAsk(folder, opts, 'test'), async (target) =>
-        runTest(folder, data(), { target, dist: opts.dist, mustRun: opts.mustRun === true }),
+        runTest(folder, data(), {
+          target,
+          dist: opts.dist,
+          mustRun: opts.mustRun === true,
+          testEnv,
+        }),
       );
     }),
   );

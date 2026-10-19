@@ -413,6 +413,14 @@
               "minLength": 1
             }
           },
+          "test-env": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            }
+          },
           "release-group": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._+-]*$"

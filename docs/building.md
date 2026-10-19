@@ -35,7 +35,7 @@ to run `doctor`.
 `ffmpeg-build test --target <name>` runs a build where this machine can run it: a smoke test (the programs start, the
 configure line matches the license, a one-second test pattern encodes, and the build has what its configure line asked
 for, below), then each script the target lists in `tests:`, with `FFMPEG`, `FFPROBE` and `FFMPEG_DIR` set to the
-unpacked build. A non-zero exit fails it. A build this
+unpacked build (and the variables its `test-env:` lists: [below](#tests-that-need-a-secret)). A non-zero exit fails it. A build this
 machine can't run is skipped, and says why; with `--must-run` (as CI uses it, on the runner meant to run the build)
 it fails instead.
 
@@ -76,6 +76,57 @@ instead: weaker (a name compiled in, not its registration), and only for the cod
 On Windows, `.sh` tests run with Git Bash (`BASH`, else the one beside `git`, else the usual install folders; never
 WSL's `bash.exe`), `.cmd` and `.bat` with `cmd.exe`, and `.ps1` with `pwsh` (or Windows PowerShell). Elsewhere every
 test runs with `bash`.
+
+### Tests that need a secret
+
+A target's `test-env:` names the environment variables its `tests:` scripts get
+([targets](targets.md#tests)). In CI, the workflow that calls `build.yml` passes their values in one secret,
+`test-env`, as `NAME=value` lines, and names only the repository secrets it means to share:
+
+```yaml
+jobs:
+  release:
+    uses: devenvy/ffmpeg-build/.github/workflows/build.yml@v0
+    permissions:
+      contents: write
+    with:
+      publish: changed-only
+    secrets:
+      test-env: |
+        DECRYPT_KEY=${{ secrets.DECRYPT_KEY }}
+```
+
+- **Only the tests get it.** `build.yml` hands the secret to its test steps alone, never to a build step.
+  `ffmpeg-build test` takes it out of its own environment before it starts anything (so the smoke test's `ffmpeg`, and
+  every other process, never sees it), masks each value in the log (`::add-mask::`), and gives each target's scripts
+  only the names that target's `test-env:` lists. A script in a container (musl in Alpine, linux-armhf in Debian) gets
+  it as `docker run -e DECRYPT_KEY`: docker takes the value from its own environment, so it is never on a command line.
+  Natively, the scripts keep the rest of the environment as before.
+- **One line per value.** Everything after the first `=` is the value, as written; blank lines and `#` comments are
+  skipped. A value that spans lines (a PEM key) goes in base64, and the script decodes it (a decoded value isn't
+  masked: don't print it). A line that isn't `NAME=value`, a name given twice, or one `test` sets itself (`FFMPEG`,
+  `FFPROBE`, `FFMPEG_DIR`, `FFMPEG_TARGET`, `FFMPEG_PLATFORM`) stops the test, naming the line by its number only.
+- **Without the secret, the tests still run.** A run that has no secrets (a pull request from a fork; a repository
+  without the secret) passes `DECRYPT_KEY=` with nothing after it, and an empty value counts as not given: the variable
+  isn't set, and `test` says so (`- test-env: DECRYPT_KEY not set, ...`). Write the script to skip what needs it:
+
+  ```bash
+  if [ -z "${DECRYPT_KEY:-}" ]; then
+    echo "DECRYPT_KEY not set (no secrets in this run): skipping the encrypted sample"
+    exit 0
+  fi
+  ```
+
+  A name `test-env` doesn't give comes from the environment `test` runs in, so locally `DECRYPT_KEY=... ffmpeg-build
+test --target <name>` works the same way.
+
+- **What it doesn't protect against.** Whoever can change the folder's scripts, `ffmpeg-build.yml` or the workflow can
+  read the secret: a test script is the repository's own code. Never pass `test-env` from a `pull_request_target`
+  workflow (it would run a fork's scripts with your secrets); a `pull_request` run from a fork gets none, by GitHub's
+  rules. The test steps run on the same runner as the build that came before them, so the build's inputs (the recipes,
+  the engine, the libraries' sources) are trusted as much as the secret is.
+- **Engine version.** `test-env:` needs an engine newer than v0.0.9 (the lock's `engine:`): an older one refuses the
+  key in `ffmpeg-build.yml`, and ignores the secret.
 
 ### What CI tests
 
