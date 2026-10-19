@@ -7,8 +7,10 @@ import { parseDocument } from 'yaml';
 import { aboutSchema } from '../check.ts';
 import { versionInCell } from '../choose.ts';
 import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
+import { COMPONENT_FLAG, COMPONENT_KINDS } from '../ffmpeg-components.ts';
 import { allowedBy } from '../licenses.ts';
 import { packageVersion } from '../paths.ts';
+import { platformMatches } from '../platforms.ts';
 import { availability, type CellPlan } from '../resolve.ts';
 import { releaseVersion } from '../targets.ts';
 import { unique } from '../text.ts';
@@ -121,9 +123,40 @@ function optionFlags(data: EngineData, plan: CellPlan): string[] {
   );
 }
 
+/**
+ * A target's components: each kind it lists is built with only those names, and the components its options ship
+ * (libx264, whisper, ...), so turning a kind down never takes what an option on needs. These come before every other
+ * flag that enables a component: the platform's and the options' own (--enable-hwaccel=..., --enable-decoder=...)
+ * and the patch sets', which configure applies after them.
+ */
+function componentFlags(data: EngineData, plan: CellPlan): string[] {
+  const restricted = plan.components ?? {};
+  const kinds = COMPONENT_KINDS.filter((k) => restricted[k]);
+  if (!kinds.length) {
+    return [];
+  }
+  const options = optionsOf(data, plan.cell.major);
+  // what each option on ships here: its conditions (other options on, platforms) met
+  const needed: Partial<Record<string, string[]>> = {};
+  for (const s of plan.options
+    .flatMap((o) => options.get(o)?.ships ?? [])
+    .filter((x) => !x.with || x.with.every((w) => plan.options.includes(w)))
+    .filter((x) => !x.platforms || platformMatches(plan.cell.platform, x.platforms))) {
+    (needed[s.kind] ??= []).push(s.name);
+  }
+  return kinds.flatMap((k) => {
+    const names = unique([...restricted[k]!, ...(needed[k] ?? [])]);
+    return [
+      `--disable-${k}`,
+      ...(names.length ? [`--enable-${COMPONENT_FLAG[k]}=${names.join(',')}`] : []),
+    ];
+  });
+}
+
 export function configureFlags(data: EngineData, plan: CellPlan, depsDir = DEPS_DIR): string[] {
   return unique([
     ...COMMON_FLAGS,
+    ...componentFlags(data, plan),
     `--extra-cflags=-I${depsDir}/include`,
     `--extra-ldflags=-L${depsDir}/lib`,
     ...(data.platforms.get(plan.cell.platform)?.configure ?? []),

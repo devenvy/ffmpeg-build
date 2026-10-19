@@ -75,6 +75,45 @@ build:
 - A release is published with all its targets. Builds that come from somewhere else (another machine, another
   workflow) get their own `release-group:`, so they are their own release.
 
+## Slimmer builds: components
+
+`with:` picks libraries. FFmpeg's own components (its built-in decoders, encoders, demuxers, muxers, parsers,
+bitstream filters, protocols, devices and filters) are all built unless a target says otherwise. `components:` says
+otherwise, kind by kind: a kind it lists is built with only those names; a kind it leaves out keeps FFmpeg's defaults.
+Leave `components:` out and nothing changes.
+
+```yaml
+bases:
+  server: # what the services use, nothing else
+    components:
+      decoders: [h264, hevc, aac, pcm_s16le, mjpeg]
+      demuxers: [mov, matroska, mpegts, rtsp]
+      muxers: [mp4, matroska, mpegts, image2]
+      filters: [scale, fps, aresample]
+      protocols: [file, pipe, tcp, udp, rtp]
+targets:
+  linux-x64:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: 9
+    base: [server]
+    with: [x264, vaapi, whisper]
+    components:
+      filters: [scale, fps, aresample, drawbox] # replaces the base's filters; its other kinds stay
+```
+
+- **Kinds:** `decoders`, `encoders`, `hwaccels`, `demuxers`, `muxers`, `parsers`, `bsfs`, `protocols`, `indevs`,
+  `outdevs`, `filters`. Names are FFmpeg's, as `ffmpeg -decoders` (and the rest) lists them.
+- **What the target's options need comes along.** `x264` keeps the `libx264` encoder, `whisper` its filter, `vaapi`
+  its hwaccels and filters, whatever the lists say; a patch set's `configure:` flags enable what it adds. FFmpeg's
+  configure then brings in what each component it builds depends on (the parsers and bitstream filters a decoder or
+  muxer uses).
+- **Checked.** `check` refuses a name FFmpeg doesn't have in that major (the engine keeps each major's lists, from its
+  newest release, in `ffmpeg/components/<major>.yml`), and a library's component whose option is off (`libx264` needs
+  `x264` in `with:`). `test` fails a build missing a listed decoder, encoder, demuxer, muxer, protocol or filter.
+- **A layer replaces a kind.** A target takes each kind from the last of its bases and itself that lists it.
+- **Releases.** Changing a target's `components:` makes its release due (its definition changed).
+
 ## Patches
 
 A target can carry your own changes to FFmpeg: `patches:` names patch sets, each a folder inside the build folder

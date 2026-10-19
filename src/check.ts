@@ -4,6 +4,7 @@ import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
 
 import { type EngineData, optionsOf, recipeForPin, resolveName } from './engine-data.ts';
+import { COMPONENT_FLAG, COMPONENT_KINDS } from './ffmpeg-components.ts';
 import { allowedBy } from './licenses.ts';
 import { describePlatforms, platformMatches } from './platforms.ts';
 import { isCommit } from './ranges.ts';
@@ -82,6 +83,7 @@ export function checkProfile(
     ...entryProblems(profile, data, plan.cells, ctx),
     ...patchProblems(profile, data, ctx),
     ...testsProblems(profile),
+    ...componentProblems(profile, data, plan.cells),
     ...shipsProblems(data, ctx),
     ...withBlocks(profile, data, plan.cells, ctx),
     ...groupBlocks(data, plan.cells, ctx),
@@ -264,6 +266,48 @@ function patchProblems(profile: Profile, data: EngineData, ctx: Ctx): Block[] {
   };
   for (const p of profile.patches) {
     checkSet(p);
+  }
+  return lines.length ? [{ lines }] : [];
+}
+
+/**
+ * Each name a target's components: lists: one FFmpeg has (ffmpeg/components/<major>.yml), and for one an option ships
+ * (libx264 comes with x264), that option on: configure would otherwise drop it without a word.
+ */
+function componentProblems(profile: Profile, data: EngineData, cells: CellPlan[]): Block[] {
+  const lines: Line[] = [];
+  const seen = new Set<string>();
+  for (const cell of cells) {
+    const major = cell.cell.major;
+    const known = data.components.get(major);
+    const shippedBy = new Map<string, string>();
+    for (const o of optionsOf(data, major).values()) {
+      for (const s of o.ships) {
+        shippedBy.set(`${s.kind} ${s.name}`, o.name);
+      }
+    }
+    for (const kind of COMPONENT_KINDS) {
+      for (const name of profile.components?.[kind] ?? []) {
+        const what = `components: ${kind}: ${name}`;
+        const option = shippedBy.get(`${kind} ${name}`);
+        const why = (): string | undefined => {
+          if (!known) {
+            return `this engine has no list of FFmpeg ${major}'s components (ffmpeg/components/${major}.yml) to check it against`;
+          }
+          if (!known[kind].includes(name)) {
+            return `FFmpeg ${major} has no ${COMPONENT_FLAG[kind]} called ${name} (it's spelled as \`ffmpeg -${kind}\` lists it)`;
+          }
+          return option && !cell.options.includes(option)
+            ? `${name} comes with ${option}: add ${option} to with:`
+            : undefined;
+        };
+        const detail = why();
+        if (detail && !seen.has(`${what} ${detail}`)) {
+          seen.add(`${what} ${detail}`);
+          lines.push({ mark: '✗', text: what, detail: [detail] });
+        }
+      }
+    }
   }
   return lines.length ? [{ lines }] : [];
 }

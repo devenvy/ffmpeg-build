@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
 import { fixtureData, fixtureEngineRoot } from './helpers.ts';
+import { COMPONENT_KINDS, type Components } from '../src/ffmpeg-components.ts';
 import {
   formatSupport,
   newMajors,
@@ -15,7 +16,6 @@ import {
   supportReport,
   writeReleases,
 } from '../src/ffmpeg-support.ts';
-import { COMPONENT_KINDS, type Components } from '../src/ffmpeg-components.ts';
 
 const emptyComponents = (): Components =>
   Object.fromEntries(COMPONENT_KINDS.map((k) => [k, []])) as unknown as Components;
@@ -187,7 +187,7 @@ describe('the FFmpeg support check', () => {
     it("writes each major's components from its newest release with write, and reports a change", async () => {
       const r = root();
       const upstream = ['9.0.0', '9.0.1', '9.0.2', '9.1.0'];
-      const componentsOf = (version: string) =>
+      const componentsOf = async (version: string) =>
         Promise.resolve({
           ...emptyComponents(),
           decoders: version === '9.1.0' ? ['aac', 'h264', 'vvc'] : ['aac', 'h264'],

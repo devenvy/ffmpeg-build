@@ -13,6 +13,7 @@ import { expandPlatforms, platformMatches } from './platforms.ts';
 import { type Condition, type License, LICENSES } from './schema/profile.ts';
 import { compareVersions, inSeries, matchesVersionCondition } from './versions.ts';
 
+import type { Components } from './ffmpeg-components.ts';
 import type { Profile } from './profile.ts';
 import type { FfmpegLicenseClass } from './schema/engine.ts';
 
@@ -54,6 +55,7 @@ export interface CellPlan {
   removed: string[]; // taken out by `without`
   leftOut: LeftOut[];
   conflicts: Conflict[];
+  components?: Partial<Components>; // the kinds built with only these names (and what the options need)
 }
 export interface ProfilePlan {
   variants: Variant[];
@@ -271,6 +273,7 @@ export function resolveCell(profile: Profile, data: EngineData, cell: Cell): Cel
     removed,
     conflicts,
     leftOut,
+    ...(profile.components ? { components: profile.components } : {}),
   };
 }
 

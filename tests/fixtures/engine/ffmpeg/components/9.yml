@@ -1,0 +1,30 @@
+# FFmpeg 9's components, as the configure of its newest release (9.1.0) lists them. A target's
+# `components:` names are checked against these. Written by the nightly support check (scripts/ffmpeg-support.ts
+# --write): not edited by hand.
+release: 9.1.0
+decoders:
+  - aac
+  - h264
+  - hevc
+  - libdav1d
+encoders:
+  - aac
+  - libopus
+  - libx265
+hwaccels: []
+demuxers: []
+muxers:
+  - mp4
+  - 'null'
+parsers: []
+bsfs: []
+protocols:
+  - file
+  - https
+  - srt
+  - tls
+indevs: []
+outdevs: []
+filters:
+  - scale
+  - whisper

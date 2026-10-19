@@ -239,7 +239,7 @@ export async function supportCheck(o: {
       const kept = existsSync(file)
         ? parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`)
         : undefined;
-      if (!kept || kept.release !== newest || !sameComponents(kept.components, components)) {
+      if (kept?.release !== newest || !sameComponents(kept.components, components)) {
         report.components = newest;
         if (o.write) {
           mkdirSync(dirname(file), { recursive: true });

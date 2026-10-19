@@ -39,20 +39,22 @@ export const COMPONENT_FLAG: Record<ComponentKind, string> = {
 };
 
 /** configure's find_things_extern: the file, the declared type, and the suffix it strips (ff_<name>_<thing>). */
-const THINGS: Record<Exclude<ComponentKind, 'filters'>, { file: string; type: string; thing: string }> =
-  {
-    decoders: { file: 'libavcodec/allcodecs.c', type: 'FFCodec', thing: 'decoder' },
-    encoders: { file: 'libavcodec/allcodecs.c', type: 'FFCodec', thing: 'encoder' },
-    hwaccels: { file: 'libavcodec/hwaccels.h', type: 'FFHWAccel', thing: 'hwaccel' },
-    demuxers: { file: 'libavformat/allformats.c', type: 'FFInputFormat', thing: 'demuxer' },
-    muxers: { file: 'libavformat/allformats.c', type: 'FFOutputFormat', thing: 'muxer' },
-    parsers: { file: 'libavcodec/parsers.c', type: 'FFCodecParser', thing: 'parser' },
-    bsfs: { file: 'libavcodec/bitstream_filters.c', type: 'FFBitStreamFilter', thing: 'bsf' },
-    protocols: { file: 'libavformat/protocols.c', type: 'URLProtocol', thing: 'protocol' },
-    // devices are declared as demuxers and muxers in libavdevice
-    indevs: { file: 'libavdevice/alldevices.c', type: 'FFInputFormat', thing: 'demuxer' },
-    outdevs: { file: 'libavdevice/alldevices.c', type: 'FFOutputFormat', thing: 'muxer' },
-  };
+const THINGS: Record<
+  Exclude<ComponentKind, 'filters'>,
+  { file: string; type: string; thing: string }
+> = {
+  decoders: { file: 'libavcodec/allcodecs.c', type: 'FFCodec', thing: 'decoder' },
+  encoders: { file: 'libavcodec/allcodecs.c', type: 'FFCodec', thing: 'encoder' },
+  hwaccels: { file: 'libavcodec/hwaccels.h', type: 'FFHWAccel', thing: 'hwaccel' },
+  demuxers: { file: 'libavformat/allformats.c', type: 'FFInputFormat', thing: 'demuxer' },
+  muxers: { file: 'libavformat/allformats.c', type: 'FFOutputFormat', thing: 'muxer' },
+  parsers: { file: 'libavcodec/parsers.c', type: 'FFCodecParser', thing: 'parser' },
+  bsfs: { file: 'libavcodec/bitstream_filters.c', type: 'FFBitStreamFilter', thing: 'bsf' },
+  protocols: { file: 'libavformat/protocols.c', type: 'URLProtocol', thing: 'protocol' },
+  // devices are declared as demuxers and muxers in libavdevice
+  indevs: { file: 'libavdevice/alldevices.c', type: 'FFInputFormat', thing: 'demuxer' },
+  outdevs: { file: 'libavdevice/alldevices.c', type: 'FFOutputFormat', thing: 'muxer' },
+};
 const FILTERS_FILE = 'libavfilter/allfilters.c';
 
 /** configure's find_filters_extern: ff_vf_scale, ff_af_aresample, ff_vsrc_testsrc, ff_asink_anullsink. */
@@ -131,7 +133,7 @@ export function parseComponentsFile(text: string, label: string): ComponentsFile
     if (!Array.isArray(names) || !names.every((n) => typeof n === 'string')) {
       throw new Error(`${label}: ${kind}: is not a list of names`);
     }
-    components[kind] = names as string[];
+    components[kind] = names;
   }
   return { release: raw['release'], components };
 }

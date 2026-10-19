@@ -1,11 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  type Components,
-  componentsFilePath,
-  parseComponentsFile,
-} from './ffmpeg-components.ts';
+import { type Components, componentsFilePath, parseComponentsFile } from './ffmpeg-components.ts';
 import { allowedBy, type LicenseTable, licenseTableSchema, tableFrom } from './licenses.ts';
 import {
   describePlatforms,
@@ -182,7 +178,8 @@ export function loadEngineData(root: string): EngineData {
       try {
         components.set(
           major,
-          parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`).components,
+          parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`)
+            .components,
         );
       } catch (e) {
         errors.push((e as Error).message);

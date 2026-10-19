@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { COMPONENT_KINDS, type Components } from './ffmpeg-components.ts';
 import { expandPlatformPattern, PLATFORMS } from './platforms.ts';
 import { formatIssues } from './schema/common.ts';
 import { folderSchema } from './schema/targets.ts';
@@ -25,6 +26,7 @@ export interface Target {
   with: string[]; // what the build gets, after its bases and its own lists
   without: string[]; // what it turns down (declined): never suggested, never built
   pin: Record<string, string>; // this target's version constraints
+  components: Partial<Components>; // the kinds built with only these names (its bases', a later layer replacing a kind)
   patches: string[];
   tests: string[];
   releaseGroup?: string; // targets with the same group (and FFmpeg version) release together
@@ -35,7 +37,15 @@ export interface Target {
 export interface Folder {
   file: string; // as shown to the user
   dir: string; // absolute
-  bases: Record<string, { with: string[]; without: string[]; pin: Record<string, string> }>;
+  bases: Record<
+    string,
+    {
+      with: string[];
+      without: string[];
+      pin: Record<string, string>;
+      components: Partial<Components>;
+    }
+  >;
   pin: Record<string, string>; // folder-wide version constraints
   notify: { newFfmpeg: boolean };
   allowRemoval: string[]; // components any target may lose since the last release
@@ -86,7 +96,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       for (const k of BUILD_KEYS) {
         if (v && typeof v === 'object' && k in v) {
           errors.push(
-            `bases.${b}: ${k} belongs on a target, not a base (a base only holds with, without and pin)`,
+            `bases.${b}: ${k} belongs on a target, not a base (a base only holds with, without, pin and components)`,
           );
         }
       }
@@ -135,6 +145,16 @@ export function parseFolderText(text: string, dir: string): FolderResult {
         origin.set(n, layerName);
       }
     }
+    // components: per kind, the last layer that lists it
+    const comps: Partial<Components> = {};
+    for (const layer of [...d.base.map((b) => data.bases[b]!), d]) {
+      for (const k of COMPONENT_KINDS) {
+        const listed = layer.components[k];
+        if (listed) {
+          comps[k] = listed;
+        }
+      }
+    }
     return {
       name: t,
       platform: d.platform,
@@ -144,6 +164,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       with: [...state].filter(([, inc]) => inc).map(([n]) => n),
       without: [...state].filter(([, inc]) => !inc).map(([n]) => n),
       pin: d.pin,
+      components: comps,
       patches: d.patches,
       tests: d.tests,
       ...(d['release-group'] ? { releaseGroup: d['release-group'] } : {}),
@@ -241,6 +262,7 @@ export function targetProfile(folder: Folder, t: Target): Profile {
     with: t.with.map((n) => ({ name: n })),
     without: t.without.map((n) => ({ name: n })),
     pin: [],
+    components: t.components,
     patches: t.patches,
     tests: t.tests,
   };

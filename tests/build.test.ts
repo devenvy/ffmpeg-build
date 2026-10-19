@@ -129,6 +129,43 @@ describe('FFmpeg configure', () => {
     expect(configureFlags(data, cell)).toContain('--disable-nonfree');
   });
 
+  it('builds a restricted kind with only its listed names, plus what the options on need', () => {
+    const p = profile(
+      'name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: lgplv3\nwith: [dav1d, whisper, opus]\n',
+    );
+    const cell = planProfile(
+      { ...p, components: { decoders: ['h264', 'hevc'], filters: ['scale'] } },
+      data,
+      { '9': '9.1.0' },
+    ).cells[0]!;
+    const flags = configureFlags(data, cell);
+    // dav1d's decoder and whisper's filter stay; opus's encoder is in an unrestricted kind: nothing to add
+    expect(flags).toEqual(
+      expect.arrayContaining([
+        '--disable-decoders',
+        '--enable-decoder=h264,hevc,libdav1d',
+        '--disable-filters',
+        '--enable-filter=scale,whisper',
+      ]),
+    );
+    expect(flags.some((f) => f.startsWith('--disable-encoders'))).toBe(false);
+    // before the platform's own flags, which enable what they need after it
+    expect(flags.indexOf('--disable-decoders')).toBeLessThan(flags.indexOf('--enable-ffmpeg'));
+    expect(flags.indexOf('--disable-decoders')).toBeLessThan(flags.indexOf('--enable-libdav1d'));
+  });
+
+  it('restricts nothing without components:, and can empty a kind', () => {
+    const p = profile('name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: lgplv3\n');
+    const none = configureFlags(data, planProfile(p, data, { '9': '9.1.0' }).cells[0]!);
+    expect(none.some((f) => /^--disable-(decoders|filters|encoders)$/.test(f))).toBe(false);
+    const empty = configureFlags(
+      data,
+      planProfile({ ...p, components: { outdevs: [] } }, data, { '9': '9.1.0' }).cells[0]!,
+    );
+    expect(empty).toContain('--disable-outdevs');
+    expect(empty.some((f) => f.startsWith('--enable-outdev='))).toBe(false);
+  });
+
   it("names what to verify in FFmpeg's config.mak", () => {
     expect(verifyNames(data, linuxCell(studio, studioLock))).toEqual([
       'LIBDAV1D',

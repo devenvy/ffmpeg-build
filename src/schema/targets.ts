@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { name, text } from './common.ts';
 import { LICENSES } from './profile.ts';
+import { COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
 
 // ffmpeg-build.yml: one per folder. Bases hold shared lists; each target is exactly one build.
 const names = z.array(name, { error: 'expected a list of names, like [dav1d, opus]' }).default([]);
@@ -9,7 +10,23 @@ const pins = z
   .record(name, text, { error: 'expected library: version pairs, like { dav1d: "~1.5" }' })
   .default({});
 
-const base = z.strictObject({ with: names, without: names, pin: pins });
+// components: { decoders: [h264, hevc], filters: [scale] }: the kinds listed are built with only those names (and
+// what the target's options and patch sets need); kinds left out keep FFmpeg's defaults
+const componentNames = z.array(
+  z.string().regex(/^[a-z0-9_-]+$/, { error: 'expected a component name like h264 or scale' }),
+  { error: 'expected a list of component names, like [h264, hevc]' },
+);
+const components = z
+  .strictObject(
+    Object.fromEntries(COMPONENT_KINDS.map((k) => [k, componentNames.optional()])) as Record<
+      ComponentKind,
+      z.ZodOptional<typeof componentNames>
+    >,
+    { error: `expected components: by kind (${COMPONENT_KINDS.join(', ')})` },
+  )
+  .default({});
+
+const base = z.strictObject({ with: names, without: names, pin: pins, components });
 
 const target = z.strictObject({
   platform: text,
@@ -19,6 +36,7 @@ const target = z.strictObject({
   with: names,
   without: names,
   pin: pins,
+  components,
   patches: z.array(text).default([]),
   tests: z.array(text).default([]),
   'release-group': name.optional(), // targets that release together (default: the folder's one group)
