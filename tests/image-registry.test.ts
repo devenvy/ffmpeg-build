@@ -169,4 +169,23 @@ describe('Dependabot', () => {
     const job = /^ {2}dependabot-auto-merge:\n {4}if: (.+)$/m.exec(ci);
     expect(job?.[1]).toContain("!startsWith(github.head_ref, 'dependabot/docker/')");
   });
+
+  it('merges a base image bump once every toolchain built and tested on it (toolchains.yml)', () => {
+    const toolchains = parse(
+      readFileSync(join(packageRoot, '.github', 'workflows', 'toolchains.yml'), 'utf8'),
+    ) as {
+      jobs: Record<
+        string,
+        { needs?: string[]; if?: string; permissions?: unknown; steps?: { run?: string }[] }
+      >;
+    };
+    const job = toolchains.jobs['dependabot-auto-merge'];
+    expect(job?.needs).toEqual(['build', 'native']);
+    expect(job?.if).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
+    expect(job?.if).toContain("startsWith(github.head_ref, 'dependabot/docker/')");
+    expect(job?.if).toContain("needs.build.result == 'success'");
+    expect(job?.if).toContain("needs.native.result == 'success'");
+    expect(job?.permissions).toEqual({});
+    expect(job?.steps?.at(-1)?.run).toBe('gh pr merge "$PR_URL" --auto --squash');
+  });
 });
