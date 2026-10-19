@@ -209,6 +209,28 @@ targets:
 - **Releases.** Changing anything in a set (a patch, `about.yml`, a licence file, any major's folder) makes the
   releases of the targets using it due, and `bundle` refuses a build made with other patches than the folder has now.
 
+## Tests
+
+`tests:` lists scripts in the folder that `ffmpeg-build test` runs against the build, after its own smoke test, with
+`FFMPEG`, `FFPROBE` and `FFMPEG_DIR` set ([testing a build](building.md#testing-a-build); not for Android, iOS and
+Mac Catalyst builds, which have no programs). A script that needs a secret (a key to decrypt a sample, a token)
+names the variable in `test-env:`, and gets it only there:
+
+```yaml
+targets:
+  linux-x64:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: 9
+    with: [dav1d]
+    tests: [tests/decrypt.sh]
+    test-env: [DECRYPT_KEY] # the variables its tests: get; build.yml's test-env secret gives the values
+```
+
+In CI the values come from `build.yml`'s `test-env` secret; locally, from your environment
+(`DECRYPT_KEY=... ffmpeg-build test --target linux-x64`). How it is passed, and what a run without secrets does:
+[tests that need a secret](building.md#tests-that-need-a-secret).
+
 ## Rules
 
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop

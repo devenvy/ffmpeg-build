@@ -65,6 +65,11 @@ builds FFmpeg again, and CI keeps the cache between runs.
    And [`examples/dependabot.yml`](../examples/dependabot.yml) as `.github/dependabot.yml`, to keep the actions they
    use current. Each example's header says which permissions it grants and why.
 
+   A test script that needs a secret (a key to decrypt a sample) lists the variable in its target's `test-env:`, and
+   `release.yml` passes the repository secret to `build.yml` as `secrets: { test-env: "DECRYPT_KEY=..." }` (commented
+   out in the example): only the test steps get it, masked, and only that target's scripts
+   ([tests that need a secret](building.md#tests-that-need-a-secret)).
+
 4. **The first release:** run `release` by hand from the Actions tab (or wait for its schedule). With nothing
    released yet, every release is due: it builds each target on its runner, tests it, and publishes a GitHub release
    tagged `<ffmpeg version>.0` (e.g. `9.0.2.0`) with each target's archives, `manifest.yml`, `SHA256SUMS`, release

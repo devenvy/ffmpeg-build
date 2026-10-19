@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { name, text } from './common.ts';
 import { LICENSES } from './profile.ts';
+import { ENV_NAME, RESERVED_TEST_ENV } from '../commands/test-env.ts';
 import { COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
 
 // ffmpeg-build.yml: one per folder. Bases hold shared lists; each target is exactly one build.
@@ -48,6 +49,18 @@ const target = z.strictObject({
   components,
   patches: z.array(text).default([]),
   tests: z.array(text).default([]),
+  // the environment variables its tests: scripts get (build.yml's test-env secret, else test's own environment)
+  'test-env': z
+    .array(
+      z
+        .string({ error: 'expected a variable name' })
+        .regex(ENV_NAME, { error: 'expected a variable name like DECRYPT_KEY' })
+        .refine((n) => !RESERVED_TEST_ENV.includes(n), {
+          error: (issue) => `${String(issue.input)} is set by ffmpeg-build test itself`,
+        }),
+      { error: 'expected a list of variable names, like [DECRYPT_KEY]' },
+    )
+    .default([]),
   'release-group': name.optional(), // targets that release together (default: the folder's one group)
   'allow-removal': names, // components it may lose since the last release
 });

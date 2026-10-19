@@ -19,3 +19,8 @@ jobs:
       contents: write
     with:
       publish: changed-only
+    # A target whose tests: need a secret lists it in test-env: (docs/building.md, "Tests that need a secret"); name
+    # here only the repository secrets the tests may have, one NAME=value line each. Only the test steps get them.
+    # secrets:
+    #   test-env: |
+    #     DECRYPT_KEY=${{ secrets.DECRYPT_KEY }}
