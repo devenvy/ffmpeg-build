@@ -340,7 +340,7 @@ describe('ffmpeg-build bundle', () => {
     ).rejects.toThrow('no release 9.0.2 in this folder (it has 9.1.0)');
   });
 
-  it('never sends a nonfree build to a public repository, and to a private one only when the folder says so', async () => {
+  it('never sends a nonfree build to a public repository, and to a private one freely', async () => {
     const nonfree =
       'targets:\n  studio: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d] }\n';
     const nowhere = builtFolder(nonfree);
@@ -363,16 +363,7 @@ describe('ffmpeg-build bundle', () => {
       'studio is nonfree: internal use only, never published to a public repository (o/r is public)',
     );
     gh.private = true;
-    const unacknowledged = builtFolder(nonfree);
-    await expect(
-      bundle(unacknowledged.folder, data, LOCK, {
-        tag: '9.1.0.0',
-        dist: unacknowledged.dist,
-        engineRoot: packageRoot,
-        repo: 'o/r',
-      }),
-    ).rejects.toThrow('Say that is intended with private-release: internal');
-    const internal = builtFolder(`private-release: internal\n${nonfree}`);
+    const internal = builtFolder(nonfree);
     await bundle(internal.folder, data, LOCK, {
       tag: '9.1.0.0',
       dist: internal.dist,
@@ -389,7 +380,6 @@ describe('ffmpeg-build bundle', () => {
   it("keeps a release's sources archive to the patch sets its own targets apply: another group's stay out", async () => {
     gh.private = true;
     const text = [
-      'private-release: internal',
       'targets:',
       '  linux-x64-lgplv3: { platform: linux-x64, license: lgplv3, ffmpeg: 9, with: [dav1d] }',
       '  server: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d], patches: [patches/acme], release-group: server }',

@@ -17,9 +17,8 @@ the sources archive.
 - **Nothing disappears silently.** A target that would lose a component its last release had stops `update` and the
   release, until you say so with `allow-removal: [x264]` (on the target, or at the top for every target).
 - **Where releases go is checked before anything builds.** A public repository takes no nonfree target. A private
-  one takes releases only when `ffmpeg-build.yml` says `private-release: internal` at the top: its builds, and the
-  source their `THIRD-PARTY-NOTICES.txt` links to, then reach only people with access to that repository. `releases`
-  checks this in CI's plan step, so nothing is built (or uploaded as a workflow artifact) that couldn't be published,
+  one takes any; its builds' `THIRD-PARTY-NOTICES.txt` make a written offer of their source, since nobody outside
+  could open a link into it (`source-offer:` names who to ask). `releases` checks this in CI's plan step, so nothing is built (or uploaded as a workflow artifact) that couldn't be published,
   and `bundle` checks it again.
 
 ### iOS and Mac Catalyst: the xcframework bundle

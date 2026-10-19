@@ -15,6 +15,7 @@ export interface Profile extends ProfileData {
   file: string;
   dir?: string; // the profile's folder (absolute) when loaded from a file: patches: paths are relative to it
   components?: Partial<Components>; // a target's components: (ffmpeg-build.yml): the kinds built with only those names
+  sourceOffer?: string; // its folder's source-offer: who the notices' written offer names to ask for the source
 }
 
 /** Keys every profile has; a YAML file with none of them is something else (docker-compose.yml, ...). */

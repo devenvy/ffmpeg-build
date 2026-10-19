@@ -46,8 +46,9 @@ builds FFmpeg again, and CI keeps the cache between runs.
 
 1. **Create a repository** for the folder and push `ffmpeg-build.yml` and `ffmpeg.lock` (and any `patches/` or test
    scripts the targets name). Its releases are where your builds will be published. A public repository can't take
-   nonfree targets; a private one takes releases only once `ffmpeg-build.yml` says `private-release: internal`
-   ([releases](releases.md#releases)).
+   nonfree targets. Builds released from a private one carry a written offer of their source rather than a link
+   nobody outside could open; `source-offer: support@example.com` at the top of `ffmpeg-build.yml` says who it
+   names ([building](building.md#whats-in-an-archive-third-party-noticestxt)).
 2. **Repository setting:** Settings, Actions, General, Workflow permissions: tick "Allow GitHub Actions to create and
    approve pull requests", so the lock updates can open their pull requests. Nothing else is needed: no tokens,
    branch protection or auto-merge.

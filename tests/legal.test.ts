@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { fakeGitHub } from './github-fake.ts';
 import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 import {
   GOVERNING_TEXTS,
@@ -17,7 +18,7 @@ import {
   noticesSource,
   plannedPatches,
 } from '../src/build/plan.ts';
-import { publicRepoUrl, sourceIdentity } from '../src/commands/build.ts';
+import { publicRepoUrl, releaseIdentity, sourceIdentity } from '../src/commands/build.ts';
 import { EngineDataError, loadEngineData } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 import { loadProfile, parseProfileText } from '../src/profile.ts';
@@ -457,20 +458,90 @@ describe("THIRD-PARTY-NOTICES.txt's header and SOURCE section", () => {
     noRequest(text);
   });
 
-  it('spells out a build with no release: where its source is recorded, and that it must be published first', () => {
+  // the written offer: open to anyone who has the build, for three years, at cost, through whoever it names
+  const offers = (text: string, contact: RegExp) => {
+    expect(text).toContain('written offer');
+    expect(text).toMatch(contact);
+    expect(text).toMatch(/at least three years/);
+    expect(text).toMatch(/anyone who has/i);
+    expect(text).toMatch(/no more than the cost/i);
+  };
+  const distributor = /whoever (gave|distributed) (you )?this build/i;
+
+  it('makes a private release a written offer in place of a link nobody outside it can open', () => {
+    const text = noticesSource({
+      ...base,
+      release: '9.0.2.4',
+      repository: 'acme/ffmpeg',
+      privateRepo: true,
+      source: { repo: 'https://github.com/acme/ffmpeg', ref: 'abc123' },
+    });
+    // the archive is named, not linked; the build definition is in it, so it isn't linked either
+    expect(text).not.toContain('https://github.com/acme/ffmpeg/releases/download/');
+    expect(text).not.toContain('https://github.com/acme/ffmpeg/tree/abc123');
+    expect(text).toContain(
+      'Complete corresponding source: ffmpeg-9.0.2-sources.tar.gz, published with release 9.0.2.4 in a private',
+    );
+    expect(text).not.toContain('Everything is public');
+    // no contact configured: whoever distributed the build is who to ask
+    offers(text, distributor);
+    expect(
+      noticesSource({
+        ...base,
+        release: '9.0.2.4',
+        repository: 'acme/ffmpeg',
+        privateRepo: true,
+        sourceOffer: 'support@example.com',
+        source: {},
+      }),
+    ).toMatch(/support@example\.com/);
+  });
+
+  it("makes a public release's offer only when a contact is configured: its link already gives the source", () => {
+    const released = { ...base, release: '9.0.2.4', repository: 'devenvy/ffmpeg', source: {} };
+    noRequest(noticesSource(released));
+    const text = noticesSource({ ...released, sourceOffer: 'support@example.com' });
+    offers(text, /support@example\.com/);
+    expect(text).toContain('https://github.com/devenvy/ffmpeg/releases/download/9.0.2.4/');
+  });
+
+  it('makes an unreleased build a written offer, and says to keep its sources archive while the offer holds', () => {
     const text = noticesSource({
       ...base,
       source: { repo: 'https://git.example.com/media', ref: 'abc123-dirty' },
     });
     expect(text).toContain('This build was not published in a release');
-    expect(text).toContain(
-      'It must be published together with its sources archive (ffmpeg-9.0.2-sources.tar.gz) before it is\ndistributed.',
-    );
+    expect(text).toContain('Keep its sources archive (ffmpeg-9.0.2-sources.tar.gz)');
+    expect(text).not.toContain('Everything is public');
+    offers(text, distributor);
     expect(text).toContain(
       'Build definition: https://git.example.com/media at commit abc123\n  (built with local changes to that commit',
     );
     expect(noticesSource({ ...base, source: {} })).toContain('Build definition: not recorded');
-    noRequest(text);
+    offers(
+      noticesSource({ ...base, sourceOffer: 'support@example.com', source: {} }),
+      /support@example\.com/,
+    );
+  });
+
+  it("makes no offer for a nonfree build, which isn't distributed", () => {
+    for (const privateRepo of [true, false]) {
+      const text = noticesSource({
+        ...base,
+        license: 'nonfree',
+        release: '9.0.2.4',
+        repository: 'acme/ffmpeg',
+        privateRepo,
+        sourceOffer: 'support@example.com',
+        source: {},
+      });
+      expect(text).not.toContain('support@example.com');
+      expect(text).not.toContain('written offer');
+      expect(text).toContain('for internal use only');
+    }
+    expect(noticesSource({ ...base, license: 'nonfree', source: {} })).not.toContain(
+      'written offer',
+    );
   });
 
   it('says a nonfree build is for internal use only', () => {
@@ -516,5 +587,34 @@ describe("THIRD-PARTY-NOTICES.txt's header and SOURCE section", () => {
         patches: [],
       }),
     ).not.toContain('modified');
+  });
+});
+
+describe('the release a build names in its notices', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-release-'));
+
+  it('names none for a build outside a release', async () => {
+    expect(await releaseIdentity(dir, {})).toEqual({});
+  });
+
+  it("reads whether the release's repository is private, since that decides what the notices say", async () => {
+    const gh = await fakeGitHub();
+    try {
+      const env = { FFMPEG_BUILD_RELEASE: '9.0.2.4', GITHUB_REPOSITORY: 'o/r' };
+      expect(await releaseIdentity(dir, env)).toEqual({
+        release: '9.0.2.4',
+        repository: 'o/r',
+        privateRepo: false,
+      });
+      gh.private = true;
+      expect(await releaseIdentity(dir, env)).toMatchObject({ privateRepo: true });
+      // never guessed: notices that link to source nobody can reach, or offer what is public, are both wrong
+      gh.faults.push({ path: /repos\/o\/r$/, status: 404 });
+      await expect(releaseIdentity(dir, env)).rejects.toThrow(
+        "can't read whether o/r is private, which decides where its notices say the source is",
+      );
+    } finally {
+      await gh.close();
+    }
   });
 });

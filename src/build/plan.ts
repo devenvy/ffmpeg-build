@@ -540,9 +540,10 @@ function atCommit(repo: string, ref: string): string {
 }
 
 /**
- * The SOURCE section: where the complete corresponding source is, all of it public. Never an offer to send it on
- * request: a release names its sources archive by URL; an unreleased build says where its source is recorded and that
- * it must be published with that archive before it is distributed.
+ * The SOURCE section: where the complete corresponding source is. A public release links its sources archive; a
+ * release in a private repository, and a build in no release, can't be pointed at, so they make a written offer of
+ * it instead, through the folder's source-offer: contact, or else whoever distributed the build. A public release
+ * makes the offer as well when there is a contact. A nonfree build isn't distributed, so it makes none.
  */
 export function noticesSource(a: {
   name: string;
@@ -550,13 +551,17 @@ export function noticesSource(a: {
   license: License;
   release?: string;
   repository?: string;
+  privateRepo?: boolean; // the release's repository is private: nobody outside it can open a link into it
+  sourceOffer?: string; // who the written offer names to ask for the source (ffmpeg-build.yml's source-offer:)
   sourcesArchive: string;
   source: BuildSource;
   ffmpegTarball: string;
   patchSets?: string[];
 }): string {
+  const publicRelease = Boolean(a.release) && !a.privateRepo;
+  const offer = a.license !== 'nonfree' && (Boolean(a.sourceOffer) || !publicRelease);
   const lines: string[] = [];
-  if (a.release && a.repository) {
+  if (a.release && a.repository && !a.privateRepo) {
     lines.push(
       'Complete corresponding source, as required by the licences above:',
       `  https://github.com/${a.repository}/releases/download/${a.release}/${a.sourcesArchive}`,
@@ -567,21 +572,33 @@ export function noticesSource(a: {
     );
   } else if (a.release) {
     lines.push(
-      `Complete corresponding source: ${a.sourcesArchive}, published with release ${a.release}. It holds FFmpeg's release`,
-      'tarball, every library at the exact version (and commit) it was built from, the patches applied, and the build',
-      'scripts and toolchain definitions.',
+      `Complete corresponding source: ${a.sourcesArchive}, published with release ${a.release}${a.privateRepo ? ' in a private' : '.'}`,
+      ...(a.privateRepo ? ['repository, which only people with access to it can open.'] : []),
+      "It holds FFmpeg's release tarball, every library at the exact version (and commit) it was built from, the patches",
+      'applied, and the build scripts and toolchain definitions.',
     );
   } else {
     lines.push(
       'This build was not published in a release (a local or unreleased build). Its source is recorded in',
       `${a.name}.sources.json beside it, every source with its sha256 (and commit), and kept in the build cache`,
-      `under sources/. It must be published together with its sources archive (${a.sourcesArchive}) before it is`,
-      'distributed.',
+      'under sources/.',
+      offer
+        ? `Keep its sources archive (${a.sourcesArchive}) for as long as the written offer below holds.`
+        : `It must be published together with its sources archive (${a.sourcesArchive}) before it is\ndistributed.`,
     );
   }
   lines.push('');
+  let definition = 'not recorded (the build had no FFMPEG_BUILD_SOURCE_REPO and no git remote)';
+  if (a.source.repo && a.source.ref) {
+    // a private repository's tree is no link anyone could open: its files are in the sources archive
+    definition = a.privateRepo
+      ? `${a.source.repo} at commit ${a.source.ref.replace(/-dirty$/, '')} (private: its ffmpeg-build.yml and ffmpeg.lock are in the sources archive)`
+      : atCommit(a.source.repo, a.source.ref);
+  } else if (a.source.repo) {
+    definition = a.source.repo;
+  }
   lines.push(
-    `Build definition: ${a.source.repo && a.source.ref ? atCommit(a.source.repo, a.source.ref) : (a.source.repo ?? 'not recorded (the build had no FFMPEG_BUILD_SOURCE_REPO and no git remote)')}`,
+    `Build definition: ${definition}`,
     a.patchSets?.length
       ? `FFmpeg ${a.version}, upstream release, modified by the patch sets ${a.patchSets.join(', ')} (in the sources archive): ${a.ffmpegTarball}`
       : `FFmpeg ${a.version}, unmodified upstream: ${a.ffmpegTarball}`,
@@ -590,12 +607,31 @@ export function noticesSource(a: {
     a.release
       ? `directly. SOURCES.md in ${a.sourcesArchive} lists every source with its sha256.`
       : `directly. ${a.name}.sources.json lists every source with its sha256.`,
-    '',
-    'Everything is public; no request to the distributor is necessary to obtain it.',
   );
+  if (publicRelease) {
+    lines.push(
+      '',
+      'Everything is public; no request to the distributor is necessary to obtain it.',
+    );
+  }
+  if (offer) {
+    lines.push(
+      '',
+      'This is a written offer, valid for at least three years after this build was last distributed and for as long as',
+      'spare parts or customer support are offered for the product it came with: anyone who has this build may obtain',
+      `its complete corresponding source (${a.sourcesArchive}), on a medium customarily used for software interchange or`,
+      'by download, for no more than the cost of physically performing that distribution, by asking',
+      `${a.sourceOffer ?? 'whoever distributed this build to you'}.`,
+    );
+  }
   if (a.license === 'nonfree') {
     lines.push(
       '',
+      ...(a.privateRepo && a.repository
+        ? [
+            `${a.repository} is a private repository: this build, and its source, are only for people with access to it.`,
+          ]
+        : []),
       'This is a nonfree build (--enable-nonfree): it is for internal use only and is not offered for redistribution.',
     );
   }
@@ -641,6 +677,7 @@ export function makeBuildPlan(args: {
   name?: string;
   release?: string;
   repository?: string;
+  privateRepo?: boolean; // the release's repository is private
   group?: string;
   source?: BuildSource;
 }): BuildPlan {
@@ -725,6 +762,8 @@ export function makeBuildPlan(args: {
         license,
         ...(args.release ? { release: args.release } : {}),
         ...(args.repository ? { repository: args.repository } : {}),
+        ...(args.privateRepo ? { privateRepo: true } : {}),
+        ...(profile.sourceOffer ? { sourceOffer: profile.sourceOffer } : {}),
         sourcesArchive,
         source: args.source ?? {},
         ffmpegTarball: archives[0]!,

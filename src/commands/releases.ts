@@ -192,7 +192,6 @@ export async function runReleases(
   // without a repository there are no last releases to compare with: say so, rather than call each one never released
   const notes = options.offline || repo ? [] : [NO_REPOSITORY];
   const refused = await publishingProblems(
-    folder,
     folder.targets.map((t) => ({ name: t.name, license: t.license })),
     repo,
     { strict: false },

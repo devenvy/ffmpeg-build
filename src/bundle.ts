@@ -420,13 +420,11 @@ function releaseNotes(m: Manifest, rel: PlannedRelease, repo: string | undefined
 }
 
 /**
- * Whether these targets may be published to `repo`. A public repository takes no nonfree build. A private one takes a
- * release only when the folder says `private-release: internal`: its builds, and the source their notices link to,
- * then reach only people with access to that repository. `strict` (bundle) also refuses when the repository or its
+ * Whether these targets may be published to `repo`. A public repository takes no nonfree build; a private one takes
+ * any (their notices, which read its visibility as they are built, make a written offer of the source). `strict` (bundle) also refuses when the repository or its
  * visibility can't be told; otherwise (planning, local runs) that is no problem.
  */
 export async function publishingProblems(
-  folder: Folder,
   targets: { name: string; license: string }[],
   repo: string | undefined,
   o: { strict: boolean },
@@ -453,19 +451,11 @@ export async function publishingProblems(
         ]
       : [];
   }
-  if (!priv) {
-    return nonfree.length
-      ? [
-          `${which(nonfree)} nonfree: internal use only, never published to a public repository (${repo} is public)`,
-        ]
-      : [];
-  }
-  if (folder.privateRelease !== 'internal') {
-    return [
-      `${repo} is private: its releases, and the source their notices link to, reach only people with access to it. Say that is intended with private-release: internal at the top of ffmpeg-build.yml`,
-    ];
-  }
-  return [];
+  return !priv && nonfree.length
+    ? [
+        `${which(nonfree)} nonfree: internal use only, never published to a public repository (${repo} is public)`,
+      ]
+    : [];
 }
 
 /**
@@ -483,7 +473,6 @@ export async function bundle(
   const repo = o.repo ?? publishingRepo(folder.dir);
 
   const refused = await publishingProblems(
-    folder,
     rel.targets.map((p) => ({ name: p.target.name, license: p.target.license })),
     repo,
     { strict: true },
