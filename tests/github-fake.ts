@@ -173,6 +173,7 @@ export async function fakeGitHub(): Promise<FakeGitHub> {
             'not-included': [],
             definition: 'def',
             ...x,
+            pins: x.pins ?? {},
             assets: {
               runtime: { name: names.runtime, sha256: sha(runtimeData) },
               dev: { name: names.dev, sha256: sha(devData) },

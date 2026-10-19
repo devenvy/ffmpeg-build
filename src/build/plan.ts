@@ -232,6 +232,7 @@ export function cacheKeys(
   versionOf: (recipe: string) => string,
   platform: string,
   toolchain: string,
+  pinOf: (recipe: string) => SourcePin | undefined = () => undefined,
 ): Map<string, string> {
   const ids = new Map<string, { key: string; asDependency: string }>();
   const inBuild = new Set(recipes);
@@ -246,7 +247,17 @@ export function cacheKeys(
       ...depsOn(r, 'needs', platform),
       ...depsOn(r, 'uses', platform).filter((n) => inBuild.has(n)),
     ].map((n) => idOf(n).asDependency);
-    const fact = { recipe, version: versionOf(recipe), platform, toolchain, against };
+    // the pinned commit or content too: a tag moved upstream at the same version rebuilds the library and what builds
+    // against it (no pin, as in a lock without pins, adds nothing: the key it always had)
+    const pin = pinOf(recipe);
+    const fact = {
+      recipe,
+      version: versionOf(recipe),
+      platform,
+      toolchain,
+      against,
+      ...(pin ? { pin } : {}),
+    };
     const id = {
       key: sha({ ...fact, files: recipeFilesHash(data.root, recipe) }),
       asDependency: sha({ ...fact, files: recipeFilesHash(data.root, recipe, r['license-files']) }),
@@ -602,7 +613,10 @@ export function makeBuildPlan(args: {
 }): BuildPlan {
   const { profile, data, locked, cell } = args;
   const versionOf = (recipe: string) => versionInCell(profile, data, locked, cell.cell, recipe)!;
-  const keys = cacheKeys(data, cell.recipes, versionOf, cell.cell.platform, args.imageId);
+  // the lock's pins hold for the versions it locked, which are the versions built here
+  const pinOf = (lib: string): SourcePin | undefined =>
+    locked.libraries[lib] === versionOf(lib) ? locked.pins?.libraries[lib] : undefined;
+  const keys = cacheKeys(data, cell.recipes, versionOf, cell.cell.platform, args.imageId, pinOf);
   const version = cell.cell.version;
   const license = cell.cell.license;
   const platform = cell.cell.platform;
@@ -616,9 +630,6 @@ export function makeBuildPlan(args: {
   );
   const patches = plannedPatches(profile, cell.cell.major);
   const engine = packageVersion();
-  // the lock's pins hold for the versions it locked, which are the versions built here
-  const pinOf = (lib: string): SourcePin | undefined =>
-    locked.libraries[lib] === versionOf(lib) ? locked.pins?.libraries[lib] : undefined;
   // FFmpeg's pin is the target's own series' (the lock refuses one release pinned two ways, but a series is what a
   // target names); when the cell has no series of its own in the lock, the pin of the series that locked this version
   const series = cell.cell.series;

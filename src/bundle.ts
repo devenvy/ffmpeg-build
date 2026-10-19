@@ -553,6 +553,7 @@ export async function bundle(
       },
       toolchain: t.facts.toolchain,
       components: t.facts.components,
+      pins: t.facts.pins,
       patches: t.facts.patches,
       'not-included': t.slices.flatMap((p) =>
         p.cell.leftOut.map(

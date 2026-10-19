@@ -160,6 +160,30 @@ describe('cache keys', () => {
     expect(changed.get('dav1d')).toBe(keys().get('dav1d'));
   });
 
+  it('change for a library and its dependents when its pinned source changes at the same version', () => {
+    const pinned = (pins: Record<string, { commit?: string; sha256?: string }>) =>
+      cacheKeys(
+        data,
+        ['dav1d', 'libdrm', 'libva'],
+        (r) => versions[r]!,
+        'linux-x64',
+        'abc123',
+        (r) => pins[r],
+      );
+    const before = pinned({ libdrm: { commit: 'a'.repeat(40) } });
+    // upstream moved the tag: same version, another commit
+    const moved = pinned({ libdrm: { commit: 'b'.repeat(40) } });
+    expect(moved.get('libdrm')).not.toBe(before.get('libdrm'));
+    expect(moved.get('libva')).not.toBe(before.get('libva')); // libva needs libdrm
+    expect(moved.get('dav1d')).toBe(before.get('dav1d'));
+    // an archive's pin counts the same way
+    expect(pinned({ dav1d: { sha256: 'c'.repeat(64) } }).get('dav1d')).not.toBe(
+      pinned({ dav1d: { sha256: 'd'.repeat(64) } }).get('dav1d'),
+    );
+    // no pins at all: the keys a lock without pins always had
+    expect(pinned({})).toEqual(keys());
+  });
+
   it("change for a library's licence files, but not for what builds against it", () => {
     const root = mkdtempSync(join(tmpdir(), 'ffmpeg-build-keys-'));
     cpSync(fixtureEngineRoot, root, { recursive: true });

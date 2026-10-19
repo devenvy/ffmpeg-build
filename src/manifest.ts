@@ -17,6 +17,8 @@ const target = z.strictObject({
   assets: z.strictObject({ runtime: asset, dev: asset, symbols: asset.optional() }),
   toolchain: z.string(),
   components: z.record(z.string(), z.string()).default({}),
+  // the commit or tarball sha256 each pinned component was built from (absent in a release made before pins)
+  pins: z.record(z.string(), z.string()).default({}),
   patches: z.array(z.strictObject({ name: z.string(), sha256: z.string() })).default([]),
   'not-included': z.array(z.string()).default([]),
   definition: z.string(),
