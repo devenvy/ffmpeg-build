@@ -415,8 +415,13 @@ describe('uavs3d', () => {
     const h = fake(platform);
     const cmake = join(h.src, 'source', 'CMakeLists.txt');
     put(cmake, 'if(CMAKE_USE_PTHREADS_INIT)\nif(CMAKE_USE_PTHREADS_INIT)\n');
+    put(join(h.src, 'CMakeLists.txt'), `add_executable(uavs3dec \${DIR_SRC_TEST})\n`);
     await build(h, 'uavs3d');
     expect(commands(h)).toEqual(cmakeLines(h, ['-DCOMPILE_10BIT=1']));
+    // its decoder program is left out of the build
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      `add_executable(uavs3dec EXCLUDE_FROM_ALL \${DIR_SRC_TEST})\n`,
+    );
     // Android has no libpthread to link: neither the library nor its .pc names it there
     expect(h.read(cmake)).toBe(
       platform.startsWith('android-')
