@@ -262,7 +262,15 @@ describe('ffmpeg-build test', () => {
 
   it('links the smoke program against an Android build with the NDK, and runs it on a device with that ABI', () => {
     expect(
-      androidSmoke('android-arm64', '/ndk', 'linux-x86_64', '/run', '/out/smoke', '/src/smoke.c'),
+      androidSmoke(
+        'android-arm64',
+        '/ndk',
+        'linux-x86_64',
+        '/run',
+        '/out/smoke',
+        '/src/smoke.c',
+        28,
+      ),
     ).toEqual({
       cmd: '/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang',
       args: [
@@ -282,8 +290,9 @@ describe('ffmpeg-build test', () => {
         '/out/smoke',
       ],
     });
-    expect(androidSmoke('android-x64', '/ndk', 'linux-x86_64', '/run', '/o', '/s.c').cmd).toBe(
-      '/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android28-clang',
+    // linked for the level the build was made for (android-api:)
+    expect(androidSmoke('android-x64', '/ndk', 'linux-x86_64', '/run', '/o', '/s.c', 24).cmd).toBe(
+      '/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang',
     );
   });
 

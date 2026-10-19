@@ -475,6 +475,7 @@ export async function runTest(
         arch,
         rosetta: arch === 'arm64' && runnable.includes('osx-x64'),
         data,
+        ...(t.androidApi !== undefined ? { androidApi: t.androidApi } : {}),
       });
       for (const s of steps) {
         step(s.ok, s.what, s.detail);

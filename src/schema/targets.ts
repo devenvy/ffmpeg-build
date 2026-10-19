@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { name, text } from './common.ts';
+import { androidApiLevel, name, text } from './common.ts';
 import { LICENSES } from './profile.ts';
 import { ENV_NAME, RESERVED_TEST_ENV } from '../commands/test-env.ts';
 import { COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
@@ -61,6 +61,7 @@ const target = z.strictObject({
       { error: 'expected a list of variable names, like [DECRYPT_KEY]' },
     )
     .default([]),
+  'android-api': androidApiLevel.optional(), // android-* only: the oldest Android it loads on (default 28)
   'release-group': name.optional(), // targets that release together (default: the folder's one group)
   'allow-removal': names, // components it may lose since the last release
 });

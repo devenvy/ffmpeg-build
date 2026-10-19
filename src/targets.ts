@@ -31,6 +31,7 @@ export interface Target {
   patches: string[];
   tests: string[];
   testEnv: string[]; // the variables its tests get: build.yml's test-env secret, else test's environment
+  androidApi?: number; // android-api: the Android API level an android-* build is made for (default 28)
   releaseGroup?: string; // targets with the same group (and FFmpeg version) release together
   allowRemoval: string[]; // components it may lose since the last release
   origin: Map<string, string>; // name -> the layer (base or target name) that last included or declined it
@@ -178,6 +179,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       patches: d.patches,
       tests: d.tests,
       testEnv: d['test-env'],
+      ...(d['android-api'] !== undefined ? { androidApi: d['android-api'] } : {}),
       ...(d['release-group'] ? { releaseGroup: d['release-group'] } : {}),
       allowRemoval: d['allow-removal'],
       origin,
@@ -287,6 +289,7 @@ export function targetProfile(folder: Folder, t: Target): Profile {
     components: t.components,
     patches: t.patches,
     tests: t.tests,
+    ...(t.androidApi !== undefined ? { androidApi: t.androidApi } : {}),
     ...(folder.sourceOffer ? { sourceOffer: folder.sourceOffer } : {}),
   };
 }

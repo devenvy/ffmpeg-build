@@ -62,7 +62,9 @@ targets:
     }
   win-arm64-lgplv3:
     { platform: win-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [opencl, d3d12va] }
-  android-arm64-lgplv3: { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
+  # android-api: 24, below the default 28: the NDK's API 24 compilers, and the smoke program linked for API 24
+  android-arm64-lgplv3:
+    { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small], android-api: 24 }
   osx-arm64-lgplv3:
     {
       platform: osx-arm64,

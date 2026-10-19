@@ -3,6 +3,7 @@ import { isAbsolute, join } from 'node:path';
 
 import { z } from 'zod';
 
+import { androidApiProblems, isAndroid } from './android-api.ts';
 import { type EngineData, optionsOf, recipeForPin, resolveName } from './engine-data.ts';
 import { COMPONENT_FLAG, COMPONENT_KINDS } from './ffmpeg-components.ts';
 import { allowedBy } from './licenses.ts';
@@ -84,6 +85,7 @@ export function checkProfile(
     ...patchProblems(profile, data, ctx),
     ...testsProblems(profile),
     ...componentProblems(profile, data, plan.cells),
+    ...androidApiBlocks(profile, data, plan.cells),
     ...shipsProblems(data, ctx),
     ...withBlocks(profile, data, plan.cells, ctx),
     ...groupBlocks(data, plan.cells, ctx),
@@ -309,6 +311,21 @@ function componentProblems(profile: Profile, data: EngineData, cells: CellPlan[]
       }
     }
   }
+  return lines.length ? [{ lines }] : [];
+}
+
+/** A target's `android-api:`: on an android-* target, and no older than what its options and libraries support. */
+function androidApiBlocks(profile: Profile, data: EngineData, cells: CellPlan[]): Block[] {
+  const requested = profile.androidApi;
+  if (requested === undefined) {
+    return [];
+  }
+  const lines: Line[] = unique([
+    ...(cells.some((c) => !isAndroid(c.cell.platform))
+      ? [`android-api: ${requested}: only an android-* target is made for an Android API level`]
+      : []),
+    ...cells.flatMap((c) => androidApiProblems(data, c, requested)),
+  ]).map((problem) => ({ mark: '✗', text: problem }));
   return lines.length ? [{ lines }] : [];
 }
 

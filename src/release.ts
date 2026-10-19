@@ -228,6 +228,8 @@ export function targetFacts(
       tests: t.tests,
       // only when it has some: a target without components: keeps the definition it always had
       ...(Object.keys(t.components).length ? { components: t.components } : {}),
+      // likewise only when it says one: the default level keeps the definition a target always had
+      ...(t.androidApi !== undefined ? { 'android-api': t.androidApi } : {}),
     }),
   );
   // how and where it builds, when that changes the build (a native build depends on its machine)

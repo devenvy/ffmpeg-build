@@ -23,6 +23,9 @@ versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Upstream builds whisper on every platform. The build: steps keep every platform's arm (win: the static Vulkan shim;
 # android: the NDK libvulkan; Apple: Metal), each with its dependencies limited to it.
 platforms: [linux-*, osx-*, win-*, ios-*, maccatalyst-*, android-*]
+# Android: ggml links the NDK's libvulkan.so directly and calls its Vulkan 1.1 entry points, which the NDK's stubs export
+# from API 28 (Android 9): an android-api: below that can't link it
+android-api: 28
 build:
   # whisper.cpp: on-device speech-to-text engine (MIT) behind FFmpeg's af_whisper filter, static, with a per-platform
   # GGML backend (Vulkan / Metal / CPU). Ported from devenvy/ffmpeg scripts/deps/whisper.sh.

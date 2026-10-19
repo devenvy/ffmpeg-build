@@ -234,7 +234,8 @@ platforms:
         --enable-cross-compile,
         --target-os=linux,
       ]
-  # Android: libraries only (apps load them), API 28+, 16 KB pages. The NDK's own paths (--cc, --sysroot, ...) are added
+  # Android: libraries only (apps load them), 16 KB pages, for API 28+ unless a target says `android-api:` (21-35; no
+  # lower than its options and libraries support). The NDK's own paths (--cc for that level, --sysroot, ...) are added
   # by the Android toolchain before FFmpeg configure.
   android-arm64:
     image: cross-android
