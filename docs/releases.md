@@ -10,7 +10,7 @@ release publishes every target's archives (and a win-x64 target's debug symbols,
 the sources archive.
 
 - **`ffmpeg-build releases [--due] [--json]`** lists them: the next tag (one past the last published build), whether
-  each release is **due** (anything a build is made of changed since its last release: versions, toolchain, patches,
+  each release is **due** (anything a build is made of changed since its last release: versions, pinned sources, toolchain, patches,
   the target itself, the engine) and why, and the CI runners of each target (`runner`, and `testRunner`, which runs
   it). It finds the last releases on GitHub, from `GITHUB_REPOSITORY` or the folder's git remote; `--offline` treats
   every release as new.

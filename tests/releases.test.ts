@@ -8,7 +8,7 @@ import { fakeGitHub, type FakeGitHub } from './github-fake.ts';
 import { fixtureEngineRoot } from './helpers.ts';
 import { runCliAsync } from './upstream-helpers.ts';
 import { loadEngineData } from '../src/engine-data.ts';
-import { formatFolderLock } from '../src/lockfile.ts';
+import { formatFolderLock, type LockPins } from '../src/lockfile.ts';
 import { packageRoot, packageVersion } from '../src/paths.ts';
 import { planReleases } from '../src/release.ts';
 import { loadFolder } from '../src/targets.ts';
@@ -33,12 +33,12 @@ function folder(text = FOLDER, lock = LOCK): string {
   writeFileSync(join(d, 'ffmpeg.lock'), formatFolderLock(lock));
   return d;
 }
-const facts = (dir: string) => {
+const facts = (dir: string, lock: typeof LOCK & { pins?: LockPins } = LOCK) => {
   const r = loadFolder(dir);
   if (!r.ok) {
     throw new Error(r.errors.join('\n'));
   }
-  return planReleases(r.folder, data, { ...LOCK }, packageRoot).releases;
+  return planReleases(r.folder, data, { ...lock }, packageRoot).releases;
 };
 
 let gh: FakeGitHub;
@@ -57,8 +57,9 @@ function publishCurrent(
   base: string,
   build: number,
   edit: (t: Record<string, unknown>) => void = ignore,
+  lock: typeof LOCK & { pins?: LockPins } = LOCK,
 ) {
-  const rel = facts(dir).find((r) => r.base === base)!;
+  const rel = facts(dir, lock).find((r) => r.base === base)!;
   gh.publish(
     `${base}.${build}`,
     rel.targets.map((t) => {
@@ -67,6 +68,7 @@ function publishCurrent(
         platform: t.target.platform,
         license: t.target.license,
         components: t.facts.components,
+        pins: t.facts.pins,
         toolchain: t.facts.toolchain,
         definition: t.facts.definition,
         patches: t.facts.patches,
@@ -139,6 +141,60 @@ describe('ffmpeg-build releases', () => {
       '9.1.0.4 (last: 9.1.0.3): due, 2 targets\n  linux-x64-lgplv3: opus 1.6.1 -> 1.6.2',
     );
     expect(r.stdout).toContain('studio-9.1.0.1 (last: studio-9.1.0.0): unchanged, 1 target');
+  });
+
+  it('is due when a pinned source moved at the same version, and only for the targets built from it', async () => {
+    const pinned = {
+      ...LOCK,
+      pins: {
+        ffmpeg: {},
+        libraries: { opus: { commit: 'a'.repeat(40) }, x265: { commit: 'c'.repeat(40) } },
+      },
+    };
+    const d = folder(FOLDER, pinned);
+    publishCurrent(d, '9.1.0', 3, ignore, pinned);
+    const same = JSON.parse(
+      (await runCliAsync(['releases', '--json'], { cwd: d, env })).stdout,
+    ) as { tag: string; due: boolean }[];
+    expect(same.find((x) => x.tag === '9.1.0.4')?.due).toBe(false);
+    // upstream moved opus's tag: same version, another commit
+    writeFileSync(
+      join(d, 'ffmpeg.lock'),
+      formatFolderLock({
+        ...pinned,
+        pins: {
+          ...pinned.pins,
+          libraries: { ...pinned.pins.libraries, opus: { commit: 'b'.repeat(40) } },
+        },
+      }),
+    );
+    const r = await runCliAsync(['releases'], { cwd: d, env });
+    expect(r.stdout).toContain(
+      '9.1.0.4 (last: 9.1.0.3): due, 2 targets\n  linux-x64-lgplv3: opus pin',
+    );
+    expect(r.stdout).not.toContain('linux-x64-gplv3: opus'); // that target doesn't build opus
+  });
+
+  it('compares pins only with a release that recorded them (one made before pins changes nothing)', async () => {
+    const pinned = {
+      ...LOCK,
+      pins: { ffmpeg: {}, libraries: { opus: { commit: 'a'.repeat(40) } } },
+    };
+    const d = folder(FOLDER, pinned);
+    publishCurrent(
+      d,
+      '9.1.0',
+      3,
+      (t) => {
+        delete t['pins'];
+      },
+      pinned,
+    );
+    const r = JSON.parse((await runCliAsync(['releases', '--json'], { cwd: d, env })).stdout) as {
+      tag: string;
+      due: boolean;
+    }[];
+    expect(r.find((x) => x.tag === '9.1.0.4')?.due).toBe(false);
   });
 
   it("stops when a target would lose something its last release had, unless it's allowed", async () => {

@@ -124,6 +124,7 @@ describe('what an Apple release publishes', () => {
       },
       toolchain: t.facts.toolchain,
       components: t.facts.components,
+      pins: t.facts.pins,
       patches: t.facts.patches,
       'not-included': [],
       definition: t.facts.definition,

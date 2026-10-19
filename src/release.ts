@@ -19,6 +19,8 @@ import type { Manifest, ManifestTarget } from './manifest.ts';
 export interface TargetFacts {
   ffmpeg: string;
   components: Record<string, string>;
+  /** each pinned component's source: the commit, or the sha256 of the tarball, ffmpeg.lock pins for its version */
+  pins: Record<string, string>;
   patches: { name: string; sha256: string }[];
   toolchain: string;
   definition: string;
@@ -234,6 +236,16 @@ export function targetFacts(
     facts: {
       ffmpeg: version,
       components,
+      // a tag moved (or a tarball replaced) upstream at the same version is a change, though no version moved
+      pins: Object.fromEntries(
+        Object.keys(components)
+          .filter((r) => lock.libraries[r] === components[r])
+          .flatMap((r) => {
+            const p = lock.pins?.libraries[r];
+            const pin = p?.commit ?? p?.sha256;
+            return pin ? [[r, pin]] : [];
+          }),
+      ),
       patches,
       toolchain: how ? sha(defined, how) : defined,
       definition,
@@ -338,6 +350,7 @@ export function publishedTargets(rel: PlannedRelease): PublishedTarget[] {
             .sort()
             .map((k) => [k, components[k]!]),
         ),
+        pins: Object.assign({}, ...slices.map((s) => s.facts.pins)) as Record<string, string>,
         patches: [...patches.values()].sort((a, b) => a.name.localeCompare(b.name)),
         toolchain: sha(...slices.map((s) => `${s.target.platform} ${s.facts.toolchain}`)),
         definition: sha(...slices.map((s) => `${s.target.platform} ${s.facts.definition}`)),
@@ -391,6 +404,14 @@ function factDiff(now: TargetFacts, was: ManifestTarget, m: Manifest): string[] 
   for (const n of [...names].sort()) {
     if (now.components[n] !== was.components[n]) {
       out.push(`${n} ${was.components[n] ?? '-'} -> ${now.components[n] ?? '-'}`);
+    }
+  }
+  // pins only against a release that recorded them: one made before pins has none, and that changes nothing
+  if (Object.keys(was.pins).length) {
+    for (const n of Object.keys(now.pins).sort()) {
+      if (was.pins[n] && now.pins[n] !== was.pins[n] && now.components[n] === was.components[n]) {
+        out.push(`${n} pin`);
+      }
     }
   }
   if (JSON.stringify(now.patches) !== JSON.stringify(was.patches)) {
