@@ -61,6 +61,7 @@ libraries:
   openjpeg: { version: 2.5.4, commit: 6c4a29b00211eb0430fa0e5e890f1ce5c80f409f }
   openssl: { version: 3.5.9, commit: 45e844fa2a14ec92d146bd8f5778ac130b6625fb }
   opus: { version: 1.6.1, commit: 22244de5a79bd1d6d623c32e72bf1954b56235be }
+  rav1e: { version: 0.8.1, commit: 1fe82de02510767539e89b2ee6fa846920ae2686 }
   rockchip-mpp: { version: 1.1.0, commit: c08762ebfadeb4e986d2fed993bc7a54862d3ebe }
   shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
   shine: { version: 3.1.1, sha256: 58e61e70128cf73f88635db495bfc17f0dde3ce9c9ac070d505a0cd75b93d384 }

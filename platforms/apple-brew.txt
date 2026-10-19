@@ -1,7 +1,8 @@
 # The Homebrew build tools Apple builds use (upstream steps/03 plus GNU tools and bash for recipe shell steps).
 # shaderc is for its glslc: FFmpeg's configure probes it for spirv_compiler, and without it every Vulkan filter is
 # silently dropped while --enable-vulkan still appears in the configure line (Homebrew's is current enough for
-# FFmpeg's --target-env=vulkan1.4 probe).
+# FFmpeg's --target-env=vulkan1.4 probe). rustup (keg-only) is for rav1e: its recipe installs a pinned Rust, with the
+# target's standard library, and cargo-c into the build's own folder.
 #   brew install $(grep -v '^#' platforms/apple-brew.txt)
 # Their versions are part of the library cache's host-toolchain key. Verified with:
 # autoconf 2.73, automake 1.19, bash 5.3.20, cmake 4.4.4, coreutils 9.12, findutils 4.11.0, gnu-sed 4.10,
@@ -24,3 +25,4 @@ ninja
 pkgconf
 shaderc
 yasm
+rustup

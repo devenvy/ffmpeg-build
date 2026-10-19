@@ -1,6 +1,6 @@
 // Batch c of #21 (codecs): each library's build on every platform it builds on, with the process runner stubbed, and
 // the files it leaves in deps.
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +18,7 @@ import {
   recipe,
 } from './recipe-harness.ts';
 import { valuesOn } from '../src/engine-data.ts';
+import { packageRoot } from '../src/paths.ts';
 import { PLATFORMS } from '../src/platforms.ts';
 
 import type * as RunModule from '../src/build/run.ts';
@@ -701,5 +702,116 @@ describe('libopenmpt', () => {
         'make install',
       ].map((line) => line + vista),
     );
+  });
+});
+
+// rav1e: cargo-c's static library for the platform's Rust target. The images carry Rust and cargo-c; on Apple,
+// Homebrew's rustup puts them in the build's own folder first.
+describe('rav1e', () => {
+  const RUST_TARGET: Record<string, string> = {
+    'linux-x64': 'x86_64-unknown-linux-gnu',
+    'linux-arm64': 'aarch64-unknown-linux-gnu',
+    'linux-armhf': 'armv7-unknown-linux-gnueabihf',
+    'linux-musl-x64': 'x86_64-unknown-linux-musl',
+    'linux-musl-arm64': 'aarch64-unknown-linux-musl',
+    'win-x64': 'x86_64-pc-windows-gnu',
+    'win-arm64': 'aarch64-pc-windows-gnullvm',
+    'osx-arm64': 'aarch64-apple-darwin',
+    'osx-x64': 'x86_64-apple-darwin',
+    'ios-arm64': 'aarch64-apple-ios',
+    'ios-sim-arm64': 'aarch64-apple-ios-sim',
+    'maccatalyst-arm64': 'aarch64-apple-ios-macabi',
+    'maccatalyst-x64': 'x86_64-apple-ios-macabi',
+    'android-arm64': 'aarch64-linux-android',
+    'android-x64': 'x86_64-linux-android',
+  };
+  it('builds everywhere', () => {
+    expect(platformsOf('rav1e')).toEqual(PLATFORMS);
+    expect(Object.keys(RUST_TARGET).sort()).toEqual([...PLATFORMS].sort());
+  });
+  it.each(platformsOf('rav1e'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(pcPath(h, 'rav1e'), `Libs: -L\${libdir} -lrav1e\nLibs.private: -lunwind -lc\n`);
+    await build(h, 'rav1e');
+    const target = RUST_TARGET[platform]!;
+    const apple = /^(osx|ios|maccatalyst)-/.test(platform);
+    const calls = h.calls.map((c) => [c.command, ...c.args].join(' '));
+    expect(calls.at(-1)).toBe(
+      `cargo cinstall --release --locked --library-type=staticlib --target=${target} --prefix=${h.deps} --libdir=${h.deps}/lib --includedir=${h.deps}/include`,
+    );
+    // build scripts run here: compiled with this machine's compilers
+    const last = h.calls.at(-1)!;
+    expect(last.env).toMatchObject({ HOST_CC: 'cc', HOST_CXX: 'c++', HOST_CFLAGS: '-O2' });
+    // Apple: Rust and cargo-c into the build's folder first (cargo-c built for the Mac, without the platform's flags)
+    expect(calls.slice(0, -1)).toEqual(
+      apple
+        ? [
+            `rustup-init -y --no-modify-path --profile minimal --default-toolchain 1.98.1 --target ${target}`,
+            'cargo install --locked cargo-c@0.10.26',
+          ]
+        : [],
+    );
+    expect(last.env['CARGO_HOME']).toBe(apple ? `${h.src}/_cargo` : undefined);
+    expect(apple ? h.calls[1]!.env : { CC: null, CFLAGS: null }).toMatchObject({
+      CC: null,
+      CFLAGS: null,
+    });
+    const cross = ['linux-armhf', 'win-x64', 'win-arm64', 'android-arm64', 'android-x64'];
+    const key = target.replaceAll('-', '_');
+    expect(last.env[`CC_${key}`] !== undefined).toBe(cross.includes(platform));
+    expect(last.env[`CARGO_TARGET_${key.toUpperCase()}_LINKER`] !== undefined).toBe(
+      cross.includes(platform),
+    );
+  });
+  it("swaps Rust's libunwind for GCC's unwinder on musl", async () => {
+    const h = fake('linux-musl-x64');
+    const pc = `Libs: -L\${libdir} -lrav1e -lunwind -lc\nLibs.private: -lunwind -lc -lunwind -lc\n`;
+    put(pcPath(h, 'rav1e'), pc);
+    await build(h, 'rav1e');
+    expect(h.read(pcPath(h, 'rav1e'))).toBe(
+      `Libs: -L\${libdir} -lrav1e -lc\nLibs.private: -lgcc_eh -lc\n`,
+    );
+  });
+  it('gives the ffmpeg program an 8 MiB thread stack on musl only', () => {
+    const flag = '--extra-ldflags=-Wl,-z,stack-size=8388608';
+    for (const platform of platformsOf('rav1e')) {
+      expect(valuesOn(recipe('rav1e'), 'configure', platform).includes(flag), platform).toBe(
+        platform.startsWith('linux-musl-'),
+      );
+    }
+  });
+});
+
+// The toolchain images rav1e builds in carry the same pinned Rust and cargo-c, with the standard library of every
+// Rust target the image's platforms need.
+describe('Rust in the toolchain images', () => {
+  const images: Record<string, string[]> = {
+    'linux-x64': [],
+    'linux-arm64': [],
+    'linux-musl-x64': [],
+    'linux-musl-arm64': [],
+    'cross-windows': ['x86_64-pc-windows-gnu', 'aarch64-pc-windows-gnullvm'],
+    'cross-armhf': ['armv7-unknown-linux-gnueabihf'],
+    'cross-android': ['aarch64-linux-android', 'x86_64-linux-android'],
+  };
+  it.each(Object.keys(images))('%s', (image) => {
+    const text = readFileSync(join(packageRoot, 'images', image, 'Dockerfile'), 'utf8');
+    expect(text).toContain(
+      `ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:\${PATH}`,
+    );
+    expect(text).toMatch(
+      /rustup-init -y --no-modify-path --profile minimal --default-toolchain 1\.98\.1/,
+    );
+    for (const target of images[image]!) {
+      expect(text).toContain(`--target ${target}`);
+    }
+    expect(text).toMatch(
+      /cargo-c\/releases\/download\/v0\.10\.26\/cargo-c-(x86_64|aarch64)-unknown-linux-musl/,
+    );
+    expect(text).toContain('cargo cinstall --version');
+  });
+  it("Apple's Homebrew tools include rustup", () => {
+    const brew = readFileSync(join(packageRoot, 'platforms', 'apple-brew.txt'), 'utf8');
+    expect(brew.split('\n')).toContain('rustup');
   });
 });
