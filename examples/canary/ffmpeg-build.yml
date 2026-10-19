@@ -39,25 +39,32 @@ bases:
         svtav1,
       ]
   linux:
-    with: [v4l2-m2m, fontconfig, vaapi, drm]
+    with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau]
   win:
-    with: [amf, d3d11va, dxva2, mediafoundation, schannel]
+    with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
   gplv2:
     with: [x264, x265]
   gplv3:
-    with: [x264, x265, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan]
+    with: [x264, x265, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan, opencl]
   lgplv3:
-    with: [kvazaar, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan]
+    with: [kvazaar, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan, opencl]
 targets:
   # MoltenVK, which no Linux or Windows target builds: on macOS its dylib and ICD manifest ship beside the Khronos
   # loader. Just Vulkan and libplacebo on it, to keep the macOS run short, and iconv, the one library only Apple and
-  # Windows build (GNU libiconv: the C library has no iconv FFmpeg links by itself there). (The static MoltenVK of iOS
-  # and Mac Catalyst is built by examples/test-builds: a canary iOS target would need all four xcframework slices.)
+  # Windows build (GNU libiconv: the C library has no iconv FFmpeg links by itself there), and OpenCL (macOS's own
+  # framework). (The static MoltenVK of iOS and Mac Catalyst is built by examples/test-builds: a canary iOS target
+  # would need all four xcframework slices.)
   osx-arm64-lgplv3:
     platform: osx-arm64
     license: lgplv3
     ffmpeg: '9'
-    with: [vulkan, placebo, iconv]
+    with: [vulkan, placebo, iconv, opencl]
+  # Rockchip MPP, which only ARM Linux builds: rkmpp alone (with the libdrm it needs), to keep the arm64 run short
+  linux-arm64-lgplv3:
+    platform: linux-arm64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [rkmpp]
   linux-x64-gplv2:
     platform: linux-x64
     license: gplv2

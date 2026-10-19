@@ -2,17 +2,57 @@
 # cross-builds, macOS, and the four iOS / Mac Catalyst slices of one xcframework bundle), built by .github/workflows/toolchains.yml from this repository's source.
 # Some are there for where they are tested: linux-armhf in Debian armhf under qemu, linux-musl-arm64 in Alpine, and
 # win-arm64 on a Windows on Arm runner.
+# The GPU options each platform offers ride along (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): small, and only a full
+# build and `ffmpeg-build test` show that FFmpeg took them (clang emitting the CUDA kernels' PTX, the D3D12 video
+# headers, the OpenCL loader linked statically, Rockchip MPP).
 bases:
   small: { with: [dav1d, opus] }
 targets:
-  linux-x64-lgplv3: { platform: linux-x64, license: lgplv3, ffmpeg: 9, base: [small] }
-  linux-arm64-lgplv3: { platform: linux-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
-  win-x64-lgplv3: { platform: win-x64, license: lgplv3, ffmpeg: 9, base: [small] }
-  linux-armhf-lgplv3: { platform: linux-armhf, license: lgplv3, ffmpeg: 9, base: [small] }
-  linux-musl-arm64-lgplv3: { platform: linux-musl-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
-  win-arm64-lgplv3: { platform: win-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
+  linux-x64-lgplv3:
+    {
+      platform: linux-x64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [cuda-llvm, opencl, vdpau],
+    }
+  linux-arm64-lgplv3:
+    {
+      platform: linux-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [cuda-llvm, opencl, vdpau, rkmpp],
+    }
+  win-x64-lgplv3:
+    {
+      platform: win-x64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [cuda-llvm, opencl, d3d12va],
+    }
+  linux-armhf-lgplv3:
+    {
+      platform: linux-armhf,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [opencl, vdpau, rkmpp],
+    }
+  linux-musl-arm64-lgplv3:
+    {
+      platform: linux-musl-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [cuda-llvm, opencl, vdpau, rkmpp],
+    }
+  win-arm64-lgplv3:
+    { platform: win-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [opencl, d3d12va] }
   android-arm64-lgplv3: { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
-  osx-arm64-lgplv3: { platform: osx-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
+  osx-arm64-lgplv3:
+    { platform: osx-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [opencl] }
   # MoltenVK linked statically into the frameworks (--enable-vulkan-static), as the shipped v3 targets have it
   ios-arm64-lgplv3:
     { platform: ios-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [vulkan, placebo] }

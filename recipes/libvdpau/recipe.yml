@@ -1,0 +1,18 @@
+name: libvdpau
+provides: vdpau
+license: MIT
+license-files: [COPYING]
+configure: [--enable-vdpau]
+source: { git: https://gitlab.freedesktop.org/vdpau/libvdpau.git, ref: '{version}' }
+# its tags were libvdpau-1.2 and older, 1.3 onwards plain numbers
+versions: { git-tags: '^(\d+\.\d+(?:\.\d+)?)$' }
+platforms: [linux-*]
+build:
+  # libvdpau's VDPAU API headers (MIT), header-only, for FFmpeg's vdpau (the VDPAU hwaccels). FFmpeg needs only
+  # vdpau/vdpau.h: it reaches the driver through the function pointers of a VdpDevice. The library itself (and FFmpeg's
+  # vdpau_x11, which creates that device from an X11 display) needs libX11, which ffmpeg-build doesn't build: so an
+  # application hands FFmpeg its own VdpDevice (AVVDPAUDeviceContext, as mpv does), and `ffmpeg -hwaccel vdpau` can't
+  # make one.
+  system: none
+  steps:
+    - copy: { from: include/vdpau/vdpau.h, into: '{deps}/include/vdpau' }

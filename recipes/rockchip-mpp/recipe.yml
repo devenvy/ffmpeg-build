@@ -1,0 +1,25 @@
+name: rockchip-mpp
+provides: rkmpp
+# most of it is Apache-2.0 OR MIT, but some of the library (the rkenc and jpegd HALs) is Apache-2.0 alone
+license: Apache-2.0
+license-files: [LICENSES/Apache-2.0, LICENSES/MIT]
+# FFmpeg's rkmpp needs libdrm enabled as well (its frames are DRM PRIME buffers)
+configure: [--enable-rkmpp, --enable-libdrm]
+needs: [libdrm]
+source: { git: https://github.com/rockchip-linux/mpp, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+# Rockchip's SoCs are ARM: 64-bit and 32-bit Linux
+platforms: [linux-arm64, linux-armhf, linux-musl-arm64]
+build:
+  # Rockchip Media Process Platform (rockchip_mpp), static, for FFmpeg's rkmpp (the H.264, HEVC, VP8 and VP9 decoders,
+  # and since 8.1 the H.264 and HEVC encoders), which drive the SoC's video blocks through the
+  # kernel's MPP service at run time. FFmpeg wants its .pc at 1.3.8 or later (the .pc's own number, not the tag's).
+  # Its CMake builds the shared and the static library either way (the static one merged into one object): the shared
+  # ones (and the legacy VPU API's) are removed after the install, so FFmpeg links the static one. No tests.
+  system: cmake
+  args: [-DBUILD_TEST=OFF]
+  after:
+    - remove: { path: '{deps}/lib/librockchip_*.so*' }
+    # the static library needs the C library's threads
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/rockchip_mpp.pc', libs-private: { add: -lpthread } }

@@ -1059,3 +1059,121 @@ describe('iconv, bzlib and lzma', () => {
     }
   });
 });
+
+// Batch b of #21, GPU and hardware: each can be listed where FFmpeg and the platform can do it, and `check` says why
+// not everywhere else. None turns on by itself.
+describe('cuda-llvm, opencl, d3d12va, vdpau and rkmpp', () => {
+  const GPU = ['cuda-llvm', 'opencl', 'd3d12va', 'vdpau', 'rkmpp'];
+  const linuxAll = PLATFORMS.filter((p) => p.startsWith('linux-'));
+  const nvidia = ['linux-x64', 'linux-arm64', 'linux-musl-x64', 'linux-musl-arm64', 'win-x64'];
+  const rockchip = ['linux-arm64', 'linux-armhf', 'linux-musl-arm64'];
+  const icd = [...linuxAll, 'win-x64', 'win-arm64'];
+  // where each builds, and what it builds and passes there
+  const where: Record<
+    string,
+    { platforms: string[]; recipes: (p: string) => string[]; flags: string[] }
+  > = {
+    // nv-codec's headers; the CUDA kernels are compiled to PTX by the image's clang (llvm-mingw's on Windows)
+    'cuda-llvm': {
+      platforms: nvidia,
+      recipes: () => ['nv-codec'],
+      flags: ['--enable-ffnvcodec', '--enable-cuda', '--enable-cuda-llvm'],
+    },
+    // the Khronos ICD loader on Linux and Windows; macOS's own OpenCL framework
+    opencl: {
+      platforms: [...icd, 'osx-x64', 'osx-arm64'],
+      recipes: (p) => (p.startsWith('osx-') ? [] : ['opencl-headers', 'opencl-icd-loader']),
+      flags: ['--enable-opencl'],
+    },
+    // a newer mingw-w64's D3D12 video headers for win-x64; llvm-mingw has them
+    d3d12va: {
+      platforms: ['win-x64', 'win-arm64'],
+      recipes: (p) => (p === 'win-x64' ? ['d3d12-headers'] : []),
+      flags: ['--enable-d3d12va'],
+    },
+    vdpau: { platforms: linuxAll, recipes: () => ['libvdpau'], flags: ['--enable-vdpau'] },
+    rkmpp: {
+      platforms: rockchip,
+      recipes: () => ['libdrm', 'rockchip-mpp'],
+      flags: ['--enable-rkmpp', '--enable-libdrm'],
+    },
+  };
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const planOn = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = GPU.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s', (option, platform) => {
+    const plan = planOn(platform, 'gplv3', option);
+    expect(plan.errors).toEqual([]);
+    const cell = plan.cells[0]!;
+    expect(cell.options).toEqual([option]);
+    expect([...cell.recipes].sort()).toEqual(where[option]!.recipes(platform));
+    const flags = configureFlags(data, cell);
+    expect(flags).toEqual(expect.arrayContaining(where[option]!.flags));
+    // cuda-llvm is the CUDA filters alone: NVENC, NVDEC and CUVID stay nvenc's
+    expect(flags.filter((f) => /--enable-(nvenc|nvdec|cuvid)$/.test(f))).toEqual([]);
+  });
+
+  // what `check` says where it can't be built
+  const reasons: Record<string, (p: string) => string> = {
+    'cuda-llvm': (p) =>
+      /^(linux|win)-/.test(p)
+        ? "the nv-codec recipe doesn't build there"
+        : "FFmpeg doesn't support cuda-llvm there",
+    opencl: () => "FFmpeg doesn't support opencl there",
+    d3d12va: () => "FFmpeg doesn't support d3d12va there",
+    vdpau: () => "FFmpeg doesn't support vdpau there",
+    rkmpp: (p) =>
+      p.startsWith('linux-')
+        ? "the rockchip-mpp recipe doesn't build there"
+        : "FFmpeg doesn't support rkmpp there",
+  };
+  const absent = GPU.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'gplv3', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'gplv3', option)).toContain(
+      `not on ${platform}: ${reasons[option]!(platform)}`,
+    );
+  });
+
+  it('keeps rkmpp (FFmpeg: version3) and the Apache-2.0 OpenCL loader out of v2 builds', () => {
+    for (const license of ['lgplv2', 'gplv2']) {
+      expect(report('linux-arm64', license, 'rkmpp')).toContain('✗');
+      expect(report('linux-x64', license, 'opencl')).toContain('✗');
+      // macOS's OpenCL is the system's: nothing to license
+      expect(planOn('osx-arm64', license, 'opencl').errors).toEqual([]);
+    }
+  });
+
+  it('options offers each where it builds, in the licenses that allow it', () => {
+    const facts = optionFacts(data, '9');
+    const of = (name: string) => facts.find((o) => o.name === name)!;
+    for (const name of GPU) {
+      expect(of(name).platforms, name).toEqual(where[name]!.platforms);
+    }
+    const all = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+    const v3 = ['lgplv3', 'gplv3', 'nonfree'];
+    expect(of('cuda-llvm').licenses).toEqual(all);
+    expect(of('d3d12va').licenses).toEqual(all);
+    expect(of('vdpau').licenses).toEqual(all);
+    expect(of('rkmpp').licenses).toEqual(v3);
+    expect(of('opencl').licenses).toEqual(v3);
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => GPU.includes(o))).toEqual([]);
+    }
+  });
+});

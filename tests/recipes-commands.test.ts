@@ -20,6 +20,7 @@ import {
   recipe,
 } from './recipe-harness.ts';
 import { submoduleArgs } from '../src/build/fetch.ts';
+import { valuesOn } from '../src/engine-data.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 
@@ -860,5 +861,157 @@ describe('fontconfig', () => {
     await expect(build(h, 'fontconfig')).rejects.toThrow(
       'fontconfig DESTDIR install produced no /usr tree',
     );
+  });
+});
+
+// Batch b of #21 (GPU and hardware): the libraries behind opencl, vdpau, d3d12va and rkmpp. (cuda-llvm needs no
+// library of its own: nv-codec's headers and the image's clang.)
+describe('opencl-headers', () => {
+  it('builds where the OpenCL ICD loader does: Linux and Windows', () => {
+    expect(platformsOf('opencl-headers')).toEqual([
+      'linux-x64',
+      'linux-arm64',
+      'linux-armhf',
+      'linux-musl-x64',
+      'linux-musl-arm64',
+      'win-x64',
+      'win-arm64',
+    ]);
+  });
+  // OpenCL-Headers.pc moved to where pkg-config looks (their CMake install puts it in share/pkgconfig)
+  it.each(platformsOf('opencl-headers'))('%s', async (platform) => {
+    const h = fake(platform);
+    const pc = `prefix=${h.deps}\nincludedir=\${prefix}/include\n\nName: OpenCL-Headers\nCflags: -I\${includedir}\n`;
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        put(join(h.deps, 'include', 'CL', 'cl.h'), '/* cl */\n');
+        put(join(h.deps, 'share', 'pkgconfig', 'OpenCL-Headers.pc'), pc);
+      }
+      return undefined;
+    };
+    await build(h, 'opencl-headers');
+    expect(commands(h)).toEqual(cmakeLines(h, ['-DBUILD_TESTING=OFF']));
+    expect(h.files(h.deps)).toEqual(['include/CL/cl.h', 'lib/pkgconfig/OpenCL-Headers.pc']);
+    expect(h.read(pcPath(h, 'OpenCL-Headers'))).toBe(pc);
+  });
+});
+
+// The Khronos ICD loader, static, against the headers in deps; mingw names it OpenCL.a, which -lOpenCL can't find.
+describe('opencl-icd-loader', () => {
+  it.each(platformsOf('opencl-icd-loader'))('%s', async (platform) => {
+    const h = fake(platform);
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        put(
+          join(h.deps, 'lib', platform.startsWith('win-') ? 'OpenCL.a' : 'libOpenCL.a'),
+          '!<arch>\n',
+        );
+      }
+      return undefined;
+    };
+    await build(h, 'opencl-icd-loader');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        `-DOPENCL_ICD_LOADER_HEADERS_DIR=${h.deps}/include`,
+        '-DENABLE_OPENCL_LAYERINFO=OFF',
+        '-DOPENCL_ICD_LOADER_BUILD_TESTING=OFF',
+        '-DBUILD_TESTING=OFF',
+      ]),
+    );
+    expect(h.files(join(h.deps, 'lib')).filter((f) => !f.startsWith('pkgconfig/'))).toEqual([
+      'libOpenCL.a',
+    ]);
+  });
+  it('needs the headers, and is the opencl option', () => {
+    expect(recipe('opencl-icd-loader').needs).toEqual([{ name: 'opencl-headers' }]);
+    expect(valuesOn(recipe('opencl-icd-loader'), 'configure')).toEqual(['--enable-opencl']);
+    expect(platformsOf('opencl-icd-loader')).toEqual(platformsOf('opencl-headers'));
+  });
+});
+
+// Only vdpau/vdpau.h: FFmpeg reaches the driver through a VdpDevice's function pointers; libvdpau itself, and the
+// vdpau_x11 device creation, would need libX11.
+describe('libvdpau', () => {
+  it.each(platformsOf('libvdpau'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'include', 'vdpau', 'vdpau.h'), '/* vdpau */\n');
+    put(join(h.src, 'include', 'vdpau', 'vdpau_x11.h'), '#include <X11/Xlib.h>\n');
+    await build(h, 'libvdpau');
+    expect(commands(h)).toEqual([]);
+    expect(h.files(join(h.deps, 'include'))).toEqual(['vdpau/vdpau.h']);
+    expect(h.read(join(h.deps, 'include', 'vdpau', 'vdpau.h'))).toBe('/* vdpau */\n');
+  });
+  it('builds on Linux only', () => {
+    expect(platformsOf('libvdpau')).toEqual([
+      'linux-x64',
+      'linux-arm64',
+      'linux-armhf',
+      'linux-musl-x64',
+      'linux-musl-arm64',
+    ]);
+  });
+});
+
+// win-x64's mingw-w64 11.0.1 has no d3d12video.h: a newer mingw-w64's three headers FFmpeg's d3d12va needs, over the
+// toolchain's own. (win-arm64's llvm-mingw has them.)
+describe('d3d12-headers', () => {
+  it('builds for win-x64 only', () => {
+    expect(platformsOf('d3d12-headers')).toEqual(['win-x64']);
+  });
+  it('copies d3d12.h, d3d12video.h and dxva.h', async () => {
+    const h = fake('win-x64');
+    for (const name of ['d3d12.h', 'd3d12video.h', 'dxva.h', 'd3d11.h']) {
+      put(join(h.src, 'mingw-w64-headers', 'include', name), `/* ${name} */\n`);
+    }
+    await build(h, 'd3d12-headers');
+    expect(commands(h)).toEqual([]);
+    expect(h.files(join(h.deps, 'include'))).toEqual(['d3d12.h', 'd3d12video.h', 'dxva.h']);
+    expect(h.read(join(h.deps, 'include', 'd3d12video.h'))).toBe('/* d3d12video.h */\n');
+  });
+});
+
+// Rockchip MPP: CMake builds the shared and static libraries either way; the shared ones go, so FFmpeg links the
+// static one, and its .pc gains the threads it needs.
+describe('rockchip-mpp', () => {
+  it('builds on ARM Linux only', () => {
+    expect(platformsOf('rockchip-mpp')).toEqual(['linux-arm64', 'linux-armhf', 'linux-musl-arm64']);
+  });
+  it.each(platformsOf('rockchip-mpp'))('%s', async (platform) => {
+    const h = fake(platform);
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        for (const name of [
+          'librockchip_mpp.a',
+          'librockchip_mpp.so',
+          'librockchip_mpp.so.1',
+          'librockchip_mpp.so.0.1.0',
+          'librockchip_vpu.so',
+          'librockchip_vpu.so.1',
+        ]) {
+          put(join(h.deps, 'lib', name), '');
+        }
+        put(
+          pcPath(h, 'rockchip_mpp'),
+          `Name: rockchip_mpp\nVersion: 1.3.10\nLibs: -L\${libdir} -lrockchip_mpp -lm\nLibs.private:\nCflags: -I\${includedir}\n`,
+        );
+      }
+      return undefined;
+    };
+    await build(h, 'rockchip-mpp');
+    expect(commands(h)).toEqual(cmakeLines(h, ['-DBUILD_TEST=OFF']));
+    expect(h.files(join(h.deps, 'lib'))).toEqual([
+      'librockchip_mpp.a',
+      'pkgconfig/rockchip_mpp.pc',
+    ]);
+    expect(h.read(pcPath(h, 'rockchip_mpp'))).toBe(
+      `Name: rockchip_mpp\nVersion: 1.3.10\nLibs: -L\${libdir} -lrockchip_mpp -lm\nLibs.private: -lpthread\nCflags: -I\${includedir}\n`,
+    );
+  });
+  it("needs libdrm, and turns FFmpeg's on with rkmpp", () => {
+    expect(recipe('rockchip-mpp').needs).toEqual([{ name: 'libdrm' }]);
+    expect(valuesOn(recipe('rockchip-mpp'), 'configure')).toEqual([
+      '--enable-rkmpp',
+      '--enable-libdrm',
+    ]);
   });
 });

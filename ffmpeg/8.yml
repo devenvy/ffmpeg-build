@@ -86,6 +86,54 @@ options:
         },
     }
   drm: { needs: libdrm, platforms: [linux-*] }
+  # The CUDA filters, their kernels compiled to PTX by clang (the toolchain images have it; llvm-mingw's on Windows)
+  # against nv-codec's headers; FFmpeg loads the CUDA driver at run time. Only the filters: NVENC, NVDEC and CUVID are
+  # nvenc's. (NVIDIA's own compiler, cuda-nvcc, is nonfree.)
+  cuda-llvm:
+    {
+      needs: nv-codec,
+      platforms: [linux-*, win-*],
+      configure: [--enable-ffnvcodec, --enable-cuda, --enable-cuda-llvm],
+      ships:
+        {
+          hwaccels: [cuda],
+          filters: [scale_cuda, yadif_cuda, bwdif_cuda, overlay_cuda, thumbnail_cuda],
+        },
+    }
+  # The OpenCL filters and hwcontext: the Khronos ICD loader (static) on Linux and Windows, which finds the GPU
+  # vendors' drivers at run time; macOS's own OpenCL framework (built in there).
+  opencl:
+    {
+      builtin: true,
+      needs: [{ opencl-icd-loader: { platforms: [linux-*, win-*] } }],
+      platforms: [linux-*, win-*, osx-*],
+      ships:
+        {
+          hwaccels: [opencl],
+          filters: [avgblur_opencl, overlay_opencl, unsharp_opencl, program_opencl],
+        },
+    }
+  # Direct3D 12 video (decode hwaccels and encoders; the OS provides it at run time). llvm-mingw (win-arm64) has the
+  # headers; win-x64's mingw-w64 lacks d3d12video.h, so a newer mingw-w64's are copied in there.
+  d3d12va:
+    {
+      builtin: true,
+      kind: hwaccel,
+      platforms: [win-*],
+      needs: [{ d3d12-headers: { platforms: [win-x64] } }],
+      ships: { hwaccels: [d3d12va], encoders: [hevc_d3d12va] },
+    }
+  # The VDPAU hwaccels (NVIDIA's legacy Unix video decode API): the headers alone. Without libX11 FFmpeg has no
+  # vdpau_x11, so it can't create a VDPAU device itself: an application passes its own (AVVDPAUDeviceContext).
+  vdpau: { needs: libvdpau, platforms: [linux-*], ships: { hwaccels: [vdpau] } }
+  # Rockchip's video blocks (rockchip_mpp, with libdrm), on Rockchip's ARM SoCs (the encoders came in 8.1)
+  rkmpp:
+    {
+      needs: rockchip-mpp,
+      ffmpeg-license: version3,
+      platforms: [linux-*],
+      ships: { decoders: [h264_rkmpp, hevc_rkmpp] },
+    }
   vpl: { needs: libvpl, min: 2.6.0, ships: { encoders: [h264_qsv, hevc_qsv, av1_qsv] } }
   # FFmpeg's Vulkan: the Khronos loader on glibc and musl Linux, and on macOS with MoltenVK beside it; on Windows,
   # linux-armhf and Android only the headers (FFmpeg loads the system's Vulkan library at run time); on iOS and Mac
