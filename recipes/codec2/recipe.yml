@@ -1,0 +1,51 @@
+name: codec2
+provides: codec2
+# the sources say "version 2.1", with no "or any later version"
+license: LGPL-2.1-only
+license-files: [COPYING]
+# FFmpeg finds it with a plain -lcodec2 probe, which a static library calling the maths library fails
+# without libm on the link
+configure: [--enable-libcodec2, --extra-libs=-lm]
+source: { git: https://github.com/drowe67/codec2, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # Codec 2: low-bitrate speech codec (LGPL-2.1), static, for FFmpeg's libcodec2 decoder and encoder (found with
+  # `-lcodec2`, header codec2/codec2.h). Only the codec2 target: the ~40 demo and test programs aren't built.
+  #
+  # Its codebooks are C generated at build time by generate_codebook, a host program. A cross build makes it through an
+  # ExternalProject that inherits the target's CC and flags (so it builds a program that can't run here), and osx-x64
+  # on Apple silicon doesn't count as cross. So it is compiled here with the build machine's own cc first, and the
+  # CMake given it as an imported program.
+  system: none
+  steps:
+    - run: [cc, -O2, -o, generate_codebook_host, src/generate_codebook.c, -lm]
+      unset: [CC, CFLAGS, LDFLAGS, CPPFLAGS, SDKROOT]
+    - replace-in-file:
+        path: src/CMakeLists.txt
+        from: "if(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)"
+        to: "if(DEFINED GENERATE_CODEBOOK)\n    add_executable(generate_codebook IMPORTED)\n    set_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION ${GENERATE_CODEBOOK})\nelseif(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)"
+    # Windows: an install script that walks libcodec2.dll's DLL dependencies (there is no DLL in a static build)
+    - replace-in-file:
+        {
+          path: CMakeLists.txt,
+          from: 'install(SCRIPT ${CMAKE_BINARY_DIR}/cmake/GetDependencies.cmake)',
+          to: '',
+        }
+    - - cmake
+      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - -B
+      - _build
+      - -S
+      - .
+      - -DCMAKE_BUILD_TYPE=Release
+      - '-DCMAKE_INSTALL_PREFIX={deps}'
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DBUILD_SHARED_LIBS=OFF
+      - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+      - -DUNITTEST=OFF
+      - -DLPCNET=OFF
+      - '-DGENERATE_CODEBOOK={src}/generate_codebook_host'
+      - '{cmake-cross-args}'
+    - [cmake, --build, _build, --target, codec2, '-j{jobs}']
+    - [cmake, --install, _build]

@@ -1177,3 +1177,143 @@ describe('cuda-llvm, opencl, d3d12va, vdpau and rkmpp', () => {
     }
   });
 });
+
+// Batch c of #21, codecs: each can be listed where its library builds, in the licenses its library (and FFmpeg's own
+// class) allow, and `check` says why not elsewhere. None turns on by itself.
+describe('codec libraries', () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const V3 = ['lgplv3', 'gplv3', 'nonfree'];
+  const GPL = ['gplv2', 'gplv3', 'nonfree'];
+  const where: Record<
+    string,
+    {
+      platforms: readonly string[];
+      recipes: string[];
+      flags: string[];
+      licenses: string[];
+      ships: Record<string, string[]>;
+    }
+  > = {
+    theora: {
+      platforms: PLATFORMS,
+      recipes: ['libogg', 'libtheora'],
+      flags: ['--enable-libtheora'],
+      licenses: ALL,
+      ships: { encoders: ['libtheora'] },
+    },
+    // FFmpeg's class gpl
+    xvid: {
+      platforms: PLATFORMS,
+      recipes: ['xvidcore'],
+      flags: ['--enable-libxvid', '--extra-libs=-lm'],
+      licenses: GPL,
+      ships: { encoders: ['libxvid'] },
+    },
+    vvenc: {
+      platforms: PLATFORMS.filter((p) => p !== 'linux-armhf'),
+      recipes: ['vvenc'],
+      flags: ['--enable-libvvenc'],
+      licenses: ALL,
+      ships: { encoders: ['libvvenc'] },
+    },
+    twolame: {
+      platforms: PLATFORMS,
+      recipes: ['twolame'],
+      flags: ['--enable-libtwolame', '--extra-libs=-lm'],
+      licenses: ALL,
+      ships: { encoders: ['libtwolame'] },
+    },
+    shine: {
+      platforms: PLATFORMS,
+      recipes: ['shine'],
+      flags: ['--enable-libshine'],
+      licenses: ALL,
+      ships: { encoders: ['libshine'] },
+    },
+    // Apache-2.0: not GPLv2-compatible
+    lc3: {
+      platforms: PLATFORMS,
+      recipes: ['liblc3'],
+      flags: ['--enable-liblc3'],
+      licenses: V3,
+      ships: { encoders: ['liblc3'], decoders: ['liblc3'] },
+    },
+    codec2: {
+      platforms: PLATFORMS,
+      recipes: ['codec2'],
+      flags: ['--enable-libcodec2', '--extra-libs=-lm'],
+      licenses: ALL,
+      ships: { encoders: ['libcodec2'], decoders: ['libcodec2'] },
+    },
+    // abseil's headers (Apache-2.0) are compiled in
+    ilbc: {
+      platforms: PLATFORMS,
+      recipes: ['libilbc'],
+      flags: ['--enable-libilbc'],
+      licenses: V3,
+      ships: { encoders: ['libilbc'], decoders: ['libilbc'] },
+    },
+  };
+  const CODECS = Object.keys(where);
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const planOn = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = CODECS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s', (option, platform) => {
+    const plan = planOn(platform, 'gplv3', option);
+    expect(plan.errors).toEqual([]);
+    const cell = plan.cells[0]!;
+    expect(cell.options).toEqual([option]);
+    expect([...cell.recipes].sort()).toEqual(where[option]!.recipes);
+    expect(configureFlags(data, cell)).toEqual(expect.arrayContaining(where[option]!.flags));
+  });
+
+  const absent = CODECS.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'gplv3', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'gplv3', option)).toContain(
+      `not on ${platform}: the ${where[option]!.recipes.at(-1)!} recipe doesn't build there`,
+    );
+  });
+
+  it.each(CODECS)('%s is refused in the licenses that may not take it', (option) => {
+    for (const license of ALL.filter((l) => !where[option]!.licenses.includes(l))) {
+      expect(report('linux-x64', license, option), license).toContain('✗');
+    }
+  });
+
+  it('options offers each where it builds, in the licenses that allow it, with what it ships', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of CODECS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(where[name]!.platforms);
+      expect(fact.licenses, name).toEqual(where[name]!.licenses);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of CODECS) {
+        const shipped: Record<string, string[]> = {};
+        for (const s of data.ffmpeg.get(major)!.options[name]!.ships ?? []) {
+          (shipped[s.kind] ??= []).push(s.name);
+        }
+        expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => CODECS.includes(o))).toEqual([]);
+    }
+  });
+});

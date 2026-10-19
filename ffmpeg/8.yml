@@ -171,6 +171,9 @@ options:
   zimg: { needs: zimg, min: 2.7.0, ships: { filters: [zscale] } }
   vmaf: { needs: libvmaf, min: 2.0.0, ships: { filters: [libvmaf] } }
   lcms2: { needs: lcms2, min: 2.13 }
+  theora: { needs: libtheora, ships: { encoders: [libtheora] } }
+  xvid: { needs: xvidcore, ffmpeg-license: gpl, ships: { encoders: [libxvid] } }
+  vvenc: { needs: vvenc, min: 1.6.1, ships: { encoders: [libvvenc] } }
 
   # audio
   opus: { needs: opus, ships: { encoders: [libopus] } }
@@ -194,6 +197,11 @@ options:
     }
   vo-amrwbenc:
     { needs: vo-amrwbenc, ffmpeg-license: version3, ships: { encoders: [libvo_amrwbenc] } }
+  twolame: { needs: twolame, ships: { encoders: [libtwolame] } }
+  shine: { needs: shine, ships: { encoders: [libshine] } }
+  lc3: { needs: liblc3, min: 1.1.0, ships: { encoders: [liblc3], decoders: [liblc3] } }
+  codec2: { needs: codec2, ships: { encoders: [libcodec2], decoders: [libcodec2] } }
+  ilbc: { needs: libilbc, ships: { encoders: [libilbc], decoders: [libilbc] } }
   soxr: { needs: soxr, ships: { resamplers: [soxr] } }
   chromaprint: { needs: chromaprint, ships: { muxers: [chromaprint] } }
 

@@ -1,0 +1,31 @@
+name: libilbc
+provides: ilbc
+# WebRTC's code (BSD-3-Clause, with its patent grant) and abseil-cpp's (Apache-2.0): the abseil headers it includes
+# (string_view, type traits) are compiled into the library, so their licence counts too, and keeps it out of v2 builds
+license: BSD-3-Clause AND Apache-2.0
+license-files: [COPYING, PATENTS, abseil-cpp/LICENSE]
+# FFmpeg finds it with `-lilbc` alone (no pkg-config), but the library is partly C++ (WebRTC's rtc_base/checks.cc,
+# live in release builds): the C++ runtime goes on FFmpeg's link, or the ffmpeg program fails to link even though
+# configure's probe (a C symbol) passed. The runtime per platform, as {cxx-runtime} names it for recipes.
+configure:
+  - --enable-libilbc
+  - '--extra-libs=-lstdc++': { platforms: [linux-x64, linux-arm64, linux-armhf, win-x64] }
+  - '--extra-libs=-l:libstdc++.a': { platforms: [linux-musl-*] }
+  - '--extra-libs=-l:libc++.a': { platforms: [win-arm64] }
+  - '--extra-libs=-lc++': { platforms: [osx-*, ios-*, maccatalyst-*, android-*] }
+source: { git: https://github.com/TimothyGu/libilbc, ref: 'v{version}', submodules: true }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libilbc: WebRTC's Internet Low Bitrate Codec as a standalone library (BSD-3-Clause, with WebRTC's patent grant),
+  # static, for FFmpeg's libilbc decoder and encoder. It compiles against abseil-cpp's headers (a submodule; nothing of
+  # abseil is linked). Its install also puts in a test program and docs, which are removed.
+  system: cmake
+  after:
+    - remove: { path: '{deps}/bin/ilbc_test*' }
+    - remove: { path: '{deps}/share/doc/libilbc', recursive: true }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libilbc.pc',
+          libs-private: { add: '{cxx-runtime}', missing: after-libs },
+        }

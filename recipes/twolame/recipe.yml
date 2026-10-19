@@ -1,0 +1,29 @@
+# The release tarball (its configure generated); the git tree would need autotools plus the docs' asciidoc.
+name: twolame
+provides: twolame
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+# FFmpeg finds it with a plain -ltwolame probe, which a static library calling the maths library fails
+# without libm on the link
+configure: [--enable-libtwolame, --extra-libs=-lm]
+source:
+  { url: 'https://github.com/njh/twolame/releases/download/{version}/twolame-{version}.tar.gz' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/njh/twolame }
+platforms: all
+build:
+  # TwoLAME: MPEG Audio Layer 2 encoder (LGPL-2.1-or-later), static, for FFmpeg's libtwolame encoder. FFmpeg finds it
+  # with `-ltwolame` (no pkg-config) and needs 0.3.10 or later. Only libtwolame/ and the .pc: the frontend wants
+  # libsndfile, and doc/ and tests/ aren't needed.
+  system: autotools
+  args: [--disable-shared, --enable-static, --with-pic, --disable-sndfile]
+  make-targets: [-C, libtwolame]
+  install-targets: [-C, libtwolame, install]
+  after:
+    - [make, install-pkgconfigDATA]
+  platforms:
+    # twolame.h declares its API dllimport on Windows unless LIBTWOLAME_STATIC is defined, which FFmpeg doesn't
+    # define: the installed header is made to declare the static library's plain symbols.
+    'win-*':
+      after:
+        - replace-in-file:
+            { path: '{deps}/include/twolame.h', from: '__declspec(dllimport)', to: '' }
