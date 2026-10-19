@@ -896,16 +896,19 @@ describe('opencl-headers', () => {
   });
 });
 
-// The Khronos ICD loader, static, against the headers in deps; mingw names it OpenCL.a, which -lOpenCL can't find.
+// The Khronos ICD loader, static, against the headers in deps; mingw names it OpenCL.a, which -lOpenCL can't find, and
+// its .pc leaves out ole32 (StringFromGUID2) on Windows.
 describe('opencl-icd-loader', () => {
+  const pc = (privates: string) =>
+    `Name: OpenCL\nRequires: OpenCL-Headers\nLibs: -L\${libdir} -lOpenCL\nLibs.private: ${privates}\n`;
   it.each(platformsOf('opencl-icd-loader'))('%s', async (platform) => {
     const h = fake(platform);
+    const win = platform.startsWith('win-');
+    const privates = win ? '-lcfgmgr32 -lruntimeobject' : '-pthread -ldl';
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
-        put(
-          join(h.deps, 'lib', platform.startsWith('win-') ? 'OpenCL.a' : 'libOpenCL.a'),
-          '!<arch>\n',
-        );
+        put(join(h.deps, 'lib', win ? 'OpenCL.a' : 'libOpenCL.a'), '!<arch>\n');
+        put(pcPath(h, 'OpenCL'), pc(privates));
       }
       return undefined;
     };
@@ -918,9 +921,8 @@ describe('opencl-icd-loader', () => {
         '-DBUILD_TESTING=OFF',
       ]),
     );
-    expect(h.files(join(h.deps, 'lib')).filter((f) => !f.startsWith('pkgconfig/'))).toEqual([
-      'libOpenCL.a',
-    ]);
+    expect(h.files(join(h.deps, 'lib'))).toEqual(['libOpenCL.a', 'pkgconfig/OpenCL.pc']);
+    expect(h.read(pcPath(h, 'OpenCL'))).toBe(pc(win ? `${privates} -lole32` : privates));
   });
   it('needs the headers, and is the opencl option', () => {
     expect(recipe('opencl-icd-loader').needs).toEqual([{ name: 'opencl-headers' }]);

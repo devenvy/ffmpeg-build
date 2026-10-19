@@ -16,7 +16,8 @@ build:
   # system's libOpenCL would, so the build needs no OpenCL library on the machine it runs on: without a driver, OpenCL
   # simply has no platforms. Static, as Khronos allows "in controlled environments"; FFmpeg's libraries export only
   # their own symbols, so the loader's can't clash with a system libOpenCL. Neither the layer-info tool nor the tests.
-  # Its OpenCL.pc carries what a static link needs (-ldl and threads; cfgmgr32 and runtimeobject on Windows).
+  # Its OpenCL.pc carries most of what a static link needs (-ldl and threads; cfgmgr32 and runtimeobject on Windows);
+  # on Windows it also calls ole32's StringFromGUID2, which the .pc leaves out.
   system: cmake
   args:
     [
@@ -25,8 +26,11 @@ build:
       -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF,
       -DBUILD_TESTING=OFF,
     ]
-  after:
-    # mingw: the loader drops the lib prefix (for OpenCL.dll), so its static library is OpenCL.a, which -lOpenCL
-    # doesn't find
-    - move: { from: '{deps}/lib/OpenCL.a', to: '{deps}/lib/libOpenCL.a' }
-      when: { exists: '{deps}/lib/OpenCL.a' }
+  platforms:
+    'win-*':
+      after:
+        # mingw: the loader drops the lib prefix (for OpenCL.dll), so its static library is OpenCL.a, which -lOpenCL
+        # doesn't find
+        - move: { from: '{deps}/lib/OpenCL.a', to: '{deps}/lib/libOpenCL.a' }
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/OpenCL.pc', libs-private: { add: -lole32 } }
