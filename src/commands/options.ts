@@ -28,13 +28,16 @@ export function optionFacts(data: EngineData, major: string): OptionFacts[] {
     .filter((o) => !alwaysBuilt(o))
     .map((o): OptionFacts => {
       const names = [...new Set(o.libraries.map((d) => d.name))];
-      // where FFmpeg offers it and, for a library-backed option, that platform's library builds
+      // where FFmpeg offers it and, for a library-backed option, that platform's library builds (or it is built in)
       const platforms = expandPlatforms(o.platforms ?? ['all']).filter((p) => {
         if (!o.libraries.length) {
           return true;
         }
         const lib = optionRecipe(o, p);
-        return lib !== undefined && platformMatches(p, data.recipes.get(lib)!.platforms);
+        if (!lib) {
+          return o.builtin; // built in where none of its libraries applies
+        }
+        return platformMatches(p, data.recipes.get(lib)!.platforms);
       });
       return {
         name: o.name,

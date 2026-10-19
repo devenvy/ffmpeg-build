@@ -12,6 +12,7 @@ import { optionFacts } from '../src/commands/options.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { formatReport } from '../src/format.ts';
 import { packageRoot } from '../src/paths.ts';
+import { PLATFORMS } from '../src/platforms.ts';
 import { parseProfileText } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
 import { parseFolderText, targetProfile } from '../src/targets.ts';
@@ -1001,6 +1002,60 @@ describe("linux-arm64 and linux-musl-arm64 plan the published builds' configure 
       expect(of(platform).recipes).toContain('vulkan-loader');
       expect(of(platform).options).not.toContain('vpl');
       expect(data.platforms.get(platform)).toBeDefined();
+    }
+  });
+});
+
+// iconv, bzlib and lzma: none of them names a component of its own (they work inside existing ones: subtitle
+// character sets, bzip2-compressed Matroska tracks, LZMA-compressed TIFF), so the checks are what each platform builds
+// and passes. FFmpeg probes the C library's iconv even under --disable-autodetect (glibc, musl and Android's have
+// it); Windows has none and Apple's is a library of its own, so those build GNU libiconv and link it.
+describe('iconv, bzlib and lzma', () => {
+  const ownLibiconv = /^(win|osx|ios|maccatalyst)-/;
+  const planOn = (platform: string) => {
+    const r = parseProfileText(
+      `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: lgplv2\nwith: [iconv, bzlib, lzma]\n`,
+      't.yml',
+    );
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    const plan = planProfile(r.profile, data, { '9': '9.0.2' });
+    expect(plan.errors).toEqual([]);
+    return plan.cells[0]!;
+  };
+
+  it.each(PLATFORMS)('%s builds bzip2 and xz, and libiconv where the system has no iconv', (p) => {
+    const cell = planOn(p);
+    expect(cell.options).toEqual(['bzlib', 'iconv', 'lzma']);
+    expect([...cell.recipes].sort()).toEqual(
+      ownLibiconv.test(p) ? ['bzip2', 'libiconv', 'xz'] : ['bzip2', 'xz'],
+    );
+    const flags = configureFlags(data, cell);
+    expect(flags).toEqual(
+      expect.arrayContaining(['--enable-iconv', '--enable-bzlib', '--enable-lzma']),
+    );
+    expect(flags.includes('--extra-libs=-liconv')).toBe(ownLibiconv.test(p));
+  });
+
+  it('options offers each on every platform and in every license', () => {
+    for (const name of ['iconv', 'bzlib', 'lzma']) {
+      const option = optionFacts(data, '9').find((o) => o.name === name)!;
+      expect(option.platforms, name).toEqual(PLATFORMS);
+      expect(option.licenses, name).toEqual(['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree']);
+    }
+    expect(optionFacts(data, '9').find((o) => o.name === 'iconv')!.libraries).toEqual([
+      {
+        name: 'libiconv',
+        spdx: 'LGPL-2.1-or-later',
+        platforms: PLATFORMS.filter((p) => ownLibiconv.test(p)),
+      },
+    ]);
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => ['iconv', 'bzlib', 'lzma'].includes(o))).toEqual([]);
     }
   });
 });

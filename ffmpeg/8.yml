@@ -157,6 +157,13 @@ options:
   ass: { needs: libass, min: 0.11.0, ships: { filters: [ass, subtitles] } }
   xml2: { needs: libxml2, ships: { demuxers: [dash] } }
   zlib: { needs: zlib }
+  bzlib: { needs: bzip2 }
+  lzma: { needs: xz }
+  # FFmpeg probes the C library's iconv even under --disable-autodetect, so glibc, musl and Android (API 28+) builds
+  # have it whether or not a target lists it (listing it makes configure fail without it): built in there. Windows has
+  # no iconv and Apple's is a library of its own: GNU libiconv is built and linked there.
+  iconv:
+    { builtin: true, needs: [{ libiconv: { platforms: [win-*, osx-*, ios-*, maccatalyst-*] } }] }
 
   # network
   srt: { needs: srt, min: 1.3.0, ships: { protocols: [srt] } }

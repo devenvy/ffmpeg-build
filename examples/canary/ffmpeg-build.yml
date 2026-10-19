@@ -20,6 +20,9 @@ bases:
         chromaprint,
         xml2,
         zlib,
+        bzlib,
+        lzma,
+        iconv,
         srt,
         rist,
         whisper,
@@ -47,13 +50,14 @@ bases:
     with: [kvazaar, opencore-amrnb, opencore-amrwb, placebo, vo-amrwbenc, vulkan]
 targets:
   # MoltenVK, which no Linux or Windows target builds: on macOS its dylib and ICD manifest ship beside the Khronos
-  # loader. Just Vulkan and libplacebo on it, to keep the macOS run short. (The static MoltenVK of iOS and Mac Catalyst
-  # is built by examples/test-builds: a canary iOS target would need all four xcframework slices.)
+  # loader. Just Vulkan and libplacebo on it, to keep the macOS run short, and iconv, the one library only Apple and
+  # Windows build (GNU libiconv: the C library has no iconv FFmpeg links by itself there). (The static MoltenVK of iOS
+  # and Mac Catalyst is built by examples/test-builds: a canary iOS target would need all four xcframework slices.)
   osx-arm64-lgplv3:
     platform: osx-arm64
     license: lgplv3
     ffmpeg: '9'
-    with: [vulkan, placebo]
+    with: [vulkan, placebo, iconv]
   linux-x64-gplv2:
     platform: linux-x64
     license: gplv2
