@@ -1,0 +1,23 @@
+name: libsndfile
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+source:
+  url: 'https://github.com/libsndfile/libsndfile/releases/download/{version}/libsndfile-{version}.tar.xz'
+versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/libsndfile/libsndfile }
+# where PulseAudio's client library builds
+platforms: [linux-*]
+build:
+  # libsndfile: audio file reading and writing (LGPL-2.1-or-later), static (position-independent), linked into
+  # PulseAudio's shared libpulsecommon, which needs it (for sample uploads; FFmpeg's pulse devices don't use them). Its
+  # own formats only: no FLAC, Vorbis, Opus or MPEG libraries, no programs, examples or tests.
+  system: cmake
+  args:
+    [
+      -DENABLE_EXTERNAL_LIBS=OFF,
+      -DENABLE_MPEG=OFF,
+      -DBUILD_PROGRAMS=OFF,
+      -DBUILD_EXAMPLES=OFF,
+      -DBUILD_TESTING=OFF,
+      -DENABLE_CPACK=OFF,
+      -DENABLE_PACKAGE_CONFIG=OFF,
+    ]

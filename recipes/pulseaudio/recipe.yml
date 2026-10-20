@@ -1,0 +1,51 @@
+name: pulseaudio
+provides: pulse
+license: LGPL-2.1-or-later
+license-files: [LICENSE, LGPL]
+configure: [--enable-libpulse]
+needs: [libsndfile]
+source:
+  { url: 'https://www.freedesktop.org/software/pulseaudio/releases/pulseaudio-{version}.tar.xz' }
+versions:
+  {
+    listing: 'https://www.freedesktop.org/software/pulseaudio/releases/',
+    files: '^pulseaudio-(\d+\.\d+)\.tar\.xz$',
+  }
+platforms: [linux-*]
+# shipped beside FFmpeg: PulseAudio builds its client library only shared (libpulse.so.0, on its private
+# libpulsecommon-<version>.so), and it speaks PulseAudio's native protocol, which a PulseAudio server and PipeWire's
+# pipewire-pulse both serve
+runtime: ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so']
+build:
+  # PulseAudio's client library (LGPL-2.1-or-later), for FFmpeg's pulse input and output devices: no server, no
+  # optional dependencies (D-Bus, GLib, X11, systemd, ...), no docs, man pages or tests. Its libpulsecommon takes
+  # libsndfile in statically. The system's client configuration (/etc/pulse/client.conf), not the build's; installed
+  # are the libraries, headers and .pc files (meson's runtime and devel tags), not the configuration or completions.
+  system: none
+  platforms:
+    # shipped on musl: they ask for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml)
+    'linux-musl-*': { env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608' } }
+  steps:
+    # no translations (none are installed: the images have no gettext), so no <libintl.h>, which musl hasn't got:
+    # its meson.build turns NLS on whatever it finds
+    - replace-in-file: { path: meson.build, from: "cdata.set('ENABLE_NLS', 1)", to: '' }
+    - - meson
+      - setup
+      - _build
+      - .
+      - '--prefix={deps}'
+      - --libdir=lib
+      - --buildtype=release
+      - --sysconfdir=/etc
+      - --localedir=/usr/share/locale
+      - '{meson-cross-args}'
+      - -Dauto_features=disabled
+      - -Ddaemon=false
+      - -Dclient=true
+      - -Ddoxygen=false
+      - -Dman=false
+      - -Dtests=false
+      - -Dbashcompletiondir=no
+      - -Dzshcompletiondir=no
+    - [meson, compile, -C, _build]
+    - [meson, install, -C, _build, --tags, 'runtime,devel']

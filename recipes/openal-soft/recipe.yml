@@ -1,0 +1,65 @@
+name: openal-soft
+provides: openal
+# OpenAL Soft (LGPL-2.0-or-later), with code under the BSD 3-Clause licence (its BSD-3Clause), its modified PFFFT
+# (LICENSE-pffft: BSD-like terms of NCAR's; SPDX has no identifier for it) and the {fmt} it bundles (MIT; the text is kept
+# here, since its folder is named by fmt's version)
+license: LGPL-2.0-or-later AND BSD-3-Clause AND LicenseRef-pffft AND MIT
+license-files: [COPYING, BSD-3Clause, LICENSE-pffft, { recipe: fmt-LICENSE }]
+configure: [--enable-openal]
+# on Linux, ALSA's headers: its ALSA backend, which loads the system's libasound.so.2 at run time (the default
+# device, through ALSA's plugins, reaches PulseAudio and PipeWire too)
+needs: [{ alsa-lib: { platforms: [linux-*] } }]
+source: { git: https://github.com/kcat/openal-soft.git, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+# where its capture reaches the system's audio and is checked: Linux, Windows and macOS. Not linux-armhf: its CMake
+# (Debian's 3.25) lacks the BUILD_LOCAL_INTERFACE (3.26) OpenAL Soft's CMakeLists.txt links its {fmt} with.
+platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*]
+build:
+  # OpenAL Soft, static, for FFmpeg's openal input device (capture). No utilities, examples, tests, sample
+  # configuration, HRTF data or presets, and no C++20 modules. Backends: ALSA (and OSS) on Linux, loaded at run time
+  # (ALSOFT_DLOPEN); WASAPI, DirectSound and WinMM on Windows; Core Audio on macOS. A C++ library: its .pc gets the
+  # C++ runtime a static link needs.
+  system: cmake
+  args:
+    [
+      -DLIBTYPE=STATIC,
+      -DALSOFT_UTILS=OFF,
+      -DALSOFT_EXAMPLES=OFF,
+      -DALSOFT_TESTS=OFF,
+      -DALSOFT_INSTALL_CONFIG=OFF,
+      -DALSOFT_INSTALL_HRTF_DATA=OFF,
+      -DALSOFT_INSTALL_AMBDEC_PRESETS=OFF,
+      -DALSOFT_INSTALL_EXAMPLES=OFF,
+      -DALSOFT_INSTALL_UTILS=OFF,
+      -DALSOFT_UPDATE_BUILD_VERSION=OFF,
+      -DALSOFT_ENABLE_MODULES=OFF,
+      -DALSOFT_BACKEND_PIPEWIRE=OFF,
+      -DALSOFT_BACKEND_PULSEAUDIO=OFF,
+      -DALSOFT_BACKEND_JACK=OFF,
+      -DALSOFT_BACKEND_SNDIO=OFF,
+      -DALSOFT_BACKEND_PORTAUDIO=OFF,
+      -DALSOFT_BACKEND_SDL2=OFF,
+      -DALSOFT_BACKEND_SDL3=OFF,
+    ]
+  platforms:
+    'linux-*': { args: [-DALSOFT_REQUIRE_ALSA=ON] }
+    # its .pc leaves out the Windows libraries a static link needs: COM's (ole32), the known folders' (shell32, uuid)
+    'win-*':
+      after:
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/openal.pc',
+              libs-private: { add: -lole32 -lshell32 -luuid },
+            }
+  before:
+    # alc.cpp passes &EffectSlotCluster::operator* (a std::unique_ptr's) to views::transform, which a newer libc++
+    # (llvm-mingw's, win-arm64) can't deduce: a lambda dereferences the same
+    - replace-in-file:
+        {
+          path: alc/alc.cpp,
+          from: 'std::views::transform(&ContextBase::EffectSlotCluster::operator*)',
+          to: 'std::views::transform([](auto &cluster) -> auto& { return *cluster; })',
+        }
+  after:
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/openal.pc', libs-private: { append: '{cxx-runtime}' } }

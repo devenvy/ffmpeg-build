@@ -110,6 +110,11 @@ auto-components:
   - cdio
   - avisynth
   - vapoursynth
+  - alsa
+  - pulse
+  - jack
+  - sndio
+  - openal
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
@@ -450,3 +455,15 @@ options:
   # the user's AviSynth+ or VapourSynth at run time
   avisynth: { needs: avisynth-headers, ffmpeg-license: gpl, ships: { demuxers: [avisynth] } }
   vapoursynth: { needs: vapoursynth-headers, ships: { demuxers: [vapoursynth] } }
+
+  # audio devices (input and output devices, which `ffmpeg -devices` lists; devices aren't a ships: kind). ALSA's,
+  # PulseAudio's and JACK's client libraries ship beside FFmpeg as shared libraries, under their system sonames: the
+  # system's plugins (ALSA), or a substitute (PipeWire's libjack, through pw-jack), then find or replace them.
+  alsa: { needs: alsa-lib, platforms: [linux-*] }
+  pulse: { needs: pulseaudio, platforms: [linux-*] }
+  jack: { needs: jack2, platforms: [linux-*] }
+  # sndio's library, on ALSA on Linux (its sndiod server, or ALSA's devices directly)
+  sndio: { needs: sndio, platforms: [linux-*] }
+  # OpenAL Soft (capture: the openal input device), on the system's audio (on Linux it loads ALSA, PulseAudio or
+  # PipeWire at run time)
+  openal: { needs: openal-soft }

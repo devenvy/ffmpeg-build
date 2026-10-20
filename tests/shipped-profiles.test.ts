@@ -2012,3 +2012,142 @@ describe('protocol and I/O libraries', () => {
     }
   });
 });
+
+// Batch f of #21, devices: the audio input and output devices. Each can be listed where its library builds, in every
+// license (their libraries are LGPL, ISC or permissive); none turns on by itself.
+describe('audio device libraries', () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const linuxAll = PLATFORMS.filter((p) => p.startsWith('linux-'));
+  const where: Record<
+    string,
+    {
+      platforms: readonly string[];
+      recipe: string;
+      recipes: (platform: string) => string[];
+      flags: string[];
+      /** what ships beside FFmpeg's libraries (recipe.yml's runtime:) */
+      runtime: (platform: string) => string[];
+    }
+  > = {
+    alsa: {
+      platforms: linuxAll,
+      recipe: 'alsa-lib',
+      recipes: () => ['alsa-lib'],
+      flags: ['--enable-alsa'],
+      runtime: () => ['lib/libasound.so*'],
+    },
+    pulse: {
+      platforms: linuxAll,
+      recipe: 'pulseaudio',
+      recipes: () => ['libsndfile', 'pulseaudio'],
+      flags: ['--enable-libpulse'],
+      runtime: () => ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so'],
+    },
+    jack: {
+      platforms: linuxAll,
+      recipe: 'jack2',
+      recipes: () => ['jack2'],
+      flags: ['--enable-libjack'],
+      runtime: () => ['lib/libjack.so*'],
+    },
+    // static, on ALSA's shared library
+    sndio: {
+      platforms: linuxAll,
+      recipe: 'sndio',
+      recipes: () => ['alsa-lib', 'sndio'],
+      flags: ['--enable-sndio'],
+      runtime: () => ['lib/libasound.so*'],
+    },
+    // static; on Linux with ALSA's headers (its ALSA backend loads libasound.so.2 at run time); not linux-armhf,
+    // whose CMake is older than OpenAL Soft's CMakeLists.txt needs
+    openal: {
+      platforms: PLATFORMS.filter((p) => /^(linux|win|osx)-/.test(p) && p !== 'linux-armhf'),
+      recipe: 'openal-soft',
+      recipes: (p) => (p.startsWith('linux-') ? ['alsa-lib', 'openal-soft'] : ['openal-soft']),
+      flags: ['--enable-openal'],
+      runtime: (p) => (p.startsWith('linux-') ? ['lib/libasound.so*'] : []),
+    },
+  };
+  const OPTIONS = Object.keys(where);
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const profileOf = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return r.profile;
+  };
+  const planOn = (platform: string, license: string, option: string) =>
+    planProfile(profileOf(platform, license, option), data, { '9': '9.0.2' });
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+  const runtimeOf = (platform: string, option: string) => {
+    const cell = planOn(platform, 'lgplv2', option).cells[0]!;
+    return makeBuildPlan({
+      profile: profileOf(platform, 'lgplv2', option),
+      data,
+      locked: {
+        ffmpeg: { '9': '9.0.2' },
+        libraries: Object.fromEntries(cell.recipes.map((r) => [r, '1.0.0'])),
+        pinned: [],
+      },
+      cell,
+      variant: 'lgplv2',
+      imageId: 'x',
+      cacheDir: mkdtempSync(join(tmpdir(), 'c-')),
+    }).runtime;
+  };
+
+  const builds = OPTIONS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s, in every license', (option, platform) => {
+    for (const license of ALL) {
+      const plan = planOn(platform, license, option);
+      expect(plan.errors, license).toEqual([]);
+      const cell = plan.cells[0]!;
+      expect(cell.options).toEqual([option]);
+      expect([...cell.recipes].sort()).toEqual(where[option]!.recipes(platform));
+      expect(configureFlags(data, cell)).toEqual(expect.arrayContaining(where[option]!.flags));
+    }
+  });
+
+  it.each(builds)('%s on %s ships what it links shared beside FFmpeg', (option, platform) => {
+    expect(runtimeOf(platform, option).sort()).toEqual(where[option]!.runtime(platform));
+  });
+
+  const absent = OPTIONS.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'nonfree', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'nonfree', option)).toContain(`not on ${platform}:`);
+  });
+
+  it('options offers each where it builds, in every license; devices are no ships: kind', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of OPTIONS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(where[name]!.platforms);
+      expect(fact.licenses, name).toEqual(ALL);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!.options[name]!.ships ?? [], `${major} ${name}`).toEqual([]);
+      }
+    }
+  });
+
+  it('brings its devices to a target that restricts them (auto-components)', () => {
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!['auto-components'], `${major} ${name}`).toContain(name);
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => OPTIONS.includes(o))).toEqual([]);
+    }
+  });
+});
