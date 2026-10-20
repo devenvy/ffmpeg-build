@@ -87,11 +87,19 @@ build:
     # 07_build_ffmpeg strips -lgcc_s from every .pc on win-* and linux-musl-*: on mingw it pulls the SHARED unwinder
     # (libgcc_s_seh-1.dll) and collides with -static-libgcc's libgcc_eh ("multiple definition of _Unwind_Resume"); on musl
     # it defeats -static-libgcc (versioned _Unwind_* references that no archive can satisfy). srt.pc is the offender, so
-    # it is stripped here.
-    - replace-in-file: { path: '{deps}/lib/pkgconfig/srt.pc', from: ' -lgcc_s ', to: ' ' }
+    # it is stripped here, wherever it stands in the line (mid-line or last, so each edit may find nothing; on
+    # llvm-mingw's win-arm64 there is no -lgcc_s at all).
+    - replace-in-file:
+        { path: '{deps}/lib/pkgconfig/srt.pc', from: ' -lgcc_s ', to: ' ', optional: true }
       when: { platforms: ['win-*', 'linux-musl-*'] }
     - replace-in-file:
-        { path: '{deps}/lib/pkgconfig/srt.pc', from: ' -lgcc_s$', to: '', regex: true }
+        {
+          path: '{deps}/lib/pkgconfig/srt.pc',
+          from: ' -lgcc_s$',
+          to: '',
+          regex: true,
+          optional: true,
+        }
       when: { platforms: ['win-*', 'linux-musl-*'] }
     # libsrt is C++. srt.pc's Libs.private already lists the C++ runtime on GNU toolchains; upstream also appended it to
     # FFmpeg's EXTRA_LIBS (libstdc++ on GNU/mingw, libc++ on Apple/NDK, -l:libstdc++.a on musl, -l:libc++.a on

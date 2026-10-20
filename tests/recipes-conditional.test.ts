@@ -125,6 +125,24 @@ describe('srt', () => {
       expect(h.read(pcPath(h, 'srt'))).toBe(pc);
     });
   }
+  it.each([
+    ['win-arm64', 'Libs.private: -lc++ -lpthread\n', 'Libs.private: -lc++ -lpthread -l:libc++.a\n'],
+    ['win-x64', 'Libs.private: -lstdc++ -lgcc_s -lgcc\n', 'Libs.private: -lstdc++ -lgcc\n'],
+    [
+      'linux-musl-x64',
+      'Libs.private: -lstdc++ -lgcc_s\n',
+      'Libs.private: -lstdc++ -l:libstdc++.a\n',
+    ],
+  ])(
+    '%s: strips -lgcc_s wherever it stands, or finds none (llvm-mingw)',
+    async (platform, pc, want) => {
+      const h = fake(platform);
+      put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
+      writeFileSync(pcPath(h, 'srt'), pc);
+      await build(h, 'srt');
+      expect(h.read(pcPath(h, 'srt'))).toBe(want);
+    },
+  );
   it('fails when the encryption layer is not in the archive', async () => {
     const h = fake('linux-x64');
     put(join(h.deps, 'lib', 'libmbedcrypto.a'));
