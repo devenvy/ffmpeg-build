@@ -543,6 +543,8 @@ describe('GLib', () => {
 describe('lensfun', () => {
   it.each(platformsOf('lensfun'))('%s', async (platform) => {
     const h = fake(platform);
+    const config = join(h.src, 'include', 'lensfun', 'config.h.in.cmake');
+    put(config, `#define CONF_DATADIR "\${CMAKE_INSTALL_FULL_DATAROOTDIR}/lensfun"\n`);
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
@@ -567,6 +569,8 @@ describe('lensfun', () => {
       ]),
     );
     expect(h.files(h.deps).filter((f) => f.startsWith('share/'))).toEqual([]);
+    // the system's database by default, not the deps folder's (where none is)
+    expect(h.read(config)).toBe('#define CONF_DATADIR "/usr/share/lensfun"\n');
     const win = platform.startsWith('win-') ? ' -DCONF_LENSFUN_STATIC' : '';
     expect(h.read(pcPath(h, 'lensfun'))).toBe(
       `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,

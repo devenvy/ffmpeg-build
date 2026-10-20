@@ -35,6 +35,16 @@ build:
       -DCMAKE_INSTALL_DATAROOTDIR=share,
       -DPYTHON=PYTHON-NOTFOUND,
     ]
+  # Where it looks for a database by default (when the filter's db_path isn't given) is its install prefix's: here
+  # the deps folder, which has none and is a build folder (the staged-binary check refuses it): the usual system one,
+  # where a system's lensfun-data package puts it (Windows' is relative to the library and stays).
+  before:
+    - replace-in-file:
+        {
+          path: include/lensfun/config.h.in.cmake,
+          from: '#define CONF_DATADIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/lensfun"',
+          to: '#define CONF_DATADIR "/usr/share/lensfun"',
+        }
   after:
     - remove: { path: '{deps}/share/lensfun', recursive: true }
     - edit-pkg-config:
