@@ -28,10 +28,6 @@ options:
   # f. Devices
   sdl2: { reason: pending, issue: 21, batch: f, note: 'sdl2 (SDL output device, ffplay)' }
   opengl: { reason: pending, issue: 21, batch: f, note: 'opengl (OpenGL output device)' }
-  libv4l2:
-    { reason: pending, issue: 21, batch: f, note: 'v4l2 (libv4l2, for the v4l2 input device)' }
-  libdc1394: { reason: pending, issue: 21, batch: f, note: 'dc1394 (IIDC FireWire cameras)' }
-  libiec61883: { reason: pending, issue: 21, batch: f, note: 'iec61883 (DV and HDV over FireWire)' }
   appkit: { reason: pending, issue: 21, batch: f, note: 'appkit (macOS framework; built in there)' }
   avfoundation:
     { reason: pending, issue: 21, batch: f, note: 'avfoundation (Apple capture device; built in)' }

@@ -38,11 +38,13 @@ libraries:
   leptonica: { version: 1.87.0, commit: 13275a278eb55b5746e33f95fbf5a2c8f604b3ab }
   libaribcaption: { version: 1.1.2, commit: c64c23b8905ba514b87c9789269e9f66f949ffe0 }
   libass: { version: 0.17.5, commit: 4a05d8127f525943ebf45fdc6497c9e665947f0d }
+  libavc1394: { version: 0.5.4, sha256: 7cb1ff09506ae911ca9860bef4af08c2403f3e131f6c913a2cbd6ddca4215b53 }
   libbluray: { version: 1.5.0, sha256: f676408e91a5d321abf8b8d4dfdae36205c297dab5c54c3ec519639025f474a2 }
   libbs2b: { version: 3.1.0, sha256: 6aaafd81aae3898ee40148dd1349aab348db9bfae9767d0e66e0b07ddd4b2528 }
   libcaca: { version: 20, sha256: ff9aa641af180a59acedc7fc9e663543fb397ff758b5122093158fd628125ac1 }
   libcdio: { version: 2.4.0, sha256: 8e6a305f81e45a78b41ce696d34497cc208d97075469d7304c11a6d44bf006ac }
   libcdio-paranoia: { version: 2.0.2, sha256: 186892539dedd661276014d71318c8c8f97ecb1250a86625256abd4defbf0d0c }
+  libdc1394: { version: 2.2.7, sha256: 537ceb78dd3cef271a183f4a176191d1cecf85f025520e6bd3758b0e19e6609f }
   libdrm: { version: 2.4.134, commit: e984d448b8b17aab853369e6c203e53719f46de1 }
   libdvdnav: { version: 7.0.0, sha256: a2a18f5ad36d133c74bf9106b6445806fa253b09141a46392550394b647b221e }
   libdvdread: { version: 7.1.1, sha256: a0d47876548bec806774bbf8dbf20bb19ba139464383156b32eb8e59915b90a9 }
@@ -51,6 +53,7 @@ libraries:
   libgme: { version: 0.6.5, commit: 9e23d10f9fd2a6a2f33b10912dd8dc7153258995 }
   libgsm: { version: 1.0.24, sha256: a3c40c6471928383f4abfcb2e8f24012a1f562be2f17b8d672145d5986681a92 }
   libiconv: { version: 1.19, sha256: 88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6 }
+  libiec61883: { version: 1.2.0, sha256: d1e02c7e276fac37313a2f8c1c33d7a9e19282ff16f32e72435428ff5121f09e }
   libilbc: { version: 3.0.4, commit: cd064edf2c6c104a4e1fd87b34fd24cfa6dbe401 }
   libjxl: { version: 0.12.0, commit: a7a9c787341cf703dede03c2009fa460cae5e5df }
   liblc3: { version: 1.1.3, commit: 96a3af0beb5487aca3b98a4b992a539a1f6d80d1 }
@@ -62,6 +65,7 @@ libraries:
   libplacebo: { version: 7.360.1, commit: cee9b076f2c63104ccfd497fa79c39a867293ec4 }
   libpng: { version: 1.6.59, commit: cd952f49f95bb27154ae77dbb103032d95f6e580 }
   libqrencode: { version: 4.1.1, commit: 715e29fd4cd71b6e452ae0f4e36d917b43122ce8 }
+  libraw1394: { version: 2.1.2, sha256: 03ccc69761d22c7deb1127fc301010dd13e70e44bb7134b8ff0d07590259a55e }
   librist: { version: 0.2.20, commit: 4f45ef8f78983892d52ccd52d9f675435b23738f }
   librsvg: { version: 2.63.3, commit: 230d2c9ee3e6d552a981374e8a3c1e2c28604768 }
   librtmp: { version: 2.6, commit: 138fdb258d9fc26f1843fd1b891180416c9dc575 }
@@ -130,6 +134,7 @@ libraries:
   tesseract: { version: 5.5.3, commit: db0ec62f81b0737fbbe184d8fea40af5738f8eef }
   twolame: { version: 0.4.0, sha256: cc35424f6019a88c6f52570b63e1baf50f62963a3eac52a03a800bb070d7c87d }
   uavs3d: { version: 1.2, commit: 0e20d2c291853f196c68922a264bcd8471d75b68 }
+  v4l-utils: { version: 1.32.0, sha256: 6828828a17775526eb93fb258a9294d1d1073d633c344dd71ecd4e7a1ffb7dfc }
   vapoursynth-headers: { version: 81, commit: dd11a9da6f8e2bb24ab4bb084d44bf01fb93612a }
   vid.stab: { version: 1.1.2, commit: 92bc0b0f369f2a88aaacf25eac3a10f8415308fc }
   vo-amrwbenc: { version: 0.1.3, sha256: 5652b391e0f0e296417b841b02987d3fd33e6c0af342c69542cbb016a71d9d4e }

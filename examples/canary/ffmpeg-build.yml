@@ -86,6 +86,9 @@ bases:
         xcb,
         xlib,
         caca,
+        v4l2,
+        dc1394,
+        iec61883,
       ]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
