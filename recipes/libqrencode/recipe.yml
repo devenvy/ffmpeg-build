@@ -1,0 +1,13 @@
+name: libqrencode
+provides: qrencode
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+configure: [--enable-libqrencode]
+source: { git: https://github.com/fukuchi/libqrencode, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libqrencode: QR Code encoding (LGPL-2.1-or-later), static, for FFmpeg's qrencode and qrencodesrc filters (found
+  # through libqrencode.pc). The library alone: no qrencode program (and so no libpng) or tests.
+  system: cmake
+  args: [-DWITH_TOOLS=NO, -DWITH_TESTS=NO, -DWITHOUT_PNG=YES]

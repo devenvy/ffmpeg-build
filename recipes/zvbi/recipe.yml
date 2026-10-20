@@ -1,0 +1,78 @@
+name: zvbi
+provides: zvbi
+# COPYING.md: the library's sources are LGPL-2.0-or-later, but for src/pdc.* and src/packet-830.* (Teletext packet 8/30
+# and Program Delivery Control, which the Teletext decoder uses), GPL-2.0-only; src/ure.* is MIT, src/dvb/*.h and
+# src/strptime.* LGPL-2.1-or-later. As compiled, then, GPL-2.0-only rules: gplv2 builds (and nonfree) only, though
+# FFmpeg's configure counts zvbi 0.2.28 and later as LGPL.
+license: LGPL-2.0-or-later AND GPL-2.0-only AND LGPL-2.1-or-later AND MIT
+license-files: [COPYING.md]
+configure: [--enable-libzvbi]
+# iconv: the C library's on Linux and Android (API 28), GNU libiconv's elsewhere
+needs: [{ libiconv: { platforms: [win-*, osx-*, ios-*, maccatalyst-*] } }]
+source: { git: https://github.com/zapping-vbi/zvbi, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libzvbi: VBI and Teletext decoding, static, for FFmpeg's libzvbi_teletext decoder (found through zvbi-0.2.pc,
+  # 0.2.28 or later). The library alone: no capture interfaces (V4L, DVB, BSD bktr, the proxy daemon), programs,
+  # examples, tests or docs.
+  #
+  # - Its configure.ac takes gettext's macros (native language support, and AM_ICONV_LINK for iconv) from the gettext
+  #   tools, which the toolchain images haven't got: they go, without translations (the library's few messages stay
+  #   English), and iconv is searched for directly (GNU libiconv's symbol is libiconv_open).
+  # - It would take libpng (PNG export of Teletext pages, which FFmpeg doesn't use) from whatever the build has: told
+  #   there is none.
+  # - AC_FUNC_MALLOC and AC_FUNC_REALLOC assume a cross build's malloc(0) returns NULL and call rpl_malloc and
+  #   rpl_realloc, which nothing defines (Android's link failed): every C library this builds for returns a pointer.
+  # - The configure script is made after these edits (autoreconf -fi; `bootstrap:` would run before them).
+  system: autotools
+  # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it; GNU libiconv
+  # is found in deps (it has no .pc)
+  env:
+    {
+      CFLAGS: '+= -O2',
+      CPPFLAGS: '-I{deps}/include {CPPFLAGS|}',
+      LDFLAGS: '-L{deps}/lib {LDFLAGS|}',
+    }
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --with-pic,
+      --disable-v4l,
+      --disable-dvb,
+      --disable-bktr,
+      --disable-proxy,
+      --disable-tests,
+      --disable-examples,
+      --without-doxygen,
+      --without-x,
+      ac_cv_lib_png_png_destroy_write_struct=no,
+      ac_cv_func_malloc_0_nonnull=yes,
+      ac_cv_func_realloc_0_nonnull=yes,
+    ]
+  make-targets: [-C, src]
+  install-targets: [-C, src, install]
+  after:
+    - [make, install-pkgconfigDATA]
+  before:
+    - replace-in-file:
+        {
+          path: configure.ac,
+          from: "AM_ICONV_LINK\n",
+          to: "AC_SEARCH_LIBS([libiconv_open], [iconv], [am_cv_func_iconv=yes],\n  [AC_SEARCH_LIBS([iconv_open], [iconv], [am_cv_func_iconv=yes])])\n",
+        }
+    - replace-in-file: { path: configure.ac, from: "AM_GNU_GETTEXT_VERSION([0.21])\n", to: '' }
+    - replace-in-file:
+        { path: configure.ac, from: "AM_GNU_GETTEXT([external], [need-ngettext])\n", to: '' }
+    - replace-in-file: { path: configure.ac, from: "  po/Makefile.in\n", to: '' }
+    - replace-in-file: { path: Makefile.am, from: "\tpo \\\n", to: '' }
+    # its last try for pthreads (Android's are in the C library) calls pthread_create undeclared, an error in C99
+    # and later: declared
+    - replace-in-file:
+        {
+          path: configure.ac,
+          from: 'AC_LANG_PROGRAM([[]], [[pthread_create();]])',
+          to: 'AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create(0, 0, 0, 0);]])',
+        }
+    - [autoreconf, -fi]

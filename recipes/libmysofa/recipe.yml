@@ -1,0 +1,52 @@
+name: libmysofa
+provides: mysofa
+license: BSD-3-Clause
+license-files: [LICENSE]
+configure: [--enable-libmysofa]
+needs: [zlib]
+source: { git: https://github.com/hoene/libmysofa, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libmysofa: reads AES69 SOFA files (head-related transfer functions; BSD-3-Clause), static, for FFmpeg's sofalizer
+  # filter (found through libmysofa.pc). The SOFA file itself is the user's (sofalizer's sofa= option); the sample
+  # files the library installs are left out.
+  #
+  # - Its static library is position-independent only when BUILD_SHARED_LIBS is on, which the engine turns off: it
+  #   goes into FFmpeg's shared libraries, so it always is.
+  # - Its .pc's Libs.private is filled in a subdirectory's scope and comes out empty: zlib and libm, which a static
+  #   link needs, are written there.
+  system: cmake
+  # - It looks for libm with find_library, which a cross toolchain file that searches only deps doesn't find
+  #   (linux-armhf): named outright (Windows' build sets it empty itself).
+  args:
+    [
+      -DBUILD_TESTS=OFF,
+      -DBUILD_STATIC_LIBS=ON,
+      -DCODE_COVERAGE=OFF,
+      -DADDRESS_SANITIZE=OFF,
+      -DMATH=m,
+    ]
+  before:
+    - replace-in-file:
+        {
+          path: src/CMakeLists.txt,
+          from: 'POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}',
+          to: 'POSITION_INDEPENDENT_CODE ON',
+        }
+    # mysofa_load(NULL) opens <install prefix>/share/libmysofa/default.sofa, which would put the deps folder in the
+    # library (the staged-binary check refused it on Apple) and names a file the build doesn't ship: the system's
+    # place for it instead (where Linux distributions' libmysofa packages put it)
+    - replace-in-file:
+        {
+          path: src/config.h.in,
+          from: '#define CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}"',
+          to: '#define CMAKE_INSTALL_PREFIX "/usr"',
+        }
+  after:
+    - remove: { path: '{deps}/share/libmysofa', recursive: true }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libmysofa.pc',
+          libs-private: { set: '-lz -lm', missing: after-libs },
+        }
