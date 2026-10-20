@@ -90,6 +90,10 @@ auto-components:
   - zvbi
   - aribb24
   - aribcaption
+  - rubberband
+  - ladspa
+  - lv2
+  - frei0r
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }

@@ -90,6 +90,10 @@ auto-components:
   - zvbi
   - aribb24
   - aribcaption
+  - rubberband
+  - ladspa
+  - lv2
+  - frei0r
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
