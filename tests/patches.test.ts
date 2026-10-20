@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { fixtureData, fixtureProfilesDir } from './helpers.ts';
-import { checkProfile } from '../src/check.ts';
+import { plannedPatches } from '../src/build/plan.ts';
+import { checkProfile, profileAdditions } from '../src/check.ts';
 import { formatReport } from '../src/format.ts';
 import { loadProfile } from '../src/profile.ts';
 
@@ -128,5 +129,66 @@ describe('about.yml values', () => {
     ).toContain(
       '✗ patches: patches/acme-muxer: about.yml: ffmpeg: 9.0 is not an FFmpeg major; write 9',
     );
+  });
+
+  describe('what a set adds (adds:)', () => {
+    const adds = (list: string) =>
+      `name: acme-muxer\nlicense: proprietary\nlicense-files: [LICENSE]\nffmpeg: 9\nadds: ${list}\n`;
+    /** check, the target restricting these kinds */
+    const checkWith = (file: string, components: Record<string, string[]>) => {
+      const loaded = loadProfile(file);
+      if (!loaded.ok) {
+        throw new Error(loaded.errors.join('\n'));
+      }
+      return formatReport(
+        checkProfile({ ...loaded, profile: { ...loaded.profile, components } }, data),
+      );
+    };
+
+    it("lets components: name what a set it applies adds, FFmpeg's own spelling or not", () => {
+      const file = folder(
+        'nonfree',
+        adds('{ demuxers: [acme], decoders: [{ adpcm_acme: { listed-as: acme_adpcm } }] }'),
+        ['9'],
+        '9',
+      );
+      expect(
+        checkWith(file, { demuxers: ['mov', 'acme'], decoders: ['h264', 'adpcm_acme'] }),
+      ).not.toContain('✗');
+    });
+
+    it('gives the build what each set adds, for configure', () => {
+      const file = folder(
+        'nonfree',
+        adds('{ demuxers: [acme], decoders: [{ adpcm_acme: { listed-as: acme_adpcm } }] }'),
+        ['9'],
+        '9',
+      );
+      const loaded = loadProfile(file);
+      if (!loaded.ok) {
+        throw new Error(loaded.errors.join('\n'));
+      }
+      expect(plannedPatches(loaded.profile, '9')[0]!.adds).toEqual({
+        decoders: ['adpcm_acme'],
+        demuxers: ['acme'],
+      });
+      expect(profileAdditions(loaded.profile).names.decoders).toEqual({ adpcm_acme: 'acme_adpcm' });
+    });
+
+    it('refuses those names for a target without the set', () => {
+      const file = folder('nonfree', proprietary('9'), ['9'], '9');
+      expect(checkWith(file, { demuxers: ['mov', 'acme'] })).toContain(
+        "FFmpeg 9 has no demuxer called acme (it's spelled as configure lists it",
+      );
+    });
+
+    it('refuses an addition FFmpeg already has, and a kind that is not one', () => {
+      expect(check(folder('nonfree', adds('{ demuxers: [mov, acme] }'), ['9'], '9'))).toContain(
+        '✗ patches: patches/acme-muxer: about.yml: adds: FFmpeg 9 already has a demuxer called mov',
+      );
+      expect(check(folder('nonfree', adds('{ codecs: [acme] }'), ['9'], '9'))).toContain(
+        '✗ patches: patches/acme-muxer: about.yml: adds',
+      );
+    });
   });
 });

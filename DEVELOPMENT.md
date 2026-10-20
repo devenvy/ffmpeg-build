@@ -193,7 +193,10 @@ option there). One that no option builds on any platform is only noted.
   canary target builds in full. A failure there is a new upstream release that broke a recipe, found before any
   consumer's update PR meets it.
 - **Every night** (`ffmpeg-support.yml`): `scripts/ffmpeg-support.ts` keeps `ffmpeg/<major>.yml`'s releases equal to
-  FFmpeg's tags and reports what a new release's configure adds, drops or reclassifies. When `ffmpeg/` changed it
+  FFmpeg's tags and reports what a new release's configure adds, drops or reclassifies. It also writes
+  `ffmpeg/components/<major>.yml` from each major's newest release (its sources archive): the component lists, the
+  runtime names that differ from configure's (read through FFmpeg's macros by `src/c-macros.ts`), and what each
+  component needs of configure's options. When `ffmpeg/` changed it
   opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. A new major is only reported: adding its
   `ffmpeg/<major>.yml` (and `ffmpeg/components/<major>.yml`, which `scripts/ffmpeg-support.ts --write` writes once the
   major's file exists) is a person's review, and the engine release that ships it moves every consumer's

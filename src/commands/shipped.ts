@@ -4,20 +4,23 @@
 // own lookups. Configure taking an option proves only that it was asked for: FFmpeg drops a component whose own needs
 // aren't met without a word (FFmpeg 8.1.2's Vulkan builds shipped with no Vulkan filters, from a glslc too old), and
 // this is what catches it. Expectations come from the build's own configure line, so nothing is kept per target.
+import { optionConfigure, runtimeName } from '../component-lists.ts';
+import { type EngineData, optionsOf } from '../engine-data.ts';
 import {
-  type EngineData,
-  type OptionInfo,
-  optionRecipe,
-  optionsOf,
-  valuesOn,
-} from '../engine-data.ts';
-import { COMPONENT_FLAG, COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
+  COMPONENT_FLAG,
+  COMPONENT_KINDS,
+  type ComponentKind,
+  type RuntimeNames,
+} from '../ffmpeg-components.ts';
 import { platformMatches } from '../platforms.ts';
 import { SHIPPED_KINDS, type ShippedKind } from '../schema/engine.ts';
 
 import type { Step } from './test-library.ts';
 
-/** A component the build must have: `kind` is the list it is in (ffmpeg -<kind>), `option` the option that adds it. */
+/**
+ * A component the build must have: `kind` is the list it is in (ffmpeg -<kind>), `option` the option that adds it,
+ * `name` the name the build lists it by (a format with several: all of them, `mov,mp4,m4a`).
+ */
 export interface Expected {
   option: string;
   kind: ShippedKind;
@@ -27,24 +30,10 @@ export interface Expected {
 /** Whether the build has a component: true or false, or why that can't be told here. */
 export type Has = (kind: ShippedKind, name: string) => boolean | string;
 
-const words = (configure: string): Set<string> => new Set(configure.split(/\s+/).filter(Boolean));
+/** The name a listing or a lookup finds a component by: a format's first (`mov` of `mov,mp4,m4a`). */
+export const listedAs = (name: string): string => name.split(',')[0]!;
 
-/**
- * An option's FFmpeg flags, by the rule the build passes them by (src/build/plan.ts's optionFlags, which isn't shared:
- * a change to a build module changes every library's cache key): its own `configure:`, else its library's, else
- * `--enable-<name>`.
- */
-function optionConfigure(info: OptionInfo, data: EngineData, platform: string): string[] {
-  if (info.configure) {
-    return info.configure;
-  }
-  const lib = optionRecipe(info, platform);
-  const recipe = lib ? data.recipes.get(lib) : undefined;
-  if (lib) {
-    return recipe ? valuesOn(recipe, 'configure', platform) : [];
-  }
-  return [`--enable-${info.name}`];
-}
+const words = (configure: string): Set<string> => new Set(configure.split(/\s+/).filter(Boolean));
 
 /** The options of FFmpeg `major` this configure line has on: every one of its own --enable- flags is there. */
 export function enabledOptions(
@@ -57,7 +46,7 @@ export function enabledOptions(
   return new Set(
     [...optionsOf(data, major).values()]
       .filter((info) => {
-        const enables = optionConfigure(info, data, platform).filter((f) =>
+        const enables = optionConfigure(data, info, platform).filter((f) =>
           f.startsWith('--enable-'),
         );
         return enables.length > 0 && enables.every((f) => flags.has(f));
@@ -66,48 +55,70 @@ export function enabledOptions(
   );
 }
 
-/** What a build of FFmpeg `major` for `platform` with this configure line must have. */
+/** The components kinds a build lists by name (not hwaccels: -hwaccels lists device types). */
+const LISTED_KINDS = COMPONENT_KINDS.filter(
+  (k): k is ComponentKind & ShippedKind =>
+    k !== 'hwaccels' && (SHIPPED_KINDS as readonly string[]).includes(k),
+);
+const isComponentKind = (k: string): k is ComponentKind =>
+  (COMPONENT_KINDS as readonly string[]).includes(k);
+
+/**
+ * What a build of FFmpeg `major` for `platform` with this configure line must have: what each option on ships, and
+ * every component configure was asked for by name (`--enable-decoder=h264,hevc`: a target's components:, what its
+ * options brought, what its patch sets add). Each by the name the build lists it under (the components file's names:,
+ * and `names` for a patch set's own). In a kind the target restricted, an option's ships count only where asked for:
+ * a support library's (openssl's https) is the target's to list.
+ */
 export function expectedComponents(
   data: EngineData,
   major: string,
   platform: string,
   configure: string,
+  names: RuntimeNames = {},
 ): Expected[] {
   const on = enabledOptions(data, major, platform, configure);
   const options = optionsOf(data, major);
-  const fromOptions: Expected[] = [...on].flatMap((option) =>
+  const flags = configure.split(/\s+/);
+  const asked = (kind: ComponentKind): string[] =>
+    flags
+      .filter((f) => f.startsWith(`--enable-${COMPONENT_FLAG[kind]}=`))
+      // -buildconf records the list as configure quoted it: --enable-muxer='mp4,null'
+      .flatMap((f) =>
+        f
+          .slice(f.indexOf('=') + 1)
+          .replace(/^(['"])(.*)\1$/, '$2')
+          .split(','),
+      )
+      .filter(Boolean);
+  // (ships: hwaccels are device types, which no hwaccel list restricts)
+  const leftOut = (kind: string, name: string): boolean =>
+    isComponentKind(kind) &&
+    kind !== 'hwaccels' &&
+    flags.includes(`--disable-${kind}`) &&
+    !asked(kind).includes(name);
+  const listed = (kind: ShippedKind, name: string): string =>
+    isComponentKind(kind) && kind !== 'hwaccels'
+      ? runtimeName(data, major, kind, name, names)
+      : name;
+  const fromOptions = [...on].flatMap((option) =>
     options
       .get(option)!
       .ships.filter(
         (s) =>
           (!s.platforms || platformMatches(platform, s.platforms)) &&
-          (s.with ?? []).every((o) => on.has(o)),
+          (s.with ?? []).every((o) => on.has(o)) &&
+          !leftOut(s.kind, s.name),
       )
       .map((s) => ({ option, kind: s.kind, name: s.name })),
   );
-  // a restricted kind (components:): --disable-decoders --enable-decoder=h264,hevc. Each name must be in the build,
-  // as `ffmpeg -<kind>` lists it; -hwaccels lists types (vaapi), not these names, so those stay configure's to check
-  const flags = configure.split(/\s+/);
   const has = new Set(fromOptions.map((e) => `${e.kind} ${e.name}`));
-  const fromComponents: Expected[] = COMPONENT_KINDS.filter(
-    (k): k is ComponentKind & ShippedKind =>
-      k !== 'hwaccels' && (SHIPPED_KINDS as readonly string[]).includes(k),
-  )
-    .filter((k) => flags.includes(`--disable-${k}`))
-    .flatMap((kind) =>
-      flags
-        .filter((f) => f.startsWith(`--enable-${COMPONENT_FLAG[kind]}=`))
-        // -buildconf records the list as configure quoted it: --enable-muxer='mp4,null'
-        .flatMap((f) =>
-          f
-            .slice(f.indexOf('=') + 1)
-            .replace(/^(['"])(.*)\1$/, '$2')
-            .split(','),
-        )
-        .filter((name) => name && !has.has(`${kind} ${name}`))
-        .map((name) => ({ option: 'components', kind, name })),
-    );
-  return [...fromOptions, ...fromComponents];
+  const fromComponents = LISTED_KINDS.flatMap((kind) =>
+    asked(kind)
+      .filter((name) => !has.has(`${kind} ${name}`))
+      .map((name) => ({ option: 'components', kind, name })),
+  );
+  return [...fromOptions, ...fromComponents].map((e) => ({ ...e, name: listed(e.kind, e.name) }));
 }
 
 /** Every component any option of FFmpeg `major` names, as the smoke program's `<kind>:<name>` arguments. */
@@ -115,7 +126,13 @@ export function smokeProbes(data: EngineData, major: string): string[] {
   return [
     ...new Set(
       [...optionsOf(data, major).values()].flatMap((o) =>
-        o.ships.map((s) => `${s.kind}:${s.name}`),
+        o.ships.map((s) => {
+          const name =
+            isComponentKind(s.kind) && s.kind !== 'hwaccels'
+              ? listedAs(runtimeName(data, major, s.kind, s.name))
+              : s.name;
+          return `${s.kind}:${name}`;
+        }),
       ),
     ),
   ].sort();

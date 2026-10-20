@@ -4,8 +4,17 @@ import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
 
 import { androidApiProblems, isAndroid } from './android-api.ts';
+import { configureOptions, needsMet, optionConfigure, optionsOn } from './component-lists.ts';
 import { type EngineData, optionsOf, recipeForPin, resolveName } from './engine-data.ts';
-import { COMPONENT_FLAG, COMPONENT_KINDS } from './ffmpeg-components.ts';
+import {
+  COMPONENT_FLAG,
+  COMPONENT_KINDS,
+  type ComponentKind,
+  type Components,
+  type ComponentsFile,
+  LICENSE_NEEDS,
+  type RuntimeNames,
+} from './ffmpeg-components.ts';
 import { allowedBy } from './licenses.ts';
 import { describePlatforms, platformMatches } from './platforms.ts';
 import { isCommit } from './ranges.ts';
@@ -172,6 +181,27 @@ function entryProblems(profile: Profile, data: EngineData, cells: CellPlan[], ct
   return lines.length ? [{ lines }] : [];
 }
 
+// a component a patch set adds: its configure name, or `{ name: { listed-as: x } }` when the build lists it as x
+const componentName = z.string().regex(/^[a-z0-9_]+$/, {
+  error: 'expected a component name as configure spells it, like adpcm_acme',
+});
+const addedComponent = z.union(
+  [
+    componentName.transform((n) => ({ name: n, listedAs: undefined as string | undefined })),
+    z
+      .record(componentName, z.strictObject({ 'listed-as': z.string().regex(/^[a-z0-9_.,-]+$/) }))
+      .refine((o) => Object.keys(o).length === 1, { error: 'each entry names one component' })
+      .transform((o) => {
+        const [n, v] = Object.entries(o)[0]!;
+        return { name: n, listedAs: v['listed-as'] };
+      }),
+  ],
+  {
+    error:
+      'expected a component name, or one the build lists by another name, like `adpcm_acme: { listed-as: acme_adpcm }`',
+  },
+);
+
 // patches/<set>/about.yml: what a patch set is, under which licence (and the texts of it the archives carry,
 // relative to the set's folder), for which FFmpeg majors
 export const aboutSchema = z.strictObject({
@@ -184,7 +214,58 @@ export const aboutSchema = z.strictObject({
     .min(1, { error: 'name at least one licence file' }),
   ffmpeg: oneOrMany(text, 'expected an FFmpeg major like 9, or a list of them'),
   configure: z.array(text).optional(),
+  // the components the patches add, by kind, as configure names them; `{ x: { listed-as: y } }` for one the build
+  // lists by another name
+  adds: z
+    .strictObject(
+      Object.fromEntries(
+        COMPONENT_KINDS.map((k) => [k, z.array(addedComponent).optional()]),
+      ) as Record<ComponentKind, z.ZodOptional<z.ZodArray<typeof addedComponent>>>,
+      { error: `expected adds: by kind (${COMPONENT_KINDS.join(', ')})` },
+    )
+    .optional(),
 });
+export type About = z.infer<typeof aboutSchema>;
+
+/** What a patch set adds: its components by kind (configure's names), and the names the build lists those by. */
+export function patchAdditions(about: About): { adds: Partial<Components>; names: RuntimeNames } {
+  const adds: Partial<Components> = {};
+  const names: RuntimeNames = {};
+  for (const kind of COMPONENT_KINDS) {
+    for (const c of about.adds?.[kind] ?? []) {
+      (adds[kind] ??= []).push(c.name);
+      if (c.listedAs) {
+        (names[kind] ??= {})[c.name] = c.listedAs;
+      }
+    }
+  }
+  return { adds, names };
+}
+
+/** What a profile's patch sets add, together (a set whose about.yml can't be read adds nothing: check says why). */
+export function profileAdditions(profile: Profile): {
+  adds: Partial<Components>;
+  names: RuntimeNames;
+} {
+  const adds: Partial<Components> = {};
+  const names: RuntimeNames = {};
+  for (const p of profile.dir ? profile.patches : []) {
+    let about: About | undefined;
+    try {
+      about = aboutSchema.safeParse(
+        parseYaml(readFileSync(join(profile.dir!, p, 'about.yml'), 'utf8'), `${p}/about.yml`),
+      ).data;
+    } catch {
+      about = undefined;
+    }
+    const set = about ? patchAdditions(about) : { adds: {}, names: {} };
+    for (const kind of COMPONENT_KINDS) {
+      adds[kind] = unique([...(adds[kind] ?? []), ...(set.adds[kind] ?? [])]);
+      names[kind] = { ...names[kind], ...set.names[kind] };
+    }
+  }
+  return { adds, names };
+}
 
 /** Each patch set: its about.yml, its licence against the profile's, and its patches for every FFmpeg major built. */
 function patchProblems(profile: Profile, data: EngineData, ctx: Ctx): Block[] {
@@ -264,6 +345,17 @@ function patchProblems(profile: Profile, data: EngineData, ctx: Ctx): Block[] {
       if (!existsSync(join(dir, p, m))) {
         problem(p, `no patches for FFmpeg ${m} (add a ${m}/ folder)`);
       }
+      // what it adds is what stock FFmpeg lacks
+      const stock = data.components.get(m)?.components;
+      const { adds } = patchAdditions(about);
+      for (const kind of COMPONENT_KINDS) {
+        for (const name of (adds[kind] ?? []).filter((n) => stock?.[kind].includes(n))) {
+          problem(
+            p,
+            `about.yml: adds: FFmpeg ${m} already has a ${COMPONENT_FLAG[kind]} called ${name}`,
+          );
+        }
+      }
     }
   };
   for (const p of profile.patches) {
@@ -272,13 +364,72 @@ function patchProblems(profile: Profile, data: EngineData, ctx: Ctx): Block[] {
   return lines.length ? [{ lines }] : [];
 }
 
+/** A name FFmpeg doesn't have: the configure name of a component the build lists by that name, if there is one. */
+function unknownName(
+  file: ComponentsFile,
+  major: string,
+  kind: ComponentKind,
+  name: string,
+): string {
+  const listing = kind === 'indevs' || kind === 'outdevs' ? 'devices' : kind;
+  const configureName = Object.entries(file.names[kind] ?? {}).find(([, runtime]) =>
+    runtime.split(',').includes(name),
+  )?.[0];
+  const head = `FFmpeg ${major} has no ${COMPONENT_FLAG[kind]} called ${name}`;
+  return configureName
+    ? `${head}: \`ffmpeg -${listing}\` lists ${configureName} as ${name}; write ${configureName}`
+    : `${head} (it's spelled as configure lists it: ./configure --list-${kind})`;
+}
+
 /**
- * Each name a target's components: lists: one FFmpeg has (ffmpeg/components/<major>.yml), and for one an option ships
- * (libx264 comes with x264), that option on: configure would otherwise drop it without a word.
+ * What a component needs that the cell's options don't turn on, said as what to add to with: (the options here that
+ * would), or undefined when they do.
+ */
+function unmetNeed(
+  data: EngineData,
+  cell: CellPlan,
+  name: string,
+  needs: readonly string[],
+): string | undefined {
+  const t = {
+    major: cell.cell.major,
+    platform: cell.cell.platform,
+    options: cell.options,
+    license: cell.cell.license,
+  };
+  const on = optionsOn(data, t);
+  const need = needs.find((n) => !needsMet([n], on));
+  if (!need) {
+    return undefined;
+  }
+  const wanted = new Set(need.split('|'));
+  const providers = [...optionsOf(data, t.major).values()]
+    .filter((o) => !o.platforms || platformMatches(t.platform, o.platforms))
+    .filter((o) =>
+      [...configureOptions(optionConfigure(data, o, t.platform))].some((c) => wanted.has(c)),
+    )
+    .map((o) => o.name)
+    .sort();
+  if (LICENSE_NEEDS.includes(need)) {
+    return `${name} needs configure's --enable-${need}, which a ${t.license} build doesn't have`;
+  }
+  if (!providers.length) {
+    return `${name} needs ${[...wanted].join(' or ')}, which no option of this engine turns on here`;
+  }
+  return providers.length === 1
+    ? `${name} comes with ${providers[0]!}: add ${providers[0]!} to with:`
+    : `${name} comes with ${providers.join(' or ')}: add one of them to with:`;
+}
+
+/**
+ * Each name a target's components: lists: one FFmpeg has (ffmpeg/components/<major>.yml) or a patch set it applies
+ * adds, and what it needs of configure's options on (h264_vaapi comes with vaapi): configure would otherwise drop it
+ * without a word.
  */
 function componentProblems(profile: Profile, data: EngineData, cells: CellPlan[]): Block[] {
   const lines: Line[] = [];
   const seen = new Set<string>();
+  const { adds } = profileAdditions(profile);
   for (const cell of cells) {
     const major = cell.cell.major;
     const known = data.components.get(major);
@@ -292,12 +443,19 @@ function componentProblems(profile: Profile, data: EngineData, cells: CellPlan[]
       for (const name of profile.components?.[kind] ?? []) {
         const what = `components: ${kind}: ${name}`;
         const option = shippedBy.get(`${kind} ${name}`);
+        const needs = known?.needs[kind]?.[name];
         const why = (): string | undefined => {
+          if (adds[kind]?.includes(name)) {
+            return undefined;
+          }
           if (!known) {
             return `this engine has no list of FFmpeg ${major}'s components (ffmpeg/components/${major}.yml) to check it against`;
           }
-          if (!known[kind].includes(name)) {
-            return `FFmpeg ${major} has no ${COMPONENT_FLAG[kind]} called ${name} (it's spelled as \`ffmpeg -${kind}\` lists it)`;
+          if (!known.components[kind].includes(name)) {
+            return unknownName(known, major, kind, name);
+          }
+          if (needs) {
+            return unmetNeed(data, cell, name, needs);
           }
           return option && !cell.options.includes(option)
             ? `${name} comes with ${option}: add ${option} to with:`

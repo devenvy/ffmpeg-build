@@ -13,12 +13,13 @@ import { dirname, extname, join, resolve } from 'node:path';
 
 import { DOCTOR_HINT } from '../build/host.ts';
 import { LICENSE_FLAGS } from '../build/plan.ts';
+import { profileAdditions } from '../check.ts';
 import { LOCK_FILE, readFolderLock } from '../lockfile.ts';
 import { packageRoot } from '../paths.ts';
-import { artifactName, type Folder, FOLDER_FILE, type Target } from '../targets.ts';
+import { artifactName, type Folder, FOLDER_FILE, type Target, targetProfile } from '../targets.ts';
 import { extractTarGzFile } from '../untar.ts';
 import { FolderError } from './folder.ts';
-import { expectedComponents, type Has, listedNames, shippedSteps } from './shipped.ts';
+import { expectedComponents, type Has, listedAs, listedNames, shippedSteps } from './shipped.ts';
 import { scriptEnv, targetTestEnv } from './test-env.ts';
 import { cannotLink, LIBRARY_PLATFORM, testLibrary } from './test-library.ts';
 
@@ -433,6 +434,8 @@ export async function runTest(
     );
   }
 
+  // what the target's patch sets add, by the names the build lists them under
+  const patchNames = profileAdditions(targetProfile(folder, t)).names;
   const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-test-'));
   const lines: string[] = [];
   let failed = 0;
@@ -476,6 +479,7 @@ export async function runTest(
         rosetta: arch === 'arm64' && runnable.includes('osx-x64'),
         data,
         ...(t.androidApi !== undefined ? { androidApi: t.androidApi } : {}),
+        names: patchNames,
       });
       for (const s of steps) {
         step(s.ok, s.what, s.detail);
@@ -624,11 +628,12 @@ export async function runTest(
             step(false, `ffmpeg -${kind} lists them`, r.error?.message ?? r.out);
           }
         }
-        return listings.get(kind)?.has(name) ?? `ffmpeg -${kind} failed`;
+        // a format with several names (mov,mp4,m4a): listed under each
+        return listings.get(kind)?.has(listedAs(name)) ?? `ffmpeg -${kind} failed`;
       };
       const major = ffmpegVersion.split('.')[0]!;
       for (const s of shippedSteps(
-        expectedComponents(data, major, target.platform, conf.out),
+        expectedComponents(data, major, target.platform, conf.out, patchNames),
         has,
       )) {
         step(s.ok, s.what, s.detail);

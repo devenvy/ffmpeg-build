@@ -15,6 +15,7 @@ import { androidApiFor } from '../android-api.ts';
 import { packageRoot } from '../paths.ts';
 import {
   expectedComponents,
+  listedAs,
   shippedSteps,
   smokeProbes,
   smokeReport,
@@ -32,6 +33,7 @@ import {
 
 import type { LICENSE_FLAGS } from '../build/plan.ts';
 import type { EngineData } from '../engine-data.ts';
+import type { RuntimeNames } from '../ffmpeg-components.ts';
 
 export const LIBRARY_PLATFORM = /^(android|ios|maccatalyst)-/;
 
@@ -289,6 +291,7 @@ export function staticShipped(
   dir: string,
   data: EngineData,
   major: string,
+  names: RuntimeNames = {},
 ): Step[] {
   const bytes = new Map<string, Buffer | undefined>();
   const read = (base: string): Buffer | undefined => {
@@ -310,7 +313,7 @@ export function staticShipped(
   }
   return [
     { ok: 'info', what: 'what it must ship: looked for by name in its libraries instead' },
-    ...shippedSteps(expectedComponents(data, major, platform, configure), (kind, name) => {
+    ...shippedSteps(expectedComponents(data, major, platform, configure, names), (kind, name) => {
       const base = staticLibrary(kind);
       if (!base) {
         return 'only running the build can tell';
@@ -369,6 +372,8 @@ export function testLibrary(o: {
   data: EngineData;
   /** android: the target's android-api: (default 28), the level the smoke program is linked for */
   androidApi?: number;
+  /** the names the build lists its patch sets' components by, where they aren't configure's (about.yml's listed-as) */
+  names?: RuntimeNames;
 }): Step[] {
   const host = o.host ?? process.platform;
   const arch = o.arch ?? process.arch;
@@ -415,7 +420,7 @@ export function testLibrary(o: {
         ok: o.mustRun && canRunElsewhere ? false : 'info',
         what: `not run: ${why}${o.mustRun && canRunElsewhere ? ' (--must-run)' : ''}`,
       });
-      steps.push(...staticShipped(o.platform, o.dir, o.data, major));
+      steps.push(...staticShipped(o.platform, o.dir, o.data, major, o.names));
       return steps;
     };
     if (where.where === 'never') {
@@ -461,8 +466,9 @@ export function testLibrary(o: {
       const report = smokeReport(ran.out);
       steps.push(
         ...shippedSteps(
-          expectedComponents(o.data, major, o.platform, configure),
-          (kind, name) => report.get(`${kind} ${name}`) ?? "the smoke program didn't report it",
+          expectedComponents(o.data, major, o.platform, configure, o.names),
+          (kind, name) =>
+            report.get(`${kind} ${listedAs(name)}`) ?? "the smoke program didn't report it",
         ),
       );
     }

@@ -92,6 +92,33 @@ describe('the folder file', () => {
     expect(b!.components).toEqual({});
   });
 
+  it("adds to a base's list with { add: [...] } instead of replacing it", () => {
+    const f = ok(
+      [
+        'bases:',
+        '  slim: { components: { decoders: [h264, hevc], filters: [scale] } }',
+        '  more: { components: { decoders: { add: [vp9, h264] } } }',
+        'targets:',
+        '  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, base: [slim, more], components: { decoders: { add: [av1] }, filters: [fps] } }',
+        '',
+      ].join('\n'),
+    );
+    expect(f.targets[0]!.components).toEqual({
+      decoders: ['h264', 'hevc', 'vp9', 'av1'],
+      filters: ['fps'],
+    });
+  });
+
+  it('refuses { add: } where no earlier layer lists that kind: it would quietly become the whole list', () => {
+    expect(
+      errors(
+        'bases:\n  slim: { components: { filters: [scale] } }\ntargets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, base: [slim], components: { decoders: { add: [vp9] } } }\n',
+      ),
+    ).toEqual([
+      'targets.a: components: decoders: { add: [...] } adds to a list from a base, and no base before it lists decoders; write the list itself',
+    ]);
+  });
+
   it('refuses components: of a kind FFmpeg has no list for, or names FFmpeg could never have', () => {
     expect(
       errors(

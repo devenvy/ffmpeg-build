@@ -6,11 +6,10 @@ import { dirname, join } from 'node:path';
 
 import { type EngineData, knownMajors, optionsOf, valuesOn } from './engine-data.ts';
 import {
-  type Components,
   componentsFilePath,
+  type ComponentsRead,
   formatComponentsFile,
   parseComponentsFile,
-  sameComponents,
 } from './ffmpeg-components.ts';
 import { compareVersions } from './versions.ts';
 
@@ -92,6 +91,8 @@ export interface SupportReport {
   reclassed: { option: string; data: string; configure: LicenseClass }[];
   /** the release whose components differ from ffmpeg/components/<major>.yml's (absent when they match) */
   components?: string;
+  /** components whose runtime name wasn't found in the sources (their configure name is kept) */
+  unread?: string[];
 }
 
 const DATA_CLASS: Record<LicenseClass, string[]> = {
@@ -179,6 +180,9 @@ export function formatSupport(reports: SupportReport[], majors: string[], applie
         `- components: from ${r.components} (${applied ? 'applied' : 'run with --write to apply'})`,
       );
     }
+    if (r.unread?.length) {
+      out.push(`- **runtime names not read** (configure's used): ${r.unread.join(', ')}`);
+    }
     for (const c of r.reclassed) {
       out.push(
         `- **licence class changed:** \`${c.option}\` is ${c.data} in the data, ${c.configure} in configure`,
@@ -218,7 +222,7 @@ export async function supportCheck(o: {
   upstream: string[];
   configureOf: (version: string) => Promise<Map<string, LicenseClass>>;
   /** each release's components (FFmpeg's sources at its tag); without it the component lists aren't checked */
-  componentsOf?: (version: string) => Promise<Components>;
+  componentsOf?: (version: string) => Promise<ComponentsRead>;
   write: boolean;
 }): Promise<string> {
   if (!o.upstream.length) {
@@ -245,18 +249,22 @@ export async function supportCheck(o: {
     );
     if (o.componentsOf) {
       const newest = releases.at(-1)!;
-      const components = await o.componentsOf(newest);
+      const { unread, ...read } = await o.componentsOf(newest);
+      if (unread.length) {
+        report.unread = unread;
+      }
       const file = componentsFilePath(o.dataRoot, major);
       const text = readIfThere(file);
       const kept =
         text === undefined
           ? undefined
           : parseComponentsFile(text, `ffmpeg/components/${major}.yml`);
-      if (kept?.release !== newest || !sameComponents(kept.components, components)) {
+      const next = formatComponentsFile(major, { release: newest, ...read });
+      if (!kept || formatComponentsFile(major, kept) !== next) {
         report.components = newest;
         if (o.write) {
           mkdirSync(dirname(file), { recursive: true });
-          writeFileSync(file, formatComponentsFile(major, { release: newest, components }));
+          writeFileSync(file, next);
         }
       }
     }

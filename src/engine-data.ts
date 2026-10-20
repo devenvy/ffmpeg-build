@@ -1,7 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { type Components, componentsFilePath, parseComponentsFile } from './ffmpeg-components.ts';
+import {
+  type ComponentsFile,
+  componentsFilePath,
+  parseComponentsFile,
+} from './ffmpeg-components.ts';
 import { allowedBy, type LicenseTable, licenseTableSchema, tableFrom } from './licenses.ts';
 import {
   describePlatforms,
@@ -33,8 +37,9 @@ import type { z } from 'zod';
 export interface EngineData {
   root: string;
   ffmpeg: Map<string, FfmpegData>; // by major, ascending
-  // each major's components, from its newest release (ffmpeg/components/<major>.yml): what `components:` may name
-  components: Map<string, Components>;
+  // each major's components, from its newest release (ffmpeg/components/<major>.yml): what `components:` may name,
+  // their runtime names, and what each needs of configure's options
+  components: Map<string, ComponentsFile>;
   recipes: Map<string, Recipe>;
   licenses: LicenseTable; // licenses.yml
   platforms: Map<string, PlatformEntry>; // platforms.yml: the platforms that build, and how
@@ -64,6 +69,7 @@ export interface OptionInfo {
   configure?: string[];
   ships: ShippedComponent[]; // what a build with it on must report (ffmpeg -filters, -encoders, ...)
   androidApi?: number; // the oldest Android API level a build with it can be made for
+  autoComponents: boolean; // a restricted kind keeps the components that need it (auto-components: true)
 }
 
 export function loadEngineData(root: string): EngineData {
@@ -172,15 +178,14 @@ export function loadEngineData(root: string): EngineData {
     }
   }
 
-  const components = new Map<string, Components>();
+  const components = new Map<string, ComponentsFile>();
   for (const major of ffmpeg.keys()) {
     const file = componentsFilePath(root, major);
     if (existsSync(file)) {
       try {
         components.set(
           major,
-          parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`)
-            .components,
+          parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`),
         );
       } catch (e) {
         errors.push((e as Error).message);
@@ -297,6 +302,9 @@ function crossCheck(
         errors.push(`ffmpeg/${major}.yml: release ${r} is listed twice`);
       }
     });
+    for (const a of data['auto-components'].filter((o) => !(o in data.options))) {
+      errors.push(`ffmpeg/${major}.yml: auto-components: ${a} is not one of its options`);
+    }
     for (const [option, o] of Object.entries(data.options)) {
       const label = `ffmpeg/${major}.yml: options.${option}`;
       for (const d of o.needs ?? []) {
@@ -523,6 +531,7 @@ export function optionsOf(data: EngineData, major: string): Map<string, OptionIn
       ...(o.configure ? { configure: o.configure } : {}),
       ships: o.ships ?? [],
       ...(o['android-api'] !== undefined ? { androidApi: o['android-api'] } : {}),
+      autoComponents: data.ffmpeg.get(major)!['auto-components'].includes(name),
     });
   }
   byMajor.set(major, result);

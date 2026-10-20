@@ -151,6 +151,9 @@ export const ffmpegDataSchema = z.strictObject({
     .string({ error: 'expected a major version' })
     .regex(/^\d+$/, { error: 'expected a major version like 9' }),
   releases: z.array(version).min(1),
+  // the options whose components come with them: when a target lists a kind (components:), the components of it
+  // that need one of these (the components file's needs:) are kept
+  'auto-components': z.array(name).default([]),
   options: z.record(name, option),
 });
 export type FfmpegData = z.output<typeof ffmpegDataSchema>;

@@ -50,7 +50,10 @@ build's configure line has on, `test` checks the build has the components that o
 [`ffmpeg/<major>.yml`](../ffmpeg/9.yml): in `ffmpeg -encoders`, `-decoders`, `-filters`, `-hwaccels`, `-protocols`,
 `-muxers` or `-demuxers` (a Vulkan build lists `scale_vulkan` and the `vulkan` hwaccel, a TLS build `https` and
 `tls`, a build with x264 the `libx264` encoder, and so on), and the soxr resampler by starting it. A component missing
-fails the test, naming the option.
+fails the test, naming the option. So does any component the configure line asked for by name: a target's
+`components:` lists, what came along with its options, and what its patch sets add. Each is looked for by the name the
+build lists it under, which isn't always configure's (configure's `libvpx_vp8` is `libvpx` in `ffmpeg -encoders`;
+`ffmpeg/components/<major>.yml` keeps those names).
 
 On a glibc Linux machine with Docker, some other Linux builds run in a container of the image their toolchain starts
 from, pinned by the same digest: a musl build of the machine's architecture in plain Alpine (which has no bash, so a

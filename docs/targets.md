@@ -150,14 +150,15 @@ targets:
 
 `with:` picks libraries. FFmpeg's own components (its built-in decoders, encoders, demuxers, muxers, parsers,
 bitstream filters, protocols, devices and filters) are all built unless a target says otherwise. `components:` says
-otherwise, kind by kind: a kind it lists is built with only those names; a kind it leaves out keeps FFmpeg's defaults.
-Leave `components:` out and nothing changes.
+otherwise, kind by kind: a kind it lists is built with only those names, and what comes with them; a kind it leaves out
+keeps FFmpeg's defaults. Leave `components:` out and nothing changes.
 
 ```yaml
 bases:
-  server: # what the services use, nothing else
+  slim: # what every platform's services use, nothing else
     components:
       decoders: [h264, hevc, aac, pcm_s16le, mjpeg]
+      encoders: [aac, mjpeg]
       demuxers: [mov, matroska, mpegts, rtsp]
       muxers: [mp4, matroska, mpegts, image2]
       filters: [scale, fps, aresample]
@@ -167,22 +168,42 @@ targets:
     platform: linux-x64
     license: gplv3
     ffmpeg: 9
-    base: [server]
-    with: [x264, vaapi, whisper]
+    base: [slim]
+    with: [x264, vpx, vaapi, nvenc, whisper] # libx264, libvpx_vp8/vp9, the VAAPI and NVENC encoders, whisper come along
+    patches: [patches/acme-format] # and the demuxer, muxer and codec it adds
+  win-x64:
+    platform: win-x64
+    license: gplv3
+    ffmpeg: 9
+    base: [slim]
+    with: [x264, mediafoundation, amf, d3d11va]
     components:
-      filters: [scale, fps, aresample, drawbox] # replaces the base's filters; its other kinds stay
+      filters: { add: [drawbox] } # the base's filters, and drawbox
 ```
 
 - **Kinds:** `decoders`, `encoders`, `hwaccels`, `demuxers`, `muxers`, `parsers`, `bsfs`, `protocols`, `indevs`,
-  `outdevs`, `filters`. Names are FFmpeg's, as `ffmpeg -decoders` (and the rest) lists them.
-- **What the target's options need comes along.** `x264` keeps the `libx264` encoder, `whisper` its filter, `vaapi`
-  its hwaccels and filters, whatever the lists say; a patch set's `configure:` flags enable what it adds. FFmpeg's
-  configure then brings in what each component it builds depends on (the parsers and bitstream filters a decoder or
-  muxer uses).
-- **Checked.** `check` refuses a name FFmpeg doesn't have in that major (the engine keeps each major's lists, from its
-  newest release, in `ffmpeg/components/<major>.yml`), and a library's component whose option is off (`libx264` needs
-  `x264` in `with:`). `test` fails a build missing a listed decoder, encoder, demuxer, muxer, protocol or filter.
-- **A layer replaces a kind.** A target takes each kind from the last of its bases and itself that lists it.
+  `outdevs`, `filters`. **Names are configure's**, as `./configure --list-decoders` (and the rest) lists them, and as
+  the engine keeps them in `ffmpeg/components/<major>.yml`. Most are what `ffmpeg -decoders` lists too; where a build
+  lists a component by another name (configure's `libvpx_vp8` is `libvpx` in `ffmpeg -encoders`, the `pcm_s16le`
+  demuxer is `s16le`, the `libsrt` protocol is `srt`), `check` says which name to write.
+- **What the target's options need comes along.** For the options that are the components they bring (the codec
+  libraries, the hardware APIs, whisper: the major's `auto-components:` in `ffmpeg/<major>.yml`), every component of a
+  listed kind that needs the option stays: `vaapi` keeps `h264_vaapi`, `hevc_vaapi`, `av1_vaapi`, the VAAPI hwaccels
+  and filters; `nvenc` the NVENC encoders, NVDEC hwaccels and CUVID decoders; `vpx` `libvpx_vp8` and `libvpx_vp9`. What
+  needs what is configure's own rules, read from each release (`needs:` in `ffmpeg/components/<major>.yml`; that includes
+  its licence switches: a GPL-only filter comes only in a gpl build). A support
+  library brings nothing by itself: with `zlib` on, list `png` if you want it; with `openssl`, list `https` and `tls`;
+  with `xml2`, `dash`. FFmpeg's configure then brings in what each component it builds depends on (the parsers and
+  bitstream filters a decoder or muxer uses).
+- **What the target's patch sets add comes along**, as each set's `about.yml` declares it (`adds:`, under Patches).
+- **Checked.** `check` refuses a name FFmpeg doesn't have in that major (or that no patch set of the target adds), and
+  a component whose option isn't on: `libx264 comes with x264: add x264 to with:`,
+  `https comes with gnutls or openssl: add one of them to with:`. `test` fails a build missing any decoder, encoder,
+  demuxer, muxer, protocol or filter configure was asked for by name, the listed ones and what came along, looked for by
+  the name the build lists it under. (`-hwaccels` lists device types, not hwaccels, so those are configure's to check.)
+- **Layers.** A target takes each kind from the last of its bases and itself that lists it: a list replaces the one
+  before it. `{ add: [drawbox] }` adds to the list the layers before it gave instead; with no list before it, it is
+  refused (it would quietly make the kind just those names).
 - **Releases.** Changing a target's `components:` makes its release due (its definition changed).
 
 ## Patches
@@ -210,6 +231,12 @@ name: acme-muxer
 license: proprietary # SPDX, or proprietary; licenses.yml says which build licenses it may go into
 license-files: [LICENSE] # at least one, relative to this folder
 ffmpeg: [9, 10] # the FFmpeg majors it has patches for (a major, or a list of them)
+adds: # the components the patches add, by kind, as configure names them (optional)
+  demuxers: [acme]
+  muxers: [acme]
+  decoders: [adpcm_acme]
+  encoders: [{ adpcm_acme: { listed-as: acme_adpcm } }] # the build lists it as acme_adpcm (its .p.name)
+  filters: [acme_drawbox]
 ```
 
 ```yaml
@@ -229,8 +256,14 @@ targets:
 - **Checked first.** `check` refuses a set without `about.yml` or with a malformed one, a licence file that isn't
   there, an `ffmpeg:` entry that isn't a major (`9`, not `9.1`), a licence the target's license doesn't allow (the
   same table as libraries), a major the target builds that `ffmpeg:` doesn't list, and a listed major without its
-  `<major>/` folder. `about.yml` may also hold `configure:`, FFmpeg configure flags what the patches add needs (say
-  `--enable-muxer=acme`): they go on the configure line of every target that uses the set, after the target's own.
+  `<major>/` folder. `about.yml` may also hold `configure:`, FFmpeg configure flags what the patches add needs: they
+  go on the configure line of every target that uses the set, after the target's own.
+- **What a set adds.** `adds:` names the components the patches add, kind by kind, in configure's spelling (a
+  component `ff_acme_demuxer` in `libavformat/allformats.c` is the demuxer `acme`). A target applying the set may list
+  them in `components:`, and they are built whatever its lists say: in a kind it restricts they join its list, and in
+  one it doesn't they are still asked for by name. `test` then checks each is in the build, by the name the build lists
+  it under: configure's, or the entry's `listed-as:` (the definition's `.p.name`, when it differs). `check` refuses an
+  addition stock FFmpeg already has in that major.
 - **Recorded.** `THIRD-PARTY-NOTICES.txt` says FFmpeg was modified, lists each set with its patches and a sha256 of
   the whole set, and carries each set's licence texts in a PATCH SETS section; its source section points at the
   sources archive, which holds the patch set folders beside `ffmpeg-build.yml` and `ffmpeg.lock`.

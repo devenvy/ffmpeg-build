@@ -154,6 +154,52 @@ describe('FFmpeg configure', () => {
     expect(flags.indexOf('--disable-decoders')).toBeLessThan(flags.indexOf('--enable-libdav1d'));
   });
 
+  it("brings every component of a restricted kind that an option on needs, from the components file's needs", () => {
+    const p = profile(
+      'name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: gplv3\nwith: [vaapi, nvenc, x265, openssl]\n',
+    );
+    const cell = planProfile(
+      {
+        ...p,
+        components: { encoders: ['aac'], hwaccels: [], decoders: ['h264'], protocols: ['file'] },
+      },
+      data,
+      { '9': '9.1.0' },
+    ).cells[0]!;
+    const flags = configureFlags(data, cell);
+    expect(flags).toEqual(
+      expect.arrayContaining([
+        '--enable-encoder=aac,h264_nvenc,h264_vaapi,libx265',
+        // hwaccel components, not the device types ships: names (vaapi), which configure would ignore
+        '--enable-hwaccel=h264_nvdec,h264_vaapi',
+        '--enable-decoder=h264,h264_cuvid',
+        // openssl is a support library (no auto-components): https and tls are a target's to list
+        '--enable-protocol=file',
+      ]),
+    );
+    // scale_cuda needs cuda-llvm too: filters aren't restricted here anyway, and nothing asks for it
+    expect(flags.join(' ')).not.toContain('scale_cuda');
+  });
+
+  it("adds a patch set's components: to a restricted kind, and by name to one left unrestricted", () => {
+    const p = profile('name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: lgplv3\n');
+    const cell = planProfile({ ...p, components: { demuxers: ['mov'] } }, data, {
+      '9': '9.1.0',
+    }).cells[0]!;
+    const flags = configureFlags(data, cell, undefined, {
+      demuxers: ['acme'],
+      decoders: ['adpcm_acme'],
+    });
+    expect(flags).toEqual(
+      expect.arrayContaining([
+        '--disable-demuxers',
+        '--enable-demuxer=mov,acme',
+        '--enable-decoder=adpcm_acme',
+      ]),
+    );
+    expect(flags).not.toContain('--disable-decoders');
+  });
+
   it('restricts nothing without components:, and can empty a kind', () => {
     const p = profile('name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: lgplv3\n');
     const none = configureFlags(data, planProfile(p, data, { '9': '9.1.0' }).cells[0]!);
