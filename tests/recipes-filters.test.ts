@@ -65,7 +65,8 @@ describe('libmysofa', () => {
     const h = fake(platform);
     put(
       join(h.src, 'src', 'CMakeLists.txt'),
-      `PROPERTIES OUTPUT_NAME mysofa CLEAN_DIRECT_OUTPUT 1 POSITION_INDEPENDENT_CODE \${BUILD_SHARED_LIBS})\n`,
+      // as upstream wraps it, the value on a line of its own
+      `  PROPERTIES OUTPUT_NAME mysofa CLEAN_DIRECT_OUTPUT 1 POSITION_INDEPENDENT_CODE\n                                                      \${BUILD_SHARED_LIBS})\n`,
     );
     put(
       join(h.src, 'src', 'config.h.in'),

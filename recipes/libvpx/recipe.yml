@@ -32,8 +32,7 @@ build:
       - '{args}'
     # libvpx compiles its configure line into the library (vpx_codec_build_config); name the deps folder as the
     # container builds do, never a folder of this machine's (a native build's work folder)
-    - replace-in-file:
-        { path: vpx_config.c, from: '{deps}', to: /opt/ffmpeg-build/deps, optional: true }
+    - replace-in-file: { path: vpx_config.c, from: '{deps}', to: /opt/ffmpeg-build/deps }
     - [make, '-j{jobs}']
     - [make, install]
   platforms:

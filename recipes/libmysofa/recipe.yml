@@ -28,11 +28,13 @@ build:
       -DMATH=m,
     ]
   before:
+    # (the property and its value are on two lines upstream: matched across them)
     - replace-in-file:
         {
           path: src/CMakeLists.txt,
-          from: 'POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}',
+          from: 'POSITION_INDEPENDENT_CODE\s+\$\{BUILD_SHARED_LIBS\}',
           to: 'POSITION_INDEPENDENT_CODE ON',
+          regex: true,
         }
     # mysofa_load(NULL) opens <install prefix>/share/libmysofa/default.sofa, which would put the deps folder in the
     # library (the staged-binary check refused it on Apple) and names a file the build doesn't ship: the system's

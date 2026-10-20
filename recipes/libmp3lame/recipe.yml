@@ -29,6 +29,12 @@ build:
     'maccatalyst-*': { env: { ac_cv_header_stdc: yes } }
   before:
     # LAME 3.100 exports lame_init_old in its symbol file but no longer defines it,
-    # which breaks the link on strict toolchains. Drop that line.
+    # which breaks the link on strict toolchains. Drop that line. (4.0's file no longer lists it: optional.)
     - replace-in-file:
-        { path: include/libmp3lame.sym, from: '^[^\n]*lame_init_old[^\n]*\n?', to: '', regex: true }
+        {
+          path: include/libmp3lame.sym,
+          from: '^[^\n]*lame_init_old[^\n]*\n?',
+          to: '',
+          regex: true,
+          optional: true,
+        }

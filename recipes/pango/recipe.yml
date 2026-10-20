@@ -49,7 +49,6 @@ build:
           path: pango/pangofc-fontmap.c,
           from: "#include <hb-ft.h>\n",
           to: "#include <hb-ft.h>\n#include <fontconfig/fcfreetype.h>\n",
-          optional: true,
         }
     # newer clangs (llvm-mingw's) put -Wunused-but-set-global under -Wunused-but-set-variable, and GObject's type
     # macros trip it; Pango makes that warning an error: a warning again

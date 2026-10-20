@@ -267,7 +267,19 @@ describe('libvpx', () => {
   };
   it.each(platformsOf('libvpx'))('%s', async (platform) => {
     const h = fake(platform);
+    // its configure writes its own command line into vpx_config.c, which goes into the library
+    h.onRun = (call) => {
+      if (call.command === './configure') {
+        h.write(
+          join(h.src, 'vpx_config.c'),
+          `static const char *cfg = "${call.args.join(' ')}";\n`,
+        );
+      }
+      return undefined;
+    };
     await build(h, 'libvpx');
+    expect(h.read(join(h.src, 'vpx_config.c'))).toContain('--prefix=/opt/ffmpeg-build/deps ');
+    expect(h.read(join(h.src, 'vpx_config.c'))).not.toContain(h.deps);
     const [args, crossPrefix] = extra(h);
     expect(h.calls.map((c) => [c.command, ...c.args])).toEqual([
       [
