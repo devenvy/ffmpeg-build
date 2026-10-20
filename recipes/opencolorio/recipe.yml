@@ -10,11 +10,11 @@ configure:
 needs: [libexpat, yaml-cpp, pystring, imath, zlib, minizip-ng]
 source: { git: https://github.com/AcademySoftwareFoundation/OpenColorIO, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
-# Not Apple: on iOS and Mac Catalyst its monitor listing (SystemMonitor_macos.cpp) calls macOS-only APIs (IOKit
-# graphics, ColorSync); on macOS FFmpeg's own C++ wrapper for it (ocio_wrapper.cpp) can't compile, because the
-# release tarball's VERSION file, under FFmpeg's -I., shadows libc++'s <version> on a case-insensitive file system
-# (devenvy/ffmpeg-build#41).
-platforms: [linux-*, win-*, android-*]
+# Not iOS or Mac Catalyst: its monitor listing (SystemMonitor_macos.cpp) calls macOS-only APIs (IOKit graphics,
+# ColorSync). On macOS, FFmpeg's own C++ wrapper for it (ocio_wrapper.cpp) compiles once the engine removes the
+# release tarball's VERSION file, which under FFmpeg's -I. shadowed libc++'s <version> on the case-insensitive file
+# system (devenvy/ffmpeg-build#41; build/ffmpeg.ts).
+platforms: [linux-*, osx-*, win-*, android-*]
 build:
   # OpenColorIO: colour management (BSD-3-Clause), static, for FFmpeg's ocio filter (found through OpenColorIO.pc, by
   # its C++ API). The library alone: no apps, OpenFX/Nuke plugins, Python or Java bindings, docs or tests. Every
@@ -58,6 +58,18 @@ build:
             }
     # the NDK's toolchain file finds packages only under its root paths: its dependencies' CMake configs are in deps
     'android-*': { args: ['-DCMAKE_FIND_ROOT_PATH={deps}'] }
+    # its monitor listing (ICC profiles) calls ColorSync, CoreGraphics and IOKit, which its CMake links only into a
+    # shared library
+    'osx-*':
+      after:
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/OpenColorIO.pc',
+              libs-private:
+                {
+                  append: -framework ColorSync -framework CoreFoundation -framework CoreGraphics -framework IOKit,
+                },
+            }
     '*-arm64': { args: [-DOCIO_USE_SIMD=OFF] }
     linux-armhf: { args: [-DOCIO_USE_SIMD=OFF] }
   after:

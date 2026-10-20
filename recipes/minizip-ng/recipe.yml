@@ -5,7 +5,7 @@ needs: [zlib]
 source: { git: https://github.com/zlib-ng/minizip-ng, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 # only OpenColorIO builds against it, where it builds
-platforms: [linux-*, win-*, android-*]
+platforms: [linux-*, osx-*, win-*, android-*]
 build:
   # minizip-ng: zip archives (Zlib), static, for OpenColorIO's .ocioz config archives. Deflate through zlib only, as
   # OpenColorIO's own build of it: no bzip2, LZMA, PPMd (4.2's bundled PPMd is a library of its own, which the .pc

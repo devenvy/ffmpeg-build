@@ -1598,9 +1598,9 @@ describe('filter and processing libraries', () => {
       licenses: V3,
       ships: { filters: ['lensfun'] },
     },
-    // not Apple: macOS's case-insensitive file system (#41), iOS's and Catalyst's missing macOS APIs
+    // not iOS or Mac Catalyst (their missing macOS APIs); macOS once FFmpeg's VERSION file is out of the way (#41)
     opencolorio: {
-      platforms: PLATFORMS.filter((p) => /^(linux|win|android)-/.test(p)),
+      platforms: PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p)),
       recipe: 'opencolorio',
       recipes: () => [
         'imath',
