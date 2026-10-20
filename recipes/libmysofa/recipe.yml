@@ -34,6 +34,15 @@ build:
           from: 'POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}',
           to: 'POSITION_INDEPENDENT_CODE ON',
         }
+    # mysofa_load(NULL) opens <install prefix>/share/libmysofa/default.sofa, which would put the deps folder in the
+    # library (the staged-binary check refused it on Apple) and names a file the build doesn't ship: the system's
+    # place for it instead (where Linux distributions' libmysofa packages put it)
+    - replace-in-file:
+        {
+          path: src/config.h.in,
+          from: '#define CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}"',
+          to: '#define CMAKE_INSTALL_PREFIX "/usr"',
+        }
   after:
     - remove: { path: '{deps}/share/libmysofa', recursive: true }
     - edit-pkg-config:

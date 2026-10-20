@@ -66,6 +66,10 @@ describe('libmysofa', () => {
       join(h.src, 'src', 'CMakeLists.txt'),
       `PROPERTIES OUTPUT_NAME mysofa CLEAN_DIRECT_OUTPUT 1 POSITION_INDEPENDENT_CODE \${BUILD_SHARED_LIBS})\n`,
     );
+    put(
+      join(h.src, 'src', 'config.h.in'),
+      `#define CMAKE_INSTALL_PREFIX "\${CMAKE_INSTALL_PREFIX}"\n#define CPACK_PACKAGE_VERSION_MAJOR 1\n`,
+    );
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
@@ -87,6 +91,10 @@ describe('libmysofa', () => {
       ]),
     );
     expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toContain('POSITION_INDEPENDENT_CODE ON)');
+    // no deps folder in the library: the default SOFA file is looked for where systems keep it
+    expect(h.read(join(h.src, 'src', 'config.h.in'))).toBe(
+      '#define CMAKE_INSTALL_PREFIX "/usr"\n#define CPACK_PACKAGE_VERSION_MAJOR 1\n',
+    );
     expect(h.files(h.deps)).not.toContain('share/libmysofa/default.sofa');
     expect(h.read(pcPath(h, 'libmysofa'))).toBe(
       `Libs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
