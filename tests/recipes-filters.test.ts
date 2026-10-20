@@ -491,7 +491,13 @@ describe('GLib', () => {
   });
   it.each(platformsOf('glib'))('glib on %s', async (platform) => {
     const h = fake(platform);
+    put(
+      join(h.src, 'meson.build'),
+      "glib_localedir = join_paths(glib_prefix, get_option('localedir'))\n",
+    );
     await build(h, 'glib');
+    // the system's folders, not deps', for translations and charset.alias
+    expect(h.read(join(h.src, 'meson.build'))).toBe("glib_localedir = '/usr/share/locale'\n");
     // native builds (musl, osx-arm64): deps' folders for meson's libintl search
     const native = /^linux-musl-|^osx-arm64$/.test(platform)
       ? ` [CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`
@@ -515,6 +521,7 @@ describe('GLib', () => {
         '-Dsystemtap=disabled',
         '-Dlibelf=disabled',
         '-Dglib_debug=disabled',
+        '-Dcharsetalias_dir=/usr/lib',
         ...(objc ? [`--cross-file=${h.src}/objc-cross.ini`] : []),
       ]).map((line) => line + native),
     );

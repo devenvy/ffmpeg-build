@@ -42,7 +42,18 @@ build:
       -Dsystemtap=disabled,
       -Dlibelf=disabled,
       -Dglib_debug=disabled,
+      -Dcharsetalias_dir=/usr/lib,
     ]
+  # It compiles in where translations and charset.alias are, its install prefix's folders: here deps, a build folder
+  # (the staged-binary check refuses it; seen on Apple). The system's instead, where a system's GLib has them
+  # (translations aren't built: nls is off). Windows finds them relative to the library and ignores both.
+  before:
+    - replace-in-file:
+        {
+          path: meson.build,
+          from: "glib_localedir = join_paths(glib_prefix, get_option('localedir'))",
+          to: "glib_localedir = '/usr/share/locale'",
+        }
   platforms:
     # a native build has no cross file to name deps' folders, and libintl has no .pc: meson's search for it (the
     # header, then -lintl) is told where they are
