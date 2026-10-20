@@ -1726,6 +1726,14 @@ describe('filter and processing libraries', () => {
     }
   });
 
+  it('brings its filters and decoders to a target that restricts them (auto-components)', () => {
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!['auto-components'], `${major} ${name}`).toContain(name);
+      }
+    }
+  });
+
   it('turns on in no shipped target', () => {
     for (const c of cells) {
       expect(c.options.filter((o) => OPTIONS.includes(o))).toEqual([]);

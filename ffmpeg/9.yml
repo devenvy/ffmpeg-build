@@ -94,6 +94,12 @@ auto-components:
   - ladspa
   - lv2
   - frei0r
+  - lensfun
+  - opencolorio
+  - cairo
+  - rsvg
+  - tesseract
+  - opencv
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }

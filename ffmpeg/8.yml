@@ -94,6 +94,12 @@ auto-components:
   - ladspa
   - lv2
   - frei0r
+  - lensfun
+  - opencolorio
+  - cairo
+  - rsvg
+  - tesseract
+  - opencv
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
