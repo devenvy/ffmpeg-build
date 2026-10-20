@@ -82,6 +82,7 @@ clone (six attempts, 4 s doubling).
 | `source-dir:`                                            | where CMakeLists.txt / meson.build / configure is                                                                                                                                   |
 | `configure-script:`, `make-targets:`, `install-targets:` | autotools: the script, `make -j<n> <targets>`, `make <install targets>` (`[]`: none)                                                                                                |
 | `bootstrap:`                                             | before anything else: `autogen` (`./autogen.sh`), `autoreconf` (`autoreconf -fi`) or a script in the source; a list tries each in turn, quietly, and the first that works wins      |
+| `cargo: { target, package, features, standard-texts }`   | a Rust library: its crates, after `before:` (below)                                                                                                                                 |
 | `env:`                                                   | environment variables: a value, or `+= ...` to append to the toolchain's                                                                                                            |
 | `unset:`                                                 | environment variables to remove (YAML's `null` is read as text here, so it can't do that)                                                                                           |
 | `vars:`                                                  | recipe variables for placeholders: text, or a list                                                                                                                                  |
@@ -98,6 +99,27 @@ The standard builds:
 - **autotools**: `./configure --prefix=<deps> <args> [--host=<triple>]` (`--host` only when cross-compiling), then
   `make -j<n> <make-targets>` and `make <install-targets>`. Everything else is the recipe's: say `--disable-shared
 --enable-static --with-pic` (and `--libdir={deps}/lib` if the library wants it) in `args:`, in the order you want.
+
+### Rust libraries
+
+A library built with cargo (rav1e, librsvg) compiles in crates from crates.io, which its notices and sources must
+carry too. `cargo:` names how its build selects them: the Rust `target` (`'{target}'`), the `package` cargo-c builds,
+and its `features` (besides the default ones). After `before:` (which may install Rust), the engine runs
+`cargo fetch --locked` (every crate Cargo.lock names, each checked against its checksum), lists what is linked into
+the library for the target (`cargo tree -e normal,no-proc-macro`), and builds offline from then on
+(`CARGO_NET_OFFLINE`). Then:
+
+- every crate linked in must be under a licence the recipe's `license:` names (so `check`, which reads only the
+  recipe, stays true; it may not let the recipe into builds the crate may not go in) and the build's licence allows
+  (licenses.yml): otherwise the build stops before compiling, naming the crate. A library taken from the cache is
+  checked again.
+- each linked crate's licence files go into THIRD-PARTY-NOTICES.txt under the library (each distinct text once), and
+  the Rust standard library's notices (the toolchain's COPYRIGHT-library) once for the build. A crate that ships no
+  licence file fails the build until someone checks it and lists it in `standard-texts:`; it then gets the engine's
+  standard text of its licence (`license-texts/`), marked so.
+- every crates.io crate of Cargo.lock is kept as crates.io serves it (`sources/crates/<name>-<version>.crate` in the
+  cache, `.sources/` and the release's sources archive, as `cargo vendor` would hold them; SOURCES.md lists each and
+  says how to build offline from them).
 
 ### Steps
 

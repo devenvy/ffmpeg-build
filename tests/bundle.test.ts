@@ -53,6 +53,7 @@ function builtFolder(
   edit: (
     name: string,
     sources: { libraries: { name: string; version: string }[] },
+    dist: string,
   ) => void = ignore,
   // files the folder holds besides its ffmpeg-build.yml and lock (a patch set)
   files: Record<string, string> = {},
@@ -115,7 +116,7 @@ function builtFolder(
         })),
         patches: p.facts.patches,
       };
-      edit(name, sources);
+      edit(name, sources, dist);
       writeFileSync(join(dist, `${name}.sources.json`), JSON.stringify(sources));
     }
   }
@@ -320,6 +321,80 @@ describe('ffmpeg-build bundle', () => {
     expect(index).toContain(
       `| sources/dav1d/${dav1d.sha256.slice(0, 12)}/dav1d-1.5.4.tar.gz | ${dav1d.sha256} |`,
     );
+  });
+
+  it("puts a Rust library's crates in the sources archive, once, and lists them in SOURCES.md", async () => {
+    const crate = (n: string, v: string, linked = true) => ({
+      name: n,
+      version: v,
+      license: 'MIT OR Apache-2.0',
+      source: 'crates.io',
+      file: `crates/${n}-${v}.crate`,
+      sha256: sha(Buffer.from(`${n} crate`)),
+      linked,
+      texts: [],
+    });
+    const { dist, folder } = builtFolder(FOLDER, (name, s, out) => {
+      const dav1d = s.libraries.find((l) => l.name === 'dav1d')! as Record<string, unknown>;
+      dav1d['crates'] = [
+        crate('libc', '0.2.172'),
+        crate('paste', '1.0.15', false),
+        {
+          name: 'ivf',
+          version: '0.1.4',
+          license: 'BSD-2-Clause',
+          source: 'path',
+          linked: true,
+          texts: [],
+        },
+      ];
+      mkdirSync(join(out, `${name}.sources`, 'crates'), { recursive: true });
+      for (const n of ['libc-0.2.172', 'paste-1.0.15']) {
+        writeFileSync(
+          join(out, `${name}.sources`, 'crates', `${n}.crate`),
+          `${n.split('-')[0]!} crate`,
+        );
+      }
+    });
+    await bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot });
+    const entries = readTarGz(readFileSync(join(dist, 'ffmpeg-9.1.0-sources.tar.gz')));
+    expect(entries.filter((e) => e.name.includes('/sources/crates/')).map((e) => e.name)).toEqual([
+      'ffmpeg-9.1.0-sources/sources/crates/libc-0.2.172.crate',
+      'ffmpeg-9.1.0-sources/sources/crates/paste-1.0.15.crate',
+    ]);
+    const index = entries.find((e) => e.name.endsWith('SOURCES.md'))!.data.toString();
+    expect(index).toContain(
+      `| dav1d: crate libc | 0.2.172 | https://static.crates.io/crates/libc/libc-0.2.172.crate |  | sources/crates/libc-0.2.172.crate | ${sha(Buffer.from('libc crate'))} |`,
+    );
+    expect(index).toContain(
+      `| dav1d: crate paste (not linked) | 1.0.15 | https://static.crates.io/crates/paste/paste-1.0.15.crate |  | sources/crates/paste-1.0.15.crate |`,
+    );
+    // a path dependency is part of its library's own source
+    expect(index).not.toContain('crate ivf');
+    expect(index).toContain('cargo vendor');
+  });
+
+  it('refuses a Rust library whose kept crate changed', async () => {
+    const { dist, folder } = builtFolder(FOLDER, (name, s, out) => {
+      const dav1d = s.libraries.find((l) => l.name === 'dav1d')! as Record<string, unknown>;
+      dav1d['crates'] = [
+        {
+          name: 'libc',
+          version: '0.2.172',
+          license: 'MIT',
+          source: 'crates.io',
+          file: 'crates/libc-0.2.172.crate',
+          sha256: 'a'.repeat(64),
+          linked: true,
+          texts: [],
+        },
+      ];
+      mkdirSync(join(out, `${name}.sources`, 'crates'), { recursive: true });
+      writeFileSync(join(out, `${name}.sources`, 'crates', 'libc-0.2.172.crate'), 'x');
+    });
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot }),
+    ).rejects.toThrow("crates/libc-0.2.172.crate doesn't match its record; build it again");
   });
 
   it('refuses a build made with other patches than the folder has now', async () => {

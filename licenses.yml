@@ -13,6 +13,8 @@ licenses:
   BSD-3-Clause-Clear: all
   ISC: all
   0BSD: all
+  # a public-domain dedication with a permissive fallback (Rust crates offer it beside MIT)
+  Unlicense: all
   bzip2-1.0.6: all
   Zlib: all
   libpng-2.0: all

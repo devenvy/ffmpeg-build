@@ -87,6 +87,8 @@ describe('the build modules an engine runs', () => {
       'dist/cli.js',
       'platforms.yml',
       'licenses.yml',
+      // the standard licence texts a Rust library's crates may need (build/cargo.ts)
+      'license-texts/MIT.txt',
       'ffmpeg/source.yml',
       'recipes/dav1d/recipe.yml',
       'images/linux-x64/Dockerfile',

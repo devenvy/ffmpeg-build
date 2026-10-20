@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { fakeCargo } from './cargo-fake.ts';
 import {
   build,
   cmakeLines,
@@ -719,10 +720,23 @@ describe('rav1e', () => {
   it.each(platformsOf('rav1e'))('%s', async (platform) => {
     const h = fake(platform);
     put(pcPath(h, 'rav1e'), `Libs: -L\${libdir} -lrav1e\nLibs.private: -lunwind -lc\n`);
+    fakeCargo(h, { name: 'rav1e', version: '0.8.1', license: 'BSD-2-Clause' }, [
+      { name: 'libc', version: '0.2.172', license: 'MIT OR Apache-2.0', files: { LICENSE: 'mit' } },
+      { name: 'av-metrics', version: '0.9.1', license: 'MIT' },
+    ]);
     await build(h, 'rav1e');
     const target = RUST_TARGET[platform]!;
     const apple = /^(osx|ios|maccatalyst)-/.test(platform);
-    const calls = h.calls.map((c) => [c.command, ...c.args].join(' '));
+    const all = h.calls.map((c) => [c.command, ...c.args].join(' '));
+    // its crates, listed for the platform's Rust target once Rust is there, then the build offline
+    const fetch = all.indexOf('cargo fetch --locked');
+    expect(all.slice(fetch + 1, fetch + 3).map((c) => c.split(' ').slice(0, 2).join(' '))).toEqual([
+      'cargo metadata',
+      'cargo tree',
+    ]);
+    expect(all[fetch + 2]).toContain(`-p rav1e -F capi --target ${target}`);
+    expect(h.calls.at(-1)!.env['CARGO_NET_OFFLINE']).toBe('true');
+    const calls = all.filter((c) => !/^(rustc|cargo (fetch|metadata|tree))( |$)/.test(c));
     expect(calls.at(-1)).toBe(
       `cargo cinstall --release --locked --library-type=staticlib --target=${target} --prefix=${h.deps} --libdir=${h.deps}/lib --includedir=${h.deps}/include`,
     );
@@ -768,6 +782,7 @@ describe('rav1e', () => {
     const h = fake('linux-musl-x64');
     const pc = `Libs: -L\${libdir} -lrav1e -lunwind -lc\nLibs.private: -lunwind -lc -lunwind -lc\n`;
     put(pcPath(h, 'rav1e'), pc);
+    fakeCargo(h, { name: 'rav1e', version: '0.8.1', license: 'BSD-2-Clause' }, []);
     await build(h, 'rav1e');
     expect(h.read(pcPath(h, 'rav1e'))).toBe(
       `Libs: -L\${libdir} -lrav1e -lc\nLibs.private: -lgcc_eh -lc\n`,

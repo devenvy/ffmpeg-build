@@ -14,7 +14,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 
 import { checkTarMembers, listTarGzMembers, UnsafeArchiveError } from '../untar.ts';
-import { sha256, type SourceRecord } from './fetch.ts';
+import { keptFiles, sha256, type SourceRecord } from './fetch.ts';
 import { run } from './run.ts';
 
 import type { LicenseFile } from '../schema/engine.ts';
@@ -75,17 +75,46 @@ export function keptPath(sources: string, file: string): string {
   return path;
 }
 
+const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+const crateSchema = z.union([
+  z.strictObject({
+    name: z.string().min(1),
+    version: z.string().min(1),
+    license: z.string().min(1).optional(),
+    source: z.literal('crates.io'),
+    file: z.string().min(1),
+    sha256: sha256Schema,
+    linked: z.boolean(),
+    texts: z.array(z.string().min(1)),
+    standard: z.array(z.string().min(1)).optional(),
+    authors: z.array(z.string()).optional(),
+  }),
+  z.strictObject({
+    name: z.string().min(1),
+    version: z.string().min(1),
+    license: z.string().min(1).optional(),
+    source: z.literal('path'),
+    linked: z.boolean(),
+    texts: z.array(z.string().min(1)),
+    standard: z.array(z.string().min(1)).optional(),
+    authors: z.array(z.string()).optional(),
+  }),
+]);
 const recordSchema = z.strictObject({
   name: z.string().min(1),
   version: z.string().min(1),
   origin: z.string().min(1),
   file: z.string().min(1),
-  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  sha256: sha256Schema,
   commit: z
     .string()
     .regex(/^[0-9a-f]{40}$/)
     .optional(),
   cached: z.boolean().optional(),
+  crates: z.array(crateSchema).optional(),
+  rust: z
+    .strictObject({ version: z.string().min(1), texts: z.array(z.string().min(1)) })
+    .optional(),
 });
 
 /**
@@ -102,7 +131,9 @@ export function parseSourceRecord(
     return undefined;
   }
   try {
-    keptPath(sources, parsed.data.file);
+    for (const kept of keptFiles(parsed.data)) {
+      keptPath(sources, kept.file);
+    }
   } catch {
     return undefined;
   }
@@ -131,6 +162,7 @@ export async function restoreCache(
   name: string,
   runner: typeof run = run,
   pin: { sha256?: string | undefined; commit?: string | undefined } = {},
+  expect: { crates?: boolean } = {},
 ): Promise<SourceRecord | undefined> {
   if (!existsSync(cached)) {
     return undefined;
@@ -160,13 +192,18 @@ export async function restoreCache(
       `was built from a source with sha256 ${record.sha256}, not the ${pin.sha256} ffmpeg.lock pins`,
     );
   }
-  const kept = keptPath(sources, record.file);
-  if (!existsSync(kept) || sha256(kept) !== record.sha256) {
-    return discard(
-      cached,
-      name,
-      `names a source that isn't on file under sources/ as recorded (${record.file})`,
-    );
+  if (expect.crates && !record.crates) {
+    return discard(cached, name, 'lists no Rust crates (an older engine built it)');
+  }
+  for (const { file, sha256: recorded } of keptFiles(record)) {
+    const kept = keptPath(sources, file);
+    if (!existsSync(kept) || sha256(kept) !== recorded) {
+      return discard(
+        cached,
+        name,
+        `names a source that isn't on file under sources/ as recorded (${file})`,
+      );
+    }
   }
   try {
     checkTarMembers(await listTarGzMembers(cached), depsDir);

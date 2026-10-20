@@ -481,6 +481,18 @@ const recipeBuild = z
     // before everything else: autogen (./autogen.sh), autoreconf (autoreconf -fi) or a script in the source; a list
     // tries each in turn, quietly, until one works (the last one's output is shown)
     bootstrap: bootstrap.optional(),
+    // a Rust library: the crates its Cargo.lock compiles in for the platform's Rust target, fetched after before:
+    // and listed by cargo (package and features as the build selects them), go into THIRD-PARTY-NOTICES.txt and the
+    // sources archive, and are checked against licenses.yml before the build; it then builds offline.
+    // standard-texts: crates reviewed to take the standard text of their licence, as they ship no licence file
+    cargo: z
+      .strictObject({
+        target: text,
+        package: text,
+        features: z.array(text).default([]),
+        'standard-texts': z.array(text).default([]),
+      })
+      .optional(),
     env: buildEnv.default({}),
     unset,
     vars: vars.default({}),

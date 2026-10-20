@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 
+import { keptFiles } from './build/fetch.ts';
 import { buildModules } from './build/modules.ts';
 import { FetchError, ffmpegAtLeast, listReleases, parseTag, repoIsPrivate } from './fetch.ts';
 import {
@@ -44,6 +45,8 @@ interface SourceRecord {
   file: string;
   sha256: string;
   commit?: string;
+  // a Rust library's crates (build/cargo.ts): crates.io ones are kept, as their .crate, with their sha256
+  crates?: { name: string; version: string; file?: string; sha256?: string; linked: boolean }[];
 }
 interface SourcesJson {
   artifact: string;
@@ -178,7 +181,7 @@ function builtTarget(
     );
   }
   const sources = JSON.parse(readFileSync(join(dist, files.json), 'utf8')) as SourcesJson;
-  for (const s of [sources.ffmpeg, ...sources.libraries]) {
+  for (const s of [sources.ffmpeg, ...sources.libraries].flatMap(keptFiles)) {
     const kept = join(dist, `${name}.sources`, s.file);
     if (!existsSync(kept)) {
       throw new BundleError(
@@ -233,7 +236,7 @@ function archivedPaths(rel: PlannedRelease, built: Map<string, SourcesJson>): Ma
   const at = new Map<string, string>(); // file\0sha256 -> path in the archive
   for (const p of rel.targets) {
     const s = built.get(p.target.name)!;
-    for (const r of [s.ffmpeg, ...s.libraries]) {
+    for (const r of [s.ffmpeg, ...s.libraries].flatMap(keptFiles)) {
       const key = `${r.file}\0${r.sha256}`;
       if (!at.has(key)) {
         const first = byName.get(r.file);
@@ -268,7 +271,7 @@ async function writeSources(
   const entries: TarEntry[] = [];
   for (const p of rel.targets) {
     const s = built.get(p.target.name)!;
-    for (const r of [s.ffmpeg, ...s.libraries]) {
+    for (const r of [s.ffmpeg, ...s.libraries].flatMap(keptFiles)) {
       const at = archived.get(`${r.file}\0${r.sha256}`)!;
       if (!entries.some((e) => e.path === `${root}/${at}`)) {
         entries.push({ path: `${root}/${at}`, file: join(dist, `${s.artifact}.sources`, r.file) });
@@ -305,6 +308,8 @@ async function writeSources(
   const fromData = [
     'platforms.yml',
     'licenses.yml',
+    // the standard licence texts the notices of a Rust library's crates may take
+    ...filesUnder(join(data.root, 'license-texts')).map((f) => `license-texts/${f}`),
     'ffmpeg/source.yml',
     `ffmpeg/${rel.ffmpeg.split('.')[0] ?? ''}.yml`,
     ...recipes.flatMap((r) =>
@@ -344,6 +349,18 @@ function sourcesIndex(
     `To build a target again: \`npm install --global @devenvy/ffmpeg-build@${packageVersion()}\`, then in \`build/\`:`,
     '`ffmpeg-build build --target <name>`.',
   ];
+  if (rel.targets.some((p) => built.get(p.target.name)!.libraries.some((l) => l.crates?.length))) {
+    out.push(
+      '',
+      "A Rust library's crates are in `sources/crates/` as crates.io serves them (`<name>-<version>.crate`, with the",
+      'sha256 its Cargo.lock pins): every crate its Cargo.lock names, as `cargo vendor` would keep them; "not linked"',
+      "marks one that isn't in the library (a build script's, procedural macro's, other platform's or test's). To",
+      'build it offline from them, as `cargo vendor` would: unpack each into `vendor/<name>-<version>/`',
+      'beside a `.cargo-checksum.json` of `{"files":{},"package":"<sha256>"}`, and give the source a',
+      '`.cargo/config.toml` of `[source.crates-io]` `replace-with = "vendored"` and `[source.vendored]`',
+      '`directory = "vendor"`.',
+    );
+  }
   for (const p of rel.targets) {
     const s = built.get(p.target.name)!;
     out.push(
@@ -357,6 +374,13 @@ function sourcesIndex(
       out.push(
         `| ${r.name} | ${r.version} | ${r.origin} | ${r.commit ?? ''} | ${archived.get(`${r.file}\0${r.sha256}`)!} | ${r.sha256} |`,
       );
+      for (const c of r.crates ?? []) {
+        if (c.file && c.sha256) {
+          out.push(
+            `| ${r.name}: crate ${c.name}${c.linked ? '' : ' (not linked)'} | ${c.version} | https://static.crates.io/crates/${c.name}/${c.name}-${c.version}.crate |  | ${archived.get(`${c.file}\0${c.sha256}`)!} | ${c.sha256} |`,
+          );
+        }
+      }
     }
     if (s.patches.length) {
       out.push(

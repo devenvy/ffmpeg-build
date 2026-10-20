@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { dockerCommand, dockerRunArgs, ensureImage, runStreaming } from '../src/build/docker.ts';
-import { cacheKeys, sourceOf, toolchainIdentity } from '../src/build/plan.ts';
+import { cacheKeys, cargoPlan, sourceOf, toolchainIdentity } from '../src/build/plan.ts';
 import { EXIT_USAGE } from '../src/cli-error.ts';
 import { buildOrder, loadEngineData } from '../src/engine-data.ts';
 import { dataRoot, packageRoot } from '../src/paths.ts';
@@ -75,6 +75,8 @@ const plan = {
     build: data.recipes.get(name)!.build,
   })),
   runtime: [],
+  // a Rust library's crates are checked against licenses.yml as in a real build
+  ...(cargoPlan(data, order) ? { cargo: cargoPlan(data, order) } : {}),
 };
 writeFileSync(join(work, 'plan.json'), JSON.stringify(plan, null, JSON_INDENT));
 const { code, lastError } = await runStreaming(

@@ -2,9 +2,8 @@ name: librsvg
 provides: rsvg
 # librsvg's own code is LGPL-2.1-or-later; its Rust crates (Cargo.lock, compiled in) add MIT (or MIT-dual) crates,
 # MPL-2.0 (cssparser, selectors), Unicode-3.0 (the ICU4X crates), BSD-3-Clause and three Apache-2.0-only crates
-# (nalgebra, simba, approx: its transforms' maths), which keep it out of version 2 builds. (The list is cargo tree's
-# over the pinned Cargo.lock, every target. The crates' own texts and sources aren't yet in THIRD-PARTY-NOTICES or
-# the sources archive, as for rav1e: devenvy/ffmpeg-build#40.)
+# (nalgebra, simba, approx: its transforms' maths), which keep it out of version 2 builds. (The engine checks every
+# crate linked in against this when it builds, build.cargo below.)
 license: LGPL-2.1-or-later AND Apache-2.0 AND MPL-2.0 AND MIT AND Unicode-3.0 AND BSD-3-Clause
 license-files: [COPYING.LIB]
 configure: [--enable-librsvg]
@@ -26,6 +25,13 @@ build:
   # (rav1e's). The library alone:
   # no rsvg-convert, gdk-pixbuf (or its loader), AVIF (dav1d), introspection, Vala, docs or tests.
   system: meson
+  # the crates its meson has cargo cbuild compile in (librsvg-c, default features: no AVIF), fetched and checked
+  # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. mutants and selectors publish no licence
+  # file in their crates: the standard text of their licence (MIT; MPL-2.0)
+  cargo:
+    target: '{target}'
+    package: librsvg-c
+    standard-texts: [mutants, selectors]
   args:
     [
       --wrap-mode=nofallback,
