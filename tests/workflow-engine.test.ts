@@ -878,8 +878,8 @@ describe.skipIf(!bash)('the Android emulator test', () => {
   const PREPARE = 'the emulator and its system image, retried (a download can arrive broken)';
 
   /**
-   * Runs the prepare step with a stand-in sdkmanager where the runner keeps it (under ANDROID_HOME, not on PATH) that
-   * installs nothing for its first `broken` install calls.
+   * Runs the prepare step with a stand-in sdkmanager where the runner keeps it (under ANDROID_HOME, not on PATH) whose
+   * first `broken` install calls leave what a broken download does: the files, but no package.xml, so not listed.
    */
   function prepare(broken: number) {
     const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-sdk-'));
@@ -891,11 +891,13 @@ describe.skipIf(!bash)('the Android emulator test', () => {
       [
         '#!/usr/bin/env bash',
         '[ "$1" = --licenses ] && exit 0',
+        `[ "$1" = --list_installed ] && { [ -f "${home}/system-images/android-35/google_apis/x86_64/package.xml" ] && echo "  system-images;android-35;google_apis;x86_64 | 9 | Google APIs"; exit 0; }`,
         `n=$(( $(cat "${home}.calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "${home}.calls"`,
         `echo "sdkmanager $*" >> "${home}.log"`,
-        `[ "$n" -le ${String(broken)} ] && { echo "Warning: An error occurred while preparing SDK package Android Emulator: Error on ZipFile unknown archive."; exit 0; }`,
         `mkdir -p "${home}/emulator" "${home}/system-images/android-35/google_apis/x86_64"`,
-        `touch "${home}/emulator/emulator" "${home}/system-images/android-35/google_apis/x86_64/system.img"`,
+        `touch "${home}/emulator/emulator" "${home}/emulator/package.xml" "${home}/system-images/android-35/google_apis/x86_64/system.img"`,
+        `[ "$n" -le ${String(broken)} ] && { echo "Warning: An error occurred while preparing SDK package Google APIs Intel x86_64 Atom System Image: Error on ZipFile unknown archive."; exit 0; }`,
+        `touch "${home}/system-images/android-35/google_apis/x86_64/package.xml"`,
         '',
       ].join('\n'),
       { mode: 0o755 },
@@ -934,13 +936,56 @@ describe.skipIf(!bash)('the Android emulator test', () => {
     expect(steps[ready]!.if).toBe(steps[emulator]!.if);
   });
 
-  it('installs again when sdkmanager says it did but the files are missing, and stops after three tries', () => {
+  it('installs again until sdkmanager lists the image (a broken download leaves files, unlisted), and stops after five tries', () => {
     const once = prepare(1);
     expect(once.status, once.out).toBe(0);
     expect(once.tries).toBe(2);
     const never = prepare(9);
     expect(never.status).not.toBe(0);
-    expect(never.tries).toBe(3);
+    expect(never.tries).toBe(5);
     expect(never.out).toContain('the Android emulator or its system image is still missing');
   });
+});
+
+describe.skipIf(!bash)('Rosetta, on a macOS runner building x86_64', () => {
+  const ROSETTA = 'Rosetta (x86_64 builds run under it on Apple silicon)';
+
+  /** The step, with Apple's catalog offering no Rosetta for its first `missing` installs; what it ran, and its status. */
+  function rosetta(file: string, missing: number, present = false) {
+    const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-rosetta-')).replaceAll('\\', '/');
+    // arch and sudo as functions: they win over anything on PATH
+    const fakes = [
+      `arch() { echo "arch $*" >> "${dir}/log"; [ -f "${dir}/installed" ]; }`,
+      `sudo() { echo "sudo $*" >> "${dir}/log"; n=$(( $(cat "${dir}/n" 2>/dev/null || echo 0) + 1 )); echo "$n" > "${dir}/n"; if [ "$n" -le ${String(missing)} ]; then echo 'Rosetta 2 update is not available'; return 1; fi; touch "${dir}/installed"; }`,
+      present ? `touch "${dir}/installed"` : '',
+      '',
+    ].join('\n');
+    const r = spawnSync(bash!, ['-e', '-c', fakes + step(file, ROSETTA).run!], {
+      encoding: 'utf8',
+      env: { ...process.env, RETRY_DELAY: '0' },
+    });
+    let log: string[] = [];
+    try {
+      log = readFileSync(`${dir}/log`, 'utf8').trim().split('\n');
+    } catch {
+      /* none */
+    }
+    return {
+      status: r.status,
+      out: `${r.stdout}${r.stderr}`,
+      installs: log.filter((l) => l.startsWith('sudo')).length,
+    };
+  }
+
+  it.each(['build.yml', 'recipes.yml'])(
+    '%s: retries an install the catalog refuses, until an x86_64 program runs',
+    (file) => {
+      expect(rosetta(file, 0, true)).toMatchObject({ status: 0, installs: 0 });
+      expect(rosetta(file, 2)).toMatchObject({ status: 0, installs: 3 });
+      const never = rosetta(file, 9);
+      expect(never.status).not.toBe(0);
+      expect(never.installs).toBe(5);
+      expect(never.out).toContain('Rosetta is still missing after 5 attempts');
+    },
+  );
 });

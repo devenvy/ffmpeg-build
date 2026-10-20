@@ -29,6 +29,7 @@ const DEFAULT_FILE_MODE = 0o644;
 
 const HTTP_OK = 200;
 const HTTP_NOT_FOUND = 404;
+const HTTP_UNAUTHORIZED = 401;
 /** GitHub's page size when a request doesn't say. */
 const GITHUB_DEFAULT_PER_PAGE = 30;
 const SHA256_HEX_LENGTH = 64;
@@ -225,6 +226,14 @@ export async function fakeGitHub(): Promise<FakeGitHub> {
     });
     if (url.pathname === '/repos/o/r') {
       send(HTTP_OK, { full_name: 'o/r', private: fake.private });
+      return;
+    }
+    // git's smart HTTP, as github.com answers a fetch without credentials: a private repository asks for them
+    if (url.pathname === '/o/r.git/info/refs') {
+      res.writeHead(fake.private ? HTTP_UNAUTHORIZED : HTTP_OK, {
+        'content-type': 'application/x-git-upload-pack-advertisement',
+      });
+      res.end(fake.private ? '' : '001e# service=git-upload-pack\n0000');
       return;
     }
     let m = /^\/repos\/o\/r\/releases\/tags\/(.+)$/.exec(url.pathname);

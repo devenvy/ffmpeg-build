@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -52,7 +52,7 @@ import {
 } from '../cache-admin.ts';
 import { BuildFailure, CliError, type ExitCode } from '../cli-errors.ts';
 import { depsOn, type EngineData } from '../engine-data.ts';
-import { FetchError, repoIsPrivate } from '../fetch.ts';
+import { FetchError, repoIsPrivate, repoIsPrivateByGit } from '../fetch.ts';
 import { LockBusyError } from '../file-lock.ts';
 import { Interrupted, withInterrupts } from '../interrupt.ts';
 import { LOCK_FILE, type LockedProfile, readFolderLock } from '../lockfile.ts';
@@ -117,8 +117,32 @@ export async function releaseIdentity(
     }
     return { release, repository, privateRepo: given === 'true' };
   }
+  // the run's event names it (push, pull_request, workflow_dispatch; a workflow_call has its caller's): no request.
+  // A schedule's names no repository
+  const fromEvent = eventSaysPrivate(env, repository);
+  if (fromEvent !== undefined) {
+    return { release, repository, privateRepo: fromEvent };
+  }
+  // with a token, the API; without one, git's smart HTTP first: the API refuses an unauthenticated runner past its
+  // rate limit (60 an hour for the address, which a hosted runner shares), as it did devenvy/ffmpeg's 0.0.12 builds
+  const ask = async (): Promise<boolean> => {
+    if (setting(env['GITHUB_TOKEN']) ?? setting(env['GH_TOKEN'])) {
+      return repoIsPrivate(repository);
+    }
+    try {
+      return await repoIsPrivateByGit(
+        setting(env['GITHUB_SERVER_URL']) ?? 'https://github.com',
+        repository,
+      );
+    } catch (e) {
+      if (!(e instanceof FetchError)) {
+        throw e;
+      }
+      return repoIsPrivate(repository);
+    }
+  };
   try {
-    return { release, repository, privateRepo: await repoIsPrivate(repository) };
+    return { release, repository, privateRepo: await ask() };
   } catch (e) {
     if (!(e instanceof FetchError)) {
       throw e;
@@ -128,6 +152,27 @@ export async function releaseIdentity(
       e.exitCode,
     );
   }
+}
+
+/** `repository.private` of the GitHub Actions event payload (GITHUB_EVENT_PATH), when it is about `repository`. */
+function eventSaysPrivate(env: NodeJS.ProcessEnv, repository: string): boolean | undefined {
+  const path = setting(env['GITHUB_EVENT_PATH']);
+  if (!path) {
+    return undefined;
+  }
+  let event: unknown;
+  try {
+    event = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return undefined;
+  }
+  const repo = (event as { repository?: { full_name?: unknown; private?: unknown } } | null)
+    ?.repository;
+  return typeof repo?.full_name === 'string' &&
+    repo.full_name.toLowerCase() === repository.toLowerCase() &&
+    typeof repo.private === 'boolean'
+    ? repo.private
+    : undefined;
 }
 
 /**

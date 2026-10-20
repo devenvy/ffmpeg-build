@@ -291,9 +291,21 @@ async function stagePlatform(
 export const objdumpFor = (env: NodeJS.ProcessEnv): string =>
   env['CROSS_PREFIX'] ? `${env['CROSS_PREFIX']}-objdump` : 'objdump';
 
-/** A musl build links its C++ and GCC runtimes statically: no binary may need them as shared libraries. */
 /** The thread stack a musl build's programs and libraries ask for (platforms.yml's -z stack-size): glibc's 8 MiB. */
 const MUSL_THREAD_STACK = 8_388_608;
+
+/**
+ * Whether a staged file must ask musl for MUSL_THREAD_STACK: the programs and FFmpeg's own libraries. musl's dynamic
+ * linker takes the largest PT_GNU_STACK of the program and the libraries it starts with (never of one dlopen'd later),
+ * so these asking is what the programs, and any program linking FFmpeg's libraries at start-up, get; a runtime
+ * library shipped next to them (libvulkan, which FFmpeg dlopens) is built by its own upstream's rules and needn't.
+ */
+export const asksMuslStack = (name: string): boolean =>
+  name === 'ffmpeg' ||
+  name === 'ffprobe' ||
+  /^lib(?:avcodec|avdevice|avfilter|avformat|avutil|swresample|swscale|postproc)\.so(?:\.|$)/.test(
+    name,
+  );
 /** Where MemSiz is among a readelf -lW program header's fields after its type. */
 const GNU_STACK_MEMSIZ = 4;
 
@@ -305,6 +317,7 @@ export function gnuStackSize(readelf: string): number | undefined {
   return memsiz === undefined ? undefined : Number(memsiz);
 }
 
+/** A musl build links its C++ and GCC runtimes statically: no binary may need them as shared libraries. */
 async function checkMuslRuntime(context: BuildContext, runDir: string): Promise<void> {
   for (const file of [
     join(runDir, 'ffmpeg'),
@@ -321,13 +334,15 @@ async function checkMuslRuntime(context: BuildContext, runDir: string): Promise<
       }
       // musl's threads get 128 KiB of stack unless a program or library asks for more: FFmpeg's demux and encoder
       // threads need more (devenvy/ffmpeg-build#38)
-      const stack = gnuStackSize(
-        await run('readelf', ['-lW', file], { env: context.env, capture: true }),
-      );
-      if (stack === undefined || stack < MUSL_THREAD_STACK) {
-        throw new Error(
-          `${basename(file)} asks musl for ${stack === undefined ? 'no' : `a ${stack}-byte`} thread stack, not ${MUSL_THREAD_STACK} (platforms.yml's -Wl,-z,stack-size)`,
+      if (asksMuslStack(basename(file))) {
+        const stack = gnuStackSize(
+          await run('readelf', ['-lW', file], { env: context.env, capture: true }),
         );
+        if (stack === undefined || stack < MUSL_THREAD_STACK) {
+          throw new Error(
+            `${basename(file)} asks musl for ${stack === undefined ? 'no' : `a ${stack}-byte`} thread stack, not ${MUSL_THREAD_STACK} (platforms.yml's -Wl,-z,stack-size)`,
+          );
+        }
       }
     }
   }

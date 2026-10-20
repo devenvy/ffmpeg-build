@@ -50,6 +50,7 @@ import { EditError } from './profile-edit.ts';
 import { readPlainFile } from './read-file.ts';
 import { selectedNames } from './select.ts';
 import { GitMissingError } from './upstream.ts';
+import { workflowPinNotes } from './workflow-pins.ts';
 
 import type { Folder, Target } from './targets.ts';
 
@@ -248,7 +249,14 @@ program
   .action(async (opts: { json?: boolean } & Chosen) =>
     run(() => {
       const folder = openFolder();
-      return runFolderCheck(folder, data(), { json: opts.json === true, ...chosen(folder, opts) });
+      const checked = runFolderCheck(folder, data(), {
+        json: opts.json === true,
+        ...chosen(folder, opts),
+      });
+      // the workflows the repository calls, at another release than the lock's engine: a note, never a failure
+      const engine = readFolderLock(join(folder.dir, LOCK_FILE))?.engine;
+      const notes = engine ? workflowPinNotes(folder.dir, engine, process.env) : [];
+      return notes.length ? { ...checked, notes } : checked;
     }),
   );
 

@@ -247,7 +247,24 @@ jobs:
       # before the build: staging runs the x86_64 programs it made (without Rosetta it only names their architecture)
       - name: Rosetta (x86_64 builds run under it on Apple silicon)
         if: runner.os == 'macOS' && endsWith(matrix.platform, '-x64')
-        run: sudo softwareupdate --install-rosetta --agree-to-license
+        env:
+          RETRY_DELAY: '20'
+        # Apple's catalog sometimes has no Rosetta for a while ("Rosetta 2 update is not available"): retried, and
+        # what counts is that an x86_64 program runs
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if arch -x86_64 /usr/bin/true 2> /dev/null; then
+              exit 0
+            fi
+            sudo softwareupdate --install-rosetta --agree-to-license || true
+            if arch -x86_64 /usr/bin/true 2> /dev/null; then
+              exit 0
+            fi
+            echo "::warning::Rosetta didn't install (attempt ${attempt} of 5)"
+            [ "${attempt}" = 5 ] || sleep "$((RETRY_DELAY * attempt))"
+          done
+          echo "::error::Rosetta is still missing after 5 attempts: this runner can't run the x86_64 programs the build checks"
+          exit 1
       - name: build ${{ matrix.target }}
         if: ${{ !(runner.os == 'Windows' && matrix.in == 'here') }}
         working-directory: ${{ inputs.folder }}
@@ -305,16 +322,25 @@ jobs:
           # where the runner keeps it: it isn't on PATH (the emulator action adds it for its own steps)
           sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           image='system-images;android-35;google_apis;x86_64'
+          dir="${ANDROID_HOME}/system-images/android-35/google_apis/x86_64"
+          # installed is what sdkmanager lists (it writes package.xml once a package is unpacked whole): a folder with
+          # files in it may be a broken download's, which the action then downloads again, unretried
+          installed() {
+            [ -f "${ANDROID_HOME}/emulator/package.xml" ] && [ -f "${dir}/package.xml" ] &&
+              "${sdkmanager}" --list_installed 2> /dev/null | grep -q "^ *${image} "
+          }
           yes | "${sdkmanager}" --licenses > /dev/null || true
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             "${sdkmanager}" --install emulator "${image}" --channel=0 > /dev/null || true
-            if [ -f "${ANDROID_HOME}/emulator/emulator" ] && [ -n "$(ls -A "${ANDROID_HOME}/system-images/android-35/google_apis/x86_64" 2>/dev/null)" ]; then
+            if installed; then
               exit 0
             fi
-            echo "::warning::the Android emulator or its system image didn't install (attempt ${attempt} of 3)"
-            [ "${attempt}" = 3 ] || sleep "${RETRY_DELAY}"
+            echo "::warning::the Android emulator or its system image didn't install (attempt ${attempt} of 5)"
+            # what a broken download left, so the next attempt starts clean
+            rm -rf "${dir}" "${HOME}/.android/cache"
+            [ "${attempt}" = 5 ] || sleep "$((RETRY_DELAY * attempt))"
           done
-          echo "::error::the Android emulator or its system image is still missing after 3 attempts"
+          echo "::error::the Android emulator or its system image is still missing after 5 attempts"
           exit 1
       - name: test ${{ matrix.target }} on an Android emulator
         if: inputs.tests != 'none' && startsWith(matrix.platform, 'android-')
