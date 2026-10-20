@@ -28,11 +28,14 @@ build:
   # the crates its meson has cargo cbuild compile in (librsvg-c, default features: no AVIF), fetched and checked
   # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. selectors (and, on win-x64,
   # winapi-x86_64-pc-windows-gnu, the import libraries winapi links) publish no licence file in their crates: the
-  # standard text of their licence (MPL-2.0; MIT among MIT/Apache-2.0)
+  # standard text of their licence (MPL-2.0; MIT among MIT/Apache-2.0). Its C API is rsvg_*: the rest of what its
+  # Rust objects define (its copy of Rust's standard library) gets librsvg's own names, so it links beside another
+  # Rust library (rav1e); the C libraries Rust bundled into it (cairo, GLib, ...) keep theirs
   cargo:
     target: '{target}'
     package: librsvg-c
     standard-texts: [selectors, winapi-x86_64-pc-windows-gnu]
+    exports: [rsvg_*]
   args:
     [
       --wrap-mode=nofallback,

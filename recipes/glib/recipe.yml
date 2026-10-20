@@ -17,6 +17,9 @@ source:
 # windows.applicationmodel.core.h) that win-x64's mingw-w64 (Ubuntu's 11.0.1) hasn't got. Move on when it has them.
 versions: { git-tags: '^(2\.86\.\d+)$' }
 platforms: all
+# Android: its iconv is the C library's, which bionic has from API 28 (Android 9): an android-api: below that can't
+# build it (meson finds no iconv)
+android-api: 28
 build:
   # GLib, GObject and GIO (LGPL-2.1-or-later), static, for what builds on them here (lensfun, cairo-gobject). The
   # libraries alone: no tools' man pages, docs, tests, introspection, translations or system integrations (SELinux,

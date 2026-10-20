@@ -3,14 +3,24 @@ engine: 0.0.1
 ffmpeg:
   "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
 libraries:
+  cairo: { version: 1.18.6, commit: 018b3424a10ecd37450360f21454ecf0f3007e17 }
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
+  fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
+  freetype: { version: 2.15.0, commit: 37515cf56ba3349656049edbed89ffc6f6466f2d }
+  fribidi: { version: 1.0.17, commit: b93119f5fdc7ea47672cc304c1455ffa6dfe7536 }
+  glib: { version: 2.86.5, commit: 3033f7862c2d3c7569cef2ad4b425cf42e95d4b4 }
+  harfbuzz: { version: 14.6.0, commit: c7a7457b7385f33178e8cf87615ca077a810bbe7 }
   imath: { version: 3.2.3, commit: 5f27ba266d3ea1565e912570c30b5eafc89959f1 }
   lcms2: { version: 2.19.1, commit: 21c582a594fe5279f90c0b93437c398f93bf62b0 }
   libdrm: { version: 2.4.134, commit: e984d448b8b17aab853369e6c203e53719f46de1 }
   libexpat: { version: 2.9.0, commit: a76b1174c1ea52abb639a4c69d52b630a8a106a2 }
+  libffi: { version: 3.8.0, sha256: 7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4 }
   libplacebo: { version: 7.360.1, commit: cee9b076f2c63104ccfd497fa79c39a867293ec4 }
+  libpng: { version: 1.6.59, commit: cd952f49f95bb27154ae77dbb103032d95f6e580 }
+  librsvg: { version: 2.63.3, commit: 230d2c9ee3e6d552a981374e8a3c1e2c28604768 }
   libvdpau: { version: 1.5, commit: 79f1506a3307d3275b0fdfb2e110c173f68e6f78 }
+  libxml2: { version: 2.15.4, commit: 96498992efa48d52b0e8b83058bd88dbdaf153c1 }
   minizip-ng: { version: 4.2.2, commit: 7b2387161c542fa9f427352dcdef76097d0d692b }
   moltenvk: { version: 1.4.2, commit: db66022459ffb663aa2b50f6b018bc2e124f5edf }
   nv-codec: { version: 13.1.15.0, commit: 0a6fba9a2820628b8103464f4c8753ee05838baa }
@@ -18,7 +28,12 @@ libraries:
   opencl-icd-loader: { version: 2026.05.29, commit: b7bd2803acc779c03d96588e9ca9e9568a18698a }
   opencolorio: { version: 2.6.0, commit: 10a43ec1df03d072ca9a9e2fb3f26e454b0900d8 }
   opus: { version: 1.6.1, commit: 22244de5a79bd1d6d623c32e72bf1954b56235be }
+  pango: { version: 1.56.4, commit: 5f589a7e0e61dca3f976da172cf55743ace77a38 }
+  pcre2: { version: 10.49, sha256: 53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384 }
+  pixman: { version: 0.46.4, commit: 9cc163c9da0fb4da430641715313d95a6ec466d9 }
+  proxy-libintl: { version: 0.5, commit: 33934de09af6a6627eb44e310a8079df009abdbb }
   pystring: { version: 1.2.0, commit: 1922c8f2b48e3beb6831c27b4811b58995e986cf }
+  rav1e: { version: 0.8.1, commit: 1fe82de02510767539e89b2ee6fa846920ae2686 }
   rockchip-mpp: { version: 1.1.0, commit: c08762ebfadeb4e986d2fed993bc7a54862d3ebe }
   shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
   spirv-headers: { version: 1.4.363.0, commit: 496543121ce6419f23d6fa5d7194ba66c36212d2 }

@@ -3,15 +3,15 @@
 The engine's own end-to-end test: one small target (dav1d and Opus, lgplv3, FFmpeg 9) per kind of runner and
 toolchain, so every platform's setup, packaging and tests run in CI without building every library.
 
-| Targets                                                      | What they cover                                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| linux-x64, linux-arm64                                       | the glibc Linux images, on x64 and arm64 runners                         |
-| linux-armhf                                                  | a cross build, tested in Debian armhf under qemu                         |
-| linux-musl-arm64                                             | the musl (Alpine) image, tested in Alpine                                |
-| win-x64, win-arm64                                           | the Windows cross builds, tested on Windows and Windows on Arm runners   |
-| android-arm64                                                | the Android NDK build for API 24 (`android-api:`), tested on an emulator |
-| osx-arm64                                                    | a native macOS build, with OpenColorIO (`tests/ocio.sh` runs its filter) |
-| ios-arm64, ios-sim-arm64, maccatalyst-arm64, maccatalyst-x64 | the four slices of one iOS / Mac Catalyst xcframework bundle             |
+| Targets                                                      | What they cover                                                                                                 |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| linux-x64, linux-arm64                                       | the glibc Linux images, on x64 and arm64 runners                                                                |
+| linux-armhf                                                  | a cross build, tested in Debian armhf under qemu                                                                |
+| linux-musl-arm64                                             | the musl (Alpine) image, tested in Alpine                                                                       |
+| win-x64, win-arm64                                           | the Windows cross builds, tested on Windows and Windows on Arm runners                                          |
+| android-arm64                                                | the Android NDK build for API 24 (`android-api:`), and one at API 28 with rav1e and rsvg, tested on an emulator |
+| osx-arm64                                                    | a native macOS build, with OpenColorIO (`tests/ocio.sh` runs its filter)                                        |
+| ios-arm64, ios-sim-arm64, maccatalyst-arm64, maccatalyst-x64 | the four slices of one iOS / Mac Catalyst xcframework bundle                                                    |
 
 ios-arm64 and maccatalyst-arm64 also build Vulkan and libplacebo, with MoltenVK linked statically into their frameworks
 (the canary builds macOS's MoltenVK dylib). The Linux, Windows and macOS targets also take the GPU options their

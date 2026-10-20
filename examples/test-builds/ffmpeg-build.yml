@@ -5,6 +5,9 @@
 # The GPU options each platform offers ride along (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): small, and only a full
 # build and `ffmpeg-build test` show that FFmpeg took them (clang emitting the CUDA kernels' PTX, the D3D12 video
 # headers, the OpenCL loader linked statically, Rockchip MPP).
+# Every platform librsvg builds on (Linux, Windows, Android) has rav1e and rsvg together: two Rust static libraries,
+# each with its own copy of Rust's standard library, under its own names (DEVELOPMENT.md, Rust libraries), so FFmpeg
+# links both (devenvy/ffmpeg-build#48) with each platform's linker (GNU ld, lld, MinGW's ld, llvm-mingw's lld).
 # tests/test-env.sh checks that build.yml's test-env secret reaches a target's tests: natively (linux-x64, osx-arm64,
 # win-x64 on its test runner) and in the test containers (Alpine for linux-musl-arm64, Debian armhf for linux-armhf).
 bases:
@@ -21,7 +24,7 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [cuda-llvm, opencl, vdpau, nvenc],
+      with: [cuda-llvm, opencl, vdpau, nvenc, rav1e, rsvg],
       components:
         {
           decoders: [h264, hevc, aac, pcm_s16le, wrapped_avframe],
@@ -41,7 +44,7 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [cuda-llvm, opencl, vdpau, rkmpp],
+      with: [cuda-llvm, opencl, vdpau, rkmpp, rav1e, rsvg],
     }
   win-x64-lgplv3:
     {
@@ -49,7 +52,7 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [cuda-llvm, opencl, d3d12va],
+      with: [cuda-llvm, opencl, d3d12va, rav1e, rsvg],
       tests: [tests/test-env.sh],
       test-env: [FFB_TEST_ENV_CHECK],
     }
@@ -59,7 +62,7 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [opencl, vdpau, rkmpp],
+      with: [opencl, vdpau, rkmpp, rav1e, rsvg],
       tests: [tests/test-env.sh],
       test-env: [FFB_TEST_ENV_CHECK],
     }
@@ -69,15 +72,24 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [cuda-llvm, opencl, vdpau, rkmpp],
+      with: [cuda-llvm, opencl, vdpau, rkmpp, rav1e, rsvg],
       tests: [tests/test-env.sh],
       test-env: [FFB_TEST_ENV_CHECK],
     }
   win-arm64-lgplv3:
-    { platform: win-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [opencl, d3d12va] }
+    {
+      platform: win-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [opencl, d3d12va, rav1e, rsvg],
+    }
   # android-api: 24, below the default 28: the NDK's API 24 compilers, and the smoke program linked for API 24
   android-arm64-lgplv3:
     { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small], android-api: 24 }
+  # rav1e and rsvg on Android, at the default API 28: GLib (under librsvg) takes bionic's iconv, which is API 28
+  android-arm64-rust-lgplv3:
+    { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [rav1e, rsvg] }
   # OpenColorIO: FFmpeg's ocio filter is C++, which on macOS compiles only without the release's VERSION file
   # (devenvy/ffmpeg-build#41); tests/ocio.sh runs it
   osx-arm64-lgplv3:
