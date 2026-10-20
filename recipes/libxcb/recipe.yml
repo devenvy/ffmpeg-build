@@ -1,0 +1,22 @@
+name: libxcb
+provides: xcb
+license: X11
+license-files: [COPYING]
+configure: [--enable-libxcb, --enable-libxcb-shm, --enable-libxcb-shape, --enable-libxcb-xfixes]
+needs: [xcb-proto, libxau]
+source:
+  url: 'https://xorg.freedesktop.org/releases/individual/lib/libxcb-{version}.tar.xz'
+  mirrors: ['https://www.x.org/releases/individual/lib/libxcb-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://xorg.freedesktop.org/releases/individual/lib/',
+    files: '^libxcb-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+platforms: [linux-*]
+build:
+  # libxcb: the X protocol's C binding (X11 licence), static, with its extensions (FFmpeg's x11grab takes shm, shape
+  # and xfixes; libX11 sits on it too). It speaks the protocol over the X server's socket: nothing of the system's
+  # X11 libraries is needed at run time, only a display ($DISPLAY, and $XAUTHORITY's cookie through libXau). No
+  # XDMCP authorization, no docs.
+  system: autotools
+  args: [--disable-shared, --enable-static, --with-pic, --disable-devel-docs, --without-doxygen]

@@ -1,0 +1,37 @@
+name: libx11
+license: MIT AND X11
+license-files: [COPYING]
+needs: [xorgproto, xtrans, libxcb]
+source:
+  url: 'https://xorg.freedesktop.org/releases/individual/lib/libX11-{version}.tar.xz'
+  mirrors: ['https://www.x.org/releases/individual/lib/libX11-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://xorg.freedesktop.org/releases/individual/lib/',
+    files: '^libX11-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+platforms: [linux-*]
+build:
+  # libX11: Xlib (MIT and X11 licences), static, on libxcb, for FFmpeg's xlib option (the xv output device, with
+  # libXext and libXv). Its data (locales, XErrorDB, XKeysymDB) is the system's: --datadir=/usr/share is compiled in,
+  # and only the libraries, headers and .pc files are installed. Locale support built in (no loadable modules), no
+  # specs or docs.
+  system: autotools
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --with-pic,
+      --datadir=/usr/share,
+      --disable-loadable-i18n,
+      --disable-specs,
+      --without-xmlto,
+      --without-fop,
+      --without-xsltproc,
+      --without-lint,
+      '--with-keysymdefdir={deps}/include/X11',
+    ]
+  install-targets: [-C, src, install]
+  after:
+    - [make, -C, include, install]
+    - [make, install-pkgconfigDATA]

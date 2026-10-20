@@ -26,14 +26,8 @@ batches:
   h: Large ML backends (last; where they build reasonably)
 options:
   # f. Devices
-  libxcb: { reason: pending, issue: 21, batch: f, note: 'xcb (x11grab screen capture)' }
-  libxcb_shm: { reason: pending, issue: 21, batch: f, note: 'xcb-shm (x11grab shared memory)' }
-  libxcb_shape: { reason: pending, issue: 21, batch: f, note: 'xcb-shape (x11grab region outline)' }
-  libxcb_xfixes: { reason: pending, issue: 21, batch: f, note: 'xcb-xfixes (x11grab cursor)' }
-  xlib: { reason: pending, issue: 21, batch: f, note: 'xlib (xv output device, vdpau_x11)' }
   sdl2: { reason: pending, issue: 21, batch: f, note: 'sdl2 (SDL output device, ffplay)' }
   opengl: { reason: pending, issue: 21, batch: f, note: 'opengl (OpenGL output device)' }
-  libcaca: { reason: pending, issue: 21, batch: f, note: 'caca (text-mode output device)' }
   libv4l2:
     { reason: pending, issue: 21, batch: f, note: 'v4l2 (libv4l2, for the v4l2 input device)' }
   libdc1394: { reason: pending, issue: 21, batch: f, note: 'dc1394 (IIDC FireWire cameras)' }

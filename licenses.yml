@@ -21,6 +21,16 @@ licenses:
   Libpng: all
   FTL: all
   HPND-sell-variant: all
+  # the X.Org libraries' and ncurses' permissive licences (as Fedora's packages name them)
+  HPND: all
+  HPND-doc: all
+  HPND-doc-sell: all
+  X11: all
+  X11-distribute-modifications-variant: all
+  MIT-open-group: all
+  SMLNJ: all
+  ICU: all
+  SGI-B-2.0: all
   Unicode-DFS-2016: all
   Unicode-3.0: all
   WTFPL: all
