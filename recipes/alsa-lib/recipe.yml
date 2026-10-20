@@ -1,0 +1,99 @@
+name: alsa-lib
+provides: alsa
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+configure: [--enable-alsa]
+source: { url: 'https://www.alsa-project.org/files/pub/lib/alsa-lib-{version}.tar.bz2' }
+versions:
+  {
+    listing: 'https://www.alsa-project.org/files/pub/lib/',
+    files: '^alsa-lib-(\d+\.\d+\.\d+(?:\.\d+)?)\.tar\.bz2$',
+  }
+platforms: [linux-*]
+# shipped beside FFmpeg (as libasound.so.2, the system's soname and symbol versions), not linked statically: ALSA's
+# default device on a desktop goes through plugins the system's alsa-plugins or PipeWire install
+# (libasound_module_pcm_pulse.so, ..._pipewire.so), which need libasound.so.2 themselves. They find this one already
+# loaded; a static copy in FFmpeg would have them load the system's beside it, a second ALSA under one device.
+runtime: ['lib/libasound.so*']
+build:
+  # alsa-lib: the ALSA library (LGPL-2.1-or-later), shared, for FFmpeg's alsa input and output devices. It reads the
+  # system's configuration (/usr/share/alsa: alsa.conf, the cards, UCM and the plugins' conf.d), and loads the
+  # system's plugins: never the build's. Only the library, its headers and alsa.pc are installed. No Python mixer
+  # modules, no topology library.
+  #
+  # The plugins' folder is the distribution's: Debian and Ubuntu's /usr/lib/<multiarch>/alsa-lib, Fedora's
+  # /usr/lib64/alsa-lib, Arch's and Alpine's /usr/lib/alsa-lib. The conf.d files name some plugins by file name alone
+  # (Debian's pulse.conf: libasound_module_conf_pulse.so), found in the one folder alsa-lib was built with
+  # (ALSA_PLUGIN_DIR; $ALSA_PLUGIN_DIR overrides it). Here that is the list of all three, and alsa-lib takes the first
+  # that has the plugin.
+  system: autotools
+  vars: { plugindirs: '/usr/lib64/alsa-lib:/usr/lib/alsa-lib' }
+  platforms:
+    'linux-x64':
+      {
+        vars:
+          {
+            plugindirs: '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
+          },
+      }
+    # shipped on musl: it asks for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml)
+    'linux-musl-*': { env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608' } }
+    'linux-musl-x64':
+      {
+        vars:
+          {
+            plugindirs: '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
+          },
+      }
+    'linux-arm64':
+      {
+        vars:
+          {
+            plugindirs: '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
+          },
+      }
+    'linux-musl-arm64':
+      {
+        vars:
+          {
+            plugindirs: '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
+          },
+      }
+    'linux-armhf':
+      { vars: { plugindirs: '/usr/lib/arm-linux-gnueabihf/alsa-lib:/usr/lib/alsa-lib' } }
+  args:
+    [
+      --enable-shared,
+      --disable-static,
+      --disable-python,
+      --disable-topology,
+      --disable-aload,
+      --with-configdir=/usr/share/alsa,
+      '--with-plugindir={plugindirs}',
+    ]
+  before:
+    # ALSA_PLUGIN_DIR as a list: the first folder that has the plugin (or the last, for dlopen's error)
+    - replace-in-file:
+        path: src/dlmisc.c
+        from: |
+          	snprintf(path, path_len, "%s/%s",
+          		 snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR, name);
+        to: |
+          	if (snd_plugin_dir) {
+          		snprintf(path, path_len, "%s/%s", snd_plugin_dir, name);
+          	} else {
+          		const char *dir = ALSA_PLUGIN_DIR, *end;
+          		do {
+          			end = strchr(dir, ':');
+          			snprintf(path, path_len, "%.*s/%s", end ? (int)(end - dir) : (int)strlen(dir), dir, name);
+          			if (access(path, F_OK) == 0)
+          				break;
+          			dir = end + 1;
+          		} while (end);
+          	}
+  make-targets: [-C, src]
+  install-targets: [-C, src, install-libLTLIBRARIES]
+  after:
+    - [make, -C, include, install]
+    - [make, -C, utils, install-pkgconfigDATA]
+    - remove: { path: '{deps}/lib/pkgconfig/alsa-topology.pc' }

@@ -26,11 +26,6 @@ batches:
   h: Large ML backends (last; where they build reasonably)
 options:
   # f. Devices
-  alsa: { reason: pending, issue: 21, batch: f, note: 'alsa (Linux audio devices)' }
-  libpulse: { reason: pending, issue: 21, batch: f, note: 'pulse (PulseAudio devices)' }
-  libjack: { reason: pending, issue: 21, batch: f, note: 'jack (JACK audio input device)' }
-  sndio: { reason: pending, issue: 21, batch: f, note: 'sndio (audio devices)' }
-  openal: { reason: pending, issue: 21, batch: f, note: 'openal (audio capture device)' }
   libxcb: { reason: pending, issue: 21, batch: f, note: 'xcb (x11grab screen capture)' }
   libxcb_shm: { reason: pending, issue: 21, batch: f, note: 'xcb-shm (x11grab shared memory)' }
   libxcb_shape: { reason: pending, issue: 21, batch: f, note: 'xcb-shape (x11grab region outline)' }

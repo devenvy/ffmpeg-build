@@ -1,0 +1,37 @@
+name: sndio
+provides: sndio
+license: ISC
+license-files: [LICENSE]
+configure: [--enable-sndio]
+needs: [alsa-lib]
+source: { url: 'https://sndio.org/sndio-{version}.tar.gz' }
+versions: { listing: 'https://sndio.org/', files: '^sndio-(\d+\.\d+\.\d+)\.tar\.gz$' }
+platforms: [linux-*]
+build:
+  # sndio: OpenBSD's audio library (ISC), static, for FFmpeg's sndio input and output devices: through a sndiod server
+  # when one runs, else straight to ALSA (rsnd/ devices) through alsa-lib. libsndio alone (no sndiod, aucat or the
+  # tools). Its own configure (not autoconf: no --host) takes the compiler as CC=, and its sndio.pc names no private
+  # libraries: ALSA's, and librt and libm, are added.
+  system: none
+  vars: { cc: gcc, ar: ar }
+  platforms:
+    'linux-armhf': { vars: { cc: arm-linux-gnueabihf-gcc, ar: arm-linux-gnueabihf-ar } }
+  steps:
+    - - ./configure
+      - '--prefix={deps}'
+      - --enable-static
+      - --enable-alsa
+      - --without-libbsd
+      - 'CC={cc}'
+      - 'AR={ar}'
+      - 'CFLAGS=-O2 -fPIC -I{deps}/include'
+    - [make, '-j{jobs}', -C, libsndio]
+    - copy: { from: libsndio/sndio.h, into: '{deps}/include' }
+    - copy: { from: libsndio/libsndio.a, into: '{deps}/lib' }
+    - copy: { from: libsndio/sndio.pc, into: '{deps}/lib/pkgconfig' }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/sndio.pc',
+          requires-private: { set: alsa },
+          libs-private: { add: -lrt -lm },
+        }

@@ -66,9 +66,11 @@ bases:
         rtmp,
         bluray,
         vapoursynth,
+        openal,
       ]
   linux:
-    with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa, ssh]
+    with:
+      [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa, ssh, alsa, pulse, jack, sndio]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
   gplv2:

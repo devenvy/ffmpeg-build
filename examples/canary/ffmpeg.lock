@@ -3,6 +3,7 @@ engine: 0.0.1
 ffmpeg:
   "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
 libraries:
+  alsa-lib: { version: 1.2.16.1, sha256: f740db7f488255944ffd4428416ee3390a96742856916433df468c281436480e }
   amf: { version: 1.5.3, commit: 57ee0cfb0e1a08d9041f77435653794c1b012be0 }
   aom: { version: 3.15.1, commit: 44d0a57786f432d933ff64b653347c66f4d0fa1d }
   aribb24: { version: 1.0.4, commit: a41b904d66ed991ace32a9827f629db3d438b47b }
@@ -27,6 +28,7 @@ libraries:
   harfbuzz: { version: 14.6.0, commit: c7a7457b7385f33178e8cf87615ca077a810bbe7 }
   highway: { version: 1.4.0, commit: 2607d3b5b0113992fe84d3848859eae13b3b52c1 }
   imath: { version: 3.2.3, commit: 5f27ba266d3ea1565e912570c30b5eafc89959f1 }
+  jack2: { version: 1.9.22, commit: 4f58969432339a250ce87fe855fb962c67d00ddb }
   kissfft: { version: 131.2.0, commit: 7bce4153c6bc8aba2db0e889e576f9d00505cbe1 }
   kvazaar: { version: 2.3.2, commit: 6040962bed5cc68c5ad01234c38c08b8b2822068 }
   ladspa-sdk: { version: 1.17, sha256: 27d24f279e4b81bd17ecbdcc38e4c42991bb388826c0b200067ce0eb59d3da5b }
@@ -62,6 +64,7 @@ libraries:
   librist: { version: 0.2.20, commit: 4f45ef8f78983892d52ccd52d9f675435b23738f }
   librsvg: { version: 2.63.3, commit: 230d2c9ee3e6d552a981374e8a3c1e2c28604768 }
   librtmp: { version: 2.6, commit: 138fdb258d9fc26f1843fd1b891180416c9dc575 }
+  libsndfile: { version: 1.2.2, sha256: 3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e }
   libssh: { version: 0.12.2, sha256: 49560f677d96e3706a904ac2de1116e25f3680937d51e5c92198fcba4a1c1e9f }
   libtasn1: { version: 4.21.0, sha256: 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87 }
   libtheora: { version: 1.2.0, commit: 8e4808736e9c181b971306cc3f05df9e61354004 }
@@ -83,6 +86,7 @@ libraries:
   nettle: { version: 4.0, sha256: 3addbc00da01846b232fb3bc453538ea5468da43033f21bb345cb1e9073f5094 }
   nv-codec: { version: 13.1.15.0, commit: 0a6fba9a2820628b8103464f4c8753ee05838baa }
   oapv: { version: 0.3.0.0, commit: 9f6fd2a7369db90acec67d99fc57724f1136fb84 }
+  openal-soft: { version: 1.25.2, commit: b2c48f7718ef3fcf67921a8b6534c4914e328970 }
   opencl-headers: { version: 2026.05.29, commit: 6fe718c31a45fe25151362a72ef041c3a1047cbd }
   opencl-icd-loader: { version: 2026.05.29, commit: b7bd2803acc779c03d96588e9ca9e9568a18698a }
   opencolorio: { version: 2.6.0, commit: 10a43ec1df03d072ca9a9e2fb3f26e454b0900d8 }
@@ -96,6 +100,7 @@ libraries:
   pcre2: { version: 10.49, sha256: 53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384 }
   pixman: { version: 0.46.4, commit: 9cc163c9da0fb4da430641715313d95a6ec466d9 }
   proxy-libintl: { version: 0.5, commit: 33934de09af6a6627eb44e310a8079df009abdbb }
+  pulseaudio: { version: 17.0, sha256: 053794d6671a3e397d849e478a80b82a63cb9d8ca296bd35b73317bb5ceb87b5 }
   pystring: { version: 1.2.0, commit: 1922c8f2b48e3beb6831c27b4811b58995e986cf }
   quirc: { version: 1.2, commit: 542848dd6b9b0eaa9587bbf25b9bc67bd8a71fca }
   rabbitmq-c: { version: 0.18.1, commit: dc22a7fa21522788310ec7f3f49bc3f028150b22 }
@@ -106,6 +111,7 @@ libraries:
   shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
   shine: { version: 3.1.1, sha256: 58e61e70128cf73f88635db495bfc17f0dde3ce9c9ac070d505a0cd75b93d384 }
   snappy: { version: 1.3.1, commit: 9c28114a38866f6deeaa826db918293bc28ae410 }
+  sndio: { version: 1.10.0, sha256: bebd3bfd01c50c9376cf3e7814b9379bed9e17d0393b5113b7eb7a3d0d038c54 }
   sord: { version: 0.16.22, commit: 5ab719fdae9b6db1204974f749dc64e62d2029af }
   soxr: { version: 0.1.3, commit: 945b592b70470e29f917f4de89b4281fbbd540c0 }
   speex: { version: 1.2.1, commit: 5dceaaf3e23ee7fd17c80cb5f02a838fd6c18e01 }

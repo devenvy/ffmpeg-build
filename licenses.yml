@@ -46,6 +46,9 @@ licenses:
   # Flite's COPYING: CMU's BSD-like terms (keep the notice, mark modifications, don't use the authors' names), and the
   # same or as free for the few files other owners hold (SPDX has no identifier for it)
   LicenseRef-flite: all
+  # PFFFT's terms, as OpenAL Soft's LICENSE-pffft has them (NCAR's): BSD-like (keep the notices and disclaimer in
+  # source and binary forms, don't use the names to endorse) (SPDX has no identifier for it)
+  LicenseRef-pffft: all
   # BSD-3-Clause-Clear plus COPYING's terms that the library never takes the licence of the work it is part of: not
   # GPL builds (whose licence covers the whole work)
   LicenseRef-LCEVCdec: [lgplv2, lgplv3, nonfree]
