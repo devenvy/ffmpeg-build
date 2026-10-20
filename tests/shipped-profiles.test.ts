@@ -1617,7 +1617,7 @@ describe('filter and processing libraries', () => {
           'libpng',
           'pixman',
           ...fonts,
-          ...(p.startsWith('android-') ? ['freetype'] : []),
+          ...(/^(android|ios|maccatalyst)-/.test(p) ? ['freetype'] : []),
         ].sort();
       },
       flags: ['--enable-cairo'],

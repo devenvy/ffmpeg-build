@@ -492,9 +492,12 @@ describe('GLib', () => {
   it.each(platformsOf('glib'))('glib on %s', async (platform) => {
     const h = fake(platform);
     await build(h, 'glib');
-    const musl = platform.startsWith('linux-musl-')
+    // native builds (musl, osx-arm64): deps' folders for meson's libintl search
+    const native = /^linux-musl-|^osx-arm64$/.test(platform)
       ? ` [CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`
       : '';
+    // Apple cross builds: a second cross file names the Objective-C compiler
+    const objc = /^(osx-x64|ios-|maccatalyst-)/.test(platform);
     expect(commands(h)).toEqual(
       mesonLines(h, [
         '--wrap-mode=nofallback',
@@ -512,8 +515,12 @@ describe('GLib', () => {
         '-Dsystemtap=disabled',
         '-Dlibelf=disabled',
         '-Dglib_debug=disabled',
-      ]).map((line) => line + musl),
+        ...(objc ? [`--cross-file=${h.src}/objc-cross.ini`] : []),
+      ]).map((line) => line + native),
     );
+    const ini = objc ? h.read(join(h.src, 'objc-cross.ini')) : '';
+    expect(ini.includes(`objc = '${env(h, 'CC')}'`)).toBe(objc);
+    expect(ini.includes(`'-I${h.deps}/include']`)).toBe(objc);
   });
   it('takes proxy-libintl wherever the C library is not glibc, GNU libiconv on Apple, and 2.86', () => {
     const noGettext = PLATFORMS.filter((p) => !/^linux-(x64|arm64|armhf)$/.test(p));
@@ -638,7 +645,8 @@ describe('cairo', () => {
         '-Ddwrite=disabled',
       ];
     }
-    if (p.startsWith('android-')) {
+    // FreeType alone on Android, iOS and Mac Catalyst (cairo's Quartz backend is macOS's)
+    if (/^(android|ios|maccatalyst)-/.test(p)) {
       return [
         '-Dfreetype=enabled',
         '-Dfontconfig=disabled',

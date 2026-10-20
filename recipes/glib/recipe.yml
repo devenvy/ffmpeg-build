@@ -46,5 +46,26 @@ build:
   platforms:
     # a native build has no cross file to name deps' folders, and libintl has no .pc: meson's search for it (the
     # header, then -lintl) is told where they are
-    'linux-musl-*':
+    'linux-musl-*': &native
       env: { CPPFLAGS: '-I{deps}/include {CPPFLAGS|}', LDFLAGS: '-L{deps}/lib {LDFLAGS|}' }
+    osx-arm64: *native
+    # On Apple GIO has Objective-C sources, and a cross build's machine file names no Objective-C compiler: a second
+    # cross file names the platform's clang for it, with the C flags the engine's gives C.
+    osx-x64:
+      args: ['--cross-file={src}/objc-cross.ini']
+      before:
+        - write-file:
+            path: objc-cross.ini
+            text: "[binaries]\nobjc = '{CC}'\n[built-in options]\nobjc_args = ['-arch', 'x86_64', '-isysroot', '{SDKROOT}', '-mmacosx-version-min=11.0', '-I{deps}/include']\n"
+    'ios-*':
+      args: ['--cross-file={src}/objc-cross.ini']
+      before:
+        - write-file:
+            path: objc-cross.ini
+            text: "[binaries]\nobjc = '{CC}'\n[built-in options]\nobjc_args = ['-arch', 'arm64', '-isysroot', '{SDK_PATH}', '{IOS_MINVER}', '-I{deps}/include']\n"
+    'maccatalyst-*':
+      args: ['--cross-file={src}/objc-cross.ini']
+      before:
+        - write-file:
+            path: objc-cross.ini
+            text: "[binaries]\nobjc = '{CC}'\n[built-in options]\nobjc_args = ['-target', '{MCAT_TARGET}', '-isysroot', '{MCAT_SYSROOT}', '-I{deps}/include']\n"
