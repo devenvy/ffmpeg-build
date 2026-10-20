@@ -932,16 +932,39 @@ describe('opencv', () => {
     const h = fake(platform);
     const android = platform.startsWith('android-');
     const pc = `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm\n`;
-    // not installed on Android and iOS: copied from the build folder
-    const copied = android || platform.startsWith('ios-');
-    put(copied ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    // not installed on Android: copied from the build folder
+    put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
     put(
       join(h.src, 'CMakeLists.txt'),
       `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
         `  status("    Linker flags (Debug):"   \${CMAKE_EXE_LINKER_FLAGS} \${CMAKE_EXE_LINKER_FLAGS_DEBUG})\n` +
         `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
     );
+    put(
+      join(h.src, 'cmake', 'OpenCVUtils.cmake'),
+      `function(ocv_output_status msg)\n  message(STATUS "\${msg}")\n`,
+    );
+    put(
+      join(h.src, 'modules', 'core', 'CMakeLists.txt'),
+      `#define OPENCV_INSTALL_PREFIX \\"\${CMAKE_INSTALL_PREFIX}\\"\n#define OPENCV_BUILD_DIR \\"\${CMAKE_BINARY_DIR}\\"\n`,
+    );
+    put(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'), 'if(MSVC OR IOS OR XROS)\n  return()\n');
     await build(h, 'opencv');
+    // no build, source or install folder recorded in the library
+    expect(h.read(join(h.src, 'cmake', 'OpenCVUtils.cmake'))).toBe(
+      'function(ocv_output_status msg)\n' +
+        `  string(REPLACE "\${CMAKE_BINARY_DIR}" "<build>" msg "\${msg}")\n` +
+        `  string(REPLACE "\${CMAKE_SOURCE_DIR}" "<source>" msg "\${msg}")\n` +
+        `  string(REPLACE "\${CMAKE_INSTALL_PREFIX}" "<prefix>" msg "\${msg}")\n` +
+        `  message(STATUS "\${msg}")\n`,
+    );
+    expect(h.read(join(h.src, 'modules', 'core', 'CMakeLists.txt'))).toBe(
+      '// install prefix not recorded\n#define OPENCV_BUILD_DIR \\"\\"\n',
+    );
+    // and its .pc made for iOS too
+    expect(h.read(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'))).toBe(
+      'if(MSVC OR XROS)\n  return()\n',
+    );
     const setup = commands(h)[0]!;
     for (const arg of [
       '-DBUILD_LIST=core,imgproc',

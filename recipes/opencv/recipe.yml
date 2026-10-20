@@ -76,8 +76,12 @@ build:
       after:
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/opencv4.pc', libs-private: { add: -lole32 } }
-  # Its build information (cv::getBuildInformation, compiled into the library) lists the compiler flags, which name
-  # the build folder (the engine's -ffile-prefix-map; the staged-binary check refused it on Mac Catalyst): left out.
+  # No build folder in the library (the staged-binary check refuses one; seen on Apple):
+  # - its build information (cv::getBuildInformation, compiled in) lists the compiler and linker flags, which name the
+  #   work folder (the engine's -ffile-prefix-map): left out; the build, source and install folders it names
+  #   elsewhere (install prefix, dependencies' paths) are written as <build>, <source> and <prefix>;
+  # - its data-file search (cv::utils::findDataFile, for samples and tests) records the build folder and install
+  #   prefix: neither (it still searches OPENCV_DATA_PATH and the folder relative to the library).
   before:
     - replace-in-file:
         {
@@ -86,8 +90,33 @@ build:
           to: '$1"(not recorded)")',
           regex: true,
         }
-  # Its .pc is made but not installed on Android and iOS (only "UNIX AND NOT ANDROID", or MinGW): copied in. It names
-  # no C++ runtime, which a static link from C (FFmpeg's probe and filter) needs.
+    - replace-in-file:
+        {
+          path: cmake/OpenCVUtils.cmake,
+          from: "function(ocv_output_status msg)\n",
+          to: "function(ocv_output_status msg)\n  string(REPLACE \"${CMAKE_BINARY_DIR}\" \"<build>\" msg \"${msg}\")\n  string(REPLACE \"${CMAKE_SOURCE_DIR}\" \"<source>\" msg \"${msg}\")\n  string(REPLACE \"${CMAKE_INSTALL_PREFIX}\" \"<prefix>\" msg \"${msg}\")\n",
+        }
+    - replace-in-file:
+        {
+          path: modules/core/CMakeLists.txt,
+          from: '#define OPENCV_BUILD_DIR \"${CMAKE_BINARY_DIR}\"',
+          to: '#define OPENCV_BUILD_DIR \"\"',
+        }
+    - replace-in-file:
+        {
+          path: modules/core/CMakeLists.txt,
+          from: '#define OPENCV_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\"',
+          to: '// install prefix not recorded',
+        }
+    # its .pc isn't made for iOS at all
+    - replace-in-file:
+        {
+          path: cmake/OpenCVGenPkgconfig.cmake,
+          from: 'if(MSVC OR IOS OR XROS)',
+          to: 'if(MSVC OR XROS)',
+        }
+  # Its .pc is made but not installed on Android (only "UNIX AND NOT ANDROID", or MinGW): copied in. It names no C++
+  # runtime, which a static link from C (FFmpeg's probe and filter) needs.
   after:
     - copy: { from: _build/unix-install/opencv4.pc, into: '{deps}/lib/pkgconfig' }
       when: { missing: '{deps}/lib/pkgconfig/opencv4.pc' }
