@@ -25,3 +25,10 @@ build:
           from: cmake_minimum_required(VERSION 3.28),
           to: cmake_minimum_required(VERSION 3.11),
         }
+  platforms:
+    # Android's renderer uses FreeType, which its .pc doesn't name (Linux's comes through Fontconfig's): without it
+    # FFmpeg's shared libavcodec was left with FreeType's symbols unresolved, and failed to load on the device
+    'android-*':
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/libaribcaption.pc', requires-private: { add: freetype2 } }

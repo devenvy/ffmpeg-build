@@ -300,16 +300,23 @@ describe('aribb24', () => {
   });
 });
 
-// libaribcaption with its renderer, on CMake 3.11's terms.
+// libaribcaption with its renderer, on CMake 3.11's terms; on Android its .pc names the FreeType it renders with.
 describe('libaribcaption', () => {
   it.each(platformsOf('libaribcaption'))('%s', async (platform) => {
     const h = fake(platform);
     put(join(h.src, 'CMakeLists.txt'), 'cmake_minimum_required(VERSION 3.28)\n');
+    const pc = `Requires: \nRequires.private:\nLibs: -L\${libdir} -laribcaption -lc++\n`;
+    put(pcPath(h, 'libaribcaption'), pc);
     await build(h, 'libaribcaption');
     expect(commands(h)).toEqual(
       cmakeLines(h, ['-DARIBCC_BUILD_TESTS=OFF', '-DARIBCC_SHARED_LIBRARY=OFF']),
     );
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('cmake_minimum_required(VERSION 3.11)\n');
+    expect(h.read(pcPath(h, 'libaribcaption'))).toBe(
+      platform.startsWith('android-')
+        ? pc.replace('Requires.private:', 'Requires.private: freetype2')
+        : pc,
+    );
   });
   it('takes FreeType on Linux and Android, and Fontconfig on Linux', () => {
     expect(recipe('libaribcaption').needs).toEqual([
