@@ -685,7 +685,8 @@ describe('cairo', () => {
     const win = platform.startsWith('win-');
     expect(h.read(pcPath(h, 'cairo'))).toBe(
       win
-        ? `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32 -lole32 ${cxxRuntime(platform)}\nCflags: -I\${includedir}/cairo -DCAIRO_WIN32_STATIC_BUILD\n`
+        ? // the C++ runtime by its plain name, which Rust's pkg-config parsing (librsvg's cairo-sys) also takes
+          `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32 -lole32 ${platform === 'win-arm64' ? '-lc++' : '-lstdc++'}\nCflags: -I\${includedir}/cairo -DCAIRO_WIN32_STATIC_BUILD\n`
         : 'Libs: -L${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I${includedir}/cairo\n',
     );
   });

@@ -57,8 +57,12 @@ build:
             {
               path: '{deps}/lib/pkgconfig/cairo.pc',
               cflags: { append: -DCAIRO_WIN32_STATIC_BUILD },
-              libs-private: { add: '-lole32 {cxx-runtime}' },
+              libs-private: { add: '-lole32 {cxx}' },
             }
+    # the C++ runtime by its plain -l name (FFmpeg's link makes it static on Windows), which Rust's pkg-config
+    # parsing also takes: librsvg's cairo-sys rejects -l:libc++.a
+    win-x64: { vars: { cxx: -lstdc++ } }
+    win-arm64: { vars: { cxx: -lc++ } }
     'osx-*':
       &apple {
         args: [-Dfreetype=disabled, -Dfontconfig=disabled, -Dquartz=enabled, -Ddwrite=disabled],
