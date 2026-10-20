@@ -64,13 +64,14 @@ bases:
         rabbitmq,
         snappy,
         rtmp,
+        bluray,
       ]
   linux:
     with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa, ssh]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
   gplv2:
-    with: [x264, x265, xvid, xavs, davs2, xavs2, vidstab, zvbi, rubberband, frei0r]
+    with: [x264, x265, xvid, xavs, davs2, xavs2, vidstab, zvbi, rubberband, frei0r, dvdnav, dvdread]
   gplv3:
     with:
       [
@@ -97,6 +98,9 @@ bases:
         vulkan,
         opencl,
         gmp,
+        dvdnav,
+        dvdread,
+        cdio,
       ]
   lgplv3:
     with:

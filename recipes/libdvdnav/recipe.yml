@@ -1,0 +1,20 @@
+name: libdvdnav
+provides: dvdnav
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-libdvdnav]
+needs: [libdvdread]
+# the release tarballs (VideoLAN's download site and two of its mirrors): code.videolan.org's git often stalls
+source:
+  url: 'https://download.videolan.org/pub/videolan/libdvdnav/{version}/libdvdnav-{version}.tar.xz'
+  mirrors:
+    - 'https://ftp.osuosl.org/pub/videolan/libdvdnav/{version}/libdvdnav-{version}.tar.xz'
+    - 'https://www.mirrorservice.org/sites/videolan.org/libdvdnav/{version}/libdvdnav-{version}.tar.xz'
+versions:
+  { listing: 'https://download.videolan.org/pub/videolan/libdvdnav/', files: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libdvdnav: DVD-Video navigation (GPL-2.0-or-later; FFmpeg's class gpl), static, on libdvdread, for FFmpeg's
+  # dvdvideo demuxer (found through dvdnav.pc, 6.1.0 or later). No examples or docs.
+  system: meson
+  args: [-Denable_docs=false, -Denable_examples=false]

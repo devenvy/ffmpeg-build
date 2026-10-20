@@ -35,8 +35,13 @@ libraries:
   leptonica: { version: 1.87.0, commit: 13275a278eb55b5746e33f95fbf5a2c8f604b3ab }
   libaribcaption: { version: 1.1.2, commit: c64c23b8905ba514b87c9789269e9f66f949ffe0 }
   libass: { version: 0.17.5, commit: 4a05d8127f525943ebf45fdc6497c9e665947f0d }
+  libbluray: { version: 1.5.0, sha256: f676408e91a5d321abf8b8d4dfdae36205c297dab5c54c3ec519639025f474a2 }
   libbs2b: { version: 3.1.0, sha256: 6aaafd81aae3898ee40148dd1349aab348db9bfae9767d0e66e0b07ddd4b2528 }
+  libcdio: { version: 2.4.0, sha256: 8e6a305f81e45a78b41ce696d34497cc208d97075469d7304c11a6d44bf006ac }
+  libcdio-paranoia: { version: 2.0.2, sha256: 186892539dedd661276014d71318c8c8f97ecb1250a86625256abd4defbf0d0c }
   libdrm: { version: 2.4.134, commit: e984d448b8b17aab853369e6c203e53719f46de1 }
+  libdvdnav: { version: 7.0.0, sha256: a2a18f5ad36d133c74bf9106b6445806fa253b09141a46392550394b647b221e }
+  libdvdread: { version: 7.1.1, sha256: a0d47876548bec806774bbf8dbf20bb19ba139464383156b32eb8e59915b90a9 }
   libexpat: { version: 2.9.0, commit: a76b1174c1ea52abb639a4c69d52b630a8a106a2 }
   libffi: { version: 3.8.0, sha256: 7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4 }
   libgme: { version: 0.6.5, commit: 9e23d10f9fd2a6a2f33b10912dd8dc7153258995 }
@@ -59,6 +64,7 @@ libraries:
   libssh: { version: 0.12.2, sha256: 49560f677d96e3706a904ac2de1116e25f3680937d51e5c92198fcba4a1c1e9f }
   libtasn1: { version: 4.21.0, sha256: 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87 }
   libtheora: { version: 1.2.0, commit: 8e4808736e9c181b971306cc3f05df9e61354004 }
+  libudfread: { version: 1.2.0, sha256: bb477cbd4cfbfc7787d9d05b71ee5e70430f5cfebf1297497f7e83547958050f }
   libva: { version: 2.24.1, commit: 710eb465c6277ee2cac3e6948767b01eebe7e77a }
   libvdpau: { version: 1.5, commit: 79f1506a3307d3275b0fdfb2e110c173f68e6f78 }
   libvmaf: { version: 3.2.1, commit: f85a853692a8c730d0270cd733c8bb30b5b93b7c }

@@ -29,10 +29,6 @@ options:
 
   # e. Protocols / IO
   libsmbclient: { reason: pending, issue: 21, batch: e, note: 'smbclient (SMB protocol; GPLv3)' }
-  libbluray: { reason: pending, issue: 21, batch: e, note: 'bluray (Blu-ray protocol)' }
-  libdvdnav: { reason: pending, issue: 21, batch: e, note: 'dvdnav (DVD-Video demuxer)' }
-  libdvdread: { reason: pending, issue: 21, batch: e, note: 'dvdread (DVD-Video demuxer)' }
-  libcdio: { reason: pending, issue: 21, batch: e, note: 'cdio (audio CD input device)' }
   libklvanc: { reason: pending, issue: 21, batch: e, note: 'klvanc (VANC data, with decklink)' }
   avisynth: { reason: pending, issue: 21, batch: e, note: 'avisynth (AviSynth+ script demuxer)' }
   vapoursynth:

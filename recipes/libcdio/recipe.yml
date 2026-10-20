@@ -1,0 +1,37 @@
+name: libcdio
+license: GPL-3.0-or-later
+license-files: [COPYING]
+source:
+  url: 'https://github.com/libcdio/libcdio/releases/download/{version}/libcdio-{version}.tar.bz2'
+versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/libcdio/libcdio }
+# the systems with CD drives and a libcdio driver for them: Linux, Windows and macOS (Android and iOS have no drive)
+platforms: [linux-*, win-*, osx-*]
+build:
+  # libcdio: CD-ROM access (GPL-3.0-or-later), static, under libcdio-paranoia for FFmpeg's libcdio audio CD input
+  # device. The libraries alone (lib and include: no programs, docs, examples, C++ bindings or tests), without
+  # Joliet (its iconv), CDDB or VCD info, none of which reading audio tracks needs.
+  system: autotools
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --with-pic,
+      --disable-cxx,
+      --disable-cpp-progs,
+      --disable-example-progs,
+      --disable-joliet,
+      --disable-cddb,
+      --disable-vcd-info,
+      --disable-rpath,
+      --without-cd-drive,
+      --without-cd-info,
+      --without-cdda-player,
+      --without-cd-read,
+      --without-iso-info,
+      --without-iso-read,
+    ]
+  make-targets: [-C, lib]
+  install-targets: [-C, lib, install]
+  after:
+    - [make, -C, include, install]
+    - [make, install-pkgconfigDATA]

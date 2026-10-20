@@ -1,0 +1,21 @@
+name: libdvdread
+provides: dvdread
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-libdvdread]
+# the release tarballs (VideoLAN's download site and two of its mirrors): code.videolan.org's git often stalls
+source:
+  url: 'https://download.videolan.org/pub/videolan/libdvdread/{version}/libdvdread-{version}.tar.xz'
+  mirrors:
+    - 'https://ftp.osuosl.org/pub/videolan/libdvdread/{version}/libdvdread-{version}.tar.xz'
+    - 'https://www.mirrorservice.org/sites/videolan.org/libdvdread/{version}/libdvdread-{version}.tar.xz'
+versions:
+  { listing: 'https://download.videolan.org/pub/videolan/libdvdread/', files: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libdvdread: DVD-Video reading (GPL-2.0-or-later; FFmpeg's class gpl), static, for FFmpeg's dvdvideo demuxer (with
+  # libdvdnav; found through dvdread.pc, 6.1.1 or later): a VIDEO_TS folder, a mounted disc or an .iso image. Not
+  # linked to libdvdcss: a CSS-encrypted disc needs the system's libdvdcss, which it loads at run time when there is
+  # one. No docs.
+  system: meson
+  args: [-Denable_docs=false, -Dlibdvdcss=disabled]

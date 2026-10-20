@@ -1,0 +1,21 @@
+name: libudfread
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+# the release tarballs (VideoLAN's download site and two of its mirrors): code.videolan.org's git often stalls
+source:
+  url: 'https://download.videolan.org/pub/videolan/libudfread/libudfread-{version}.tar.xz'
+  mirrors:
+    - 'https://ftp.osuosl.org/pub/videolan/libudfread/libudfread-{version}.tar.xz'
+    - 'https://www.mirrorservice.org/sites/videolan.org/libudfread/libudfread-{version}.tar.xz'
+versions:
+  {
+    listing: 'https://download.videolan.org/pub/videolan/libudfread/',
+    files: '^libudfread-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+# where libbluray builds
+platforms: [linux-*, win-*, osx-*, android-*]
+build:
+  # libudfread: UDF file system reading (LGPL-2.1-or-later), static: how libbluray reads a disc image (.iso). Its own
+  # recipe rather than libbluray's meson subproject, which would be fetched during the build.
+  system: meson
+  args: [-Denable_examples=false]
