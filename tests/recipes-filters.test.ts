@@ -626,11 +626,18 @@ describe('OpenColorIO', () => {
         'Requires.private: yaml-cpp minizip-ng Imath expat zlib\n',
     );
   });
-  it.each(['yaml-cpp', 'pystring', 'imath', 'minizip-ng'])('%s builds everywhere', (name) => {
-    expect(platformsOf(name)).toEqual(PLATFORMS);
-  });
-  it('takes libexpat, which now builds everywhere', () => {
-    expect(platformsOf('libexpat')).toEqual(PLATFORMS);
+  // not Apple (#41, and iOS's missing macOS APIs): its dependencies build where it does
+  const notApple = PLATFORMS.filter((p) => /^(linux|win|android)-/.test(p));
+  it.each(['opencolorio', 'yaml-cpp', 'pystring', 'imath', 'minizip-ng'])(
+    '%s builds on Linux, Windows and Android',
+    (name) => {
+      expect(platformsOf(name)).toEqual(notApple);
+    },
+  );
+  it('takes libexpat, which now builds on Windows and Android too', () => {
+    expect(platformsOf('libexpat')).toEqual(
+      PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p)),
+    );
   });
 });
 

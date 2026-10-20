@@ -10,7 +10,11 @@ configure:
 needs: [libexpat, yaml-cpp, pystring, imath, zlib, minizip-ng]
 source: { git: https://github.com/AcademySoftwareFoundation/OpenColorIO, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
-platforms: all
+# Not Apple: on iOS and Mac Catalyst its monitor listing (SystemMonitor_macos.cpp) calls macOS-only APIs (IOKit
+# graphics, ColorSync); on macOS FFmpeg's own C++ wrapper for it (ocio_wrapper.cpp) can't compile, because the
+# release tarball's VERSION file, under FFmpeg's -I., shadows libc++'s <version> on a case-insensitive file system
+# (devenvy/ffmpeg-build#41).
+platforms: [linux-*, win-*, android-*]
 build:
   # OpenColorIO: colour management (BSD-3-Clause), static, for FFmpeg's ocio filter (found through OpenColorIO.pc, by
   # its C++ API). The library alone: no apps, OpenFX/Nuke plugins, Python or Java bindings, docs or tests. Every

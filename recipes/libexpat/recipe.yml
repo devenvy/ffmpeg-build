@@ -3,8 +3,8 @@ license: MIT
 license-files: [COPYING, expat/COPYING]
 source: { git: https://github.com/libexpat/libexpat, ref: 'R_{version_}' }
 versions: { git-tags: '^R_(\d+_\d+_\d+)$' }
-# fontconfig (Linux and macOS) and OpenColorIO (everywhere) build against it
-platforms: all
+# fontconfig (Linux and macOS) and OpenColorIO (Linux, Windows, Android) build against it
+platforms: [linux-*, osx-*, win-*, android-*]
 build:
   system: cmake
   source-dir: expat
