@@ -376,8 +376,14 @@ describe('libbluray', () => {
 describe('libdvdread and libdvdnav', () => {
   it.each(platformsOf('libdvdread'))('libdvdread %s', async (platform) => {
     const h = fake(platform);
+    const header = join(h.src, 'src', 'dvdread', 'dvd_filesystem.h');
+    put(header, '#elif defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n');
     await build(h, 'libdvdread');
     expect(commands(h)).toEqual(mesonLines(h, ['-Denable_docs=false', '-Dlibdvdcss=disabled']));
+    // musl has no off64_t unless asked first: it takes the BSDs' typedef (its off_t is 64-bit)
+    expect(h.read(header)).toBe(
+      `#elif ${platform.startsWith('linux-musl-') ? 'defined(__linux__) || ' : ''}defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n`,
+    );
   });
   it.each(platformsOf('libdvdnav'))('libdvdnav %s', async (platform) => {
     const h = fake(platform);
