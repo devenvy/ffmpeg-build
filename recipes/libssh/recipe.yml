@@ -1,0 +1,46 @@
+name: libssh
+provides: ssh
+# its own code LGPL-2.1-or-later; compiled in with it: OpenSSH's match.c (BSD-2-Clause, the text in BSD), the blowfish
+# (BSD-3-Clause) and bcrypt_pbkdf (ISC) of its key-file decryption, and public-domain curve25519/ed25519 code
+license: LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND ISC
+license-files: [COPYING, BSD]
+configure: [--enable-libssh]
+# its cryptography: mbedTLS, the one crypto library built on every platform (libssh's other backends are OpenSSL, built
+# on Linux, Android and Mac Catalyst only, and libgcrypt, which libssh deprecates). mbedTLS is Apache-2.0 OR
+# GPL-2.0-or-later, so the option goes into every build but lgplv2.
+needs: [mbedtls]
+source:
+  url: 'https://www.libssh.org/files/{major}.{minor}/libssh-{version}.tar.xz'
+versions: { git-tags: '^libssh-(\d+\.\d+\.\d+)$', repo: https://git.libssh.org/projects/libssh.git }
+# not Windows: libssh needs a thread-safe mbedTLS (its pthread or its application-installed locks), which mbedTLS is
+# only where the C library has pthreads (the mbedtls recipe says why)
+platforms: [linux-*, android-*, osx-*, ios-*, maccatalyst-*]
+build:
+  # libssh: the SSH library, static, for FFmpeg's sftp protocol (libssh; found through libssh.pc, 0.6.0 or later). The
+  # client alone: no server, GSSAPI, zlib compression, libnacl (libssh's own curve25519 remains), pcap, examples,
+  # benchmarks or tests. Its client configuration files are the system's (/etc/ssh/ssh_config), and ~/.ssh is the
+  # user's.
+  system: cmake
+  args:
+    [
+      -DWITH_MBEDTLS=ON,
+      -DWITH_GCRYPT=OFF,
+      -DWITH_GSSAPI=OFF,
+      -DWITH_ZLIB=OFF,
+      -DWITH_SERVER=OFF,
+      -DWITH_NACL=OFF,
+      -DWITH_PCAP=OFF,
+      -DWITH_EXAMPLES=OFF,
+      -DWITH_BENCHMARKS=OFF,
+      -DWITH_SYMBOL_VERSIONING=OFF,
+      -DUNIT_TESTING=OFF,
+      -DCLIENT_TESTING=OFF,
+      -DSERVER_TESTING=OFF,
+    ]
+  after:
+    # libssh.pc names libssh alone: its static library needs mbedTLS's crypto library after it
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libssh.pc',
+          libs-private: { add: -lmbedcrypto, missing: after-libs },
+        }

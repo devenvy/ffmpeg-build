@@ -172,3 +172,151 @@ describe('snappy', () => {
     expect(platformsOf('snappy')).toEqual(PLATFORMS);
   });
 });
+
+// libssh's static client library on mbedTLS, without server, GSSAPI, zlib, libnacl or pcap; its .pc gains mbedTLS's
+// crypto library, and on Windows LIBSSH_STATIC and the system libraries.
+describe('libssh', () => {
+  it.each(platformsOf('libssh'))('%s', async (platform) => {
+    const h = fake(platform);
+    installs(h, 'libssh', `Name: libssh\nLibs: -L\${libdir} -lssh\nCflags: -I\${includedir}\n`);
+    await build(h, 'libssh');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DWITH_MBEDTLS=ON',
+        '-DWITH_GCRYPT=OFF',
+        '-DWITH_GSSAPI=OFF',
+        '-DWITH_ZLIB=OFF',
+        '-DWITH_SERVER=OFF',
+        '-DWITH_NACL=OFF',
+        '-DWITH_PCAP=OFF',
+        '-DWITH_EXAMPLES=OFF',
+        '-DWITH_BENCHMARKS=OFF',
+        '-DWITH_SYMBOL_VERSIONING=OFF',
+        '-DUNIT_TESTING=OFF',
+        '-DCLIENT_TESTING=OFF',
+        '-DSERVER_TESTING=OFF',
+      ]),
+    );
+    expect(h.read(pcPath(h, 'libssh'))).toBe(
+      `Name: libssh\nLibs: -L\${libdir} -lssh\nLibs.private: -lmbedcrypto\nCflags: -I\${includedir}\n`,
+    );
+  });
+  it('is on mbedTLS, everywhere its mbedTLS is thread-safe: not Windows', () => {
+    expect(recipe('libssh').needs).toEqual([{ name: 'mbedtls' }]);
+    expect(platformsOf('libssh')).toEqual(PLATFORMS.filter((p) => !p.startsWith('win-')));
+  });
+});
+
+// mbedTLS with its pthread locking where the C library has pthreads (libssh needs it), the default configuration on
+// Windows.
+describe('mbedtls', () => {
+  const CONFIG =
+    '//#define MBEDTLS_THREADING_ALT\n//#define MBEDTLS_THREADING_PTHREAD\n//#define MBEDTLS_THREADING_C\n';
+  it.each(platformsOf('mbedtls'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'include', 'mbedtls', 'mbedtls_config.h'), CONFIG);
+    installs(
+      h,
+      'mbedcrypto',
+      `Version: 3.6.7\nCflags: -I"\${includedir}"\nLibs: -L"\${libdir}" -lmbedcrypto\n`,
+    );
+    await build(h, 'mbedtls');
+    // on Windows the crypto library's .pc names bcrypt and ws2_32, which mbedcrypto and mbedx509 call
+    expect(h.read(pcPath(h, 'mbedcrypto'))).toBe(
+      `Version: 3.6.7\nCflags: -I"\${includedir}"\nLibs: -L"\${libdir}" -lmbedcrypto\n${
+        platform.startsWith('win-') ? 'Libs.private: -lbcrypt -lws2_32\n' : ''
+      }`,
+    );
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DUSE_SHARED_MBEDTLS_LIBRARY=OFF',
+        '-DUSE_STATIC_MBEDTLS_LIBRARY=ON',
+        '-DENABLE_TESTING=OFF',
+        '-DENABLE_PROGRAMS=OFF',
+      ]),
+    );
+    expect(h.read(join(h.src, 'include', 'mbedtls', 'mbedtls_config.h'))).toBe(
+      platform.startsWith('win-')
+        ? CONFIG
+        : '//#define MBEDTLS_THREADING_ALT\n#define MBEDTLS_THREADING_PTHREAD\n#define MBEDTLS_THREADING_C\n',
+    );
+  });
+});
+
+// librtmp's library and .pc from rtmpdump's Makefile with the platform's tools, static; GnuTLS for its encryption
+// when the build has it, none otherwise.
+describe('librtmp', () => {
+  /** rtmpdump's SYS: the system libraries its .pc names. */
+  const sysOf = (platform: string) => {
+    if (platform.startsWith('win-')) {
+      return 'mingw';
+    }
+    return /^(osx|ios|maccatalyst)-/.test(platform) ? 'darwin' : 'posix';
+  };
+  const cases = platformsOf('librtmp').flatMap((p) => [
+    [p, false],
+    [p, true],
+  ]) as [string, boolean][];
+  it.each(cases)('%s, GnuTLS in deps: %s', async (platform, gnutls) => {
+    const h = fake(platform);
+    if (gnutls) {
+      put(join(h.deps, 'lib', 'libgnutls.a'), '');
+    }
+    put(join(h.deps, 'man', 'man3', 'librtmp.3'), '');
+    const src = (f: string) => join(h.src, 'librtmp', f);
+    put(
+      src('rtmp.c'),
+      '#include <nettle/md5.h>\n#define MD5_Final(dig,ctx)\tmd5_digest(ctx,MD5_DIGEST_LENGTH,dig)\n',
+    );
+    const hmac =
+      '#include <nettle/hmac.h>\n#define HMAC_finish(ctx, dig, dlen)\tdlen = SHA256_DIGEST_LENGTH; hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)\n';
+    put(src('hashswf.c'), hmac);
+    put(src('handshake.h'), hmac);
+    await build(h, 'librtmp');
+    // Nettle 4's digest functions take no length: a macro gives it to Nettle 3 only
+    expect(h.read(src('nettle_compat.h'))).toBe(
+      '#include <nettle/version.h>\n#if NETTLE_VERSION_MAJOR >= 4\n#define NETTLE_LENGTH_ARG(n)\n#else\n' +
+        '#define NETTLE_LENGTH_ARG(n) n,\n#endif\n',
+    );
+    expect(h.read(src('rtmp.c'))).toBe(
+      '#include <nettle/md5.h>\n#include "nettle_compat.h"\n' +
+        '#define MD5_Final(dig,ctx)\tmd5_digest(ctx,NETTLE_LENGTH_ARG(MD5_DIGEST_LENGTH)dig)\n',
+    );
+    for (const f of ['hashswf.c', 'handshake.h']) {
+      expect(h.read(src(f)), f).toBe(
+        '#include <nettle/hmac.h>\n#include "nettle_compat.h"\n#define HMAC_finish(ctx, dig, dlen)\tdlen = ' +
+          'SHA256_DIGEST_LENGTH; hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)\n',
+      );
+    }
+    const host = h.context.env['CROSS_HOST'] ?? '';
+    const tools = host ? `${host}-` : '';
+    const args = [
+      `CC=${h.context.env['CC'] ?? `${tools}gcc`}`,
+      `AR=${h.context.env['AR'] ?? `${tools}ar`}`,
+      `SYS=${sysOf(platform)}`,
+      `CRYPTO=${gnutls ? 'GNUTLS' : ''}`,
+      'SHARED=no',
+      `prefix=${h.deps}`,
+      `XCFLAGS=-fPIC ${h.context.env['CFLAGS'] ?? ''} -I${h.deps}/include`,
+    ].join(' ');
+    expect(commands(h)).toEqual([
+      `make -C librtmp -j4 librtmp.a librtmp.pc ${args}`,
+      `make -C librtmp install_base ${args}`,
+    ]);
+    expect(h.files(h.deps).filter((f) => f.startsWith('man/'))).toEqual([]);
+  });
+  it('is LGPL-2.1-or-later, needs zlib and uses GnuTLS where the build allows it', () => {
+    expect(recipe('librtmp').license).toBe('LGPL-2.1-or-later');
+    expect(recipe('librtmp').needs).toEqual([{ name: 'zlib' }]);
+    expect(recipe('librtmp').uses).toEqual([{ name: 'gnutls' }]);
+    expect(platformsOf('librtmp')).toEqual(PLATFORMS);
+  });
+});
+
+// GMP everywhere now (FFmpeg's gmp option), configured as before.
+describe('gmp', () => {
+  it('builds everywhere, for FFmpeg’s gmp option', () => {
+    expect(platformsOf('gmp')).toEqual(PLATFORMS);
+    expect(recipe('gmp').provides).toBe('gmp');
+  });
+});

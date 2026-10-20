@@ -28,35 +28,11 @@ options:
     { reason: pending, issue: 21, batch: d, note: 'pocketsphinx (asr speech recognition filter)' }
 
   # e. Protocols / IO
-  libssh: { reason: pending, issue: 21, batch: e, note: 'libssh (SFTP protocol)' }
   libsmbclient: { reason: pending, issue: 21, batch: e, note: 'smbclient (SMB protocol; GPLv3)' }
   libbluray: { reason: pending, issue: 21, batch: e, note: 'bluray (Blu-ray protocol)' }
   libdvdnav: { reason: pending, issue: 21, batch: e, note: 'dvdnav (DVD-Video demuxer)' }
   libdvdread: { reason: pending, issue: 21, batch: e, note: 'dvdread (DVD-Video demuxer)' }
   libcdio: { reason: pending, issue: 21, batch: e, note: 'cdio (audio CD input device)' }
-  librtmp:
-    {
-      reason: pending,
-      issue: 21,
-      batch: e,
-      note: "librtmp (RTMP; FFmpeg's own rtmp protocols are built)",
-    }
-  libtls: { reason: pending, issue: 21, batch: e, note: "libtls (LibreSSL's TLS)" }
-  mbedtls:
-    {
-      reason: pending,
-      issue: 21,
-      batch: e,
-      note: 'mbedtls (TLS; the recipe exists, not the option)',
-    }
-  gcrypt: { reason: pending, issue: 21, batch: e, note: 'gcrypt (rtmpe encryption)' }
-  gmp:
-    {
-      reason: pending,
-      issue: 21,
-      batch: e,
-      note: 'gmp (rtmpe encryption; the recipe exists, for gnutls)',
-    }
   libklvanc: { reason: pending, issue: 21, batch: e, note: 'klvanc (VANC data, with decklink)' }
   avisynth: { reason: pending, issue: 21, batch: e, note: 'avisynth (AviSynth+ script demuxer)' }
   vapoursynth:
@@ -160,4 +136,16 @@ options:
       reason: alternative-built,
       instead: xevd,
       note: "xevd's baseline-profile-only build; the xevd option's main-profile build decodes baseline too",
+    }
+  libtls:
+    {
+      reason: alternative-built,
+      instead: mbedtls,
+      note: "LibreSSL's libtls, a TLS library: a build takes one, and the TLS options (mbedtls on every platform; openssl, gnutls, schannel, securetransport where they build) do its job. LibreSSL would be a second OpenSSL-compatible libcrypto beside the OpenSSL other libraries may link, and FFmpeg refuses it in GPL builds",
+    }
+  gcrypt:
+    {
+      reason: alternative-built,
+      instead: gmp,
+      note: 'libgcrypt (with libgpg-error), which FFmpeg uses only for the Diffie-Hellman of rtmpe and rtmpte: the gmp option does that on every platform (as mbedtls and openssl do), without a second crypto library to port',
     }
