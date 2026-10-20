@@ -1,0 +1,70 @@
+name: libzmq
+provides: zmq
+license: MPL-2.0
+license-files: [LICENSE]
+configure: [--enable-libzmq]
+source: { git: https://github.com/zeromq/libzmq, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # ZeroMQ (MPL-2.0 since 4.3.5), static, for FFmpeg's zmq protocol and its zmq/azmq filters (which take filter
+  # commands over a socket); found through libzmq.pc, 4.2.1 or later. C++. The library alone: no tests, perf tools,
+  # docs or CPack. No draft API (a git checkout turns it on), no CURVE (libsodium), no WebSocket/TLS transport (a draft)
+  # and no libbsd: the transports FFmpeg uses (tcp, ipc, inproc) need none of them.
+  system: cmake
+  args:
+    [
+      -DBUILD_SHARED=OFF,
+      -DBUILD_STATIC=ON,
+      -DBUILD_TESTS=OFF,
+      -DWITH_PERF_TOOL=OFF,
+      -DWITH_DOCS=OFF,
+      -DENABLE_CPACK=OFF,
+      -DENABLE_DRAFTS=OFF,
+      -DENABLE_CURVE=OFF,
+      -DWITH_LIBSODIUM=OFF,
+      -DWITH_LIBBSD=OFF,
+      -DENABLE_PRECOMPILED=OFF,
+    ]
+  platforms:
+    # zmq.h declares its functions dllimport on Windows unless ZMQ_STATIC is defined; libzmq.pc doesn't say so, nor
+    # name the Windows libraries the static library calls into (and winpthreads: on mingw it names its threads with
+    # pthread_setname_np, whatever threads it runs on). Its _WIN32_WINNT comes from CMAKE_SYSTEM_VERSION,
+    # which a cross build hasn't got (an empty define fails to compile): Vista's, its own default and FFmpeg's. Its ipc
+    # transport on Windows (AF_UNIX) includes afunix.h for MSVC only, while the check finds mingw's: left out (tcp and
+    # inproc remain).
+    'win-*':
+      args: [-DZMQ_WIN32_WINNT=0x0600, -DZMQ_HAVE_IPC=OFF]
+      after:
+        - edit-pkg-config: { path: '{deps}/lib/pkgconfig/libzmq.pc', cflags: { add: -DZMQ_STATIC } }
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/libzmq.pc',
+              libs-private: { add: -lpthread -lws2_32 -liphlpapi -lrpcrt4, missing: after-libs },
+            }
+    # its clock reads clock_gettime on a Windows compiler that isn't MSVC and isn't x86 (llvm-mingw's arm64), with a
+    # constant it defines for every system but Windows; and its polling code uses std::nothrow without <new>, which
+    # libc++'s headers don't bring in by the way
+    'win-arm64':
+      before:
+        - replace-in-file:
+            {
+              path: src/polling_util.hpp,
+              from: "#include <vector>\n",
+              to: "#include <vector>\n#include <new>\n",
+            }
+        - replace-in-file:
+            {
+              path: src/clock.cpp,
+              from: "#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\nconst uint64_t nsecs_per_usec = 1000;\n#endif\n",
+              to: "#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\n#endif\nconst uint64_t nsecs_per_usec = 1000;\n",
+            }
+  after:
+    # libzmq.pc names libstdc++ whatever the platform's C++ runtime is
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/libzmq.pc', libs-private: { remove: -lstdc++ } }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libzmq.pc',
+          libs-private: { add: '{cxx-runtime}', missing: after-libs },
+        }

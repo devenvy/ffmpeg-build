@@ -65,6 +65,7 @@ libraries:
   libvpx: { version: 1.17.0, commit: 6df3ec34557879fff673706f4a1d9fbd0f3a6f0e }
   libwebp: { version: 1.6.0, commit: 4fa21912338357f89e4fd51cf2368325b59e9bd9 }
   libxml2: { version: 2.15.4, commit: 96498992efa48d52b0e8b83058bd88dbdaf153c1 }
+  libzmq: { version: 4.3.5, commit: 622fc6dde99ee172ebaa9c8628d85a7a1995a21d }
   lilv: { version: 0.28.0, commit: 2feec6a15d3300db3ac0337bafb863308a03cab6 }
   lv2: { version: 1.18.10, commit: 0bcde338db1c63bbc503b4d1f6d7b55ed43154af }
   mbedtls: { version: 3.6.7, sha256: a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6 }
@@ -88,12 +89,14 @@ libraries:
   proxy-libintl: { version: 0.5, commit: 33934de09af6a6627eb44e310a8079df009abdbb }
   pystring: { version: 1.2.0, commit: 1922c8f2b48e3beb6831c27b4811b58995e986cf }
   quirc: { version: 1.2, commit: 542848dd6b9b0eaa9587bbf25b9bc67bd8a71fca }
+  rabbitmq-c: { version: 0.18.1, commit: dc22a7fa21522788310ec7f3f49bc3f028150b22 }
   rav1e: { version: 0.8.1, commit: 1fe82de02510767539e89b2ee6fa846920ae2686 }
   rockchip-mpp: { version: 1.1.0, commit: c08762ebfadeb4e986d2fed993bc7a54862d3ebe }
   rubberband: { version: 4.0.0, commit: 1d95888bec3ae0a17c0c4af791810d5a63f6bc35 }
   serd: { version: 0.32.10, commit: 849b9ecd8d6c87da79f14e2630daa084002d7555 }
   shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
   shine: { version: 3.1.1, sha256: 58e61e70128cf73f88635db495bfc17f0dde3ce9c9ac070d505a0cd75b93d384 }
+  snappy: { version: 1.3.1, commit: 9c28114a38866f6deeaa826db918293bc28ae410 }
   sord: { version: 0.16.22, commit: 5ab719fdae9b6db1204974f749dc64e62d2029af }
   soxr: { version: 0.1.3, commit: 945b592b70470e29f917f4de89b4281fbbd540c0 }
   speex: { version: 1.2.1, commit: 5dceaaf3e23ee7fd17c80cb5f02a838fd6c18e01 }

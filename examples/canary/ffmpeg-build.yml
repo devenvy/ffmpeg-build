@@ -60,6 +60,9 @@ bases:
         lv2,
         opencolorio,
         cairo,
+        zmq,
+        rabbitmq,
+        snappy,
       ]
   linux:
     with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa]

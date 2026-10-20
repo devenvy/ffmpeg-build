@@ -1,0 +1,25 @@
+name: snappy
+provides: snappy
+license: BSD-3-Clause
+license-files: [COPYING]
+# FFmpeg finds it with `-lsnappy -lstdc++` (no pkg-config): the library is C++ behind a C API, so the platform's own C++
+# runtime goes on FFmpeg's link too (as libilbc's), where libstdc++ isn't it or must be linked statically
+configure:
+  - --enable-libsnappy
+  - '--extra-libs=-lstdc++': { platforms: [linux-x64, linux-arm64, linux-armhf, win-x64] }
+  - '--extra-libs=-l:libstdc++.a': { platforms: [linux-musl-*] }
+  - '--extra-libs=-l:libc++.a': { platforms: [win-arm64] }
+  - '--extra-libs=-lc++': { platforms: [osx-*, ios-*, maccatalyst-*, android-*] }
+source: { git: https://github.com/google/snappy, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # Snappy: Google's fast compressor (BSD-3-Clause), static, for FFmpeg's HAP encoder (the decoder has FFmpeg's own
+  # Snappy decompressor). The library alone: no tests or benchmarks (which would want GoogleTest and Benchmark). Its
+  # CMakeLists makes every warning an error under Clang, which a newer Clang than upstream's CI turns into a failed
+  # build: left out.
+  system: cmake
+  args: [-DSNAPPY_BUILD_TESTS=OFF, -DSNAPPY_BUILD_BENCHMARKS=OFF, -DSNAPPY_INSTALL=ON]
+  before:
+    - replace-in-file:
+        { path: CMakeLists.txt, from: 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")', to: '' }

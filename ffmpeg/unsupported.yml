@@ -30,9 +30,6 @@ options:
   # e. Protocols / IO
   libssh: { reason: pending, issue: 21, batch: e, note: 'libssh (SFTP protocol)' }
   libsmbclient: { reason: pending, issue: 21, batch: e, note: 'smbclient (SMB protocol; GPLv3)' }
-  libzmq:
-    { reason: pending, issue: 21, batch: e, note: 'zmq (ZeroMQ protocol and filter commands)' }
-  librabbitmq: { reason: pending, issue: 21, batch: e, note: 'rabbitmq (AMQP protocol)' }
   libbluray: { reason: pending, issue: 21, batch: e, note: 'bluray (Blu-ray protocol)' }
   libdvdnav: { reason: pending, issue: 21, batch: e, note: 'dvdnav (DVD-Video demuxer)' }
   libdvdread: { reason: pending, issue: 21, batch: e, note: 'dvdread (DVD-Video demuxer)' }
@@ -60,7 +57,6 @@ options:
       batch: e,
       note: 'gmp (rtmpe encryption; the recipe exists, for gnutls)',
     }
-  libsnappy: { reason: pending, issue: 21, batch: e, note: 'snappy (HAP codec compression)' }
   libklvanc: { reason: pending, issue: 21, batch: e, note: 'klvanc (VANC data, with decklink)' }
   avisynth: { reason: pending, issue: 21, batch: e, note: 'avisynth (AviSynth+ script demuxer)' }
   vapoursynth:
