@@ -1359,6 +1359,13 @@ describe('codec libraries', () => {
       licenses: ALL,
       ships: { demuxers: ['libopenmpt'] },
     },
+    rav1e: {
+      platforms: PLATFORMS,
+      recipes: ['rav1e'],
+      flags: ['--enable-librav1e'],
+      licenses: ALL,
+      ships: { encoders: ['librav1e'] },
+    },
   };
   const CODECS = Object.keys(where);
   const text = (platform: string, license: string, option: string) =>

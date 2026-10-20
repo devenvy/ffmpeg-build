@@ -1,0 +1,142 @@
+name: rav1e
+provides: rav1e
+# rav1e's own licence, and the Alliance for Open Media patent licence it comes with
+license: BSD-2-Clause
+license-files: [LICENSE, PATENTS]
+# Like XEVE, it needs more stack than musl gives FFmpeg's encoder thread by default (128 KiB): on musl the ffmpeg
+# program takes glibc's 8 MiB default instead (musl reads PT_GNU_STACK's size as its threads' default)
+configure:
+  - --enable-librav1e
+  - '--extra-ldflags=-Wl,-z,stack-size=8388608': { platforms: [linux-musl-*] }
+source: { git: https://github.com/xiph/rav1e, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # rav1e: the Xiph AV1 encoder, in Rust (BSD-2-Clause), static, for FFmpeg's librav1e encoder (found through
+  # rav1e.pc, 0.5.0 or later, whose Libs.private names what Rust's standard library needs from the system). cargo-c
+  # builds its C API as a static library for the platform's Rust target, with the crates its Cargo.lock pins
+  # (--locked: checked against their crates.io checksums); x86-64 assembly through nasm, AArch64 assembly through the
+  # platform's C compiler (the cc crate, told which with CC_<target>). The Linux, Windows and Android images carry
+  # Rust 1.98.1 and cargo-c 0.10.26 (images/*/Dockerfile). On Apple, Homebrew's rustup (platforms/apple-brew.txt)
+  # installs the same Rust into the build's own folder first, with the target's standard library, and cargo-c 0.10.26
+  # from crates.io (--locked).
+  system: none
+  # its build scripts (libgit2, for the version string) run here, so they are compiled with the build machine's own
+  # compilers and flags, not the platform's (which the cc crate otherwise takes from CC and CFLAGS). Rust keeps source
+  # paths in its panic messages: the source folder (with Apple's CARGO_HOME) and the images' /opt/cargo crates are
+  # remapped to fixed names, so no build folder ends up in the library (the staged-binary check)
+  env:
+    HOST_CC: cc
+    HOST_CXX: c++
+    HOST_CFLAGS: -O2
+    HOST_CXXFLAGS: -O2
+    RUSTFLAGS: '--remap-path-prefix={src}=/work/src/rav1e --remap-path-prefix=/opt/cargo=/cargo'
+  steps:
+    - run:
+        [
+          cargo,
+          cinstall,
+          --release,
+          --locked,
+          --library-type=staticlib,
+          '--target={target}',
+          '--prefix={deps}',
+          '--libdir={deps}/lib',
+          '--includedir={deps}/include',
+        ]
+  platforms:
+    linux-x64: { vars: { target: x86_64-unknown-linux-gnu } }
+    linux-arm64: { vars: { target: aarch64-unknown-linux-gnu } }
+    linux-musl-x64: { vars: { target: x86_64-unknown-linux-musl } }
+    linux-musl-arm64: { vars: { target: aarch64-unknown-linux-musl } }
+    # Rust's musl targets unwind with LLVM's libunwind, which they name in the .pc but Alpine's GCC doesn't have; GCC's
+    # own static unwinder (libgcc_eh) provides the same _Unwind_* API
+    'linux-musl-*':
+      after:
+        # (it names -lunwind -lc in both Libs and Libs.private)
+        - edit-pkg-config: { path: '{deps}/lib/pkgconfig/rav1e.pc', libs: { remove: -lunwind } }
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/rav1e.pc', libs-private: { set: -lgcc_eh -lc } }
+    linux-armhf:
+      vars: { target: armv7-unknown-linux-gnueabihf }
+      env:
+        CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+        CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+        AR_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-ar
+    win-x64:
+      vars: { target: x86_64-pc-windows-gnu }
+      env:
+        CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: '{CC}'
+        CC_x86_64_pc_windows_gnu: '{CC}'
+        AR_x86_64_pc_windows_gnu: '{AR}'
+    win-arm64:
+      vars: { target: aarch64-pc-windows-gnullvm }
+      env:
+        CARGO_TARGET_AARCH64_PC_WINDOWS_GNULLVM_LINKER: '{CC}'
+        CC_aarch64_pc_windows_gnullvm: '{CC}'
+        AR_aarch64_pc_windows_gnullvm: '{AR}'
+    android-arm64:
+      vars: { target: aarch64-linux-android }
+      env:
+        CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: '{CC}'
+        CC_aarch64_linux_android: '{CC}'
+        AR_aarch64_linux_android: '{AR}'
+    android-x64:
+      vars: { target: x86_64-linux-android }
+      env:
+        CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: '{CC}'
+        CC_x86_64_linux_android: '{CC}'
+        AR_x86_64_linux_android: '{AR}'
+    osx-arm64: { vars: { target: aarch64-apple-darwin } }
+    osx-x64:
+      vars: { target: x86_64-apple-darwin }
+      env:
+        {
+          CFLAGS_x86_64_apple_darwin: '{EXTRA_CFLAGS}',
+          CXXFLAGS_x86_64_apple_darwin: '{EXTRA_CXXFLAGS}',
+        }
+    ios-arm64:
+      vars: { target: aarch64-apple-ios }
+      env:
+        {
+          CFLAGS_aarch64_apple_ios: '{EXTRA_CFLAGS}',
+          CXXFLAGS_aarch64_apple_ios: '{EXTRA_CXXFLAGS}',
+        }
+    ios-sim-arm64:
+      vars: { target: aarch64-apple-ios-sim }
+      env:
+        {
+          CFLAGS_aarch64_apple_ios_sim: '{EXTRA_CFLAGS}',
+          CXXFLAGS_aarch64_apple_ios_sim: '{EXTRA_CXXFLAGS}',
+        }
+    maccatalyst-arm64:
+      vars: { target: aarch64-apple-ios-macabi }
+      env:
+        {
+          CFLAGS_aarch64_apple_ios_macabi: '{EXTRA_CFLAGS}',
+          CXXFLAGS_aarch64_apple_ios_macabi: '{EXTRA_CXXFLAGS}',
+        }
+    maccatalyst-x64:
+      vars: { target: x86_64-apple-ios-macabi }
+      env:
+        {
+          CFLAGS_x86_64_apple_ios_macabi: '{EXTRA_CFLAGS}',
+          CXXFLAGS_x86_64_apple_ios_macabi: '{EXTRA_CXXFLAGS}',
+        }
+    # Apple: Rust and cargo-c in the build's own folder, through Homebrew's (keg-only) rustup and its cargo and rustc
+    # proxies, which run the toolchain RUSTUP_TOOLCHAIN names. The platform's flags go to the target's C compiles only
+    # (CFLAGS_<target>, above): the generic CFLAGS would also reach the build scripts compiled for this Mac.
+    'osx-*': &apple
+      env:
+        RUSTUP_HOME: '{src}/_rustup'
+        CARGO_HOME: '{src}/_cargo'
+        RUSTUP_TOOLCHAIN: 1.98.1
+        PATH: '{src}/_cargo/bin:{HOMEBREW_PREFIX|/opt/homebrew}/opt/rustup/bin:{PATH}'
+      unset: [CFLAGS, CXXFLAGS, LDFLAGS]
+      before:
+        - [rustup, toolchain, install, 1.98.1, --profile, minimal, --target, '{target}']
+        # cargo-c is a program for this Mac: built without the platform's compilers and flags
+        - run: [cargo, install, --locked, cargo-c@0.10.26]
+          unset: [CC, CXX, CFLAGS, CXXFLAGS, CPPFLAGS, LDFLAGS, SDKROOT]
+    'ios-*': *apple
+    'maccatalyst-*': *apple

@@ -28,3 +28,19 @@ RUN apk add --no-cache clang \
  && clang --cuda-gpu-arch=sm_30 -O2 -std=c++11 -m64 -S -nocudalib -nocudainc --cuda-device-only /tmp/probe.cu -o /tmp/probe.ptx \
  && grep -q '^.target sm_30' /tmp/probe.ptx \
  && rm -f /tmp/probe.cu /tmp/probe.ptx
+
+# Rust and cargo-c for rav1e (FFmpeg's librav1e: a Rust library whose C API and static library cargo-c builds).
+# rustup-init 1.29.1 by sha256, as static.rust-lang.org lists it; Rust 1.98.1 by version (rustup checks each
+# component it downloads against that release's manifest); cargo-c 0.10.26's static musl build by sha256, as its
+# GitHub release lists it. In /opt, on PATH.
+ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:${PATH}
+RUN curl -fsSL -o /tmp/rustup-init https://static.rust-lang.org/rustup/archive/1.29.1/aarch64-unknown-linux-musl/rustup-init \
+ && echo '1ddf36182ac5d1782dbeefcb9bea7f5f9412d88f4a0d5047b1564a223624e8c6  /tmp/rustup-init' | sha256sum -c - \
+ && chmod +x /tmp/rustup-init \
+ && /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain 1.98.1 \
+ && rm /tmp/rustup-init \
+ && curl -fsSL -o /tmp/cargo-c.tgz https://github.com/lu-zero/cargo-c/releases/download/v0.10.26/cargo-c-aarch64-unknown-linux-musl.tar.gz \
+ && echo '68a45c967438240b64f2806639098c89df676c0152e855f5122cf5173204ce6c  /tmp/cargo-c.tgz' | sha256sum -c - \
+ && tar -xzf /tmp/cargo-c.tgz -C /opt/cargo/bin \
+ && rm /tmp/cargo-c.tgz \
+ && rustc --version && cargo cinstall --version
