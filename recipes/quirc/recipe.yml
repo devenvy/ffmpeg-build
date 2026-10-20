@@ -1,0 +1,23 @@
+name: quirc
+provides: quirc
+license: ISC
+license-files: [LICENSE]
+# FFmpeg finds it with a plain -lquirc probe (no pkg-config); the library calls the maths library (sqrt)
+configure: [--enable-libquirc, --extra-libs=-lm]
+source: { git: https://github.com/dlbeer/quirc, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+)$' }
+platforms: all
+build:
+  # quirc: QR code recognition (ISC), static, for FFmpeg's quirc filter. Its own Makefile runs the host's ar and
+  # ranlib and asks pkg-config for SDL and OpenCV (its demos): its four library sources are built with a CMakeLists
+  # written here instead, which cross-compiles like any other.
+  system: cmake
+  before:
+    - write-file:
+        path: CMakeLists.txt
+        text: |
+          cmake_minimum_required(VERSION 3.5)
+          project(quirc C)
+          add_library(quirc STATIC lib/decode.c lib/identify.c lib/quirc.c lib/version_db.c)
+          install(TARGETS quirc ARCHIVE DESTINATION lib)
+          install(FILES lib/quirc.h DESTINATION include)

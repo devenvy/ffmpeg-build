@@ -236,6 +236,27 @@ options:
   modplug: { needs: libmodplug, ships: { demuxers: [libmodplug] } }
   openmpt: { needs: libopenmpt, min: 0.2.6557, ships: { demuxers: [libopenmpt] } }
 
+  # filters and processing
+  vidstab:
+    {
+      needs: vid.stab,
+      ffmpeg-license: gpl,
+      min: 0.98,
+      ships: { filters: [vidstabdetect, vidstabtransform] },
+    }
+  mysofa: { needs: libmysofa, ships: { filters: [sofalizer] } }
+  bs2b: { needs: libbs2b, ships: { filters: [bs2b] } }
+  qrencode: { needs: libqrencode, ships: { filters: [qrencode, qrencodesrc] } }
+  quirc: { needs: quirc, ships: { filters: [quirc] } }
+  # text to speech (an audio source), with Flite's US English voices
+  flite: { needs: flite, ships: { filters: [flite] } }
+  # DVB Teletext subtitles; zvbi's iconv is the C library's on Android, from API 28
+  zvbi: { needs: zvbi, android-api: 28, ships: { decoders: [libzvbi_teletextdec] } }
+  # ARIB STD-B24 captions (Japanese broadcasts): two decoders, one per library
+  aribb24:
+    { needs: aribb24, ffmpeg-license: version3, min: 1.0.4, ships: { decoders: [libaribb24] } }
+  aribcaption: { needs: libaribcaption, min: 1.1.1, ships: { decoders: [libaribcaption] } }
+
   # text, subtitles, XML, compression
   freetype: { needs: freetype, ships: { filters: [{ drawtext: { with: [harfbuzz] } }] } }
   fribidi: { needs: fribidi }

@@ -1,0 +1,56 @@
+name: flite
+provides: flite
+# COPYING: CMU's BSD-like licence (keep the notice, mark modifications, don't use the authors' names), and for a few
+# files the same terms under other owners (NAIST/NITECH, Cepstral, Cobalt, Edinburgh), Henry Spencer's regex,
+# Markus Mummert's rate converter and Sun's G.72x code, all as free. SPDX has no identifier for it: a LicenseRef,
+# allowed in every build (licenses.yml).
+license: LicenseRef-flite
+license-files: [COPYING]
+# FFmpeg links its six US English voices, the lexicon and the library with plain -l flags (no pkg-config); the
+# library calls the maths library
+configure: [--enable-libflite, --extra-libs=-lm]
+source: { git: https://github.com/festvox/flite, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+)$' }
+platforms: all
+build:
+  # Flite: CMU's small speech synthesizer, static, for FFmpeg's flite audio source (text to speech), with the US
+  # English voices it ships (awb, kal, kal16, rms, slt, and the time voice), which FFmpeg links in whole. No audio
+  # output (FFmpeg takes the samples) and no sockets.
+  #
+  # - Its configure is autoconf's, generated; for mingw and Android it sets CC, AR and RANLIB to toolchains of its day
+  #   (i386-mingw32-gcc, the NDK's old GCC): those lines go, so the platform's are used.
+  # - Only the libraries: its Makefile also builds the flite programs and tools (whenever it thinks it isn't cross
+  #   compiling, which it always does), some of which don't compile for Android, and docs; its install wants the
+  #   programs. The libraries and headers are installed by hand (the headers in include/flite, as its install does).
+  # - Its headers define snprintf as an MSVC workaround (an `__inline` function that GCC and clang never emit) on any
+  #   _WIN32: not on mingw, which has snprintf.
+  system: autotools
+  # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
+  env: { CFLAGS: '+= -O2' }
+  args: [--disable-shared, --with-pic, --with-audio=none, --disable-sockets]
+  install-targets: []
+  before:
+    - replace-in-file:
+        {
+          path: configure,
+          from: '^\s*(CC|RANLIB|AR|NM)="\$\{(MINGWPREF|ANDROIDBIN)\}[^"]*"\s*$',
+          to: '',
+          regex: true,
+        }
+    - replace-in-file:
+        {
+          path: Makefile,
+          from: 'BUILD_DIRS = include src lang doc',
+          to: 'BUILD_DIRS = include src lang',
+        }
+    - replace-in-file:
+        { path: Makefile, from: 'HOST_ONLY_DIRS = tools main', to: 'HOST_ONLY_DIRS =' }
+    - replace-in-file:
+        {
+          path: include/cst_file.h,
+          from: "#ifdef _WIN32\n#define snprintf c99_snprintf",
+          to: "#if defined(_WIN32) && !defined(__MINGW32__)\n#define snprintf c99_snprintf",
+        }
+  after:
+    - copy: { from: 'include/*.h', into: '{deps}/include/flite' }
+    - copy: { from: 'build/*/lib/libflite*.a', into: '{deps}/lib' }

@@ -1433,3 +1433,170 @@ describe('codec libraries', () => {
     }
   });
 });
+
+// Batch d of #21, filters and processing: each can be listed where its library builds, in the licenses its library
+// (and FFmpeg's class) allow. None turns on by itself.
+describe('filter and processing libraries', () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const V3 = ['lgplv3', 'gplv3', 'nonfree'];
+  const GPL = ['gplv2', 'gplv3', 'nonfree'];
+  const ownIconv = (p: string) => /^(win|osx|ios|maccatalyst)-/.test(p);
+  const where: Record<
+    string,
+    {
+      platforms: readonly string[];
+      /** the option's own recipe, which `check` names where it doesn't build */
+      recipe: string;
+      recipes: (platform: string) => string[];
+      flags: string[];
+      licenses: string[];
+      ships: Record<string, string[]>;
+    }
+  > = {
+    // FFmpeg's class gpl, and vid.stab's last release is GPL-2.0-or-later
+    vidstab: {
+      platforms: PLATFORMS,
+      recipe: 'vid.stab',
+      recipes: () => ['vid.stab'],
+      flags: ['--enable-libvidstab'],
+      licenses: GPL,
+      ships: { filters: ['vidstabdetect', 'vidstabtransform'] },
+    },
+    mysofa: {
+      platforms: PLATFORMS,
+      recipe: 'libmysofa',
+      recipes: () => ['libmysofa', 'zlib'],
+      flags: ['--enable-libmysofa'],
+      licenses: ALL,
+      ships: { filters: ['sofalizer'] },
+    },
+    bs2b: {
+      platforms: PLATFORMS,
+      recipe: 'libbs2b',
+      recipes: () => ['libbs2b'],
+      flags: ['--enable-libbs2b'],
+      licenses: ALL,
+      ships: { filters: ['bs2b'] },
+    },
+    qrencode: {
+      platforms: PLATFORMS,
+      recipe: 'libqrencode',
+      recipes: () => ['libqrencode'],
+      flags: ['--enable-libqrencode'],
+      licenses: ALL,
+      ships: { filters: ['qrencode', 'qrencodesrc'] },
+    },
+    quirc: {
+      platforms: PLATFORMS,
+      recipe: 'quirc',
+      recipes: () => ['quirc'],
+      flags: ['--enable-libquirc', '--extra-libs=-lm'],
+      licenses: ALL,
+      ships: { filters: ['quirc'] },
+    },
+    flite: {
+      platforms: PLATFORMS,
+      recipe: 'flite',
+      recipes: () => ['flite'],
+      flags: ['--enable-libflite', '--extra-libs=-lm'],
+      licenses: ALL,
+      ships: { filters: ['flite'] },
+    },
+    // GPL-2.0-only files are compiled into libzvbi: gplv2 builds only (and nonfree)
+    zvbi: {
+      platforms: PLATFORMS,
+      recipe: 'zvbi',
+      recipes: (p) => (ownIconv(p) ? ['libiconv', 'zvbi'] : ['zvbi']),
+      flags: ['--enable-libzvbi'],
+      licenses: ['gplv2', 'nonfree'],
+      ships: { decoders: ['libzvbi_teletextdec'] },
+    },
+    // LGPL-3.0-or-later, and FFmpeg's class version3
+    aribb24: {
+      platforms: PLATFORMS,
+      recipe: 'aribb24',
+      recipes: () => ['aribb24'],
+      flags: ['--enable-libaribb24'],
+      licenses: V3,
+      ships: { decoders: ['libaribb24'] },
+    },
+    // its renderer: FreeType and Fontconfig on Linux, FreeType on Android, the system's text APIs elsewhere
+    aribcaption: {
+      platforms: PLATFORMS,
+      recipe: 'libaribcaption',
+      recipes: (p) => {
+        if (p.startsWith('linux-')) {
+          return ['fontconfig', 'freetype', 'libaribcaption', 'libexpat', 'libpng', 'zlib'];
+        }
+        return p.startsWith('android-')
+          ? ['freetype', 'libaribcaption', 'libpng', 'zlib']
+          : ['libaribcaption'];
+      },
+      flags: ['--enable-libaribcaption'],
+      licenses: ALL,
+      ships: { decoders: ['libaribcaption'] },
+    },
+  };
+  const OPTIONS = Object.keys(where);
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const planOn = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = OPTIONS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s', (option, platform) => {
+    const plan = planOn(platform, where[option]!.licenses[0]!, option);
+    expect(plan.errors).toEqual([]);
+    const cell = plan.cells[0]!;
+    expect(cell.options).toEqual([option]);
+    expect([...cell.recipes].sort()).toEqual(where[option]!.recipes(platform));
+    expect(configureFlags(data, cell)).toEqual(expect.arrayContaining(where[option]!.flags));
+  });
+
+  const absent = OPTIONS.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'nonfree', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'nonfree', option)).toContain(
+      `not on ${platform}: the ${where[option]!.recipe} recipe doesn't build there`,
+    );
+  });
+
+  it.each(OPTIONS)('%s is refused in the licenses that may not take it', (option) => {
+    for (const license of ALL.filter((l) => !where[option]!.licenses.includes(l))) {
+      expect(report('linux-x64', license, option), license).toContain('✗');
+    }
+  });
+
+  it('options offers each where it builds, in the licenses that allow it, with what it ships', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of OPTIONS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(where[name]!.platforms);
+      expect(fact.licenses, name).toEqual(where[name]!.licenses);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        const shipped: Record<string, string[]> = {};
+        for (const s of data.ffmpeg.get(major)!.options[name]!.ships ?? []) {
+          (shipped[s.kind] ??= []).push(s.name);
+        }
+        expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => OPTIONS.includes(o))).toEqual([]);
+    }
+  });
+});

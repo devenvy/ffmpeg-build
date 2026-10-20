@@ -1,0 +1,38 @@
+# libbs2b's last release (3.1.0, 2009) is a SourceForge tarball; the listing is the project's libbs2b folder (one
+# folder per release).
+name: libbs2b
+provides: bs2b
+license: MIT
+license-files: [COPYING]
+configure: [--enable-libbs2b]
+source:
+  url: 'https://downloads.sourceforge.net/project/bs2b/libbs2b/{version}/libbs2b-{version}.tar.gz'
+  mirrors: ['https://deb.debian.org/debian/pool/main/libb/libbs2b/libbs2b_{version}.orig.tar.gz']
+versions:
+  { listing: 'https://sourceforge.net/projects/bs2b/files/libbs2b/', files: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libbs2b: Bauer stereophonic-to-binaural crossfeed (MIT), static, for FFmpeg's bs2b filter (found through
+  # libbs2b.pc). The library alone. Its configure insists on libsndfile, which only its two programs use: the check
+  # goes (and automake's long-gone dist-lzma with it), and only the library, its headers and .pc are built and
+  # installed. autoreconf -fi, after those edits (`bootstrap:` would run before them), also refreshes a 2009
+  # config.sub that knows no aarch64 or arm64 Apple triple.
+  system: autotools
+  # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
+  env: { CFLAGS: '+= -O2' }
+  # AC_FUNC_MALLOC assumes a cross build's malloc(0) returns NULL and calls an rpl_malloc nobody defines (Android's
+  # link failed): every C library this builds for returns a pointer
+  args: [--disable-shared, --enable-static, --with-pic, ac_cv_func_malloc_0_nonnull=yes]
+  make-targets: [-C, src, libbs2b.la]
+  install-targets: [-C, src, install-libLTLIBRARIES, install-bs2bHEADERS]
+  after:
+    - [make, install-pkgconfigDATA]
+  before:
+    - replace-in-file:
+        {
+          path: configure.ac,
+          from: "PKG_CHECK_EXISTS([sndfile], [], [\n    AC_MSG_ERROR(Please install libsndfile.)\n])",
+          to: '',
+        }
+    - replace-in-file: { path: configure.ac, from: ' dist-lzma', to: '' }
+    - [autoreconf, -fi]

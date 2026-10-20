@@ -1,0 +1,16 @@
+name: vid.stab
+provides: vidstab
+# GPL-2.0-or-later up to and including v1.1.2, the latest release (later commits are LGPL-2.1-or-later, but unreleased);
+# FFmpeg's class for libvidstab is gpl either way
+license: GPL-2.0-or-later
+license-files: [LICENSE]
+configure: [--enable-libvidstab]
+source: { git: https://github.com/georgmartius/vid.stab, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # vid.stab: video stabilization (GPL-2.0-or-later), static, for FFmpeg's vidstabdetect and vidstabtransform filters
+  # (found through vidstab.pc, 0.98 or later); GPL builds only. Without OpenMP: its runtime would have to ship with
+  # FFmpeg's libraries (and the NDK's and Apple's compilers have none); FFmpeg's filters run on its own threads.
+  system: cmake
+  args: [-DUSE_OMP=OFF, -DBUILD_SHARED_LIBS=OFF]

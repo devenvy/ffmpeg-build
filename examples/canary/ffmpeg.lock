@@ -5,6 +5,7 @@ ffmpeg:
 libraries:
   amf: { version: 1.5.3, commit: 57ee0cfb0e1a08d9041f77435653794c1b012be0 }
   aom: { version: 3.15.1, commit: 44d0a57786f432d933ff64b653347c66f4d0fa1d }
+  aribb24: { version: 1.0.4, commit: a41b904d66ed991ace32a9827f629db3d438b47b }
   brotli: { version: 1.2.0, commit: 028fb5a23661f123017c060daa546b55cf4bde29 }
   bzip2: { version: 1.0.8, commit: 6a8690fc8d26c815e798c588f796eabe9d684cf0 }
   chromaprint: { version: 1.6.1, commit: aed8eba2202dd9d7b3b0a56c77904cc805490d72 }
@@ -12,6 +13,7 @@ libraries:
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
   davs2: { version: 1.7, commit: b06d7585620f4e90a6d19a2926bb4e59793b8942 }
+  flite: { version: 2.2, commit: e9e2e37c329dbe98bfeb27a1828ef9a71fa84f88 }
   fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
   freetype: { version: 2.14.3, commit: 0a0221a1347e2f1e07c395263540026e9a0aa7c7 }
   fribidi: { version: 1.0.17, commit: b93119f5fdc7ea47672cc304c1455ffa6dfe7536 }
@@ -23,7 +25,9 @@ libraries:
   kvazaar: { version: 2.3.2, commit: 6040962bed5cc68c5ad01234c38c08b8b2822068 }
   lcevcdec: { version: 4.3.0, commit: 741fb7c869cf61012f7dcebfcd9e56981198c78b }
   lcms2: { version: 2.19.1, commit: 21c582a594fe5279f90c0b93437c398f93bf62b0 }
+  libaribcaption: { version: 1.1.2, commit: c64c23b8905ba514b87c9789269e9f66f949ffe0 }
   libass: { version: 0.17.5, commit: 4a05d8127f525943ebf45fdc6497c9e665947f0d }
+  libbs2b: { version: 3.1.0, sha256: 6aaafd81aae3898ee40148dd1349aab348db9bfae9767d0e66e0b07ddd4b2528 }
   libdrm: { version: 2.4.134, commit: e984d448b8b17aab853369e6c203e53719f46de1 }
   libexpat: { version: 2.9.0, commit: a76b1174c1ea52abb639a4c69d52b630a8a106a2 }
   libgme: { version: 0.6.5, commit: 9e23d10f9fd2a6a2f33b10912dd8dc7153258995 }
@@ -34,10 +38,12 @@ libraries:
   liblc3: { version: 1.1.3, commit: 96a3af0beb5487aca3b98a4b992a539a1f6d80d1 }
   libmodplug: { version: 0.8.9.0, sha256: 457ca5a6c179656d66c01505c0d95fafaead4329b9dbaa0f997d00a3508ad9de }
   libmp3lame: { version: 4.0, sha256: 3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb }
+  libmysofa: { version: 1.3.5, commit: 6cc5b15a73e9bd97810d03767082edda7f315881 }
   libogg: { version: 1.3.6, commit: be05b13e98b048f0b5a0f5fa8ce514d56db5f822 }
   libopenmpt: { version: 0.8.9, sha256: d7ce84fd05d686c4bcf66af40eae857afa371442db60eeda3f874bd6cf6fc318 }
   libplacebo: { version: 7.360.1, commit: cee9b076f2c63104ccfd497fa79c39a867293ec4 }
   libpng: { version: 1.6.59, commit: cd952f49f95bb27154ae77dbb103032d95f6e580 }
+  libqrencode: { version: 4.1.1, commit: 715e29fd4cd71b6e452ae0f4e36d917b43122ce8 }
   librist: { version: 0.2.20, commit: 4f45ef8f78983892d52ccd52d9f675435b23738f }
   libtasn1: { version: 4.21.0, sha256: 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87 }
   libtheora: { version: 1.2.0, commit: 8e4808736e9c181b971306cc3f05df9e61354004 }
@@ -61,6 +67,7 @@ libraries:
   openjpeg: { version: 2.5.4, commit: 6c4a29b00211eb0430fa0e5e890f1ce5c80f409f }
   openssl: { version: 3.5.9, commit: 45e844fa2a14ec92d146bd8f5778ac130b6625fb }
   opus: { version: 1.6.1, commit: 22244de5a79bd1d6d623c32e72bf1954b56235be }
+  quirc: { version: 1.2, commit: 542848dd6b9b0eaa9587bbf25b9bc67bd8a71fca }
   rav1e: { version: 0.8.1, commit: 1fe82de02510767539e89b2ee6fa846920ae2686 }
   rockchip-mpp: { version: 1.1.0, commit: c08762ebfadeb4e986d2fed993bc7a54862d3ebe }
   shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
@@ -73,6 +80,7 @@ libraries:
   svtav1: { version: 4.2.0, commit: 9292ec8e32bce26f781f277ec8739b53426c4300 }
   twolame: { version: 0.4.0, sha256: cc35424f6019a88c6f52570b63e1baf50f62963a3eac52a03a800bb070d7c87d }
   uavs3d: { version: 1.2, commit: 0e20d2c291853f196c68922a264bcd8471d75b68 }
+  vid.stab: { version: 1.1.2, commit: 92bc0b0f369f2a88aaacf25eac3a10f8415308fc }
   vo-amrwbenc: { version: 0.1.3, sha256: 5652b391e0f0e296417b841b02987d3fd33e6c0af342c69542cbb016a71d9d4e }
   vulkan-headers: { version: 1.4.363.0, commit: 6802bb4733b63ed5efd3adb308a6c885ef180ea1 }
   vulkan-loader: { version: 1.4.363.0, commit: fa218055ff4948b159f31d43f800c808a13d51df }
@@ -89,3 +97,4 @@ libraries:
   xz: { version: 5.8.4, commit: d3e650e63c110e830fd5391e7f8b45df0b91d3da }
   zimg: { version: 3.0.6, commit: f819b14e8f39d1282400b0d9543e8ef73c1b2bbd }
   zlib: { version: 1.3.2, commit: da607da739fa6047df13e66a2af6b8bec7c2a498 }
+  zvbi: { version: 0.2.45, commit: d3a5ee9f2b047bf16cd1ee5ccf6ec05ee75409d0 }

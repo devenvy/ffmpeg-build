@@ -1,0 +1,27 @@
+name: libaribcaption
+provides: aribcaption
+# MIT; Android's build compiles in TinyXML-2 (Zlib) to read the system's font list
+license: MIT AND Zlib
+license-files: [LICENSE]
+configure: [--enable-libaribcaption]
+needs: [{ freetype: { platforms: [linux-*, android-*] } }, { fontconfig: { platforms: [linux-*] } }]
+source: { git: https://github.com/xqq/libaribcaption, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libaribcaption: ARIB STD-B24 caption decoding and rendering (MIT), static, for FFmpeg's libaribcaption decoder
+  # (found through libaribcaption.pc, 1.1.1 or later). C++. With its renderer, so the decoder's sub_type=bitmap works
+  # as well as ass and text, on each platform's own text backend as upstream picks it: FreeType and Fontconfig on
+  # Linux, FreeType and the system font list on Android, DirectWrite on Windows, CoreText on Apple.
+  #
+  # 1.1.2 asks for CMake 3.28, a bare version bump (1.1.1 asked for 3.11, and nothing newer is used); linux-armhf's
+  # image (Debian 12) has 3.25: back to 1.1.1's.
+  system: cmake
+  args: [-DARIBCC_BUILD_TESTS=OFF, -DARIBCC_SHARED_LIBRARY=OFF]
+  before:
+    - replace-in-file:
+        {
+          path: CMakeLists.txt,
+          from: cmake_minimum_required(VERSION 3.28),
+          to: cmake_minimum_required(VERSION 3.11),
+        }

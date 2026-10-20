@@ -1,0 +1,29 @@
+# aribb24's original repository (github.com/nkoriyama/aribb24) last tagged v1.0.3, still GPL; its LGPL-3.0 relicensing
+# was released as v1.0.4 by VideoLAN's maintained fork, which FFmpeg's configure asks for (above 1.0.3, or a GPL build).
+name: aribb24
+provides: aribb24
+license: LGPL-3.0-or-later
+license-files: [COPYING]
+configure: [--enable-libaribb24]
+source: { git: https://code.videolan.org/jeeb/aribb24.git, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # aribb24: ARIB STD-B24 caption decoding (Japanese broadcast captions; LGPL-3.0-or-later), static, for FFmpeg's
+  # libaribb24 decoder (found through aribb24.pc); FFmpeg's class version3, so v3 builds only. It would take libpng
+  # (to write DRCS glyphs out as PNG files, which FFmpeg never asks for) from whatever the build has, and 1.0.4's
+  # configure insists on it: the check goes, and the configure script is made after that (not by `bootstrap:`, which
+  # runs first).
+  system: autotools
+  # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
+  env: { CFLAGS: '+= -O2' }
+  args: [--disable-shared, --enable-static, --with-pic]
+  before:
+    - replace-in-file:
+        {
+          path: configure.ac,
+          from: 'PKG_CHECK_MODULES\(PNG, "libpng", \[[^\]]*\], \[\]\)',
+          to: '',
+          regex: true,
+        }
+    - [autoreconf, -fi]
