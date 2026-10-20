@@ -5,7 +5,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { checkProfile } from '../src/check.ts';
 import { loadEngineData } from '../src/engine-data.ts';
+import { formatReport } from '../src/format.ts';
 import { packageRoot } from '../src/paths.ts';
 import { planProfile } from '../src/resolve.ts';
 import { parseFolderText, targetProfile } from '../src/targets.ts';
@@ -29,8 +31,29 @@ function recipesOf(dir: string): Map<string, string[]> {
   );
 }
 
+/** Each target's `check` report: an option it lists that its build can't take is a ✗ line. */
+function checkReports(dir: string): Map<string, string> {
+  const r = parseFolderText(readFileSync(join(dir, 'ffmpeg-build.yml'), 'utf8'), dir);
+  if (!r.ok) {
+    throw new Error(r.errors.join('\n'));
+  }
+  const folder = r.folder;
+  return new Map(
+    folder.targets.map((t) => [
+      t.name,
+      formatReport(checkProfile({ ok: true, profile: targetProfile(folder, t) }, data)),
+    ]),
+  );
+}
+
 describe('examples/canary', () => {
   const canary = recipesOf(join(packageRoot, 'examples', 'canary'));
+
+  it('passes check: every option a target lists is in its build', () => {
+    for (const [name, report] of checkReports(join(packageRoot, 'examples', 'canary'))) {
+      expect(report, name).not.toContain('✗');
+    }
+  });
 
   it('builds every recipe on some target', () => {
     const built = new Set([...canary.values()].flat());
