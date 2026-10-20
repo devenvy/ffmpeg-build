@@ -29,6 +29,11 @@ The editor schema is [`schema/ffmpeg-build.schema.json`](../schema/ffmpeg-build.
 with a `# yaml-language-server: $schema=...` line, so editors with the YAML language server (VS Code's YAML extension,
 for one) complete and check it. Add that line to a file you wrote by hand to get the same.
 
+`with:` takes the options of [`ffmpeg/<major>.yml`](../ffmpeg/9.yml). Everything else FFmpeg's configure can turn on is
+in [`ffmpeg/unsupported.yml`](../ffmpeg/unsupported.yml) with the reason it isn't built: most are still to come
+(tracked in [issue #21](https://github.com/devenvy/ffmpeg-build/issues/21)), a few never will be (deprecated
+upstream, or for a platform the engine doesn't build).
+
 ## Starting and editing
 
 - **Start from the shipped targets.** You don't need to work out what each license allows on each platform yourself.

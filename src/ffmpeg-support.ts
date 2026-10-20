@@ -11,6 +11,16 @@ import {
   formatComponentsFile,
   parseComponentsFile,
 } from './ffmpeg-components.ts';
+import {
+  combinedClass,
+  coverage,
+  formatOfferedFile,
+  type Offered,
+  offeredFilePath,
+  parseOfferedFile,
+  parseUnsupported,
+  type Unsupported,
+} from './ffmpeg-coverage.ts';
 import { compareVersions } from './versions.ts';
 
 /** A file's text, or undefined when there is none (read once: no exists-then-read race). */
@@ -89,6 +99,10 @@ export interface SupportReport {
   newOptions: { name: string; license: LicenseClass }[]; // in the newest release's configure, not in the previous one's
   gone: string[]; // engine options whose configure name the previous release had and the newest no longer has
   reclassed: { option: string; data: string; configure: LicenseClass }[];
+  /** the release whose offered options differ from ffmpeg/offered/<major>.yml's (absent when they match) */
+  offered?: string;
+  /** what the newest release offers that no option turns on and ffmpeg/unsupported.yml doesn't list */
+  notAccounted?: { name: string; license: string }[];
   /** the release whose components differ from ffmpeg/components/<major>.yml's (absent when they match) */
   components?: string;
   /** components whose runtime name wasn't found in the sources (their configure name is kept) */
@@ -129,8 +143,11 @@ export function supportReport(
     : [];
   const reclassed: SupportReport['reclassed'] = [];
   for (const o of optionsOf(data, major).values()) {
-    const configureName = [...names].find(([, opt]) => opt === o.name)?.[0];
-    const cls = configureName ? newest.get(configureName) : undefined;
+    // every name it turns on that configure has: the class they need together (rkmpp's recipe turns on libdrm too)
+    const its = [...names].filter(([n, opt]) => opt === o.name && newest.has(n));
+    const cls = its.length
+      ? combinedClass(its.map(([n]) => newest.get(n)!).filter((c) => c !== ''))
+      : undefined;
     const dataClass = o.ffmpegLicense ?? '';
     if (cls !== undefined && !o.builtin && !DATA_CLASS[cls].includes(dataClass)) {
       reclassed.push({ option: o.name, data: dataClass || 'none', configure: cls });
@@ -154,7 +171,12 @@ export function writeReleases(dataRoot: string, major: string, releases: string[
 }
 
 /** Markdown for the PR body or the run summary. */
-export function formatSupport(reports: SupportReport[], majors: string[], applied = false): string {
+export function formatSupport(
+  reports: SupportReport[],
+  majors: string[],
+  applied = false,
+  closed: string[] = [],
+): string {
   const out = ['# FFmpeg support check', ''];
   for (const r of reports) {
     out.push(`## FFmpeg ${r.major}`);
@@ -180,6 +202,16 @@ export function formatSupport(reports: SupportReport[], majors: string[], applie
         `- components: from ${r.components} (${applied ? 'applied' : 'run with --write to apply'})`,
       );
     }
+    if (r.offered) {
+      out.push(
+        `- offered options: from ${r.offered} (${applied ? 'applied' : 'run with --write to apply'})`,
+      );
+    }
+    if (r.notAccounted?.length) {
+      out.push(
+        `- **not accounted for** (CI fails until each is supported, or listed in ffmpeg/unsupported.yml): ${r.notAccounted.map((o) => `\`${o.name}\`${o.license ? ` (${o.license})` : ''}`).join(', ')}`,
+      );
+    }
     if (r.unread?.length) {
       out.push(`- **runtime names not read** (configure's used): ${r.unread.join(', ')}`);
     }
@@ -190,6 +222,12 @@ export function formatSupport(reports: SupportReport[], majors: string[], applie
     }
     out.push('');
   }
+  out.push(
+    ...closed.map(
+      (c) => `${c}
+`,
+    ),
+  );
   if (majors.length) {
     out.push(
       `**New FFmpeg major${majors.length > 1 ? 's' : ''} ${majors.join(', ')}**: add ffmpeg/<major>.yml to support it (not done automatically).`,
@@ -223,6 +261,10 @@ export async function supportCheck(o: {
   configureOf: (version: string) => Promise<Map<string, LicenseClass>>;
   /** each release's components (FFmpeg's sources at its tag); without it the component lists aren't checked */
   componentsOf?: (version: string) => Promise<ComponentsRead>;
+  /** what each release's configure offers to turn on; without it ffmpeg/offered/ isn't checked */
+  offeredOf?: (version: string) => Promise<Omit<Offered, 'release'>>;
+  /** whether an issue is open (undefined: couldn't tell); without it pending entries' issues aren't checked */
+  issueOpen?: (issue: number) => Promise<boolean | undefined>;
   write: boolean;
 }): Promise<string> {
   if (!o.upstream.length) {
@@ -231,6 +273,7 @@ export async function supportCheck(o: {
     );
   }
   const reports: SupportReport[] = [];
+  const offered = new Map<string, Offered | undefined>();
   const releasesOf = (major: string): string[] =>
     o.upstream.filter((v) => v.split('.')[0] === major).sort(compareVersions);
   const majors = [...o.data.ffmpeg.keys()]
@@ -268,6 +311,21 @@ export async function supportCheck(o: {
         }
       }
     }
+    if (o.offeredOf) {
+      const newest = releases.at(-1)!;
+      const read: Offered = { release: newest, ...(await o.offeredOf(newest)) };
+      const file = offeredFilePath(o.dataRoot, major);
+      const text = readIfThere(file);
+      const next = formatOfferedFile(major, read);
+      offered.set(major, read);
+      if (text === undefined || formatOfferedFile(major, parseOfferedFile(text, file)) !== next) {
+        report.offered = newest;
+        if (o.write) {
+          mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, next);
+        }
+      }
+    }
     reports.push(report);
     if (
       o.write &&
@@ -279,5 +337,47 @@ export async function supportCheck(o: {
       );
     }
   }
-  return formatSupport(reports, newMajors(o.data, o.upstream), o.write);
+  const unsupported = readUnsupported(o.dataRoot);
+  if (o.offeredOf) {
+    const { problems } = coverage(o.data, offered, unsupported);
+    for (const r of reports) {
+      const these = problems.filter((p) => p.kind === 'unaccounted' && p.major === r.major);
+      if (these.length) {
+        r.notAccounted = these.map((p) => ({
+          name: p.name!,
+          license: offered.get(r.major)?.options[p.name!]?.license ?? '',
+        }));
+      }
+    }
+  }
+  const closed = o.issueOpen ? await closedIssues(unsupported, o.issueOpen) : [];
+  return formatSupport(reports, newMajors(o.data, o.upstream), o.write, closed);
+}
+
+/** ffmpeg/unsupported.yml, or no entries when there is none. */
+function readUnsupported(dataRoot: string): Unsupported {
+  const text = readIfThere(join(dataRoot, 'ffmpeg', 'unsupported.yml'));
+  return text === undefined ? { batches: {}, options: {} } : parseUnsupported(text);
+}
+
+/** A line for each closed issue that pending entries still point at. */
+async function closedIssues(
+  u: Unsupported,
+  issueOpen: (issue: number) => Promise<boolean | undefined>,
+): Promise<string[]> {
+  const byIssue = new Map<number, string[]>();
+  for (const [name, e] of Object.entries(u.options)) {
+    if (e.reason === 'pending' && e.issue !== undefined) {
+      byIssue.set(e.issue, [...(byIssue.get(e.issue) ?? []), name]);
+    }
+  }
+  const lines: string[] = [];
+  for (const [issue, names] of byIssue) {
+    if ((await issueOpen(issue)) === false) {
+      lines.push(
+        `**pending issue closed**: #${issue} is closed, but ffmpeg/unsupported.yml has pending entries pointing at it: ${names.join(', ')}`,
+      );
+    }
+  }
+  return lines;
 }

@@ -1,0 +1,170 @@
+# What FFmpeg's configure offers that the engine doesn't build, and why. Every external library and hardware option
+# configure offers (ffmpeg/offered/<major>.yml, written by the nightly support check) is either turned on by an option
+# of ffmpeg/<major>.yml or listed here; tests/ffmpeg-coverage.test.ts fails the pull request otherwise, and also when
+# an entry here is stale (the option is supported now, or no FFmpeg major the engine knows offers it any more).
+#
+# Keys are configure's names (--enable-libfdk-aac is libfdk_aac). Each entry has:
+#   reason   pending: wanted, not built yet; needs issue: (the open issue tracking it) and may have batch: (its
+#              section of that issue, from batches:)
+#            sdk-not-redistributable: its SDK's licence keeps it out of CI and out of anything shipped
+#            needs-hardware-sdk: a vendor SDK or hardware that CI can't get
+#            platform-not-built: only for a platform the engine doesn't build (platforms.yml)
+#            deprecated-upstream: deprecated or removed by its makers or by FFmpeg (the note says where)
+#            alternative-built: another option does the same job; needs instead: (that option)
+#   note     what it is, and anything a contributor should know
+#   majors   optional: the FFmpeg majors the entry is for (default: every major that offers it)
+#
+# `node scripts/ffmpeg-coverage.ts` prints the counts and any problem; `--issue` prints the pending entries as issue
+# #21's checklist.
+batches:
+  d: Filters / processing
+  e: Protocols / IO
+  f: Devices
+  g: Nonfree (nonfree builds only)
+  h: Large ML backends (last; where they build reasonably)
+options:
+  # d. Filters / processing
+  librsvg: { reason: pending, issue: 21, batch: d, note: 'librsvg (SVG decoder)' }
+  libtesseract: { reason: pending, issue: 21, batch: d, note: 'tesseract (OCR filter)' }
+  libopencv: { reason: pending, issue: 21, batch: d, note: 'opencv (ocv filter)' }
+  pocketsphinx:
+    { reason: pending, issue: 21, batch: d, note: 'pocketsphinx (asr speech recognition filter)' }
+
+  # e. Protocols / IO
+  libssh: { reason: pending, issue: 21, batch: e, note: 'libssh (SFTP protocol)' }
+  libsmbclient: { reason: pending, issue: 21, batch: e, note: 'smbclient (SMB protocol; GPLv3)' }
+  libzmq:
+    { reason: pending, issue: 21, batch: e, note: 'zmq (ZeroMQ protocol and filter commands)' }
+  librabbitmq: { reason: pending, issue: 21, batch: e, note: 'rabbitmq (AMQP protocol)' }
+  libbluray: { reason: pending, issue: 21, batch: e, note: 'bluray (Blu-ray protocol)' }
+  libdvdnav: { reason: pending, issue: 21, batch: e, note: 'dvdnav (DVD-Video demuxer)' }
+  libdvdread: { reason: pending, issue: 21, batch: e, note: 'dvdread (DVD-Video demuxer)' }
+  libcdio: { reason: pending, issue: 21, batch: e, note: 'cdio (audio CD input device)' }
+  librtmp:
+    {
+      reason: pending,
+      issue: 21,
+      batch: e,
+      note: "librtmp (RTMP; FFmpeg's own rtmp protocols are built)",
+    }
+  libtls: { reason: pending, issue: 21, batch: e, note: "libtls (LibreSSL's TLS)" }
+  mbedtls:
+    {
+      reason: pending,
+      issue: 21,
+      batch: e,
+      note: 'mbedtls (TLS; the recipe exists, not the option)',
+    }
+  gcrypt: { reason: pending, issue: 21, batch: e, note: 'gcrypt (rtmpe encryption)' }
+  gmp:
+    {
+      reason: pending,
+      issue: 21,
+      batch: e,
+      note: 'gmp (rtmpe encryption; the recipe exists, for gnutls)',
+    }
+  libsnappy: { reason: pending, issue: 21, batch: e, note: 'snappy (HAP codec compression)' }
+  libklvanc: { reason: pending, issue: 21, batch: e, note: 'klvanc (VANC data, with decklink)' }
+  avisynth: { reason: pending, issue: 21, batch: e, note: 'avisynth (AviSynth+ script demuxer)' }
+  vapoursynth:
+    { reason: pending, issue: 21, batch: e, note: 'vapoursynth (VapourSynth script demuxer)' }
+
+  # f. Devices
+  alsa: { reason: pending, issue: 21, batch: f, note: 'alsa (Linux audio devices)' }
+  libpulse: { reason: pending, issue: 21, batch: f, note: 'pulse (PulseAudio devices)' }
+  libjack: { reason: pending, issue: 21, batch: f, note: 'jack (JACK audio input device)' }
+  sndio: { reason: pending, issue: 21, batch: f, note: 'sndio (audio devices)' }
+  openal: { reason: pending, issue: 21, batch: f, note: 'openal (audio capture device)' }
+  libxcb: { reason: pending, issue: 21, batch: f, note: 'xcb (x11grab screen capture)' }
+  libxcb_shm: { reason: pending, issue: 21, batch: f, note: 'xcb-shm (x11grab shared memory)' }
+  libxcb_shape: { reason: pending, issue: 21, batch: f, note: 'xcb-shape (x11grab region outline)' }
+  libxcb_xfixes: { reason: pending, issue: 21, batch: f, note: 'xcb-xfixes (x11grab cursor)' }
+  xlib: { reason: pending, issue: 21, batch: f, note: 'xlib (xv output device, vdpau_x11)' }
+  sdl2: { reason: pending, issue: 21, batch: f, note: 'sdl2 (SDL output device, ffplay)' }
+  opengl: { reason: pending, issue: 21, batch: f, note: 'opengl (OpenGL output device)' }
+  libcaca: { reason: pending, issue: 21, batch: f, note: 'caca (text-mode output device)' }
+  libv4l2:
+    { reason: pending, issue: 21, batch: f, note: 'v4l2 (libv4l2, for the v4l2 input device)' }
+  libdc1394: { reason: pending, issue: 21, batch: f, note: 'dc1394 (IIDC FireWire cameras)' }
+  libiec61883: { reason: pending, issue: 21, batch: f, note: 'iec61883 (DV and HDV over FireWire)' }
+  appkit: { reason: pending, issue: 21, batch: f, note: 'appkit (macOS framework; built in there)' }
+  avfoundation:
+    { reason: pending, issue: 21, batch: f, note: 'avfoundation (Apple capture device; built in)' }
+  coreimage:
+    { reason: pending, issue: 21, batch: f, note: 'coreimage (macOS filters; built in there)' }
+  metal: { reason: pending, issue: 21, batch: f, note: 'metal (Apple GPU filters; built in)' }
+
+  # g. Nonfree (nonfree builds only)
+  libfdk_aac: { reason: pending, issue: 21, batch: g, note: 'fdk-aac (AAC encoder and decoder)' }
+  decklink:
+    {
+      reason: pending,
+      issue: 21,
+      batch: g,
+      note: 'decklink (Blackmagic SDK: only if its licence allows use in CI)',
+    }
+  cuda_nvcc:
+    {
+      reason: pending,
+      issue: 21,
+      batch: g,
+      note: "cuda-nvcc (CUDA toolkit: same; the cuda-llvm option already builds FFmpeg's CUDA filters)",
+    }
+  libnpp:
+    {
+      reason: pending,
+      issue: 21,
+      batch: g,
+      note: "libnpp (CUDA toolkit's NPP filters; gone in FFmpeg 9)",
+    }
+  libmpeghdec: { reason: pending, issue: 21, batch: g, note: 'mpeghdec (MPEG-H 3D Audio decoder)' }
+
+  # h. Large ML backends
+  libonnxruntime: { reason: pending, issue: 21, batch: h, note: 'onnxruntime (dnn filters)' }
+  libopenvino: { reason: pending, issue: 21, batch: h, note: 'openvino (dnn filters)' }
+  libtensorflow: { reason: pending, issue: 21, batch: h, note: 'tensorflow (dnn filters)' }
+  libtorch: { reason: pending, issue: 21, batch: h, note: 'torch (dnn filters)' }
+
+  # not planned
+  cuda_sdk:
+    {
+      reason: deprecated-upstream,
+      note: "FFmpeg's configure: --enable-cuda-sdk is deprecated, use --enable-cuda-nvcc (pending above)",
+    }
+  libmfx:
+    {
+      reason: deprecated-upstream,
+      note: "Intel Media SDK, discontinued by Intel; FFmpeg's configure says to use libvpl, which the vpl option builds",
+    }
+  omx: { reason: deprecated-upstream, note: 'OpenMAX IL; FFmpeg 9 removed it' }
+  omx_rpi:
+    { reason: deprecated-upstream, note: 'OpenMAX IL for the Raspberry Pi; FFmpeg 9 removed it' }
+  libcelt: { reason: deprecated-upstream, note: 'CELT, part of Opus now; FFmpeg 9 removed it' }
+  mmal:
+    {
+      reason: deprecated-upstream,
+      note: "the Raspberry Pi 0-3's VideoCore IV API, deprecated by Raspberry Pi (its userland repository is archived); v4l2-m2m replaces it",
+    }
+  ohcodec:
+    {
+      reason: platform-not-built,
+      note: "OpenHarmony's codecs; the engine builds no OpenHarmony platform",
+    }
+  libglslang:
+    {
+      reason: alternative-built,
+      instead: shaderc,
+      note: "FFmpeg 8's Vulkan shader compiler is glslang or shaderc, and the shaderc option builds shaderc",
+    }
+  libxeveb:
+    {
+      reason: alternative-built,
+      instead: xeve,
+      note: "xeve's baseline-profile-only build; the xeve option's main-profile build encodes baseline too",
+    }
+  libxevdb:
+    {
+      reason: alternative-built,
+      instead: xevd,
+      note: "xevd's baseline-profile-only build; the xevd option's main-profile build decodes baseline too",
+    }

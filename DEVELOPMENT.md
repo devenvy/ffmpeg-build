@@ -34,6 +34,7 @@ fails when it is stale).
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `src/`                                                          | the CLI (TypeScript, run directly by Node 24; `pnpm run build` compiles it to `dist/` for npm)                        |
 | `ffmpeg/<major>.yml`                                            | what each FFmpeg major offers: options, the library each needs, its license class, platforms                          |
+| `ffmpeg/offered/`, `ffmpeg/unsupported.yml`                     | what FFmpeg's configure offers to turn on (generated), and what of it the engine doesn't build, with why              |
 | `recipes/<name>/`                                               | how to build one library: `recipe.yml` (source, versions, licence, build system/steps, deps)                          |
 | `platforms.yml`, `src/build/toolchain.ts`, `src/build/stage.ts` | platform image/data, compiler environments, cross files, packaging and checks                                         |
 | `images/`                                                       | the toolchain Dockerfiles (base images pinned by digest, downloads and pip packages by sha256, git sources by commit) |
@@ -173,6 +174,37 @@ out (`--dry-run` says what would build).
 A recipe that claims a platform no FFmpeg option builds it on fails the check: narrow its `platforms:` (or offer the
 option there). One that no option builds on any platform is only noted.
 
+### Adding support for an FFmpeg option
+
+Everything FFmpeg's configure can turn on (its external library and hardware options: configure's
+`EXTERNAL_LIBRARY_LIST`, `EXTERNAL_AUTODETECT_LIBRARY_LIST`, `HWACCEL_LIBRARY_LIST` and
+`HWACCEL_AUTODETECT_LIBRARY_LIST`, and the `--enable-`/`--disable-` lines of `--help`'s library section) is in
+`ffmpeg/offered/<major>.yml`, with its licence class, as the major's newest release has it. The nightly support check
+writes it (`node scripts/ffmpeg-support.ts --write`); it is never edited by hand. Each name there is either:
+
+- **supported**: an option of `ffmpeg/<major>.yml` turns it on, through its own `configure:`, its library's
+  `configure:` (on some platform the engine builds), or as `--enable-<option>` when it is `builtin: true`; or
+- **listed** in `ffmpeg/unsupported.yml` with a reason: `pending` (with the open `issue:` that tracks it, and its
+  `batch:` there), `sdk-not-redistributable`, `needs-hardware-sdk`, `platform-not-built`, `deprecated-upstream`, or
+  `alternative-built` (with `instead:`, the option that does the job), and a `note:`. `majors:` limits an entry to
+  some FFmpeg majors; without it, it is for every major that offers the name.
+
+`tests/ffmpeg-coverage.test.ts` (part of `pnpm run test:ci`, so the required `result` check) fails, naming each, when
+an offered name is neither; when an entry is stale (an option turns it on now, or no major the engine knows offers
+it); when an option turns on a flag configure doesn't take, or its `ffmpeg-license:` isn't configure's class for what
+it turns on; when an option's library builds on no platform the engine builds; and when a recipe is built for no
+option. `node scripts/ffmpeg-coverage.ts` prints the same, with each major's counts.
+
+To support one: write the recipe (above) with `configure: [--enable-<name>]`, add the option to each
+`ffmpeg/<major>.yml` that offers it (with `ffmpeg-license:` when configure classes it), and remove its
+`ffmpeg/unsupported.yml` entry; the test says if anything is left. To decide not to, give it an entry with the
+reason. `node scripts/ffmpeg-coverage.ts --issue` prints the pending entries as the checklist of issue #21, which
+tracks them; tick or remove the item there when its option lands.
+
+The check reads each major's newest release only: an option an older release had and the newest dropped isn't
+offered any more, and being accounted for says nothing about whether a build of it works (that is `recipe-check`'s
+and `ships:`'s).
+
 ## What CI checks
 
 - **Every pull request, and weekly** (`ci.yml`): `lint` (the code-guidelines check, ESLint, Prettier, types, knip,
@@ -196,10 +228,13 @@ option there). One that no option builds on any platform is only noted.
   FFmpeg's tags and reports what a new release's configure adds, drops or reclassifies. It also writes
   `ffmpeg/components/<major>.yml` from each major's newest release (its sources archive): the component lists, the
   runtime names that differ from configure's (read through FFmpeg's macros by `src/c-macros.ts`), and what each
-  component needs of configure's options. When `ffmpeg/` changed it
-  opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. A new major is only reported: adding its
-  `ffmpeg/<major>.yml` (and `ffmpeg/components/<major>.yml`, which `scripts/ffmpeg-support.ts --write` writes once the
-  major's file exists) is a person's review, and the engine release that ships it moves every consumer's
+  component needs of configure's options; and `ffmpeg/offered/<major>.yml`, what its configure offers to turn on. When
+  `ffmpeg/` changed it opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. An option a new release
+  adds that nothing accounts for fails that pull request's `result` (the coverage gate, above) until a person supports
+  it or lists it in `ffmpeg/unsupported.yml`, on the pull request's branch: the nightly run never pushes over a
+  person's commits there, only refreshes the text, until it merges. The report also names pending entries whose issue
+  has closed. A new major is only reported: adding its `ffmpeg/<major>.yml` (and `ffmpeg/components/<major>.yml` and
+  `ffmpeg/offered/<major>.yml`, which `scripts/ffmpeg-support.ts --write` writes once the major's file exists) is a person's review, and the engine release that ships it moves every consumer's
   `ffmpeg: latest` targets to that major in their next lock update. It runs as the devenvy-bot app when the
   organization has it, and the app's push starts the pull request's CI; without it, `GITHUB_TOKEN` pushes and then
   dispatches `ci.yml` on the branch.

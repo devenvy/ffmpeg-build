@@ -1,8 +1,9 @@
 // The nightly FFmpeg support check: node scripts/ffmpeg-support.ts [--write] [--report <file>]
 // Reads FFmpeg's release tags and the configure script of each handled major's newest release (and the one before it),
 // corrects ffmpeg/<major>.yml's releases and writes ffmpeg/components/<major>.yml (the components of each major's newest
-// release, their runtime names and what each needs of configure's options, from its sources at its tag) with --write,
-// and writes a report of what a person must decide.
+// release, their runtime names and what each needs of configure's options, from its sources at its tag) and
+// ffmpeg/offered/<major>.yml (what its configure offers to turn on) with --write, and writes a report of what a person
+// must decide: options nothing accounts for (which fail the coverage gate), and pending entries whose issue closed.
 // Exit 2 when upstream can't be read or the data can't be corrected.
 import { writeFileSync } from 'node:fs';
 
@@ -14,6 +15,7 @@ import {
   type ComponentsRead,
   isNameSource,
 } from '../src/ffmpeg-components.ts';
+import { ConfigureError, type Offered, readConfigure } from '../src/ffmpeg-coverage.ts';
 import {
   type LicenseClass,
   parseConfigure,
@@ -31,13 +33,50 @@ const args = process.argv.slice(FIRST_ARG);
 const write = args.includes('--write');
 const reportAt = args.includes('--report') ? args[args.indexOf('--report') + 1] : undefined;
 
-async function configureOf(version: string): Promise<Map<string, LicenseClass>> {
-  const url = `https://raw.githubusercontent.com/FFmpeg/FFmpeg/n${version}/configure`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new SupportError(`FFmpeg ${version}'s configure: ${url} answered ${res.status}`);
+// each release's configure, fetched once: its library options and its offered options both come from it
+const configures = new Map<string, Promise<string>>();
+async function configureText(version: string): Promise<string> {
+  const known = configures.get(version);
+  if (known) {
+    return known;
   }
-  return parseConfigure(await res.text());
+  const url = `https://raw.githubusercontent.com/FFmpeg/FFmpeg/n${version}/configure`;
+  const text = fetch(url).then(async (res) => {
+    if (!res.ok) {
+      throw new SupportError(`FFmpeg ${version}'s configure: ${url} answered ${res.status}`);
+    }
+    return res.text();
+  });
+  configures.set(version, text);
+  return text;
+}
+
+async function configureOf(version: string): Promise<Map<string, LicenseClass>> {
+  return parseConfigure(await configureText(version));
+}
+
+async function offeredOf(version: string): Promise<Omit<Offered, 'release'>> {
+  try {
+    return readConfigure(await configureText(version));
+  } catch (e) {
+    throw e instanceof ConfigureError
+      ? new SupportError(`FFmpeg ${version}'s configure: ${e.message}`)
+      : e;
+  }
+}
+
+// whether a pending entry's issue is still open (GitHub's API; undefined when it can't say)
+async function issueOpen(issue: number): Promise<boolean | undefined> {
+  const repo = process.env['GITHUB_REPOSITORY'] ?? 'devenvy/ffmpeg-build';
+  const token = process.env['GH_TOKEN'] ?? process.env['GITHUB_TOKEN'];
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issue}`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+    return res.ok ? ((await res.json()) as { state: string }).state === 'open' : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // The runtime names are read from every source file of FFmpeg's libraries: the tag's archive, in one download, rather
@@ -76,6 +115,8 @@ try {
     upstream,
     configureOf,
     componentsOf,
+    offeredOf,
+    issueOpen,
     write,
   });
   if (reportAt) {
