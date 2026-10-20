@@ -246,6 +246,8 @@ describe('openal-soft', () => {
   it.each(platformsOf('openal-soft'))('%s', async (platform) => {
     const h = fake(platform);
     const pc = pcPath(h, 'openal');
+    const alc = join(h.src, 'alc', 'alc.cpp');
+    put(alc, '| std::views::transform(&ContextBase::EffectSlotCluster::operator*)\n');
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(pc, 'Name: OpenAL\nLibs: -lopenal\nLibs.private: -lm\n');
@@ -277,6 +279,10 @@ describe('openal-soft', () => {
       ]),
     );
     expect(h.read(pc)).toContain(`Libs.private: -lm ${cxxRuntime(platform)}`);
+    // a lambda for the member pointer newer libc++ can't deduce in views::transform
+    expect(h.read(alc)).toBe(
+      '| std::views::transform([](auto &cluster) -> auto& { return *cluster; })\n',
+    );
     // Windows: COM's and the known folders' libraries, which its .pc leaves out
     expect(h.read(pc).includes('-lole32 -lshell32 -luuid')).toBe(platform.startsWith('win-'));
   });

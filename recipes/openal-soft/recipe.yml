@@ -51,6 +51,15 @@ build:
               path: '{deps}/lib/pkgconfig/openal.pc',
               libs-private: { add: -lole32 -lshell32 -luuid },
             }
+  before:
+    # alc.cpp passes &EffectSlotCluster::operator* (a std::unique_ptr's) to views::transform, which a newer libc++
+    # (llvm-mingw's, win-arm64) can't deduce: a lambda dereferences the same
+    - replace-in-file:
+        {
+          path: alc/alc.cpp,
+          from: 'std::views::transform(&ContextBase::EffectSlotCluster::operator*)',
+          to: 'std::views::transform([](auto &cluster) -> auto& { return *cluster; })',
+        }
   after:
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/openal.pc', libs-private: { append: '{cxx-runtime}' } }
