@@ -39,8 +39,18 @@ build:
     ]
   platforms:
     # the NDK's toolchain file points CMake's find root at its sysroot alone, so libssh's FindMbedTLS can't see the deps
-    # folder's (as for srt)
-    'android-*': { args: ['-DCMAKE_FIND_ROOT_PATH={deps}'] }
+    # folder's (as for srt); and Bionic's glob() has no GLOB_TILDE, which libssh's glob of ssh_config's Include lines
+    # passes: without glob (an Include line then names one file, not a pattern). Bionic
+    # also lacks S_IWRITE, the old name of S_IWUSR, which libssh's ssh_dir_writeable uses.
+    'android-*':
+      args: ['-DCMAKE_FIND_ROOT_PATH={deps}', -DHAVE_GLOB=0]
+      before:
+        - replace-in-file:
+            {
+              path: src/misc.c,
+              from: '(buffer.st_mode & S_IWRITE)',
+              to: '(buffer.st_mode & S_IWUSR)',
+            }
   after:
     # libssh.pc names libssh alone: its static library needs mbedTLS's crypto library after it
     - edit-pkg-config:

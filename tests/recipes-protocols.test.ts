@@ -179,7 +179,16 @@ describe('libssh', () => {
   it.each(platformsOf('libssh'))('%s', async (platform) => {
     const h = fake(platform);
     installs(h, 'libssh', `Name: libssh\nLibs: -L\${libdir} -lssh\nCflags: -I\${includedir}\n`);
+    const misc =
+      'if ((buffer.st_mode & _S_IFDIR) && (buffer.st_mode & _S_IWRITE)) {\n' +
+      'if (S_ISDIR(buffer.st_mode) && (buffer.st_mode & S_IWRITE)) {\n';
+    put(join(h.src, 'src', 'misc.c'), misc);
     await build(h, 'libssh');
+    const android = platform.startsWith('android-');
+    // Bionic has no S_IWRITE (S_IWUSR's old name); Windows' _S_IWRITE stays
+    expect(h.read(join(h.src, 'src', 'misc.c'))).toBe(
+      android ? misc.replace('& S_IWRITE)', '& S_IWUSR)') : misc,
+    );
     expect(commands(h)).toEqual(
       cmakeLines(h, [
         '-DWITH_MBEDTLS=ON',
@@ -195,8 +204,8 @@ describe('libssh', () => {
         '-DUNIT_TESTING=OFF',
         '-DCLIENT_TESTING=OFF',
         '-DSERVER_TESTING=OFF',
-        // the NDK's toolchain file finds only in its sysroot
-        ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
+        // the NDK's toolchain file finds only in its sysroot, and Bionic's glob() lacks GLOB_TILDE
+        ...(android ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`, '-DHAVE_GLOB=0'] : []),
       ]),
     );
     expect(h.read(pcPath(h, 'libssh'))).toBe(
