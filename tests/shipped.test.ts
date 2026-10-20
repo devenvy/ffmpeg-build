@@ -9,7 +9,9 @@ import { configureFlags } from '../src/build/plan.ts';
 import {
   enabledOptions,
   expectedComponents,
+  libraryDefaults,
   listedNames,
+  roundTripCodec,
   shippedSteps,
   smokeProbes,
   smokeReport,
@@ -127,19 +129,59 @@ describe('what a build must ship', () => {
     ).toEqual(['muxers mp4', 'muxers matroska', 'muxers null', 'protocols file', 'protocols pipe']);
   });
 
-  it("asks the smoke program about every component the major's options name, once each", () => {
+  it("asks the smoke program for a round trip, and about each component of a kind it can't list that options name", () => {
+    // encoders, decoders, formats, bitstream filters, filters and protocols it lists, as ffmpeg -<kind> does
     expect(smokeProbes(data, '9')).toEqual([
-      'decoders:libdav1d',
-      'encoders:libopus',
-      'encoders:libx265',
-      'filters:transpose_vaapi',
-      'filters:whisper',
+      'roundtrip:mpeg4,mpeg2video,mpeg1video,ffv1,rawvideo',
       'hwaccels:vaapi',
-      'protocols:https',
-      'protocols:srt',
-      'protocols:tls',
       'resamplers:soxr',
     ]);
+  });
+
+  it("expects a build of libraries' defaults only in the kinds its components: doesn't restrict", () => {
+    const names = (configure: string) =>
+      libraryDefaults(data, '9', configure).map((e) => `${e.option}: ${e.kind} ${e.name}`);
+    expect(names('--disable-gpl')).toEqual([
+      'defaults: decoders h264',
+      'defaults: decoders hevc',
+      'defaults: decoders aac',
+      'defaults: decoders mp3',
+      'defaults: decoders flac',
+      'defaults: decoders pcm_s16le',
+      'defaults: decoders mjpeg',
+      'defaults: muxers mp4',
+      'defaults: muxers matroska',
+      'defaults: muxers mpegts',
+      'defaults: muxers wav',
+      'defaults: muxers null',
+      // by the names the build lists them under: configure's mov is mov,mp4,m4a
+      'defaults: demuxers mov,mp4,m4a',
+      'defaults: demuxers matroska',
+      'defaults: demuxers mpegts',
+      'defaults: demuxers wav',
+      'defaults: bsfs h264_mp4toannexb',
+      'defaults: bsfs aac_adtstoasc',
+    ]);
+    // a restricted kind is checked for what it listed (expectedComponents), and nothing else
+    expect(
+      names(
+        '--disable-decoders --enable-decoder=h264 --disable-muxers --disable-demuxers --enable-demuxer=mov --disable-bsfs',
+      ),
+    ).toEqual([]);
+  });
+
+  it('round-trips a frame with the first codec a build has as both encoder and decoder, or none', () => {
+    expect(roundTripCodec('--disable-gpl')).toBe('mpeg4');
+    expect(roundTripCodec('--disable-encoders --enable-encoder=aac,mpeg4')).toBe('mpeg4');
+    // the mpeg4 encoder without its decoder: the next pair
+    expect(
+      roundTripCodec(
+        '--disable-decoders --enable-decoder=h264,ffv1 --disable-encoders --enable-encoder=mpeg4,ffv1',
+      ),
+    ).toBe('ffv1');
+    expect(roundTripCodec("--disable-encoders --enable-encoder='aac,rawvideo'")).toBe('rawvideo');
+    // decode-only
+    expect(roundTripCodec('--disable-encoders')).toBeUndefined();
   });
 
   it("reads ffmpeg's listings: codecs and formats after the ---, filters by their pads, bare hwaccels and protocols", () => {
@@ -193,14 +235,60 @@ describe('what a build must ship', () => {
     ]).toEqual(['file', 'https', 'tls']);
   });
 
-  it('reads what the smoke program found', () => {
-    const report = smokeReport(
-      'smoke: ok\nsmoke: has filters whisper\nsmoke: lacks hwaccels vulkan\nsmoke: has protocols tls\r\n',
+  it('reads what the smoke program found: what it lists, and what it was asked about', () => {
+    const has = smokeReport(
+      [
+        'smoke: lists filters whisper',
+        'smoke: lists demuxers mov,mp4,m4a',
+        'smoke: lists protocols tls\r',
+        'smoke: lacks hwaccels vulkan',
+        'smoke: has resamplers soxr',
+        'smoke: ok',
+      ].join('\n'),
     );
-    expect([...report]).toEqual([
-      ['filters whisper', true],
-      ['hwaccels vulkan', false],
-      ['protocols tls', true],
+    expect(has('filters', 'whisper')).toBe(true);
+    // a format by its first name, as the build lists it, or any other
+    expect(has('demuxers', 'mov,mp4,m4a')).toBe(true);
+    expect(has('demuxers', 'mp4')).toBe(true);
+    expect(has('protocols', 'tls')).toBe(true);
+    // a kind it lists, without the name: the build lacks it
+    expect(has('encoders', 'libopus')).toBe(false);
+    expect(has('bsfs', 'aac_adtstoasc')).toBe(false);
+    expect(has('hwaccels', 'vulkan')).toBe(false);
+    expect(has('resamplers', 'soxr')).toBe(true);
+    expect(has('hwaccels', 'vaapi')).toBe("the smoke program didn't report it");
+  });
+
+  it('reads -bsfs as ffmpeg lists them: bare names under a heading', () => {
+    expect([
+      ...listedNames('bsfs', 'Bitstream filters:\naac_adtstoasc\nh264_mp4toannexb\nnull\n'),
+    ]).toEqual(['aac_adtstoasc', 'h264_mp4toannexb', 'null']);
+  });
+
+  it('expects the bitstream filters a restricted kind was built with', () => {
+    expect(
+      expectedComponents(
+        data,
+        '9',
+        'linux-x64',
+        '--disable-bsfs --enable-bsf=h264_mp4toannexb',
+      ).map((e) => `${e.option}: ${e.kind} ${e.name}`),
+    ).toEqual(['components: bsfs h264_mp4toannexb']);
+  });
+
+  it('says what a build of libraries lacks of the defaults, and what it has', () => {
+    const expected = [
+      { option: 'defaults', kind: 'decoders', name: 'h264' },
+      { option: 'defaults', kind: 'decoders', name: 'hevc' },
+    ] as const;
+    expect(shippedSteps(expected, () => true)).toEqual([
+      { ok: true, what: 'it has decoders h264, decoders hevc' },
+    ]);
+    expect(shippedSteps(expected, (_, name) => name === 'h264')).toEqual([
+      {
+        ok: false,
+        what: 'it lacks decoders hevc, which a build has unless its components: leaves it out',
+      },
     ]);
   });
 
@@ -251,7 +339,9 @@ describe('what a build must ship', () => {
   });
 
   it("looks for what a build that didn't run must ship in its libraries: Android's lib/<abi>, Apple's frameworks", () => {
-    const configure = '\0--prefix=/x --disable-gpl --enable-libdav1d --enable-libopus\0';
+    // (its kinds restricted, so the defaults are left out: the test below has them)
+    const configure =
+      '\0--prefix=/x --disable-gpl --enable-libdav1d --enable-libopus --disable-decoders --enable-decoder=libdav1d --disable-muxers --disable-demuxers --disable-bsfs\0';
     const android = mkdtempSync(join(tmpdir(), 'ffmpeg-build-shipped-'));
     mkdirSync(join(android, 'lib', 'arm64-v8a'), { recursive: true });
     writeFileSync(join(android, 'lib', 'arm64-v8a', 'libavutil.so'), configure);
@@ -286,6 +376,29 @@ describe('what a build must ship', () => {
     expect(staticShipped('ios-arm64', ios, data, '9')[0]!.what).toBe(
       'what it must ship not checked: no configure line in its libavutil',
     );
+  });
+
+  it("looks for the defaults a build that didn't run must have in its libraries, by the names it lists them under", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-shipped-'));
+    const lib = join(dir, 'lib', 'arm64-v8a');
+    mkdirSync(lib, { recursive: true });
+    writeFileSync(
+      join(lib, 'libavutil.so'),
+      '\0--disable-gpl --disable-decoders --enable-decoder=h264\0',
+    );
+    writeFileSync(join(lib, 'libavcodec.so'), '\0h264\0h264_mp4toannexb\0aac_adtstoasc\0');
+    writeFileSync(
+      join(lib, 'libavformat.so'),
+      '\0mp4\0matroska\0mpegts\0wav\0null\0mov,mp4,m4a\0matroska\0',
+    );
+    expect(staticShipped('android-arm64', dir, data, '9').map((s) => [s.ok, s.what])).toEqual([
+      ['info', 'what it must ship: looked for by name in its libraries instead'],
+      [
+        true,
+        'it has muxers mp4, muxers matroska, muxers mpegts, muxers wav, muxers null, demuxers mov,mp4,m4a, demuxers matroska, demuxers mpegts, demuxers wav, bsfs h264_mp4toannexb, bsfs aac_adtstoasc',
+      ],
+      [true, 'components ships decoders h264'],
+    ]);
   });
 
   it('reads an option as on from exactly the flags a build with it passes to configure (plan.ts)', () => {

@@ -13,6 +13,10 @@ toolchain, so every platform's setup, packaging and tests run in CI without buil
 | osx-arm64                                                    | a native macOS build, with OpenColorIO (`tests/ocio.sh` runs its filter)                                        |
 | ios-arm64, ios-sim-arm64, maccatalyst-arm64, maccatalyst-x64 | the four slices of one iOS / Mac Catalyst xcframework bundle                                                    |
 
+Two library builds are slim (`components:`), so the smoke program is shown to ask only for what a build has: a
+decode-only android-arm64 build with every kind restricted (no frame round trip), and the ios-sim-arm64 slice, which
+has no mpeg4 codecs and round-trips its frame with ffv1 in the simulator.
+
 ios-arm64 and maccatalyst-arm64 also build Vulkan and libplacebo, with MoltenVK linked statically into their frameworks
 (the canary builds macOS's MoltenVK dylib). The Linux, Windows and macOS targets also take the GPU options their
 platform offers (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): only a full build and its test show FFmpeg took them.

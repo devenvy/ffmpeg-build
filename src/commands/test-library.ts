@@ -2,10 +2,11 @@
 // platforms/test/smoke.c against the build with the platform's own toolchain (the Android NDK, Xcode's SDKs), which
 // proves the libraries have every symbol a consumer needs, then runs it where the platform can run: on an Android
 // device or emulator (adb), in the iOS simulator, or on this Mac (Mac Catalyst). The program prints the version and
-// configure line, which are checked as `ffmpeg -version` and `-buildconf` are, encodes and decodes a frame, looks
-// up the built-in components every build has, and reports which of the components options add (ffmpeg/<major>.yml's
-// ships:) the build has, so each option its configure line has on is checked as `ffmpeg -encoders` and the rest check it
-// (shipped.ts). A build no machine here can run has the names of those components looked for in its libraries instead.
+// configure line, which are checked as `ffmpeg -version` and `-buildconf` are, encodes and decodes a frame with a codec
+// the build has, and lists what the build registered, as `ffmpeg -encoders` and the rest do. What the build must have
+// follows from that configure line (shipped.ts): the defaults its components: didn't leave out, what its options ship,
+// and what it asked for by name, so a slim build is asked only for what it was built with. A build no machine here can
+// run has the names of those components looked for in its libraries instead.
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +16,9 @@ import { androidApiFor } from '../android-api.ts';
 import { packageRoot } from '../paths.ts';
 import {
   expectedComponents,
-  listedAs,
+  libraryDefaults,
+  NO_ROUND_TRIP,
+  roundTripCodec,
   shippedSteps,
   smokeProbes,
   smokeReport,
@@ -244,8 +247,50 @@ export function smokeResult(
     ),
     step(
       code === 0 && /^smoke: ok$/m.test(out),
-      `it encodes, decodes and finds the built-in components${failure ? ` (${failure})` : ''}`,
+      `its libraries load and answer${failure ? ` (${failure})` : ''}`,
     ),
+  ];
+}
+
+/**
+ * Everything a run of the smoke program says about the build: smokeResult's checks, then, from the configure line it
+ * printed, what the build must have done and have: the round trip with the codec it has (roundTripCodec), the
+ * defaults its components: didn't leave out, and what its options and components: asked for. A slim build is asked
+ * only for what it was built with.
+ */
+export function smokeSteps(o: {
+  code: number;
+  out: string;
+  version: string;
+  license: keyof typeof LICENSE_FLAGS;
+  data: EngineData;
+  platform: string;
+  names?: RuntimeNames;
+}): Step[] {
+  const steps = smokeResult(o.code, o.out, o.version, o.license);
+  const configure = /^configuration: (.*)$/m.exec(o.out)?.[1];
+  if (o.code !== 0 || configure === undefined) {
+    return steps;
+  }
+  const major = o.version.split('.')[0]!;
+  const codec = roundTripCodec(configure);
+  const made = /^smoke: a (\S+) frame encodes and decodes$/m.exec(o.out)?.[1];
+  if (codec === undefined) {
+    steps.push({ ok: 'info', what: `no frame round trip: ${NO_ROUND_TRIP}` });
+  } else if (made === codec) {
+    steps.push({ ok: true, what: `a ${codec} frame encodes and decodes` });
+  } else {
+    steps.push({
+      ok: false,
+      what: `a ${codec} frame encodes and decodes (${made ? `it made the round trip with ${made}` : 'it made no round trip'}: its configure line has the ${codec} encoder and decoder)`,
+      detail: o.out,
+    });
+  }
+  const has = smokeReport(o.out);
+  return [
+    ...steps,
+    ...shippedSteps(libraryDefaults(o.data, major, configure), has),
+    ...shippedSteps(expectedComponents(o.data, major, o.platform, configure, o.names), has),
   ];
 }
 
@@ -311,20 +356,26 @@ export function staticShipped(
   }
   return [
     { ok: 'info', what: 'what it must ship: looked for by name in its libraries instead' },
-    ...shippedSteps(expectedComponents(data, major, platform, configure, names), (kind, name) => {
-      const base = staticLibrary(kind);
-      if (!base) {
-        return 'only running the build can tell';
-      }
-      const lib = read(base);
-      if (!lib) {
-        return `it has no lib${base}`;
-      }
-      const inLib = staticHas(lib, name);
-      return inLib === 'suffix'
-        ? `lib${base} has it only as the end of a longer name, which looks the same`
-        : inLib;
-    }),
+    ...shippedSteps(
+      [
+        ...libraryDefaults(data, major, configure),
+        ...expectedComponents(data, major, platform, configure, names),
+      ],
+      (kind, name) => {
+        const base = staticLibrary(kind);
+        if (!base) {
+          return 'only running the build can tell';
+        }
+        const lib = read(base);
+        if (!lib) {
+          return `it has no lib${base}`;
+        }
+        const inLib = staticHas(lib, name);
+        return inLib === 'suffix'
+          ? `lib${base} has it only as the end of a longer name, which looks the same`
+          : inLib;
+      },
+    ),
   ];
 }
 
@@ -452,24 +503,16 @@ export function testLibrary(o: {
     }[where.where];
     steps.push({ ok: 'info', what: `ran the program ${how}` });
     steps.push(
-      ...smokeResult(
-        ran.code,
-        ran.error ? `${ran.error.message}\n${ran.out}` : ran.out,
-        o.version,
-        o.license,
-      ),
+      ...smokeSteps({
+        code: ran.code,
+        out: ran.error ? `${ran.error.message}\n${ran.out}` : ran.out,
+        version: o.version,
+        license: o.license,
+        data: o.data,
+        platform: o.platform,
+        names: o.names,
+      }),
     );
-    const configure = /^configuration: (.*)$/m.exec(ran.out)?.[1];
-    if (ran.code === 0 && configure !== undefined) {
-      const report = smokeReport(ran.out);
-      steps.push(
-        ...shippedSteps(
-          expectedComponents(o.data, major, o.platform, configure, o.names),
-          (kind, name) =>
-            report.get(`${kind} ${listedAs(name)}`) ?? "the smoke program didn't report it",
-        ),
-      );
-    }
     return steps;
   } finally {
     rmSync(work, { recursive: true, force: true });

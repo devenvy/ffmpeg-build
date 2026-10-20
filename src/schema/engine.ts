@@ -44,6 +44,7 @@ export const SHIPPED_KINDS = [
   'protocols',
   'muxers',
   'demuxers',
+  'bsfs',
   'resamplers',
 ] as const;
 export type ShippedKind = (typeof SHIPPED_KINDS)[number];

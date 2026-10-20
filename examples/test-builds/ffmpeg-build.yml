@@ -90,6 +90,29 @@ targets:
   # rav1e and rsvg on Android, at the default API 28: GLib (under librsvg) takes bionic's iconv, which is API 28
   android-arm64-rust-lgplv3:
     { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [rav1e, rsvg] }
+  # a slim library build (devenvy/ffmpeg-build#53): decode-only, every kind restricted (bitstream filters, parsers and
+  # filters too), so the smoke program is asked only for what it built: no frame round trip, and none of the decoders
+  # and formats an unrestricted build is checked for. No options, so nothing brings an encoder along.
+  android-arm64-slim-lgplv3:
+    {
+      platform: android-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      components:
+        {
+          decoders: [h264, aac],
+          encoders: [],
+          hwaccels: [],
+          demuxers: [mov],
+          muxers: [mp4],
+          parsers: [h264, aac],
+          bsfs: [h264_mp4toannexb],
+          protocols: [file],
+          indevs: [],
+          outdevs: [],
+          filters: [],
+        },
+    }
   # OpenColorIO: FFmpeg's ocio filter is C++, which on macOS compiles only without the release's VERSION file
   # (devenvy/ffmpeg-build#41); tests/ocio.sh runs it
   osx-arm64-lgplv3:
@@ -105,7 +128,23 @@ targets:
   # MoltenVK linked statically into the frameworks (--enable-vulkan-static), as the shipped v3 targets have it
   ios-arm64-lgplv3:
     { platform: ios-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [vulkan, placebo] }
-  ios-sim-arm64-lgplv3: { platform: ios-sim-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
+  # slim (devenvy/ffmpeg-build#53), run in the iOS simulator: no mpeg4 codecs, so the smoke program round-trips a
+  # frame with ffv1, the first codec of its list this build has as both encoder and decoder
+  ios-sim-arm64-lgplv3:
+    {
+      platform: ios-sim-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      components:
+        {
+          decoders: [h264, aac, ffv1],
+          encoders: [aac, ffv1],
+          demuxers: [mov],
+          muxers: [mp4, 'null'],
+          filters: [scale],
+        },
+    }
   maccatalyst-arm64-lgplv3:
     {
       platform: maccatalyst-arm64,

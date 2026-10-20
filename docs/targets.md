@@ -210,7 +210,9 @@ targets:
   ffmpeg program: `ffmpeg -f lavfi -i testsrc2 -f null -`. That needs the `lavfi` input device, the `testsrc2` filter,
   `wrapped_avframe` as decoder and encoder, and the `null` muxer, so for a build with programs (not Android, iOS or Mac
   Catalyst, whose test links a program against the libraries instead), `check` refuses a `components:` kind that lists
-  names but leaves its one out: `components: encoders: add wrapped_avframe`.
+  names but leaves its one out: `components: encoders: add wrapped_avframe`. A library build's smoke program needs
+  nothing of `components:`: it round-trips a frame with a codec the build has (none, for a decode-only build) and
+  checks only what the configure line says the build has ([building](building.md)).
 - **Layers.** A target takes each kind from the last of its bases and itself that lists it: a list replaces the one
   before it. `{ add: [drawbox] }` adds to the list the layers before it gave instead; with no list before it, it is
   refused (it would quietly make the kind just those names).
