@@ -21,13 +21,13 @@ build:
   # from crates.io (--locked).
   system: none
   # the crates cargo cinstall compiles in (rav1e with its default features and cargo-c's capi), fetched and checked
-  # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. av-metrics, profiling and simd_helpers
-  # publish no licence file in their crates: the standard text of their licence (MIT, or MIT among their choices)
+  # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. av-metrics and profiling publish no
+  # licence file in their crates: the standard text of their licence (MIT, or MIT among their choices)
   cargo:
     target: '{target}'
     package: rav1e
     features: [capi]
-    standard-texts: [av-metrics, profiling, simd_helpers]
+    standard-texts: [av-metrics, profiling]
   # its build scripts (libgit2, for the version string) run here, so they are compiled with the build machine's own
   # compilers and flags, not the platform's (which the cc crate otherwise takes from CC and CFLAGS). Rust keeps source
   # paths in its panic messages: the source folder (with Apple's CARGO_HOME) and the images' /opt/cargo crates are

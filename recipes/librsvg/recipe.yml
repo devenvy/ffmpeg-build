@@ -26,12 +26,13 @@ build:
   # no rsvg-convert, gdk-pixbuf (or its loader), AVIF (dav1d), introspection, Vala, docs or tests.
   system: meson
   # the crates its meson has cargo cbuild compile in (librsvg-c, default features: no AVIF), fetched and checked
-  # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. mutants and selectors publish no licence
-  # file in their crates: the standard text of their licence (MIT; MPL-2.0)
+  # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. selectors (and, on win-x64,
+  # winapi-x86_64-pc-windows-gnu, the import libraries winapi links) publish no licence file in their crates: the
+  # standard text of their licence (MPL-2.0; MIT among MIT/Apache-2.0)
   cargo:
     target: '{target}'
     package: librsvg-c
-    standard-texts: [mutants, selectors]
+    standard-texts: [selectors, winapi-x86_64-pc-windows-gnu]
   args:
     [
       --wrap-mode=nofallback,
