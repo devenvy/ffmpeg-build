@@ -216,7 +216,7 @@ function calls(s: Step, vars: Record<string, string>, ghOut = ''): string[] {
   const log = join(bin, 'log').replaceAll('\\', '/');
   writeFileSync(
     join(bin, 'gh'),
-    `#!/usr/bin/env bash\necho "gh[$GH_TOKEN] $*" >> "${log}"\n[ "$1 $2" = "pr list" ] && printf '%s' "${ghOut}"\nexit 0\n`,
+    `#!/usr/bin/env bash\necho "gh[$GH_TOKEN] $*" >> "${log}"\n[ "$1 $2" = "pr list" ] && printf '%s' "${ghOut}"\n[ "$1 $2" = "pr view" ] && printf '%s' "\${GH_VIEW:-}"\nexit 0\n`,
     { mode: 0o755 },
   );
   // what the update jobs hand their publish jobs, in RUNNER_TEMP/update
@@ -307,6 +307,29 @@ describe.skipIf(!bash)("the PR's CI and automerge, without a token or repository
     expect(
       calls(s, { ...vars, HAS_APP: 'true' }).filter((c) => c.includes('workflow run')),
     ).toEqual([]);
+  });
+
+  it("ffmpeg-support.yml never pushes over a person's commits on its pull request's branch", () => {
+    const s = step('ffmpeg-support.yml', 'open or refresh the pull request');
+    const temp = mkdtempSync(join(tmpdir(), 'ffmpeg-build-support-'));
+    writeFileSync(join(temp, 'support.md'), '**not accounted for**\n');
+    const vars = {
+      BRANCH: 'ffmpeg-build/ffmpeg-support',
+      DISPATCH_TOKEN: 'github-token',
+      RUNNER_TEMP: temp,
+      HAS_APP: 'false',
+    };
+    // the open pull request (7) has a commit by someone other than the bot: its text is refreshed, nothing pushed
+    const theirs = calls(s, { ...vars, GH_VIEW: '1' }, '7');
+    expect(
+      theirs.some((c) => c.includes('pr view ffmpeg-build/ffmpeg-support --json commits')),
+    ).toBe(true);
+    expect(theirs.some((c) => c.includes('pr edit ffmpeg-build/ffmpeg-support'))).toBe(true);
+    expect(theirs.filter((c) => c.includes('workflow run'))).toEqual([]);
+    // only the bot's: refreshed, and its CI dispatched as before
+    expect(calls(s, { ...vars, GH_VIEW: '0' }, '7')).toContain(
+      'gh[github-token] workflow run ci.yml --ref ffmpeg-build/ffmpeg-support',
+    );
   });
 
   describe('automerge.yml', () => {

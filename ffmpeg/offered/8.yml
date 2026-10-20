@@ -1,0 +1,334 @@
+# What FFmpeg 8's configure offers to turn on, read from its newest release (8.1.3): every external
+# library and hardware option (configure's library lists and --help's library section), with its licence class.
+# Each is an option of ffmpeg/<major>.yml or an entry of ffmpeg/unsupported.yml (tests/ffmpeg-coverage.test.ts).
+# `flags:` is every other name configure takes after --enable-/--disable-. Written by the nightly support check
+# (scripts/ffmpeg-support.ts --write): not edited by hand.
+release: 8.1.3
+options:
+  alsa: { lists: [external-autodetect] }
+  amf: { lists: [hwaccel-autodetect] }
+  appkit: { lists: [external-autodetect] }
+  audiotoolbox: { lists: [hwaccel-autodetect] }
+  avfoundation: { lists: [external-autodetect] }
+  avisynth: { lists: [external], license: gpl }
+  bzlib: { lists: [external-autodetect] }
+  cairo: { lists: [external] }
+  chromaprint: { lists: [external] }
+  coreimage: { lists: [external-autodetect] }
+  cuda: { lists: [hwaccel-autodetect] }
+  cuda_llvm: { lists: [hwaccel-autodetect] }
+  cuda_nvcc: { lists: [hwaccel], license: nonfree }
+  cuda_sdk: { lists: [hwaccel], license: nonfree }
+  cuvid: { lists: [hwaccel-autodetect] }
+  d3d11va: { lists: [hwaccel-autodetect] }
+  d3d12va: { lists: [hwaccel-autodetect] }
+  decklink: { lists: [external], license: nonfree }
+  dxva2: { lists: [hwaccel-autodetect] }
+  ffnvcodec: { lists: [hwaccel-autodetect] }
+  frei0r: { lists: [external], license: gpl }
+  gcrypt: { lists: [external] }
+  gmp: { lists: [external], license: version3 }
+  gnutls: { lists: [external] }
+  iconv: { lists: [external-autodetect] }
+  jni: { lists: [external] }
+  ladspa: { lists: [external] }
+  lcms2: { lists: [external] }
+  libaom: { lists: [external] }
+  libaribb24: { lists: [external], license: version3 }
+  libaribcaption: { lists: [external] }
+  libass: { lists: [external] }
+  libbluray: { lists: [external] }
+  libbs2b: { lists: [external] }
+  libcaca: { lists: [external] }
+  libcdio: { lists: [external], license: gpl }
+  libcelt: { lists: [external] }
+  libcodec2: { lists: [external] }
+  libdav1d: { lists: [external] }
+  libdavs2: { lists: [external], license: gpl }
+  libdc1394: { lists: [external] }
+  libdrm: { lists: [hwaccel-autodetect] }
+  libdvdnav: { lists: [external], license: gpl }
+  libdvdread: { lists: [external], license: gpl }
+  libfdk_aac: { lists: [external], license: nonfree }
+  libflite: { lists: [external] }
+  libfontconfig: { lists: [external] }
+  libfreetype: { lists: [external] }
+  libfribidi: { lists: [external] }
+  libglslang: { lists: [external] }
+  libgme: { lists: [external] }
+  libgsm: { lists: [external] }
+  libharfbuzz: { lists: [external] }
+  libiec61883: { lists: [external] }
+  libilbc: { lists: [external] }
+  libjack: { lists: [external] }
+  libjxl: { lists: [external] }
+  libklvanc: { lists: [external] }
+  libkvazaar: { lists: [external] }
+  liblc3: { lists: [external] }
+  liblcevc_dec: { lists: [external] }
+  liblensfun: { lists: [external], license: version3 }
+  libmfx: { lists: [hwaccel] }
+  libmodplug: { lists: [external] }
+  libmp3lame: { lists: [external] }
+  libmpeghdec: { lists: [external], license: nonfree }
+  libmysofa: { lists: [external] }
+  libnpp: { lists: [hwaccel], license: nonfree }
+  liboapv: { lists: [external] }
+  libopencolorio: { lists: [external] }
+  libopencore_amrnb: { lists: [external], license: version3 }
+  libopencore_amrwb: { lists: [external], license: version3 }
+  libopencv: { lists: [external] }
+  libopenh264: { lists: [external] }
+  libopenjpeg: { lists: [external] }
+  libopenmpt: { lists: [external] }
+  libopenvino: { lists: [external] }
+  libopus: { lists: [external] }
+  libplacebo: { lists: [external] }
+  libpulse: { lists: [external] }
+  libqrencode: { lists: [external] }
+  libquirc: { lists: [external] }
+  librabbitmq: { lists: [external] }
+  librav1e: { lists: [external] }
+  librist: { lists: [external] }
+  librsvg: { lists: [external] }
+  librtmp: { lists: [external] }
+  librubberband: { lists: [external], license: gpl }
+  libshaderc: { lists: [external] }
+  libshine: { lists: [external] }
+  libsmbclient: { lists: [external], license: gplv3 }
+  libsnappy: { lists: [external] }
+  libsoxr: { lists: [external] }
+  libspeex: { lists: [external] }
+  libsrt: { lists: [external] }
+  libssh: { lists: [external] }
+  libsvtav1: { lists: [external] }
+  libsvtjpegxs: { lists: [external] }
+  libtensorflow: { lists: [external] }
+  libtesseract: { lists: [external] }
+  libtheora: { lists: [external] }
+  libtls: { lists: [external] }
+  libtorch: { lists: [external] }
+  libtwolame: { lists: [external] }
+  libuavs3d: { lists: [external] }
+  libv4l2: { lists: [external] }
+  libvidstab: { lists: [external], license: gpl }
+  libvmaf: { lists: [external] }
+  libvo_amrwbenc: { lists: [external], license: version3 }
+  libvorbis: { lists: [external] }
+  libvpl: { lists: [hwaccel] }
+  libvpx: { lists: [external] }
+  libvvenc: { lists: [external] }
+  libwebp: { lists: [external] }
+  libx264: { lists: [external], license: gpl }
+  libx265: { lists: [external], license: gpl }
+  libxavs: { lists: [external], license: gpl }
+  libxavs2: { lists: [external], license: gpl }
+  libxcb: { lists: [external-autodetect] }
+  libxcb_shape: { lists: [external-autodetect] }
+  libxcb_shm: { lists: [external-autodetect] }
+  libxcb_xfixes: { lists: [external-autodetect] }
+  libxevd: { lists: [external] }
+  libxevdb: { lists: [external] }
+  libxeve: { lists: [external] }
+  libxeveb: { lists: [external] }
+  libxml2: { lists: [external] }
+  libxvid: { lists: [external], license: gpl }
+  libzimg: { lists: [external] }
+  libzmq: { lists: [external] }
+  libzvbi: { lists: [external] }
+  lv2: { lists: [external] }
+  lzma: { lists: [external-autodetect] }
+  mbedtls: { lists: [external], license: version3 }
+  mediacodec: { lists: [external] }
+  mediafoundation: { lists: [external-autodetect] }
+  metal: { lists: [external-autodetect] }
+  mmal: { lists: [hwaccel] }
+  nvdec: { lists: [hwaccel-autodetect] }
+  nvenc: { lists: [hwaccel-autodetect] }
+  ohcodec: { lists: [external] }
+  omx: { lists: [hwaccel] }
+  omx_rpi: { lists: [help] }
+  openal: { lists: [external] }
+  opencl: { lists: [hwaccel] }
+  opengl: { lists: [external] }
+  openssl: { lists: [external] }
+  pocketsphinx: { lists: [external] }
+  rkmpp: { lists: [external], license: version3 }
+  schannel: { lists: [external-autodetect] }
+  sdl2: { lists: [external-autodetect] }
+  securetransport: { lists: [external-autodetect] }
+  sndio: { lists: [external-autodetect] }
+  v4l2_m2m: { lists: [hwaccel-autodetect] }
+  vaapi: { lists: [hwaccel-autodetect] }
+  vapoursynth: { lists: [external] }
+  vdpau: { lists: [hwaccel-autodetect] }
+  videotoolbox: { lists: [hwaccel-autodetect] }
+  vulkan: { lists: [hwaccel-autodetect] }
+  vulkan_static: { lists: [external] }
+  whisper: { lists: [external] }
+  xlib: { lists: [external-autodetect] }
+  zlib: { lists: [external-autodetect] }
+flags:
+  - aesni
+  - altivec
+  - amd3dnow
+  - amd3dnowext
+  - arm_crc
+  - armv5te
+  - armv6
+  - armv6t2
+  - armv8
+  - asm
+  - autodetect
+  - avcodec
+  - avdevice
+  - avfilter
+  - avformat
+  - avio_http_serve_files_example
+  - avio_list_dir_example
+  - avio_read_callback_example
+  - avutil
+  - avx
+  - avx2
+  - avx512
+  - avx512icl
+  - bsfs
+  - clmul
+  - cross_compile
+  - dcbzl
+  - debug
+  - decode_audio_example
+  - decode_filter_audio_example
+  - decode_filter_video_example
+  - decode_video_example
+  - decoders
+  - demux_decode_example
+  - demuxers
+  - doc
+  - dotprod
+  - dwt
+  - encode_audio_example
+  - encode_video_example
+  - encoders
+  - error_resilience
+  - extra_warnings
+  - extract_mvs_example
+  - faan
+  - fast_unaligned
+  - ffmpeg
+  - ffplay
+  - ffprobe
+  - filter_audio_example
+  - filters
+  - fma3
+  - fma4
+  - fontconfig
+  - ftrapv
+  - gpl
+  - gray
+  - hardcoded_tables
+  - htmlpages
+  - hw_decode_example
+  - hwaccels
+  - i686
+  - i8mm
+  - iamf
+  - indevs
+  - inline_asm
+  - large_tests
+  - lasx
+  - ldbrx
+  - linux_perf
+  - logging
+  - loongson2
+  - loongson3
+  - lsp
+  - lsx
+  - macos_kperf
+  - manpages
+  - memory_poisoning
+  - mips32r2
+  - mips32r5
+  - mips32r6
+  - mips64r2
+  - mips64r6
+  - mipsdsp
+  - mipsdspr2
+  - mipsfpu
+  - mmi
+  - mmx
+  - mmxext
+  - msa
+  - mux_example
+  - muxers
+  - neon
+  - neon_clobber_test
+  - network
+  - nonfree
+  - optimizations
+  - os2threads
+  - ossfuzz
+  - outdevs
+  - parsers
+  - pic
+  - pixelutils
+  - podpages
+  - power8
+  - ppc4xx
+  - protocols
+  - pthreads
+  - qsv_decode_example
+  - qsv_transcode_example
+  - remux_example
+  - resample_audio_example
+  - resource_compression
+  - response_files
+  - rpath
+  - runtime_cpudetect
+  - rv
+  - rv_zicbop
+  - rv_zvbb
+  - rvv
+  - safe_bitstream_reader
+  - scale_video_example
+  - setend
+  - shader_compression
+  - shared
+  - show_metadata_example
+  - simd128
+  - small
+  - sme
+  - sme2
+  - sme_i16i64
+  - sse
+  - sse2
+  - sse3
+  - sse4
+  - sse42
+  - ssse3
+  - static
+  - stripping
+  - sve
+  - sve2
+  - swresample
+  - swscale
+  - swscale_alpha
+  - symver
+  - thumb
+  - transcode_aac_example
+  - transcode_example
+  - txtpages
+  - unstable
+  - vaapi_encode_example
+  - vaapi_transcode_example
+  - valgrind_backtrace
+  - vec_xl
+  - version3
+  - version_tracking
+  - vfp
+  - vfpv3
+  - vsx
+  - w32threads
+  - x86asm
+  - xmm_clobber_test
+  - xop

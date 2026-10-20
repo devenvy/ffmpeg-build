@@ -82,7 +82,9 @@ export function loadEngineData(root: string): EngineData {
 
   const ffmpeg = new Map<string, FfmpegData>();
   const yamlFiles = readdirSync(join(root, 'ffmpeg')).filter((f) => /\.ya?ml$/.test(f));
-  for (const f of yamlFiles.filter((name) => !/^\d+\.yml$/.test(name) && name !== 'source.yml')) {
+  // unsupported.yml is the coverage gate's (src/ffmpeg-coverage.ts), not the loader's
+  const others = ['source.yml', 'unsupported.yml'];
+  for (const f of yamlFiles.filter((name) => !/^\d+\.yml$/.test(name) && !others.includes(name))) {
     errors.push(`ffmpeg/${f}: FFmpeg data files are named <major>.yml, like 9.yml`);
   }
   const ffmpegFiles = yamlFiles

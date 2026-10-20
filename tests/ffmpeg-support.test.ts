@@ -7,6 +7,7 @@ import { parse } from 'yaml';
 
 import { fixtureData, fixtureEngineRoot } from './helpers.ts';
 import { COMPONENT_KINDS, type Components } from '../src/ffmpeg-components.ts';
+import { parseOfferedFile } from '../src/ffmpeg-coverage.ts';
 import {
   formatSupport,
   newMajors,
@@ -113,6 +114,16 @@ describe('the FFmpeg support check', () => {
     );
     const r = supportReport(data, '9', ['9.0.2'], moved, undefined);
     expect(r.reclassed).toEqual([{ option: 'x265', data: 'gpl', configure: 'nonfree' }]);
+  });
+
+  it("takes every name an option turns on for its class, not just the first (rkmpp's recipe turns on libdrm too)", () => {
+    const data = fixtureData();
+    // nv-codec turns on ffnvcodec (no class) first, then nvenc: say configure made nvenc nonfree
+    const moved = new Map(parseConfigure(CONFIGURE));
+    moved.set('nvenc', 'nonfree');
+    expect(supportReport(data, '9', ['9.0.2'], moved, undefined).reclassed).toEqual([
+      { option: 'nvenc', data: 'none', configure: 'nonfree' },
+    ]);
   });
 
   it("doesn't report as new what the data already covers, and reports any name gone since the previous release", () => {
@@ -230,6 +241,51 @@ describe('the FFmpeg support check', () => {
         write: true,
       });
       expect(again).not.toContain('- components:');
+    });
+
+    it("writes each major's offered options with write, and names what nothing accounts for", async () => {
+      const r = root();
+      writeFileSync(
+        join(r, 'ffmpeg', 'unsupported.yml'),
+        'options:\n  libx264: { reason: pending, issue: 21, note: x264 }\n',
+      );
+      const offeredOf = async (version: string) =>
+        Promise.resolve({
+          options: {
+            libdav1d: { lists: ['external' as const] },
+            libx264: { lists: ['external' as const], license: 'gpl' as const },
+            ...(version === '9.1.0'
+              ? { libfoo: { lists: ['external' as const], license: 'nonfree' as const } }
+              : {}),
+          },
+          flags: [],
+        });
+      const check = async () =>
+        supportCheck({
+          data: fixtureData(),
+          dataRoot: r,
+          upstream: ['9.0.0', '9.0.1', '9.0.2', '9.1.0'],
+          configureOf,
+          offeredOf,
+          issueOpen: async (n: number) => Promise.resolve(n !== 21),
+          write: true,
+        });
+      const text = await check();
+      const file = parseOfferedFile(
+        readFileSync(join(r, 'ffmpeg', 'offered', '9.yml'), 'utf8'),
+        'ffmpeg/offered/9.yml',
+      );
+      expect(file.release).toBe('9.1.0');
+      expect(Object.keys(file.options)).toEqual(['libdav1d', 'libfoo', 'libx264']);
+      expect(text).toContain('- offered options: from 9.1.0 (applied)');
+      expect(text).toContain(
+        '- **not accounted for** (CI fails until each is supported, or listed in ffmpeg/unsupported.yml): `libfoo` (nonfree)',
+      );
+      expect(text).toContain(
+        '**pending issue closed**: #21 is closed, but ffmpeg/unsupported.yml has pending entries pointing at it: libx264',
+      );
+      // run again: the file is current, so nothing is said of it
+      expect(await check()).not.toContain('- offered options:');
     });
 
     it("fails when the releases line isn't in the form it rewrites", async () => {

@@ -1,8 +1,10 @@
 # Nightly FFmpeg support check (the engine's own): keeps ffmpeg/<major>.yml's releases equal to FFmpeg's release tags,
-# and reports options a new FFmpeg release adds, removes or reclassifies, and new majors. It opens or refreshes one
-# pull request when ffmpeg/ changed: the release lists are data and can merge once CI passes; anything else in the
-# report is for a person. A report with findings but no data change refreshes an open pull request's text, or else
-# stays in the run summary as a warning.
+# rewrites ffmpeg/offered/ and ffmpeg/components/ from the newest release's sources, and reports options a new FFmpeg
+# release adds, removes or reclassifies, and new majors. It opens or refreshes one pull request when ffmpeg/ changed:
+# the release lists are data and can merge once CI passes. An option configure now offers that the engine neither
+# supports nor lists in ffmpeg/unsupported.yml fails that pull request's CI (tests/ffmpeg-coverage.test.ts, in
+# `result`) until a person handles it on the branch; their commits are never pushed over. A report with findings but
+# no data change refreshes an open pull request's text, or else stays in the run summary as a warning.
 #
 # It runs as the devenvy-bot app when the org has it (DEVENVY_BOT_CLIENT_ID): the app's push starts the pull
 # request's CI. Without it, GITHUB_TOKEN pushes (which start no workflows) and then dispatches ci.yml on the branch.
@@ -56,7 +58,7 @@ jobs:
         run: |
           remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           findings=false
-          if grep -qE '\*\*(new in|gone from|licence class|New FFmpeg major)' "${RUNNER_TEMP}/support.md"; then findings=true; fi
+          if grep -qE '\*\*(new in|gone from|licence class|not accounted for|pending issue closed|New FFmpeg major)' "${RUNNER_TEMP}/support.md"; then findings=true; fi
           open="$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number')"
           # a conventional title: merged, it ships in the next nightly engine release
           title="fix(ffmpeg): FFmpeg support check"
@@ -79,6 +81,16 @@ jobs:
           if git fetch --quiet "${remote}" "${BRANCH}" 2>/dev/null && git diff --quiet FETCH_HEAD HEAD -- ffmpeg/ && [ -n "${open}" ]; then
             gh pr edit "${BRANCH}" --title "${title}" --body-file "${RUNNER_TEMP}/support.md"
             exit 0
+          fi
+          # a person's commits on the branch (a recipe, an option or an ffmpeg/unsupported.yml entry for what the gate
+          # found) are never pushed over: refresh the text only, until that pull request merges
+          if [ -n "${open}" ]; then
+            theirs="$(gh pr view "${BRANCH}" --json commits --jq '[.commits[].authors[].email | select(. != "41898282+github-actions[bot]@users.noreply.github.com")] | length')"
+            if [ "${theirs:-0}" != 0 ]; then
+              gh pr edit "${BRANCH}" --title "${title}" --body-file "${RUNNER_TEMP}/support.md"
+              echo "::warning::the support pull request has commits by a person; its data isn't refreshed until it merges"
+              exit 0
+            fi
           fi
           git push --force "${remote}" "HEAD:refs/heads/${BRANCH}"
           if [ -n "${open}" ]; then
