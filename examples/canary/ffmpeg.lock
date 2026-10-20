@@ -55,6 +55,8 @@ libraries:
   libqrencode: { version: 4.1.1, commit: 715e29fd4cd71b6e452ae0f4e36d917b43122ce8 }
   librist: { version: 0.2.20, commit: 4f45ef8f78983892d52ccd52d9f675435b23738f }
   librsvg: { version: 2.63.3, commit: 230d2c9ee3e6d552a981374e8a3c1e2c28604768 }
+  librtmp: { version: 2.6, commit: 138fdb258d9fc26f1843fd1b891180416c9dc575 }
+  libssh: { version: 0.12.2, sha256: 49560f677d96e3706a904ac2de1116e25f3680937d51e5c92198fcba4a1c1e9f }
   libtasn1: { version: 4.21.0, sha256: 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87 }
   libtheora: { version: 1.2.0, commit: 8e4808736e9c181b971306cc3f05df9e61354004 }
   libva: { version: 2.24.1, commit: 710eb465c6277ee2cac3e6948767b01eebe7e77a }

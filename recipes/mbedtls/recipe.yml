@@ -8,6 +8,12 @@ source:
 versions: { git-tags: '^v(3\.\d+\.\d+)$', repo: https://github.com/Mbed-TLS/mbedtls }
 platforms: all
 build:
+  # mbedTLS: TLS and crypto (Apache-2.0 OR GPL-2.0-or-later), static: srt's and librist's encryption, libssh's crypto,
+  # and FFmpeg's mbedtls TLS option. Thread-safe where the C library has pthreads (every platform but Windows):
+  # MBEDTLS_THREADING_C with its pthread mutexes, which libssh requires (its global random generator is locked through
+  # them, and ssh_init fails without). Windows keeps the default configuration: mbedTLS's only other threading is
+  # MBEDTLS_THREADING_ALT, whose locks fail until the application installs its own, and pthreads there would be
+  # winpthreads on every mbedTLS link.
   system: cmake
   args:
     [
@@ -16,3 +22,31 @@ build:
       -DENABLE_TESTING=OFF,
       -DENABLE_PROGRAMS=OFF,
     ]
+  platforms:
+    'linux-*': &threads
+      before:
+        - replace-in-file:
+            {
+              path: include/mbedtls/mbedtls_config.h,
+              from: "//#define MBEDTLS_THREADING_C\n",
+              to: "#define MBEDTLS_THREADING_C\n",
+            }
+        - replace-in-file:
+            {
+              path: include/mbedtls/mbedtls_config.h,
+              from: "//#define MBEDTLS_THREADING_PTHREAD\n",
+              to: "#define MBEDTLS_THREADING_PTHREAD\n",
+            }
+    # its .pc files don't name the Windows libraries its static libraries call: bcrypt (entropy) and ws2_32
+    # (x509's inet_pton), on the crypto library every other one requires (srt and librist name their own)
+    'win-*':
+      after:
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/mbedcrypto.pc',
+              libs-private: { add: -lbcrypt -lws2_32, missing: after-libs },
+            }
+    'android-*': *threads
+    'osx-*': *threads
+    'ios-*': *threads
+    'maccatalyst-*': *threads

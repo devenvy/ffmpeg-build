@@ -1745,6 +1745,7 @@ describe('filter and processing libraries', () => {
 // FFmpeg's class) allow. None turns on by itself.
 describe('protocol and I/O libraries', () => {
   const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const V3 = ['lgplv3', 'gplv3', 'nonfree'];
   /** The C++ runtime FFmpeg's link takes for a C++ library it finds without pkg-config. */
   const cxxRuntime = (p: string) => {
     if (/^(osx|ios|maccatalyst|android)-/.test(p)) {
@@ -1796,6 +1797,46 @@ describe('protocol and I/O libraries', () => {
       licenses: ALL,
       ships: { encoders: ['hap'] },
       auto: false,
+    },
+    // a TLS option (FFmpeg's class version3), the one built on every platform
+    mbedtls: {
+      platforms: PLATFORMS,
+      recipe: 'mbedtls',
+      recipes: () => ['mbedtls'],
+      flags: () => ['--enable-mbedtls'],
+      licenses: V3,
+      ships: { protocols: ['tls', 'https'] },
+      auto: false,
+    },
+    // rtmpe's Diffie-Hellman (FFmpeg's class version3): a support library, as the TLS options are
+    gmp: {
+      platforms: PLATFORMS,
+      recipe: 'gmp',
+      recipes: () => ['gmp'],
+      flags: () => ['--enable-gmp'],
+      licenses: V3,
+      ships: { protocols: ['rtmpe', 'rtmpte'] },
+      auto: false,
+    },
+    // on mbedTLS (Apache-2.0 OR GPL-2.0-or-later): every build but lgplv2; not Windows, where mbedTLS isn't thread-safe
+    ssh: {
+      platforms: PLATFORMS.filter((p) => !p.startsWith('win-')),
+      recipe: 'libssh',
+      recipes: () => ['libssh', 'mbedtls'],
+      flags: () => ['--enable-libssh'],
+      licenses: ['lgplv3', 'gplv2', 'gplv3', 'nonfree'],
+      ships: { protocols: ['libssh'] },
+      auto: true,
+    },
+    // lgplv2 first: no GnuTLS (nettle's licence), so plain rtmp
+    rtmp: {
+      platforms: PLATFORMS,
+      recipe: 'librtmp',
+      recipes: () => ['librtmp', 'zlib'],
+      flags: () => ['--enable-librtmp'],
+      licenses: ALL,
+      ships: { protocols: ['librtmp', 'librtmpe', 'librtmps', 'librtmpt', 'librtmpte'] },
+      auto: true,
     },
   };
   const OPTIONS = Object.keys(where);
@@ -1854,6 +1895,45 @@ describe('protocol and I/O libraries', () => {
         }
         expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
       }
+    }
+  });
+
+  it('refuses two TLS libraries in one build: mbedtls with any other', () => {
+    const both = (platform: string, license: string, other: string) =>
+      formatReport(
+        checkProfile(
+          parseProfileText(
+            `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [mbedtls, ${other}]\n`,
+            't.yml',
+          ),
+          data,
+        ),
+      );
+    for (const [platform, other] of [
+      ['linux-x64', 'openssl'],
+      ['linux-x64', 'gnutls'],
+      ['win-x64', 'schannel'],
+      ['osx-arm64', 'securetransport'],
+    ] as const) {
+      const pair = ['mbedtls', other].sort().join(' and ');
+      expect(both(platform, 'gplv3', other), `${platform} ${other}`).toContain(
+        `${pair} are both in this build, but FFmpeg uses one tls per build`,
+      );
+    }
+  });
+
+  it('encrypts rtmp with GnuTLS where the build may take it, and goes without elsewhere', () => {
+    const recipesOf = (platform: string, license: string) =>
+      [...planOn(platform, license, 'rtmp').cells[0]!.recipes].sort();
+    const gnutls = ['gmp', 'gnutls', 'librtmp', 'libtasn1', 'nettle', 'zlib'];
+    for (const platform of ['linux-x64', 'linux-musl-arm64', 'android-arm64', 'maccatalyst-x64']) {
+      expect(recipesOf(platform, 'gplv2'), platform).toEqual(gnutls);
+      expect(recipesOf(platform, 'lgplv3'), platform).toEqual(gnutls);
+      // nettle (LGPL-3.0-or-later OR GPL-2.0-or-later) can't go into lgplv2: no GnuTLS
+      expect(recipesOf(platform, 'lgplv2'), platform).toEqual(['librtmp', 'zlib']);
+    }
+    for (const platform of ['win-x64', 'osx-arm64', 'ios-arm64']) {
+      expect(recipesOf(platform, 'gplv3'), platform).toEqual(['librtmp', 'zlib']);
     }
   });
 

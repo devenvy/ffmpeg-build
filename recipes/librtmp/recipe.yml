@@ -1,0 +1,92 @@
+name: librtmp
+provides: rtmp
+# librtmp's own licence (rtmpdump's programs, not built here, are GPL-2.0)
+license: LGPL-2.1-or-later
+license-files: [librtmp/COPYING]
+configure: [--enable-librtmp]
+needs: [zlib]
+# its encryption (rtmpe, rtmps and SWF verification): GnuTLS where the build has it (Linux, Android and Mac Catalyst,
+# in every licence but lgplv2, as nettle's licence allows); elsewhere plain rtmp and rtmpt only
+uses: [gnutls]
+source: { git: https://git.ffmpeg.org/rtmpdump.git, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+)$' }
+platforms: all
+build:
+  # librtmp (rtmpdump's library), static, for FFmpeg's librtmp protocols (found through librtmp.pc). With it on, they
+  # replace FFmpeg's own rtmp, rtmpe, rtmps, rtmpt and rtmpte under the same names (configure turns FFmpeg's off).
+  # rtmpdump has a hand-written Makefile and no configure: its library target and .pc are built with the platform's
+  # compiler, archiver and flags on the command line (as libgsm's and bzip2's), static only, and installed without
+  # the man page. SYS picks the system libraries its .pc names (Winsock on Windows).
+  system: none
+  vars: { tools: '', crypto: '', sys: posix }
+  platforms:
+    'win-*': { vars: { sys: mingw } }
+    'osx-*': { vars: { sys: darwin } }
+    'ios-*': { vars: { sys: darwin } }
+    'maccatalyst-*': { vars: { sys: darwin } }
+  steps:
+    # Nettle 4 dropped the length argument of its digest functions, which librtmp's GnuTLS code passes: one macro gives
+    # it to Nettle 3 and leaves it out for 4
+    - write-file:
+        path: librtmp/nettle_compat.h
+        text: |
+          #include <nettle/version.h>
+          #if NETTLE_VERSION_MAJOR >= 4
+          #define NETTLE_LENGTH_ARG(n)
+          #else
+          #define NETTLE_LENGTH_ARG(n) n,
+          #endif
+    - replace-in-file:
+        {
+          path: librtmp/rtmp.c,
+          from: "#include <nettle/md5.h>\n",
+          to: "#include <nettle/md5.h>\n#include \"nettle_compat.h\"\n",
+        }
+    - replace-in-file:
+        {
+          path: librtmp/rtmp.c,
+          from: 'md5_digest(ctx,MD5_DIGEST_LENGTH,dig)',
+          to: 'md5_digest(ctx,NETTLE_LENGTH_ARG(MD5_DIGEST_LENGTH)dig)',
+        }
+    - replace-in-file:
+        {
+          path: librtmp/hashswf.c,
+          from: "#include <nettle/hmac.h>\n",
+          to: "#include <nettle/hmac.h>\n#include \"nettle_compat.h\"\n",
+        }
+    - replace-in-file:
+        {
+          path: librtmp/hashswf.c,
+          from: 'hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)',
+          to: 'hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)',
+        }
+    - replace-in-file:
+        {
+          path: librtmp/handshake.h,
+          from: "#include <nettle/hmac.h>\n",
+          to: "#include <nettle/hmac.h>\n#include \"nettle_compat.h\"\n",
+        }
+    - replace-in-file:
+        {
+          path: librtmp/handshake.h,
+          from: 'hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)',
+          to: 'hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)',
+        }
+    - vars: { tools: '{host}-' }
+      when: { set: '{host}' }
+    - vars: { crypto: GNUTLS }
+      when: { exists: '{deps}/lib/libgnutls.a' }
+    - vars:
+        make-args:
+          [
+            'CC={CC|{tools}gcc}',
+            'AR={AR|{tools}ar}',
+            'SYS={sys}',
+            'CRYPTO={crypto}',
+            SHARED=no,
+            'prefix={deps}',
+            'XCFLAGS=-fPIC {CFLAGS|} -I{deps}/include',
+          ]
+    - [make, -C, librtmp, '-j{jobs}', librtmp.a, librtmp.pc, '{make-args}']
+    - [make, -C, librtmp, install_base, '{make-args}']
+    - remove: { path: '{deps}/man', recursive: true }

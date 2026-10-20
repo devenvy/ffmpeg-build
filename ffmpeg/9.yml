@@ -102,6 +102,8 @@ auto-components:
   - opencv
   - zmq
   - rabbitmq
+  - ssh
+  - rtmp
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
@@ -159,6 +161,15 @@ options:
   # TLS (one per build: group tls; the profile lists which, per platform and license)
   openssl: { needs: openssl, min: 3.0.0, ships: { protocols: [tls, https] } }
   gnutls: { needs: gnutls, ships: { protocols: [tls, https] } }
+  # mbedTLS 3 (Apache-2.0 OR GPL-2.0-or-later; FFmpeg classes it version3), the one TLS library built on every platform
+  mbedtls:
+    {
+      needs: mbedtls,
+      group: tls,
+      ffmpeg-license: version3,
+      configure: [--enable-mbedtls],
+      ships: { protocols: [tls, https] },
+    }
 
   # hardware
   nvenc:
@@ -399,3 +410,10 @@ options:
   zmq: { needs: libzmq, min: 4.2.1, ships: { protocols: [libzmq], filters: [zmq, azmq] } }
   # AMQP 0-9-1 (RabbitMQ): the amqp protocol, plain TCP
   rabbitmq: { needs: rabbitmq-c, min: 0.7.1, ships: { protocols: [libamqp] } }
+  # SFTP (the sftp protocol), through libssh on mbedTLS
+  ssh: { needs: libssh, min: 0.6.0, ships: { protocols: [libssh] } }
+  # rtmpdump's librtmp: its rtmp protocols replace FFmpeg's own, under the same names; encrypted (rtmpe, rtmps) where
+  # the build has GnuTLS
+  rtmp: { needs: librtmp, ships: { protocols: [librtmp, librtmpe, librtmps, librtmpt, librtmpte] } }
+  # GMP: the Diffie-Hellman of FFmpeg's own rtmpe and rtmpte (ffrtmpcrypt), without a TLS library that does it
+  gmp: { needs: gmp, ffmpeg-license: version3, ships: { protocols: [rtmpe, rtmpte] } }

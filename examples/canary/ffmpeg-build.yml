@@ -63,9 +63,10 @@ bases:
         zmq,
         rabbitmq,
         snappy,
+        rtmp,
       ]
   linux:
-    with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa]
+    with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa, ssh]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
   gplv2:
@@ -95,6 +96,7 @@ bases:
         vo-amrwbenc,
         vulkan,
         opencl,
+        gmp,
       ]
   lgplv3:
     with:
@@ -114,6 +116,7 @@ bases:
         vo-amrwbenc,
         vulkan,
         opencl,
+        gmp,
       ]
 targets:
   # MoltenVK, which no Linux or Windows target builds: on macOS its dylib and ICD manifest ship beside the Khronos
@@ -126,12 +129,13 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [vulkan, placebo, iconv, opencl]
-  # Rockchip MPP, which only ARM Linux builds: rkmpp alone (with the libdrm it needs), to keep the arm64 run short
+  # Rockchip MPP, which only ARM Linux builds: rkmpp alone (with the libdrm it needs), to keep the arm64 run short; and
+  # mbedTLS as the build's TLS, which the other Linux targets' OpenSSL and GnuTLS leave out (one TLS per build)
   linux-arm64-lgplv3:
     platform: linux-arm64
     license: lgplv3
     ffmpeg: '9'
-    with: [rkmpp]
+    with: [rkmpp, mbedtls]
   # cpu_features' NDK layer, which only Tesseract's Android build takes: tesseract alone, to keep the Android run short
   android-arm64-lgplv3:
     platform: android-arm64
