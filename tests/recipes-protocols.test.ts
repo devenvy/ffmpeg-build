@@ -195,6 +195,8 @@ describe('libssh', () => {
         '-DUNIT_TESTING=OFF',
         '-DCLIENT_TESTING=OFF',
         '-DSERVER_TESTING=OFF',
+        // the NDK's toolchain file finds only in its sysroot
+        ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
       ]),
     );
     expect(h.read(pcPath(h, 'libssh'))).toBe(

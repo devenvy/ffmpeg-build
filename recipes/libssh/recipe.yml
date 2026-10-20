@@ -37,6 +37,10 @@ build:
       -DCLIENT_TESTING=OFF,
       -DSERVER_TESTING=OFF,
     ]
+  platforms:
+    # the NDK's toolchain file points CMake's find root at its sysroot alone, so libssh's FindMbedTLS can't see the deps
+    # folder's (as for srt)
+    'android-*': { args: ['-DCMAKE_FIND_ROOT_PATH={deps}'] }
   after:
     # libssh.pc names libssh alone: its static library needs mbedTLS's crypto library after it
     - edit-pkg-config:
