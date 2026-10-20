@@ -540,7 +540,7 @@ describe('lensfun', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'lensfun'),
-          'Requires.private: glib-2.0\nLibs: -L${libdir} -llensfun\nCflags: -I${includedir}\n',
+          `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
         );
         put(join(h.deps, 'share', 'lensfun', 'version_2', 'mil-sony.xml'), '<lensdatabase/>');
       }
@@ -581,7 +581,10 @@ describe('OpenColorIO', () => {
     );
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
-        put(pcPath(h, 'OpenColorIO'), 'Libs: -L${libdir} -lOpenColorIO\nCflags: -I${includedir}\n');
+        put(
+          pcPath(h, 'OpenColorIO'),
+          `Libs: -L\${libdir} -lOpenColorIO\nCflags: -I\${includedir}\n`,
+        );
       }
       return undefined;
     };
@@ -610,7 +613,7 @@ describe('OpenColorIO', () => {
         : 'Platform::filenameToUTF(filepath), mode));',
     );
     expect(h.read(pcPath(h, 'OpenColorIO'))).toBe(
-      'Libs: -L${libdir} -lOpenColorIO\n' +
+      `Libs: -L\${libdir} -lOpenColorIO\n` +
         `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${win ? ' -lgdi32 -luser32' : ''}\n` +
         `Cflags: -I\${includedir}${win ? ' -DOpenColorIO_SKIP_IMPORTS' : ''}\n` +
         'Requires.private: yaml-cpp minizip-ng Imath expat zlib\n',
@@ -662,7 +665,7 @@ describe('cairo', () => {
     const h = fake(platform);
     put(
       pcPath(h, 'cairo'),
-      'Libs: -L${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I${includedir}/cairo\n',
+      `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I\${includedir}/cairo\n`,
     );
     await build(h, 'cairo');
     expect(commands(h)).toEqual(
@@ -687,7 +690,7 @@ describe('cairo', () => {
       win
         ? // the C++ runtime by its plain name, which Rust's pkg-config parsing (librsvg's cairo-sys) also takes
           `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32 -lole32 ${platform === 'win-arm64' ? '-lc++' : '-lstdc++'}\nCflags: -I\${includedir}/cairo -DCAIRO_WIN32_STATIC_BUILD\n`
-        : 'Libs: -L${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I${includedir}/cairo\n',
+        : `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I\${includedir}/cairo\n`,
     );
   });
   it.each(platformsOf('pixman'))('pixman on %s', async (platform) => {
