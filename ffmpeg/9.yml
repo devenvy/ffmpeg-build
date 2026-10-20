@@ -81,6 +81,15 @@ auto-components:
   - modplug
   - openmpt
   - rav1e
+  - vidstab
+  - mysofa
+  - bs2b
+  - qrencode
+  - quirc
+  - flite
+  - zvbi
+  - aribb24
+  - aribcaption
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
@@ -323,7 +332,7 @@ options:
   # text to speech (an audio source), with Flite's US English voices
   flite: { needs: flite, ships: { filters: [flite] } }
   # DVB Teletext subtitles; zvbi's iconv is the C library's on Android, from API 28
-  zvbi: { needs: zvbi, android-api: 28, ships: { decoders: [libzvbi_teletextdec] } }
+  zvbi: { needs: zvbi, android-api: 28, ships: { decoders: [libzvbi_teletext] } }
   # ARIB STD-B24 captions (Japanese broadcasts): two decoders, one per library
   aribb24:
     { needs: aribb24, ffmpeg-license: version3, min: 1.0.4, ships: { decoders: [libaribb24] } }

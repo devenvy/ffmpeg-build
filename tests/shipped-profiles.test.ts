@@ -1509,7 +1509,7 @@ describe('filter and processing libraries', () => {
       recipes: (p) => (ownIconv(p) ? ['libiconv', 'zvbi'] : ['zvbi']),
       flags: ['--enable-libzvbi'],
       licenses: ['gplv2', 'nonfree'],
-      ships: { decoders: ['libzvbi_teletextdec'] },
+      ships: { decoders: ['libzvbi_teletext'] }, // configure's name; ffmpeg -decoders lists libzvbi_teletextdec
     },
     // LGPL-3.0-or-later, and FFmpeg's class version3
     aribb24: {
