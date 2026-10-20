@@ -356,6 +356,12 @@ options:
   opencolorio: { needs: opencolorio, since: 8.1.0, ships: { filters: [ocio] } }
   # vector graphics drawn on video (the drawvg filter); one cairo for this and librsvg, so it brings GLib
   cairo: { needs: cairo, since: 8.1.0, ships: { filters: [drawvg] } }
+  # SVG images decoded (rasterized) by librsvg, on cairo and Pango
+  rsvg: { needs: librsvg, ships: { decoders: [librsvg] } }
+  # OCR (the ocr filter); its trained language data is the user's (the filter's datapath, or TESSDATA_PREFIX)
+  tesseract: { needs: tesseract, ships: { filters: [ocr] } }
+  # OpenCV's image filters (the ocv filter), through its C API
+  opencv: { needs: opencv, ships: { filters: [ocv] } }
 
   # text, subtitles, XML, compression
   freetype: { needs: freetype, ships: { filters: [{ drawtext: { with: [harfbuzz] } }] } }

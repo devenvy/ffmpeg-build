@@ -14,9 +14,10 @@ source:
   }
 # x.y.9x tags are development snapshots for the next minor.
 versions: { git-tags: '^(\d+\.\d+\.(?:\d|[0-8]\d))$' }
-# Not on Windows (needs a runtime fonts.conf for no real gain: libass uses DirectWrite, drawtext uses fontfile=),
-# Android, iOS or Mac Catalyst.
-platforms: [linux-*, osx-*]
+# Not on Windows (needs a runtime fonts.conf for no real gain: libass uses DirectWrite, drawtext uses fontfile=), iOS
+# or Mac Catalyst. On Android only for Pango (librsvg's text), which requires it there; Android has no fonts.conf of
+# its own, so an application names its fonts with FONTCONFIG_FILE.
+platforms: [linux-*, osx-*, android-*]
 build:
   # fontconfig: system font discovery so drawtext can pick fonts by name (HPND-sell-variant), static. Ported from
   # devenvy/ffmpeg scripts/deps/fontconfig.sh.
