@@ -256,6 +256,13 @@ options:
   aribb24:
     { needs: aribb24, ffmpeg-license: version3, min: 1.0.4, ships: { decoders: [libaribb24] } }
   aribcaption: { needs: libaribcaption, min: 1.1.1, ships: { decoders: [libaribcaption] } }
+  rubberband:
+    { needs: rubberband, ffmpeg-license: gpl, min: 1.8.1, ships: { filters: [rubberband] } }
+  # plugin hosts: the build has the host, and FFmpeg loads the plugins at run time (LADSPA_PATH, LV2_PATH,
+  # FREI0R_PATH or the usual folders), so they come from the system or the application, never from the build
+  ladspa: { needs: ladspa-sdk, ships: { filters: [ladspa] } }
+  lv2: { needs: lilv, ships: { filters: [lv2] } }
+  frei0r: { needs: frei0r, ffmpeg-license: gpl, ships: { filters: [frei0r, frei0r_src] } }
 
   # text, subtitles, XML, compression
   freetype: { needs: freetype, ships: { filters: [{ drawtext: { with: [harfbuzz] } }] } }

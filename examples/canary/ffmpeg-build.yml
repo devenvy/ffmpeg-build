@@ -57,13 +57,14 @@ bases:
         quirc,
         flite,
         aribcaption,
+        lv2,
       ]
   linux:
-    with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau]
+    with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
   gplv2:
-    with: [x264, x265, xvid, xavs, davs2, xavs2, vidstab, zvbi]
+    with: [x264, x265, xvid, xavs, davs2, xavs2, vidstab, zvbi, rubberband, frei0r]
   gplv3:
     with:
       [
@@ -73,6 +74,8 @@ bases:
         xavs,
         davs2,
         xavs2,
+        rubberband,
+        frei0r,
         vidstab,
         aribb24,
         lc3,

@@ -1,0 +1,12 @@
+name: serd
+license: ISC
+license-files: [COPYING]
+source: { git: https://github.com/drobilla/serd, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# only the LV2 host stack (sord, sratom, lilv) builds against it
+platforms: all
+build:
+  # Serd: a lightweight RDF (Turtle) reader and writer (ISC), static, for sord, sratom and lilv (FFmpeg's lv2 filter
+  # reads plugins' Turtle descriptions with it). The library alone: no serdi program, man pages, docs or tests.
+  system: meson
+  args: [-Dtools=disabled, -Dman=disabled, -Ddocs=disabled, -Dtests=disabled]

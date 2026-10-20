@@ -1,0 +1,39 @@
+name: rubberband
+provides: rubberband
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-librubberband]
+source: { git: https://github.com/breakfastquay/rubberband, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # Rubber Band: audio time-stretching and pitch-shifting (GPL-2.0-or-later), static, for FFmpeg's rubberband filter
+  # (found through rubberband.pc, 1.8.1 or later); GPL builds only. C++. The library alone: no program, LADSPA/LV2/Vamp
+  # plugins, Java bridge or tests. Its own FFT and resampler (none of the optional FFTW, SLEEF, libsamplerate or
+  # speexdsp, which it would otherwise take from whatever the build has), and Apple's vDSP (Accelerate) on Apple, as
+  # upstream picks. Its .pc names neither the C++ runtime nor libm, which a static link needs (FFmpeg's configure adds
+  # -lstdc++ itself, which the platform's runtime stands beside).
+  system: meson
+  args:
+    [
+      -Dresampler=builtin,
+      -Djni=disabled,
+      -Dladspa=disabled,
+      -Dlv2=disabled,
+      -Dvamp=disabled,
+      -Dcmdline=disabled,
+      -Dtests=disabled,
+    ]
+  platforms:
+    'linux-*': { args: [-Dfft=builtin] }
+    'win-*': { args: [-Dfft=builtin] }
+    'android-*': { args: [-Dfft=builtin] }
+    'osx-*': { args: [-Dfft=vdsp] }
+    'ios-*': { args: [-Dfft=vdsp] }
+    'maccatalyst-*': { args: [-Dfft=vdsp] }
+  after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/rubberband.pc',
+          libs-private: { add: '{cxx-runtime} -lm', missing: after-libs },
+        }

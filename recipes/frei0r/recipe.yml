@@ -1,0 +1,18 @@
+name: frei0r
+provides: frei0r
+# COPYING is the GPL version 2, and the README releases frei0r "under the terms of the GNU General Public License"
+# without naming a version (so any); frei0r.h itself carries no notice. FFmpeg's class for frei0r is gpl either way.
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-frei0r]
+source: { git: https://github.com/dyne/frei0r, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # frei0r: the video effect plugin API (GPL), for FFmpeg's frei0r and frei0r_src filters; GPL builds only. FFmpeg
+  # only needs its header (frei0r.h): it loads the plugins themselves at run time (dlopen, or LoadLibrary on Windows)
+  # from FREI0R_PATH or the usual folders, so they come from the system or the application, not from this build. The
+  # plugin collection in the same repository isn't built.
+  system: none
+  steps:
+    - copy: { from: include/frei0r.h, into: '{deps}/include' }

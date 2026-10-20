@@ -1,0 +1,14 @@
+name: sord
+license: ISC
+license-files: [COPYING]
+needs: [zix, serd]
+source: { git: https://github.com/drobilla/sord, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# only the LV2 host stack (sratom, lilv) builds against it
+platforms: all
+build:
+  # Sord: an in-memory RDF store (ISC), static, for sratom and lilv (FFmpeg's lv2 filter). The library alone: no
+  # sordi/sord_validate programs (and so no PCRE2), C++ bindings, man pages, docs or tests.
+  system: meson
+  args:
+    [-Dtools=disabled, -Dbindings_cpp=disabled, -Dman=disabled, -Ddocs=disabled, -Dtests=disabled]

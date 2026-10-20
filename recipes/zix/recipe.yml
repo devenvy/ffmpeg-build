@@ -1,0 +1,12 @@
+name: zix
+license: ISC
+license-files: [COPYING]
+source: { git: https://github.com/drobilla/zix, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# only the LV2 host stack (serd, sord, lilv) builds against it
+platforms: all
+build:
+  # Zix: David Robillard's small C utility library (ISC), static, for sord and lilv (FFmpeg's lv2 filter). The library
+  # alone: no benchmarks, docs or tests.
+  system: meson
+  args: [-Dbenchmarks=disabled, -Ddocs=disabled, -Dtests=disabled, -Dtests_cpp=disabled]
