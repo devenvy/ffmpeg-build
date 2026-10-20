@@ -629,6 +629,7 @@ describe('OpenColorIO', () => {
       ]),
     );
     const win = platform.startsWith('win-');
+    const mac = platform.startsWith('osx-');
     expect(h.read(join(h.src, 'src', 'OpenColorIO', 'transforms', 'FileTransform.cpp'))).toContain(
       win
         ? 'Platform::filenameToUTF(filepath).c_str(), mode));'
@@ -636,17 +637,18 @@ describe('OpenColorIO', () => {
     );
     expect(h.read(pcPath(h, 'OpenColorIO'))).toBe(
       `Libs: -L\${libdir} -lOpenColorIO\n` +
-        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${win ? ' -lgdi32 -luser32' : ''}\n` +
+        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${win ? ' -lgdi32 -luser32' : ''}${mac ? ' -framework ColorSync -framework CoreFoundation -framework CoreGraphics -framework IOKit' : ''}\n` +
         `Cflags: -I\${includedir}${win ? ' -DOpenColorIO_SKIP_IMPORTS' : ''}\n` +
         'Requires.private: yaml-cpp minizip-ng Imath expat zlib\n',
     );
   });
-  // not Apple (#41, and iOS's missing macOS APIs): its dependencies build where it does
-  const notApple = PLATFORMS.filter((p) => /^(linux|win|android)-/.test(p));
+  // macOS too (the engine's fix for FFmpeg's VERSION file, #41), not iOS or Mac Catalyst (their missing macOS APIs):
+  // its dependencies build where it does
+  const notIos = PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p));
   it.each(['opencolorio', 'yaml-cpp', 'pystring', 'imath', 'minizip-ng'])(
-    '%s builds on Linux, Windows and Android',
+    '%s builds on Linux, macOS, Windows and Android',
     (name) => {
-      expect(platformsOf(name)).toEqual(notApple);
+      expect(platformsOf(name)).toEqual(notIos);
     },
   );
   it('takes libexpat, which now builds on Windows and Android too', () => {

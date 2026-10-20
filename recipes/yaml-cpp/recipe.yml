@@ -4,7 +4,7 @@ license-files: [LICENSE]
 source: { git: https://github.com/jbeder/yaml-cpp, ref: 'yaml-cpp-{version}' }
 versions: { git-tags: '^yaml-cpp-(\d+\.\d+\.\d+)$' }
 # only OpenColorIO builds against it, where it builds
-platforms: [linux-*, win-*, android-*]
+platforms: [linux-*, osx-*, win-*, android-*]
 build:
   # yaml-cpp: a YAML parser and emitter for C++ (MIT), static, for OpenColorIO's config files. The library alone: no
   # tools, contrib or tests (as OpenColorIO's own build of it).

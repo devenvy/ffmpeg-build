@@ -10,7 +10,7 @@ toolchain, so every platform's setup, packaging and tests run in CI without buil
 | linux-musl-arm64                                             | the musl (Alpine) image, tested in Alpine                                |
 | win-x64, win-arm64                                           | the Windows cross builds, tested on Windows and Windows on Arm runners   |
 | android-arm64                                                | the Android NDK build for API 24 (`android-api:`), tested on an emulator |
-| osx-arm64                                                    | a native macOS build                                                     |
+| osx-arm64                                                    | a native macOS build, with OpenColorIO (`tests/ocio.sh` runs its filter) |
 | ios-arm64, ios-sim-arm64, maccatalyst-arm64, maccatalyst-x64 | the four slices of one iOS / Mac Catalyst xcframework bundle             |
 
 ios-arm64 and maccatalyst-arm64 also build Vulkan and libplacebo, with MoltenVK linked statically into their frameworks

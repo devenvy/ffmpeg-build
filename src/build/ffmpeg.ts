@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { fetchSource, sourceRecord, type SourceRecord } from './fetch.ts';
@@ -9,6 +9,30 @@ import type { BuildContext } from './library.ts';
 
 /** How much of config.log to show when configure fails: its end, where the failed test is. */
 const CONFIG_LOG_TAIL_LINES = 200;
+
+/**
+ * Apple's file system is case-insensitive, and FFmpeg compiles with -I.: the VERSION file at the root of a release
+ * tarball is what libc++'s `#include <version>` then finds, so none of FFmpeg's C++ sources compiles (the ocio
+ * filter's; devenvy/ffmpeg-build#41). FFmpeg after 9.0 names it FF_VERSION (upstream 72e5fc4b80). Before that,
+ * ffbuild/version.sh reads the version from VERSION, else from RELEASE, which in a release says the same: VERSION is
+ * removed, once RELEASE is seen to agree. True when it was.
+ */
+export function unshadowVersionHeader(dir: string, setup: string): boolean {
+  const version = join(dir, 'VERSION');
+  if (!setup.startsWith('apple-') || !existsSync(version)) {
+    return false;
+  }
+  const said = readFileSync(version, 'utf8').trim();
+  const release = join(dir, 'RELEASE');
+  const released = existsSync(release) ? readFileSync(release, 'utf8').trim() : '';
+  if (said !== released) {
+    throw new Error(
+      `FFmpeg's VERSION (${said}) and RELEASE (${released || 'none'}) differ: without VERSION, which shadows libc++'s <version> on Apple, its version would be RELEASE's`,
+    );
+  }
+  rmSync(version);
+  return true;
+}
 
 export async function buildFfmpeg(
   context: BuildContext,
@@ -43,6 +67,9 @@ export async function buildFfmpeg(
         );
       }
     }
+  }
+  if (unshadowVersionHeader(dir, context.buildPlan.setup)) {
+    step("VERSION removed: it would shadow libc++'s <version> (RELEASE gives the same version)");
   }
   const install = join(context.work, 'install');
   const env = {

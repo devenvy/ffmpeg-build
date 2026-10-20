@@ -122,13 +122,14 @@ targets:
   # MoltenVK, which no Linux or Windows target builds: on macOS its dylib and ICD manifest ship beside the Khronos
   # loader. Just Vulkan and libplacebo on it, to keep the macOS run short, and iconv, the one library only Apple and
   # Windows build (GNU libiconv: the C library has no iconv FFmpeg links by itself there), and OpenCL (macOS's own
-  # framework). (The static MoltenVK of iOS and Mac Catalyst is built by examples/test-builds: a canary iOS target
+  # framework), and OpenColorIO (FFmpeg's ocio filter is C++, which needs the engine's fix for FFmpeg's VERSION file
+  # on macOS, #41). (The static MoltenVK of iOS and Mac Catalyst is built by examples/test-builds: a canary iOS target
   # would need all four xcframework slices.)
   osx-arm64-lgplv3:
     platform: osx-arm64
     license: lgplv3
     ffmpeg: '9'
-    with: [vulkan, placebo, iconv, opencl]
+    with: [vulkan, placebo, iconv, opencl, opencolorio]
   # Rockchip MPP, which only ARM Linux builds: rkmpp alone (with the libdrm it needs), to keep the arm64 run short; and
   # mbedTLS as the build's TLS, which the other Linux targets' OpenSSL and GnuTLS leave out (one TLS per build)
   linux-arm64-lgplv3:

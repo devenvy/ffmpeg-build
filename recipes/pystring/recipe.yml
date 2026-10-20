@@ -4,7 +4,7 @@ license-files: [LICENSE]
 source: { git: https://github.com/imageworks/pystring, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # only OpenColorIO builds against it, where it builds
-platforms: [linux-*, win-*, android-*]
+platforms: [linux-*, osx-*, win-*, android-*]
 build:
   # pystring: Python's string methods for C++ (BSD-3-Clause), static, for OpenColorIO.
   system: cmake

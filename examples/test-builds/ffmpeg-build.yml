@@ -78,14 +78,16 @@ targets:
   # android-api: 24, below the default 28: the NDK's API 24 compilers, and the smoke program linked for API 24
   android-arm64-lgplv3:
     { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small], android-api: 24 }
+  # OpenColorIO: FFmpeg's ocio filter is C++, which on macOS compiles only without the release's VERSION file
+  # (devenvy/ffmpeg-build#41); tests/ocio.sh runs it
   osx-arm64-lgplv3:
     {
       platform: osx-arm64,
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [opencl],
-      tests: [tests/test-env.sh],
+      with: [opencl, opencolorio],
+      tests: [tests/test-env.sh, tests/ocio.sh],
       test-env: [FFB_TEST_ENV_CHECK],
     }
   # MoltenVK linked statically into the frameworks (--enable-vulkan-static), as the shipped v3 targets have it
