@@ -458,13 +458,53 @@ const ENTITIES: Record<string, string> = {
 };
 
 const HEX = 16;
+const SKIPPED_TAGS = new Set(['style', 'script']);
+const BLOCK_TAGS = new Set([
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'li',
+  'div',
+  'tr',
+  'pre',
+  'title',
+  'summary',
+  'dt',
+  'dd',
+]);
 
 /** The Rust standard library's COPYRIGHT-library.html as plain text, for THIRD-PARTY-NOTICES.txt. */
 export function rustNoticeText(html: string): string {
-  const text = html
-    .replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<br\s*\/?>|<\/(h[1-6]|p|li|div|tr|pre|title|summary|dt|dd)>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
+  // one pass over the markup: a tag is dropped (a line break where it ends a block), and everything inside <style> or
+  // <script> with it; the text between tags is kept
+  let plain = '';
+  let skipping = '';
+  for (let at = 0; at < html.length;) {
+    const open = html.indexOf('<', at);
+    if (open < 0) {
+      plain += skipping ? '' : html.slice(at);
+      break;
+    }
+    plain += skipping ? '' : html.slice(at, open);
+    const close = html.indexOf('>', open);
+    const tag = (close < 0 ? html.slice(open + 1) : html.slice(open + 1, close))
+      .trim()
+      .toLowerCase();
+    const name = /^\/?([a-z0-9]+)/.exec(tag)?.[1] ?? '';
+    if (skipping) {
+      skipping = tag === `/${skipping}` ? '' : skipping;
+    } else if (!tag.startsWith('/') && SKIPPED_TAGS.has(name)) {
+      skipping = name;
+    } else if (name === 'br' || (tag.startsWith('/') && BLOCK_TAGS.has(name))) {
+      plain += '\n';
+    }
+    at = close < 0 ? html.length : close + 1;
+  }
+  const text = plain
     .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
       String.fromCodePoint(Number.parseInt(hex, HEX)),
     )

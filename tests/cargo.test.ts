@@ -313,6 +313,10 @@ describe("a Rust library's crate inventory", () => {
         '<style>p{}</style><h2>A</h2><ul><li>x &#60;y&#62;</li><li>&quot;z&quot;</li></ul>\n\n\n\n<p>end</p>',
       ),
     ).toBe('A\nx <y>\n"z"\n\nend\n');
+    // a script's text goes with it, nested markup or not; a tag never closed ends the text
+    expect(rustNoticeText('<SCRIPT type="x">a <scr<script>ipt> b</script>kept<br/>line<p')).toBe(
+      'kept\nline\n',
+    );
   });
 });
 
