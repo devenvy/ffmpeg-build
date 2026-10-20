@@ -1,0 +1,18 @@
+name: pixman
+license: MIT
+license-files: [COPYING]
+source:
+  {
+    git: https://gitlab.freedesktop.org/pixman/pixman.git,
+    ref: 'pixman-{version}',
+    mirror: https://github.com/freedesktop/pixman.git,
+  }
+# even minor versions are releases, odd ones development snapshots
+versions: { git-tags: '^pixman-(0\.\d*[02468]\.\d+)$' }
+# only cairo builds against it
+platforms: all
+build:
+  # pixman: the pixel-manipulation library under cairo (MIT), static. The library alone: no tests, demos or GTK, no
+  # libpng, no OpenMP; its SIMD where the platform has it, as it detects.
+  system: meson
+  args: [-Dtests=disabled, -Ddemos=disabled, -Dgtk=disabled, -Dlibpng=disabled, -Dopenmp=disabled]

@@ -265,6 +265,12 @@ options:
   ladspa: { needs: ladspa-sdk, ships: { filters: [ladspa] } }
   lv2: { needs: lilv, ships: { filters: [lv2] } }
   frei0r: { needs: frei0r, ffmpeg-license: gpl, ships: { filters: [frei0r, frei0r_src] } }
+  # lens correction; the lens database is the user's (the filter's db_path)
+  lensfun: { needs: lensfun, ffmpeg-license: version3, ships: { filters: [lensfun] } }
+  # colour management; the OCIO config is the user's (the filter's config, or $OCIO)
+  opencolorio: { needs: opencolorio, since: 8.1.0, ships: { filters: [ocio] } }
+  # vector graphics drawn on video (the drawvg filter); one cairo for this and librsvg, so it brings GLib
+  cairo: { needs: cairo, since: 8.1.0, ships: { filters: [drawvg] } }
 
   # text, subtitles, XML, compression
   freetype: { needs: freetype, ships: { filters: [{ drawtext: { with: [harfbuzz] } }] } }

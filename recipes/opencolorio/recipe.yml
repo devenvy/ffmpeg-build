@@ -1,0 +1,65 @@
+name: opencolorio
+provides: opencolorio
+license: BSD-3-Clause
+license-files: [LICENSE]
+# FFmpeg's ocio filter is C++ itself, so libavfilter is linked by the C++ compiler, which takes its runtime shared:
+# on musl, where FFmpeg's libraries carry their C++ and GCC runtimes statically, statically
+configure:
+  - --enable-libopencolorio
+  - '--extra-ldflags=-static-libstdc++': { platforms: [linux-musl-*] }
+needs: [libexpat, yaml-cpp, pystring, imath, zlib, minizip-ng]
+source: { git: https://github.com/AcademySoftwareFoundation/OpenColorIO, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # OpenColorIO: colour management (BSD-3-Clause), static, for FFmpeg's ocio filter (found through OpenColorIO.pc, by
+  # its C++ API). The library alone: no apps, OpenFX/Nuke plugins, Python or Java bindings, docs or tests. Every
+  # dependency is a recipe in deps (OCIO_INSTALL_EXT_PACKAGES=NONE: nothing is fetched during the build). SIMD on x86
+  # only: on ARM it needs sse2neon, which it would fetch.
+  #
+  # Its .pc names only -lOpenColorIO: a static link also needs its dependencies and the C++ runtime.
+  system: cmake
+  args:
+    [
+      -DOCIO_INSTALL_EXT_PACKAGES=NONE,
+      -DOCIO_BUILD_APPS=OFF,
+      -DOCIO_BUILD_OPENFX=OFF,
+      -DOCIO_BUILD_NUKE=OFF,
+      -DOCIO_BUILD_TESTS=OFF,
+      -DOCIO_BUILD_GPU_TESTS=OFF,
+      -DOCIO_BUILD_DOCS=OFF,
+      -DOCIO_BUILD_PYTHON=OFF,
+      -DOCIO_BUILD_JAVA=OFF,
+      -DOCIO_USE_SOVERSION=OFF,
+    ]
+  platforms:
+    # On Windows it opens one file stream from a std::wstring, an MSVC extension; mingw's C++ libraries take the
+    # wide C string (the rest of its code already passes that). Its non-Unicode Windows build doesn't compile.
+    'win-*':
+      before:
+        - replace-in-file:
+            {
+              path: src/OpenColorIO/transforms/FileTransform.cpp,
+              from: 'Platform::filenameToUTF(filepath), mode));',
+              to: 'Platform::filenameToUTF(filepath).c_str(), mode));',
+            }
+      # without OpenColorIO_SKIP_IMPORTS its headers declare the API dllimport; its monitor listing (ICC profiles)
+      # calls GDI and User
+      after:
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/OpenColorIO.pc',
+              cflags: { append: -DOpenColorIO_SKIP_IMPORTS },
+              libs-private: { add: -lgdi32 -luser32 },
+            }
+    # the NDK's toolchain file finds packages only under its root paths: its dependencies' CMake configs are in deps
+    'android-*': { args: ['-DCMAKE_FIND_ROOT_PATH={deps}'] }
+    '*-arm64': { args: [-DOCIO_USE_SIMD=OFF] }
+    linux-armhf: { args: [-DOCIO_USE_SIMD=OFF] }
+  after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/OpenColorIO.pc',
+          requires-private: { set: 'yaml-cpp minizip-ng Imath expat zlib' },
+          libs-private: { set: '-lpystring {cxx-runtime} -lm', missing: after-libs },
+        }

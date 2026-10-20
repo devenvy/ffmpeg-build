@@ -1441,6 +1441,15 @@ describe('filter and processing libraries', () => {
   const V3 = ['lgplv3', 'gplv3', 'nonfree'];
   const GPL = ['gplv2', 'gplv3', 'nonfree'];
   const ownIconv = (p: string) => /^(win|osx|ios|maccatalyst)-/.test(p);
+  /** GLib and what it needs: proxy-libintl where the C library has no gettext, GNU libiconv on Apple. */
+  const glibStack = (p: string) => [
+    'glib',
+    'libffi',
+    'pcre2',
+    'zlib',
+    ...(p.startsWith('linux-') && !p.startsWith('linux-musl-') ? [] : ['proxy-libintl']),
+    ...(/^(osx|ios|maccatalyst)-/.test(p) ? ['libiconv'] : []),
+  ];
   const where: Record<
     string,
     {
@@ -1570,6 +1579,50 @@ describe('filter and processing libraries', () => {
       flags: ['--enable-frei0r'],
       licenses: GPL,
       ships: { filters: ['frei0r', 'frei0r_src'] },
+    },
+    // LGPL-3.0-or-later, and FFmpeg's class version3; on GLib
+    lensfun: {
+      platforms: PLATFORMS,
+      recipe: 'lensfun',
+      recipes: (p) => [...glibStack(p), 'lensfun'].sort(),
+      flags: ['--enable-liblensfun'],
+      licenses: V3,
+      ships: { filters: ['lensfun'] },
+    },
+    opencolorio: {
+      platforms: PLATFORMS,
+      recipe: 'opencolorio',
+      recipes: () => [
+        'imath',
+        'libexpat',
+        'minizip-ng',
+        'opencolorio',
+        'pystring',
+        'yaml-cpp',
+        'zlib',
+      ],
+      flags: ['--enable-libopencolorio'],
+      licenses: ALL,
+      ships: { filters: ['ocio'] },
+    },
+    // one cairo, with cairo-gobject (so GLib) and the platform's fonts
+    cairo: {
+      platforms: PLATFORMS,
+      recipe: 'cairo',
+      recipes: (p) => {
+        const fonts = p.startsWith('linux-') ? ['fontconfig', 'freetype', 'libexpat'] : [];
+        return [
+          ...glibStack(p),
+          'cairo',
+          'libpng',
+          'pixman',
+          ...fonts,
+          ...(p.startsWith('android-') ? ['freetype'] : []),
+        ].sort();
+      },
+      flags: ['--enable-cairo'],
+      licenses: ALL,
+      ships: { filters: ['drawvg'] },
     },
   };
   const OPTIONS = Object.keys(where);

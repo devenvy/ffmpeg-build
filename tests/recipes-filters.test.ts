@@ -441,3 +441,270 @@ describe('the LV2 host stack', () => {
     expect(recipe('lilv').provides).toBe('lv2');
   });
 });
+
+const apple = (p: string) => /^(osx|ios|maccatalyst)-/.test(p);
+
+// GLib and what it builds on: PCRE2 (8-bit, no JIT), libffi, and proxy-libintl's stubs where the C library has no
+// gettext; nothing fetched as a subproject.
+describe('GLib', () => {
+  it.each(platformsOf('pcre2'))('pcre2 on %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'pcre2');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DPCRE2_BUILD_PCRE2_8=ON',
+        '-DPCRE2_BUILD_PCRE2_16=OFF',
+        '-DPCRE2_BUILD_PCRE2_32=OFF',
+        '-DPCRE2_BUILD_PCRE2GREP=OFF',
+        '-DPCRE2_BUILD_TESTS=OFF',
+        '-DPCRE2_SUPPORT_JIT=OFF',
+        '-DPCRE2_STATIC_PIC=ON',
+      ]),
+    );
+  });
+  it.each(platformsOf('libffi'))('libffi on %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libffi');
+    expect(commands(h)).toEqual([
+      configureLine(h, [
+        '--disable-shared',
+        '--enable-static',
+        '--with-pic',
+        '--disable-docs',
+        '--disable-multi-os-directory',
+        `--libdir=${h.deps}/lib`,
+      ]),
+      'make -j4',
+      'make install',
+    ]);
+  });
+  it.each(platformsOf('proxy-libintl'))('proxy-libintl on %s', async (platform) => {
+    const h = fake(platform);
+    const header =
+      '#if defined(_WIN32) && !defined(G_INTL_STATIC_COMPILATION)\n#  define G_INTL_EXPORT __declspec(dllimport)\n';
+    put(join(h.deps, 'include', 'libintl.h'), header);
+    await build(h, 'proxy-libintl');
+    expect(commands(h)).toEqual(mesonLines(h, []));
+    expect(h.read(join(h.deps, 'include', 'libintl.h'))).toBe(
+      '#if 0 /* static: ffmpeg-build */\n#  define G_INTL_EXPORT __declspec(dllimport)\n',
+    );
+  });
+  it.each(platformsOf('glib'))('glib on %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'glib');
+    const musl = platform.startsWith('linux-musl-')
+      ? ` [CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`
+      : '';
+    expect(commands(h)).toEqual(
+      mesonLines(h, [
+        '--wrap-mode=nofallback',
+        '-Dtests=false',
+        '-Dinstalled_tests=false',
+        '-Ddocumentation=false',
+        '-Dman-pages=disabled',
+        '-Dintrospection=disabled',
+        '-Dnls=disabled',
+        '-Dselinux=disabled',
+        '-Dlibmount=disabled',
+        '-Dxattr=false',
+        '-Dsysprof=disabled',
+        '-Ddtrace=disabled',
+        '-Dsystemtap=disabled',
+        '-Dlibelf=disabled',
+        '-Dglib_debug=disabled',
+      ]).map((line) => line + musl),
+    );
+  });
+  it('takes proxy-libintl wherever the C library is not glibc, GNU libiconv on Apple, and 2.86', () => {
+    const noGettext = PLATFORMS.filter((p) => !/^linux-(x64|arm64|armhf)$/.test(p));
+    expect(platformsOf('proxy-libintl')).toEqual(noGettext);
+    expect(recipe('glib').needs).toEqual([
+      { name: 'zlib' },
+      { name: 'pcre2' },
+      { name: 'libffi' },
+      {
+        name: 'proxy-libintl',
+        platforms: ['linux-musl-*', 'win-*', 'osx-*', 'ios-*', 'maccatalyst-*', 'android-*'],
+      },
+      { name: 'libiconv', platforms: ['osx-*', 'ios-*', 'maccatalyst-*'] },
+    ]);
+    expect(recipe('pcre2').license).toBe('BSD-3-Clause WITH PCRE2-exception');
+  });
+});
+
+// Lensfun from master (FFmpeg's filter uses the coming 0.4 API), without its database, Python module or programs.
+describe('lensfun', () => {
+  it.each(platformsOf('lensfun'))('%s', async (platform) => {
+    const h = fake(platform);
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        put(
+          pcPath(h, 'lensfun'),
+          'Requires.private: glib-2.0\nLibs: -L${libdir} -llensfun\nCflags: -I${includedir}\n',
+        );
+        put(join(h.deps, 'share', 'lensfun', 'version_2', 'mil-sony.xml'), '<lensdatabase/>');
+      }
+      return undefined;
+    };
+    await build(h, 'lensfun');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DBUILD_STATIC=ON',
+        '-DBUILD_TESTS=OFF',
+        '-DBUILD_LENSTOOL=OFF',
+        '-DBUILD_DOC=OFF',
+        '-DINSTALL_PYTHON_MODULE=OFF',
+        '-DINSTALL_HELPER_SCRIPTS=OFF',
+        '-DCMAKE_INSTALL_DATAROOTDIR=share',
+        '-DPYTHON=PYTHON-NOTFOUND',
+      ]),
+    );
+    expect(h.files(h.deps).filter((f) => f.startsWith('share/'))).toEqual([]);
+    const win = platform.startsWith('win-') ? ' -DCONF_LENSFUN_STATIC' : '';
+    expect(h.read(pcPath(h, 'lensfun'))).toBe(
+      `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
+    );
+  });
+  it('is the library alone, LGPL-3.0-or-later, from master', () => {
+    expect(recipe('lensfun').license).toBe('LGPL-3.0-or-later');
+    expect(recipe('lensfun').versions).toEqual({ 'git-branch': 'master' });
+  });
+});
+
+// OpenColorIO on its own recipes (nothing fetched), its .pc completed for a static link.
+describe('OpenColorIO', () => {
+  it.each(platformsOf('opencolorio'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(
+      join(h.src, 'src', 'OpenColorIO', 'transforms', 'FileTransform.cpp'),
+      '    return std::unique_ptr<std::istream>(new std::ifstream(\n        Platform::filenameToUTF(filepath), mode));\n',
+    );
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        put(pcPath(h, 'OpenColorIO'), 'Libs: -L${libdir} -lOpenColorIO\nCflags: -I${includedir}\n');
+      }
+      return undefined;
+    };
+    await build(h, 'opencolorio');
+    const arm = /-arm64$|^linux-armhf$/.test(platform);
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DOCIO_INSTALL_EXT_PACKAGES=NONE',
+        '-DOCIO_BUILD_APPS=OFF',
+        '-DOCIO_BUILD_OPENFX=OFF',
+        '-DOCIO_BUILD_NUKE=OFF',
+        '-DOCIO_BUILD_TESTS=OFF',
+        '-DOCIO_BUILD_GPU_TESTS=OFF',
+        '-DOCIO_BUILD_DOCS=OFF',
+        '-DOCIO_BUILD_PYTHON=OFF',
+        '-DOCIO_BUILD_JAVA=OFF',
+        '-DOCIO_USE_SOVERSION=OFF',
+        ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
+        ...(arm ? ['-DOCIO_USE_SIMD=OFF'] : []),
+      ]),
+    );
+    const win = platform.startsWith('win-');
+    expect(h.read(join(h.src, 'src', 'OpenColorIO', 'transforms', 'FileTransform.cpp'))).toContain(
+      win
+        ? 'Platform::filenameToUTF(filepath).c_str(), mode));'
+        : 'Platform::filenameToUTF(filepath), mode));',
+    );
+    expect(h.read(pcPath(h, 'OpenColorIO'))).toBe(
+      'Libs: -L${libdir} -lOpenColorIO\n' +
+        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${win ? ' -lgdi32 -luser32' : ''}\n` +
+        `Cflags: -I\${includedir}${win ? ' -DOpenColorIO_SKIP_IMPORTS' : ''}\n` +
+        'Requires.private: yaml-cpp minizip-ng Imath expat zlib\n',
+    );
+  });
+  it.each(['yaml-cpp', 'pystring', 'imath', 'minizip-ng'])('%s builds everywhere', (name) => {
+    expect(platformsOf(name)).toEqual(PLATFORMS);
+  });
+  it('takes libexpat, which now builds everywhere', () => {
+    expect(platformsOf('libexpat')).toEqual(PLATFORMS);
+  });
+});
+
+// cairo with cairo-gobject and the platform's fonts, on pixman.
+describe('cairo', () => {
+  const fonts = (p: string) => {
+    if (p.startsWith('linux-')) {
+      return [
+        '-Dfreetype=enabled',
+        '-Dfontconfig=enabled',
+        '-Dquartz=disabled',
+        '-Ddwrite=disabled',
+      ];
+    }
+    if (p.startsWith('android-')) {
+      return [
+        '-Dfreetype=enabled',
+        '-Dfontconfig=disabled',
+        '-Dquartz=disabled',
+        '-Ddwrite=disabled',
+      ];
+    }
+    if (p.startsWith('win-')) {
+      return [
+        '-Dfreetype=disabled',
+        '-Dfontconfig=disabled',
+        '-Dquartz=disabled',
+        '-Ddwrite=enabled',
+      ];
+    }
+    return [
+      '-Dfreetype=disabled',
+      '-Dfontconfig=disabled',
+      '-Dquartz=enabled',
+      '-Ddwrite=disabled',
+    ];
+  };
+  it.each(platformsOf('cairo'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(
+      pcPath(h, 'cairo'),
+      'Libs: -L${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I${includedir}/cairo\n',
+    );
+    await build(h, 'cairo');
+    expect(commands(h)).toEqual(
+      mesonLines(h, [
+        '-Dtests=disabled',
+        '-Dxlib=disabled',
+        '-Dxcb=disabled',
+        '-Dxlib-xcb=disabled',
+        '-Dzlib=enabled',
+        '-Dpng=enabled',
+        '-Dglib=enabled',
+        '-Dlzo=disabled',
+        '-Dspectre=disabled',
+        '-Dsymbol-lookup=disabled',
+        '-Dgtk2-utils=disabled',
+        '--wrap-mode=nofallback',
+        ...fonts(platform),
+      ]),
+    );
+    const win = platform.startsWith('win-');
+    expect(h.read(pcPath(h, 'cairo'))).toBe(
+      win
+        ? `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32 -lole32 ${cxxRuntime(platform)}\nCflags: -I\${includedir}/cairo -DCAIRO_WIN32_STATIC_BUILD\n`
+        : 'Libs: -L${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I${includedir}/cairo\n',
+    );
+  });
+  it.each(platformsOf('pixman'))('pixman on %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'pixman');
+    expect(commands(h)).toEqual(
+      mesonLines(h, [
+        '-Dtests=disabled',
+        '-Ddemos=disabled',
+        '-Dgtk=disabled',
+        '-Dlibpng=disabled',
+        '-Dopenmp=disabled',
+      ]),
+    );
+  });
+  it('is LGPL-2.1-only OR MPL-1.1, on GLib, Fontconfig on Linux only', () => {
+    expect(recipe('cairo').license).toBe('LGPL-2.1-only OR MPL-1.1');
+    expect(recipe('cairo').needs.map((n) => n.name)).toContain('glib');
+    expect(apple('osx-arm64')).toBe(true);
+  });
+});

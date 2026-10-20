@@ -1,0 +1,26 @@
+# PCRE2's release tarball: its git tree takes sljit (the JIT) as a submodule, which the tarball carries.
+name: pcre2
+license: BSD-3-Clause WITH PCRE2-exception
+license-files: [LICENCE.md]
+source:
+  {
+    url: 'https://github.com/PCRE2Project/pcre2/releases/download/pcre2-{version}/pcre2-{version}.tar.bz2',
+  }
+versions: { git-tags: '^pcre2-(\d+\.\d+)$', repo: https://github.com/PCRE2Project/pcre2 }
+# only GLib builds against it
+platforms: all
+build:
+  # PCRE2: Perl-compatible regular expressions (BSD-3-Clause with its binary-distribution exception), static, the
+  # 8-bit library alone, for GLib's GRegex. No pcre2grep or pcre2test (and so none of their zlib, bzip2, readline),
+  # no JIT (GLib doesn't need it, and it would need executable memory on iOS), no tests.
+  system: cmake
+  args:
+    [
+      -DPCRE2_BUILD_PCRE2_8=ON,
+      -DPCRE2_BUILD_PCRE2_16=OFF,
+      -DPCRE2_BUILD_PCRE2_32=OFF,
+      -DPCRE2_BUILD_PCRE2GREP=OFF,
+      -DPCRE2_BUILD_TESTS=OFF,
+      -DPCRE2_SUPPORT_JIT=OFF,
+      -DPCRE2_STATIC_PIC=ON,
+    ]

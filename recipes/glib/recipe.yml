@@ -1,0 +1,50 @@
+name: glib
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+needs:
+  - zlib
+  - pcre2
+  - libffi
+  - { proxy-libintl: { platforms: [linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*] } }
+  - { libiconv: { platforms: [osx-*, ios-*, maccatalyst-*] } }
+source:
+  {
+    git: https://gitlab.gnome.org/GNOME/glib.git,
+    ref: '{version}',
+    mirror: https://github.com/GNOME/glib.git,
+  }
+# 2.86, the last stable series before GIO's Windows package parser took WinRT headers (windows.storage.h,
+# windows.applicationmodel.core.h) that win-x64's mingw-w64 (Ubuntu's 11.0.1) hasn't got. Move on when it has them.
+versions: { git-tags: '^(2\.86\.\d+)$' }
+platforms: all
+build:
+  # GLib, GObject and GIO (LGPL-2.1-or-later), static, for what builds on them here (lensfun, cairo-gobject). The
+  # libraries alone: no tools' man pages, docs, tests, introspection, translations or system integrations (SELinux,
+  # libmount, xattr, sysprof, dtrace). Every dependency it would otherwise fetch as a subproject is a recipe in deps
+  # (--wrap-mode=nofallback keeps it that way): PCRE2, libffi, zlib, and gettext's API from proxy-libintl where the
+  # C library has none. iconv is the C library's on Linux and Android (API 28), GNU libiconv on Apple (which the
+  # engine builds there for FFmpeg's iconv too), and GLib's own on Windows.
+  system: meson
+  args:
+    [
+      --wrap-mode=nofallback,
+      -Dtests=false,
+      -Dinstalled_tests=false,
+      -Ddocumentation=false,
+      -Dman-pages=disabled,
+      -Dintrospection=disabled,
+      -Dnls=disabled,
+      -Dselinux=disabled,
+      -Dlibmount=disabled,
+      -Dxattr=false,
+      -Dsysprof=disabled,
+      -Ddtrace=disabled,
+      -Dsystemtap=disabled,
+      -Dlibelf=disabled,
+      -Dglib_debug=disabled,
+    ]
+  platforms:
+    # a native build has no cross file to name deps' folders, and libintl has no .pc: meson's search for it (the
+    # header, then -lintl) is told where they are
+    'linux-musl-*':
+      env: { CPPFLAGS: '-I{deps}/include {CPPFLAGS|}', LDFLAGS: '-L{deps}/lib {LDFLAGS|}' }

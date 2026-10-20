@@ -1,0 +1,67 @@
+name: cairo
+provides: cairo
+# cairo's choice of licences: LGPL-2.1-only or MPL-1.1
+license: LGPL-2.1-only OR MPL-1.1
+license-files: [COPYING, COPYING-LGPL-2.1, COPYING-MPL-1.1]
+configure: [--enable-cairo]
+needs:
+  - pixman
+  - zlib
+  - libpng
+  - glib
+  - { freetype: { platforms: [linux-*, android-*] } }
+  - { fontconfig: { platforms: [linux-*] } }
+source:
+  {
+    git: https://gitlab.freedesktop.org/cairo/cairo.git,
+    ref: '{version}',
+    mirror: https://github.com/freedesktop/cairo.git,
+  }
+# even minor versions are releases
+versions: { git-tags: '^(1\.\d*[02468]\.\d+)$' }
+platforms: all
+build:
+  # cairo: 2D vector graphics (LGPL-2.1-only OR MPL-1.1), static, for FFmpeg's drawvg filter (found through cairo.pc)
+  # and, to come, under Pango and librsvg (FFmpeg's SVG decoder). A deps folder holds one cairo, so it is built as
+  # librsvg needs it: the image, PNG, PDF, PostScript and SVG surfaces (zlib, libpng), cairo-gobject (on GLib: the
+  # cairo option brings GLib too), and the platform's fonts:
+  # FreeType and Fontconfig on Linux, FreeType on Android, DirectWrite on Windows, Quartz (Core Text) on Apple. No
+  # X11/XCB, tests or BFD symbol lookup.
+  system: meson
+  args:
+    [
+      -Dtests=disabled,
+      -Dxlib=disabled,
+      -Dxcb=disabled,
+      -Dxlib-xcb=disabled,
+      -Dzlib=enabled,
+      -Dpng=enabled,
+      -Dglib=enabled,
+      -Dlzo=disabled,
+      -Dspectre=disabled,
+      -Dsymbol-lookup=disabled,
+      -Dgtk2-utils=disabled,
+      --wrap-mode=nofallback,
+    ]
+  platforms:
+    'linux-*':
+      { args: [-Dfreetype=enabled, -Dfontconfig=enabled, -Dquartz=disabled, -Ddwrite=disabled] }
+    'android-*':
+      { args: [-Dfreetype=enabled, -Dfontconfig=disabled, -Dquartz=disabled, -Ddwrite=disabled] }
+    # on Windows cairo.h declares the API dllimport unless CAIRO_WIN32_STATIC_BUILD is defined, which its .pc doesn't
+    # pass on; and its DirectWrite font backend is C++ on COM, whose runtime and ole32 a static link needs
+    'win-*':
+      args: [-Dfreetype=disabled, -Dfontconfig=disabled, -Dquartz=disabled, -Ddwrite=enabled]
+      after:
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/cairo.pc',
+              cflags: { append: -DCAIRO_WIN32_STATIC_BUILD },
+              libs-private: { add: '-lole32 {cxx-runtime}' },
+            }
+    'osx-*':
+      &apple {
+        args: [-Dfreetype=disabled, -Dfontconfig=disabled, -Dquartz=enabled, -Ddwrite=disabled],
+      }
+    'ios-*': *apple
+    'maccatalyst-*': *apple

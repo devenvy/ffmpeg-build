@@ -58,6 +58,8 @@ bases:
         flite,
         aribcaption,
         lv2,
+        opencolorio,
+        cairo,
       ]
   linux:
     with: [v4l2-m2m, fontconfig, vaapi, drm, cuda-llvm, vdpau, ladspa]
@@ -78,6 +80,7 @@ bases:
         frei0r,
         vidstab,
         aribb24,
+        lensfun,
         lc3,
         ilbc,
         opencore-amrnb,
@@ -93,6 +96,7 @@ bases:
         kvazaar,
         lcevc-dec,
         aribb24,
+        lensfun,
         lc3,
         ilbc,
         opencore-amrnb,

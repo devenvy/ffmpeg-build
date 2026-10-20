@@ -8,6 +8,8 @@ licenses:
   BSD-2-Clause: all
   BSD-2-Clause-Patent: all
   BSD-3-Clause: all
+  # PCRE2's: BSD-3-Clause, with an exception that waives the notice for binaries that only link it
+  BSD-3-Clause WITH PCRE2-exception: all
   BSD-3-Clause-Clear: all
   ISC: all
   0BSD: all
@@ -25,6 +27,9 @@ licenses:
   LGPL-2.1-only: all
   LGPL-2.1-or-later: all
   MPL-2.0: all
+  # MPL-1.1 is incompatible with the GPL (cairo, its one user, is LGPL-2.1-only OR MPL-1.1: GPL builds take it under
+  # the LGPL)
+  MPL-1.1: [lgplv2, lgplv3, nonfree]
   LGPL-3.0-or-later: [lgplv3, gplv3, nonfree]
   GPL-2.0-or-later: [gplv2, gplv3, nonfree]
   # version 2 only: not with GPLv3 (or the LGPLv3 a lgplv3 build is under)
