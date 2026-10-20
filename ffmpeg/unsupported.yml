@@ -24,9 +24,6 @@ batches:
   h: Large ML backends (last; where they build reasonably)
 options:
   # d. Filters / processing
-  librsvg: { reason: pending, issue: 21, batch: d, note: 'librsvg (SVG decoder)' }
-  libtesseract: { reason: pending, issue: 21, batch: d, note: 'tesseract (OCR filter)' }
-  libopencv: { reason: pending, issue: 21, batch: d, note: 'opencv (ocv filter)' }
   pocketsphinx:
     { reason: pending, issue: 21, batch: d, note: 'pocketsphinx (asr speech recognition filter)' }
 
