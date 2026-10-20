@@ -1878,6 +1878,25 @@ describe('protocol and I/O libraries', () => {
       ships: {},
       auto: true,
     },
+    // scripts, where AviSynth+ and VapourSynth run: headers only (FFmpeg loads them at run time); AviSynth+ is gpl
+    avisynth: {
+      platforms: PLATFORMS.filter((p) => /^(linux|win|osx)-/.test(p)),
+      recipe: 'avisynth-headers',
+      recipes: () => ['avisynth-headers'],
+      flags: () => ['--enable-avisynth'],
+      licenses: GPL,
+      ships: { demuxers: ['avisynth'] },
+      auto: true,
+    },
+    vapoursynth: {
+      platforms: PLATFORMS.filter((p) => /^(linux|win|osx)-/.test(p)),
+      recipe: 'vapoursynth-headers',
+      recipes: () => ['vapoursynth-headers'],
+      flags: () => ['--enable-vapoursynth'],
+      licenses: ALL,
+      ships: { demuxers: ['vapoursynth'] },
+      auto: true,
+    },
   };
   const OPTIONS = Object.keys(where);
   const text = (platform: string, license: string, option: string) =>

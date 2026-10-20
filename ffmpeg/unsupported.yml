@@ -11,7 +11,9 @@
 #            platform-not-built: only for a platform the engine doesn't build (platforms.yml)
 #            deprecated-upstream: deprecated or removed by its makers or by FFmpeg (the note says where)
 #            alternative-built: another option does the same job; needs instead: (that option)
-#   note     what it is, and anything a contributor should know
+#            shared-only: its library builds only as shared libraries (and their private ones), and every library
+#              here links into FFmpeg statically
+#   note    what it is, and anything a contributor should know
 #   majors   optional: the FFmpeg majors the entry is for (default: every major that offers it)
 #
 # `node scripts/ffmpeg-coverage.ts` prints the counts and any problem; `--issue` prints the pending entries as issue
@@ -23,17 +25,6 @@ batches:
   g: Nonfree (nonfree builds only)
   h: Large ML backends (last; where they build reasonably)
 options:
-  # d. Filters / processing
-  pocketsphinx:
-    { reason: pending, issue: 21, batch: d, note: 'pocketsphinx (asr speech recognition filter)' }
-
-  # e. Protocols / IO
-  libsmbclient: { reason: pending, issue: 21, batch: e, note: 'smbclient (SMB protocol; GPLv3)' }
-  libklvanc: { reason: pending, issue: 21, batch: e, note: 'klvanc (VANC data, with decklink)' }
-  avisynth: { reason: pending, issue: 21, batch: e, note: 'avisynth (AviSynth+ script demuxer)' }
-  vapoursynth:
-    { reason: pending, issue: 21, batch: e, note: 'vapoursynth (VapourSynth script demuxer)' }
-
   # f. Devices
   alsa: { reason: pending, issue: 21, batch: f, note: 'alsa (Linux audio devices)' }
   libpulse: { reason: pending, issue: 21, batch: f, note: 'pulse (PulseAudio devices)' }
@@ -67,6 +58,13 @@ options:
       issue: 21,
       batch: g,
       note: 'decklink (Blackmagic SDK: only if its licence allows use in CI)',
+    }
+  libklvanc:
+    {
+      reason: pending,
+      issue: 21,
+      batch: g,
+      note: "klvanc (VANC data: only decklink's output device uses it, so it comes with decklink)",
     }
   cuda_nvcc:
     {
@@ -144,4 +142,14 @@ options:
       reason: alternative-built,
       instead: gmp,
       note: 'libgcrypt (with libgpg-error), which FFmpeg uses only for the Diffie-Hellman of rtmpe and rtmpte: the gmp option does that on every platform (as mbedtls and openssl do), without a second crypto library to port',
+    }
+  pocketsphinx:
+    {
+      reason: deprecated-upstream,
+      note: "PocketSphinx (the asr filter): FFmpeg's filter is written against the pre-5.0 API (cmd_ln_parse_r, <pocketsphinx/pocketsphinx.h>, on SphinxBase), which PocketSphinx 5.0 (2022) removed; only the unmaintained 5prealpha snapshot (2015) and the archived SphinxBase have it",
+    }
+  libsmbclient:
+    {
+      reason: shared-only,
+      note: "Samba's libsmbclient (the smb protocol; GPL-3.0-or-later): Samba builds it only as a shared library over a tree of its own private shared libraries (talloc, tevent, tdb, its bundled Heimdal, ...), with its waf build and cross-answers, so it can't link into FFmpeg statically as every library here does; shipping Samba's shared library tree beside FFmpeg's would be a separate packaging and runtime model",
     }

@@ -1,0 +1,43 @@
+name: avisynth-headers
+provides: avisynth
+# AviSynth+'s headers: GPL-2.0-or-later, with avisynth_c.h's exception for programs that use AviSynth only through its
+# C interface (as FFmpeg does); FFmpeg classes the option gpl
+license: GPL-2.0-or-later
+license-files: [distrib/gpl.txt]
+configure: [--enable-avisynth]
+source: { git: https://github.com/AviSynth/AviSynthPlus, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# where AviSynth+ itself runs: Linux, Windows and macOS
+platforms: [linux-*, win-*, osx-*]
+build:
+  # AviSynth+'s C interface headers alone (its HEADERS_ONLY install), for FFmpeg's avisynth demuxer, which loads
+  # AviSynth+ (libavisynth.so, libavisynth.dylib or AviSynth.dll) at run time: the build links nothing of it, and
+  # opening an .avs script needs AviSynth+ installed. The generated version.h is a CMake target of its own, which the
+  # standard build doesn't make: built before the install.
+  system: none
+  platforms:
+    # its architecture name for arch.h (the version string's) knows the Intel and PowerPC Macs, and fails on arm64:
+    # an architecture it doesn't know is taken as named
+    'osx-*':
+      before:
+        - replace-in-file:
+            {
+              path: avs_core/TargetArch.cmake,
+              from: 'message(FATAL_ERROR "Invalid OS X arch name: ${osx_arch}")',
+              to: 'list(APPEND ARCH ${osx_arch})',
+            }
+  steps:
+    - [
+        cmake,
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5,
+        -B,
+        _build,
+        -S,
+        .,
+        '-DCMAKE_INSTALL_PREFIX={deps}',
+        -DCMAKE_INSTALL_INCLUDEDIR=include,
+        -DHEADERS_ONLY=ON,
+        '{cmake-cross-args}',
+      ]
+    - [cmake, --build, _build, --target, VersionGen]
+    - [cmake, --install, _build]
