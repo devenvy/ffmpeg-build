@@ -21,6 +21,10 @@ build:
   # on musl (and aren't wanted).
   system: autotools
   args: [--disable-shared, --enable-static, --with-pic]
+  platforms:
+    # its config.guess (2008) knows no 64-bit ARM: the build machine is named
+    'linux-arm64': { args: [--build=aarch64-unknown-linux-gnu] }
+    'linux-musl-arm64': { args: [--build=aarch64-unknown-linux-musl] }
   make-targets: [-C, common]
   install-targets: [-C, libavc1394, install]
   after:

@@ -122,8 +122,13 @@ describe('libavc1394', () => {
     const h = fake(platform);
     await build(h, 'libavc1394');
     // its two libraries and libavc1394.pc, not its test programs
+    // its 2008 config.guess knows no 64-bit ARM: the build machine is named there
+    const build64: Record<string, string[]> = {
+      'linux-arm64': ['--build=aarch64-unknown-linux-gnu'],
+      'linux-musl-arm64': ['--build=aarch64-unknown-linux-musl'],
+    };
     expect(commands(h)).toEqual([
-      configureLine(h, STATIC),
+      configureLine(h, [...STATIC, ...(build64[platform] ?? [])]),
       'make -j4 -C common',
       'make -C libavc1394 install',
       'make -C librom1394 install',
