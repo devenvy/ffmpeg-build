@@ -18,6 +18,8 @@ versions:
 platforms: [linux-*]
 build:
   # libiec61883: IEC 61883 streams over FireWire (DV and MPEG-2 TS from camcorders and set-top boxes;
-  # LGPL-2.1-or-later), static, for FFmpeg's iec61883 input device
+  # LGPL-2.1-or-later), static, for FFmpeg's iec61883 input device. Its config.guess and config.sub (2008) know neither
+  # 64-bit ARM nor musl: autoreconf brings the image's.
   system: autotools
+  bootstrap: autoreconf
   args: [--disable-shared, --enable-static, --with-pic]

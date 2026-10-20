@@ -109,11 +109,17 @@ describe('libraw1394', () => {
   });
 });
 
-describe.each(['libiec61883'])('%s', (name) => {
-  it.each(platformsOf(name))('%s', async (platform) => {
+// autoreconf first: their config.guess and config.sub know neither 64-bit ARM nor musl
+describe('libiec61883', () => {
+  it.each(platformsOf('libiec61883'))('%s', async (platform) => {
     const h = fake(platform);
-    await build(h, name);
-    expect(commands(h)).toEqual([configureLine(h, STATIC), 'make -j4', 'make install']);
+    await build(h, 'libiec61883');
+    expect(commands(h)).toEqual([
+      'autoreconf -fi',
+      configureLine(h, STATIC),
+      'make -j4',
+      'make install',
+    ]);
   });
 });
 
@@ -122,13 +128,9 @@ describe('libavc1394', () => {
     const h = fake(platform);
     await build(h, 'libavc1394');
     // its two libraries and libavc1394.pc, not its test programs
-    // its 2008 config.guess knows no 64-bit ARM: the build machine is named there
-    const build64: Record<string, string[]> = {
-      'linux-arm64': ['--build=aarch64-unknown-linux-gnu'],
-      'linux-musl-arm64': ['--build=aarch64-unknown-linux-musl'],
-    };
     expect(commands(h)).toEqual([
-      configureLine(h, [...STATIC, ...(build64[platform] ?? [])]),
+      'autoreconf -fi',
+      configureLine(h, STATIC),
       'make -j4 -C common',
       'make -C libavc1394 install',
       'make -C librom1394 install',
