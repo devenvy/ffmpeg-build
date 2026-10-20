@@ -1,0 +1,22 @@
+# GLib's own stand-in for gettext's libintl where the C library has none (its subproject, which GLib would otherwise
+# download during its build).
+name: proxy-libintl
+license: LGPL-2.0-or-later
+license-files: [COPYING]
+source: { git: https://github.com/frida/proxy-libintl, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+)$' }
+# where the C library has no gettext: everywhere but glibc (musl's libintl is gettext's own, which the Alpine images
+# haven't got)
+platforms: [linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # proxy-libintl: gettext's API as stubs (no translations: messages stay English), static, for GLib. Its header
+  # declares the functions dllimport on Windows unless G_INTL_STATIC_COMPILATION is defined, which only its own
+  # subproject build passes on: the installed header declares the static library's plain symbols.
+  system: meson
+  after:
+    - replace-in-file:
+        {
+          path: '{deps}/include/libintl.h',
+          from: '#if defined(_WIN32) && !defined(G_INTL_STATIC_COMPILATION)',
+          to: '#if 0 /* static: ffmpeg-build */',
+        }

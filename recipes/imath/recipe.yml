@@ -1,0 +1,12 @@
+name: imath
+license: BSD-3-Clause
+license-files: [LICENSE.md]
+source: { git: https://github.com/AcademySoftwareFoundation/Imath, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# only OpenColorIO builds against it, where it builds
+platforms: [linux-*, win-*, android-*]
+build:
+  # Imath: the vector, matrix and half-float types of OpenEXR (BSD-3-Clause), static, for OpenColorIO. The library
+  # alone: no Python bindings, tests or docs.
+  system: cmake
+  args: [-DBUILD_TESTING=OFF, -DPYTHON=OFF, -DPYBIND11=OFF, -DBUILD_WEBSITE=OFF]

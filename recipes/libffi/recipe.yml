@@ -1,0 +1,22 @@
+# libffi's release tarball (with its generated configure; the git tree needs autogen and makeinfo).
+name: libffi
+license: MIT
+license-files: [LICENSE]
+source:
+  { url: 'https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$', repo: https://github.com/libffi/libffi }
+# only GLib (GObject's closures) builds against it
+platforms: all
+build:
+  # libffi: calling C functions whose signature is known only at run time (MIT), static, for GObject's closures
+  # (GLib). The library alone: no docs or multi-OS directory layout.
+  system: autotools
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --with-pic,
+      --disable-docs,
+      --disable-multi-os-directory,
+      '--libdir={deps}/lib',
+    ]

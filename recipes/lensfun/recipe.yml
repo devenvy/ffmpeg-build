@@ -1,0 +1,59 @@
+name: lensfun
+provides: lensfun
+# the library; its lens database (CC-BY-SA-3.0) and programs (GPL-3.0) aren't part of the build
+license: LGPL-3.0-or-later
+license-files: [docs/lgpl-3.0.txt]
+configure: [--enable-liblensfun]
+needs: [glib]
+source: { git: https://github.com/lensfun/lensfun }
+# FFmpeg's filter is written against the API on lensfun's master (0.3.99, the coming 0.4): neither the 0.3.x releases
+# (no lf_db_create) nor the 0.3.95 beta tag (2018; lf_modifier_create and the enable_* calls changed after it) build
+# it. Pinned to a reviewed commit by the lock, as for other untagged sources.
+versions: { git-branch: master }
+platforms: all
+build:
+  # Lensfun: lens correction (LGPL-3.0-or-later), static, for FFmpeg's lensfun filter (found through lensfun.pc);
+  # FFmpeg's class version3, so v3 builds only. C++, on GLib. The library alone: no lenstool, Python module, helper
+  # scripts, docs or tests, and without its lens database, which is data updated apart from the library (and
+  # CC-BY-SA-3.0): FFmpeg's filter reads one from its db_path option (a lensfun-update-data download, or the
+  # system's).
+  #
+  # - Its database goes to $ALLUSERSPROFILE on Windows unless a data folder is named: share, and then removed.
+  # - It builds its Python module whenever it finds python3 (INSTALL_PYTHON_MODULE only skips installing it, and the
+  #   build needs setuptools): told there is no python3.
+  # - Its .pc names neither the C++ runtime a static link needs nor, on Windows, CONF_LENSFUN_STATIC, without which
+  #   lensfun.h declares the API dllimport.
+  system: cmake
+  args:
+    [
+      -DBUILD_STATIC=ON,
+      -DBUILD_TESTS=OFF,
+      -DBUILD_LENSTOOL=OFF,
+      -DBUILD_DOC=OFF,
+      -DINSTALL_PYTHON_MODULE=OFF,
+      -DINSTALL_HELPER_SCRIPTS=OFF,
+      -DCMAKE_INSTALL_DATAROOTDIR=share,
+      -DPYTHON=PYTHON-NOTFOUND,
+    ]
+  # Where it looks for a database by default (when the filter's db_path isn't given) is its install prefix's: here
+  # the deps folder, which has none and is a build folder (the staged-binary check refuses it): the usual system one,
+  # where a system's lensfun-data package puts it (Windows' is relative to the library and stays).
+  before:
+    - replace-in-file:
+        {
+          path: include/lensfun/config.h.in.cmake,
+          from: '#define SYSTEM_DB_PATH "${CMAKE_INSTALL_FULL_DATAROOTDIR}/lensfun"',
+          to: '#define SYSTEM_DB_PATH "/usr/share/lensfun"',
+        }
+  after:
+    - remove: { path: '{deps}/share/lensfun', recursive: true }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/lensfun.pc',
+          libs-private: { add: '{cxx-runtime}', missing: after-libs },
+        }
+  platforms:
+    'win-*':
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/lensfun.pc', cflags: { append: -DCONF_LENSFUN_STATIC } }
