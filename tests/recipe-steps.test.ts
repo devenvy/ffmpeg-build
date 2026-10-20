@@ -474,6 +474,54 @@ describe('declared steps', () => {
     ).rejects.toThrow('EISDIR');
   });
 
+  it('fails a text edit whose text or pattern is not in the file, naming the recipe, file and pattern', async () => {
+    const h = fake('linux-x64');
+    writeFileSync(join(h.src, 'config.h'), '#define DB "/usr/share"\n');
+    const edit = async (step: Record<string, unknown>) =>
+      runRecipe(
+        h.context,
+        {
+          name: 'lensfun',
+          version: '1',
+          build: parse({ system: 'none', steps: [{ 'replace-in-file': step }] }).build,
+        },
+        h.src,
+      );
+    await expect(edit({ path: 'config.h', from: '#define DB "$X"', to: 'y' })).rejects.toThrow(
+      'lensfun: replace-in-file found nothing to replace in config.h: #define DB "$X" isn\'t in it',
+    );
+    await expect(
+      edit({ path: 'config.h', from: '^#define DB (\\d+)$', to: 'y', regex: 'true' }),
+    ).rejects.toThrow(
+      "lensfun: replace-in-file found nothing to replace in config.h: the pattern ^#define DB (\\d+)$ doesn't match it",
+    );
+    // the file untouched, and an edit that matches still made
+    expect(h.read(join(h.src, 'config.h'))).toBe('#define DB "/usr/share"\n');
+    await edit({ path: 'config.h', from: '/usr/share', to: '/opt' });
+    expect(h.read(join(h.src, 'config.h'))).toBe('#define DB "/opt"\n');
+  });
+
+  it('lets an optional text edit find no file, or nothing to replace', async () => {
+    const h = fake('linux-x64');
+    writeFileSync(join(h.src, 'a.pc'), 'Libs: -lpthread\n');
+    await runBuild(h, {
+      system: 'none',
+      steps: [
+        { 'replace-in-file': { path: 'missing.pc', from: 'a', to: 'b', optional: 'true' } },
+        {
+          'replace-in-file': {
+            path: 'a.pc',
+            from: '-l(-l?pthread)',
+            to: '$1',
+            regex: 'true',
+            optional: 'true',
+          },
+        },
+      ],
+    });
+    expect(h.read(join(h.src, 'a.pc'))).toBe('Libs: -lpthread\n');
+  });
+
   it("refuses a step it does not know, such as an old plan's shell:", async () => {
     const h = fake('linux-x64');
     const build = {

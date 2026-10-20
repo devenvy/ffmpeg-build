@@ -272,7 +272,7 @@ describe('libva', () => {
   it('skips a .pc that was not installed', async () => {
     const h = fake('linux-x64');
     mkdirSync(join(h.src, 'va'));
-    writeFileSync(join(h.src, 'va', 'meson.build'), '');
+    writeFileSync(join(h.src, 'va', 'meson.build'), "libva = shared_library('va')\n");
     await build(h, 'libva');
     expect(h.files(h.deps)).toEqual([]);
   });
@@ -365,6 +365,13 @@ describe('libmp3lame', () => {
     ]);
     expect(h.read(join(h.src, 'include', 'libmp3lame.sym'))).toBe('lame_init\nlame_close\n');
     expect(h.files(h.src)).toEqual(['include/libmp3lame.sym']);
+  });
+  it("leaves 4.0's symbol file alone: it no longer lists lame_init_old", async () => {
+    const h = fake('linux-x64');
+    mkdirSync(join(h.src, 'include'));
+    writeFileSync(join(h.src, 'include', 'libmp3lame.sym'), 'lame_init\nlame_close\n');
+    await build(h, 'libmp3lame');
+    expect(h.read(join(h.src, 'include', 'libmp3lame.sym'))).toBe('lame_init\nlame_close\n');
   });
 });
 
