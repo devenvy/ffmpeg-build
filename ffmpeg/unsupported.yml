@@ -24,9 +24,6 @@ batches:
   h: Large ML backends (last; where they build reasonably)
 options:
   # d. Filters / processing
-  liblensfun: { reason: pending, issue: 21, batch: d, note: 'lensfun (lens correction)' }
-  libopencolorio: { reason: pending, issue: 21, batch: d, note: 'opencolorio (colour management)' }
-  cairo: { reason: pending, issue: 21, batch: d, note: 'cairo (vector graphics; librsvg uses it)' }
   librsvg: { reason: pending, issue: 21, batch: d, note: 'librsvg (SVG decoder)' }
   libtesseract: { reason: pending, issue: 21, batch: d, note: 'tesseract (OCR filter)' }
   libopencv: { reason: pending, issue: 21, batch: d, note: 'opencv (ocv filter)' }
