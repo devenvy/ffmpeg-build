@@ -14,11 +14,12 @@ import { planReleases } from '../src/release.ts';
 import { loadFolder } from '../src/targets.ts';
 
 const data = loadEngineData(fixtureEngineRoot);
-const LOCK = {
-  engine: '0.2.0',
-  ffmpeg: { '9': '9.1.0' },
-  libraries: { dav1d: '1.5.4', opus: '1.6.1', x265: '4.1' },
-};
+const LOCK: { engine: string; ffmpeg: Record<string, string>; libraries: Record<string, string> } =
+  {
+    engine: '0.2.0',
+    ffmpeg: { '9': '9.1.0' },
+    libraries: { dav1d: '1.5.4', opus: '1.6.1', x265: '4.1' },
+  };
 const FOLDER = [
   'targets:',
   '  linux-x64-lgplv3: { platform: linux-x64, license: lgplv3, ffmpeg: 9, with: [dav1d, opus] }',
@@ -143,6 +144,23 @@ describe('ffmpeg-build releases', () => {
     expect(r.stdout).toContain('studio-9.1.0.1 (last: studio-9.1.0.0): unchanged, 1 target');
   });
 
+  it("is due when a target's components: change, and a target without any keeps its definition", async () => {
+    const d = folder();
+    publishCurrent(d, '9.1.0', 3);
+    writeFileSync(
+      join(d, 'ffmpeg-build.yml'),
+      FOLDER.replace(
+        'with: [dav1d, opus] }',
+        'with: [dav1d, opus], components: { decoders: [h264, libdav1d] } }',
+      ),
+    );
+    const r = await runCliAsync(['releases'], { cwd: d, env });
+    expect(r.stdout).toContain(
+      '9.1.0.4 (last: 9.1.0.3): due, 2 targets\n  linux-x64-lgplv3: definition',
+    );
+    expect(r.stdout).not.toContain('linux-x64-gplv3: definition');
+  });
+
   it('is due when a pinned source moved at the same version, and only for the targets built from it', async () => {
     const pinned = {
       ...LOCK,
@@ -251,7 +269,36 @@ describe('ffmpeg-build releases', () => {
     expect(r.exitCode).toBe(1);
   });
 
-  it('refuses, before anything builds, a nonfree target for a public repository and a private one not acknowledged', async () => {
+  it("judges a group's first release on a new major (ffmpeg: latest moved) against its last release of the major before", async () => {
+    const d = folder(FOLDER.replaceAll('ffmpeg: 9', 'ffmpeg: latest'), {
+      ...LOCK,
+      ffmpeg: { latest: '9.1.0' },
+    });
+    gh.publish(
+      '8.1.3.2',
+      [
+        {
+          name: 'linux-x64-lgplv3',
+          platform: 'linux-x64',
+          components: { dav1d: '1.5.4', opus: '1.6.1', zimg: '3.0' },
+        },
+      ],
+      { engine: packageVersion() },
+    );
+    const r = await runCliAsync(['releases', '--json'], { cwd: d, env });
+    const body = JSON.parse(r.stdout) as {
+      problems: string[];
+      releases: { tag: string; previous?: string; due: boolean }[];
+    };
+    expect(body.problems).toEqual([
+      '9.1.0.0: linux-x64-lgplv3: zimg was in 8.1.3.2 and is gone now; if that is intended, add allow-removal: [zimg] to the target',
+    ]);
+    // build numbers start again on the new version, and it's due: there is no release of it yet
+    expect(body.releases[0]).toMatchObject({ tag: '9.1.0.0', due: true });
+    expect(r.exitCode).toBe(1);
+  });
+
+  it('refuses, before anything builds, a nonfree target for a public repository, but not for a private one', async () => {
     const nonfree = folder(
       `${FOLDER}  studio-internal: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d] }\n`,
     );
@@ -261,15 +308,10 @@ describe('ffmpeg-build releases', () => {
       'studio-internal is nonfree: internal use only, never published to a public repository (o/r is public)',
     );
     gh.private = true;
-    const unacknowledged = await runCliAsync(['releases'], { cwd: folder(), env });
-    expect(unacknowledged.exitCode).toBe(1);
-    expect(unacknowledged.stdout).toContain(
-      'o/r is private: its releases, and the source their notices link to, reach only people with access to it',
-    );
     expect(
       (
         await runCliAsync(['releases'], {
-          cwd: folder(`private-release: internal\n${FOLDER}`),
+          cwd: folder(),
           env,
         })
       ).exitCode,

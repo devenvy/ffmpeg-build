@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { type Components, componentsFilePath, parseComponentsFile } from './ffmpeg-components.ts';
 import { allowedBy, type LicenseTable, licenseTableSchema, tableFrom } from './licenses.ts';
 import {
   describePlatforms,
@@ -32,6 +33,8 @@ import type { z } from 'zod';
 export interface EngineData {
   root: string;
   ffmpeg: Map<string, FfmpegData>; // by major, ascending
+  // each major's components, from its newest release (ffmpeg/components/<major>.yml): what `components:` may name
+  components: Map<string, Components>;
   recipes: Map<string, Recipe>;
   licenses: LicenseTable; // licenses.yml
   platforms: Map<string, PlatformEntry>; // platforms.yml: the platforms that build, and how
@@ -60,6 +63,7 @@ export interface OptionInfo {
   kind?: string; // for builtins: muxer, hwaccel, tls, ...
   configure?: string[];
   ships: ShippedComponent[]; // what a build with it on must report (ffmpeg -filters, -encoders, ...)
+  androidApi?: number; // the oldest Android API level a build with it can be made for
 }
 
 export function loadEngineData(root: string): EngineData {
@@ -168,6 +172,22 @@ export function loadEngineData(root: string): EngineData {
     }
   }
 
+  const components = new Map<string, Components>();
+  for (const major of ffmpeg.keys()) {
+    const file = componentsFilePath(root, major);
+    if (existsSync(file)) {
+      try {
+        components.set(
+          major,
+          parseComponentsFile(readFileSync(file, 'utf8'), `ffmpeg/components/${major}.yml`)
+            .components,
+        );
+      } catch (e) {
+        errors.push((e as Error).message);
+      }
+    }
+  }
+
   crossCheck(ffmpeg, recipes, licenseFile ? licenses : undefined, errors);
   if (errors.length) {
     throw new EngineDataError(errors);
@@ -175,6 +195,7 @@ export function loadEngineData(root: string): EngineData {
   return {
     root,
     ffmpeg,
+    components,
     recipes,
     licenses,
     platforms,
@@ -501,6 +522,7 @@ export function optionsOf(data: EngineData, major: string): Map<string, OptionIn
       ...(o.kind ? { kind: o.kind } : {}),
       ...(o.configure ? { configure: o.configure } : {}),
       ships: o.ships ?? [],
+      ...(o['android-api'] !== undefined ? { androidApi: o['android-api'] } : {}),
     });
   }
   byMajor.set(major, result);

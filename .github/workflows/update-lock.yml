@@ -135,13 +135,19 @@ jobs:
         working-directory: ${{ inputs.folder }}
         run: ffmpeg-build update --summary "${RUNNER_TEMP}/pr.md"
       # a new FFmpeg major changes no lock: the PR's body carries the note only when there is a PR, so it is raised
-      # here too, as a warning on the run and in its summary, every run until the folder builds that major
+      # here too, as a warning on the run and in its summary, every run until the folder builds that major. So is
+      # `ffmpeg: latest` held on its major because no lock fits the folder on the new one
       - name: a new FFmpeg major
         run: |
           note="$(sed -n 's/^## \(FFmpeg [0-9][0-9]* is out.*\)$/\1/p' "${RUNNER_TEMP}/pr.md")"
           if [ -n "${note}" ]; then
             echo "::warning title=New FFmpeg major::${note}"
             printf '%s\n' "${note}" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          held="$(sed -n 's/^## \(FFmpeg latest stays on .*\)$/\1/p' "${RUNNER_TEMP}/pr.md")"
+          if [ -n "${held}" ]; then
+            echo "::warning title=FFmpeg latest held back::${held}"
+            printf '%s\n' "${held}" >> "${GITHUB_STEP_SUMMARY}"
           fi
       # the new lock and the PR's body, for the publish job
       - name: result

@@ -1,0 +1,38 @@
+# libmodplug's last release (0.8.9.0, 2017) is a SourceForge tarball; its git has no tags. The listing is the
+# project's libmodplug folder (one folder per release).
+name: libmodplug
+provides: modplug
+# COPYING, whole: "ModPlug-XMMS and libmodplug are now in the public domain." SPDX has no identifier for a public
+# domain dedication: a LicenseRef, allowed in every build (licenses.yml).
+license: LicenseRef-libmodplug-public-domain
+license-files: [COPYING]
+configure: [--enable-libmodplug]
+source:
+  url: 'https://downloads.sourceforge.net/project/modplug-xmms/libmodplug/{version}/libmodplug-{version}.tar.gz'
+  mirrors:
+    ['https://deb.debian.org/debian/pool/main/libm/libmodplug/libmodplug_{version}.orig.tar.gz']
+versions:
+  {
+    listing: 'https://sourceforge.net/projects/modplug-xmms/files/libmodplug/',
+    files: '^(\d+\.\d+\.\d+\.\d+)$',
+  }
+platforms: all
+build:
+  # libmodplug: the ModPlug tracker module player (MOD, S3M, XM, IT, ...), static, for FFmpeg's libmodplug demuxer
+  # (found through libmodplug.pc). C++ of 2017: its `register` variables are an error from C++17, the default of
+  # today's compilers, so C++14. Its config.sub predates some of the cross triples (autoreconf -fi refreshes it).
+  # Its .pc names -lstdc++ whatever the C++ runtime is: this platform's instead. On Windows modplug.h declares the
+  # API dllimport unless MODPLUG_STATIC is defined; FFmpeg's demuxer defines it, its configure's probe doesn't: the .pc
+  # gives it.
+  system: autotools
+  bootstrap: autoreconf
+  args: [--disable-shared, --enable-static, --with-pic]
+  env: { CXXFLAGS: '+= -std=gnu++14' }
+  after:
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/libmodplug.pc', libs-private: { set: '{cxx-runtime} -lm' } }
+  platforms:
+    'win-*':
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/libmodplug.pc', cflags: { append: -DMODPLUG_STATIC } }

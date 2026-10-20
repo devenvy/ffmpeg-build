@@ -139,7 +139,9 @@ options:
   # FFmpeg's Vulkan: the Khronos loader on glibc and musl Linux, and on macOS with MoltenVK beside it; on Windows,
   # linux-armhf and Android only the headers (FFmpeg loads the system's Vulkan library at run time); on iOS and Mac
   # Catalyst MoltenVK linked statically into the libav* frameworks (--enable-vulkan-static). Each library's recipe
-  # gives the flags.
+  # gives the flags. android-api: 28 (vulkan, placebo) is policy, not a link requirement: the headers build for any
+  # level, but Android's Vulkan is 1.1 from Android 9 (API 28) and FFmpeg's needs a 1.3 device, so an older floor
+  # would ship a Vulkan no device at that level can run.
   vulkan:
     {
       needs:
@@ -149,16 +151,23 @@ options:
           { moltenvk: { platforms: [ios-arm64, maccatalyst-*] } },
         ],
       min: 1.3.277,
+      android-api: 28,
       ships: { hwaccels: [vulkan], filters: [scale_vulkan] },
     }
   placebo:
-    { needs: libplacebo, min: 7.351.0, ships: { filters: [{ libplacebo: { with: [vulkan] } }] } }
+    {
+      needs: libplacebo,
+      min: 7.351.0,
+      android-api: 28,
+      ships: { filters: [{ libplacebo: { with: [vulkan] } }] },
+    }
   whisper: { needs: whisper.cpp, min: 1.7.5, ships: { filters: [whisper] } }
 
   # video
   x264: { needs: x264, ffmpeg-license: gpl, ships: { encoders: [libx264] } }
   x265: { needs: x265, ffmpeg-license: gpl, ships: { encoders: [libx265] } }
-  openh264: { needs: openh264, min: 1.3.0, ships: { encoders: [libopenh264] } }
+  openh264:
+    { needs: openh264, min: 1.3.0, ships: { encoders: [libopenh264], decoders: [libopenh264] } }
   kvazaar: { needs: kvazaar, min: 2.0.0, ships: { encoders: [libkvazaar] } }
   dav1d: { needs: dav1d, min: 1.0.0, ships: { decoders: [libdav1d] } }
   aom: { needs: aom, min: 2.0.0, ships: { encoders: [libaom-av1] } }
@@ -170,6 +179,27 @@ options:
   zimg: { needs: zimg, min: 2.7.0, ships: { filters: [zscale] } }
   vmaf: { needs: libvmaf, min: 2.0.0, ships: { filters: [libvmaf] } }
   lcms2: { needs: lcms2, min: 2.13 }
+  theora: { needs: libtheora, ships: { encoders: [libtheora] } }
+  xvid: { needs: xvidcore, ffmpeg-license: gpl, ships: { encoders: [libxvid] } }
+  vvenc: { needs: vvenc, min: 1.6.1, ships: { encoders: [libvvenc] } }
+  # AVS family (China's video standards): AVS1 encoder, AVS2 decoder and encoder (FFmpeg's class gpl), AVS3 decoder
+  xavs: { needs: xavs, ffmpeg-license: gpl, ships: { encoders: [libxavs] } }
+  davs2: { needs: davs2, ffmpeg-license: gpl, min: 1.6.0, ships: { decoders: [libdavs2] } }
+  xavs2: { needs: xavs2, ffmpeg-license: gpl, min: 1.3.0, ships: { encoders: [libxavs2] } }
+  uavs3d: { needs: uavs3d, min: 1.1.41, ships: { decoders: [libuavs3d] } }
+  # MPEG-5 EVC (main profile; FFmpeg's xeveb/xevdb are the baseline-only builds of the same libraries)
+  xeve: { needs: xeve, min: 0.5.1, ships: { encoders: [libxeve] } }
+  # FFmpeg names libxevd's decoder evc (its own EVC parsing has no decoder)
+  xevd: { needs: xevd, min: 0.4.1, ships: { decoders: [evc] } }
+  oapv: { needs: oapv, min: 0.2.0.0, ships: { encoders: [liboapv] } }
+  svtjpegxs:
+    {
+      needs: svt-jpegxs,
+      min: 0.10.0,
+      ships: { encoders: [libsvtjpegxs], decoders: [libsvtjpegxs] },
+    }
+  # LCEVC enhancement layers (the lcevc filter), through V-Nova's decoder SDK
+  lcevc-dec: { needs: lcevcdec, min: 4.0.0, ships: { filters: [lcevc] } }
 
   # audio
   opus: { needs: opus, ships: { encoders: [libopus] } }
@@ -193,8 +223,17 @@ options:
     }
   vo-amrwbenc:
     { needs: vo-amrwbenc, ffmpeg-license: version3, ships: { encoders: [libvo_amrwbenc] } }
+  twolame: { needs: twolame, ships: { encoders: [libtwolame] } }
+  shine: { needs: shine, ships: { encoders: [libshine] } }
+  lc3: { needs: liblc3, min: 1.1.0, ships: { encoders: [liblc3], decoders: [liblc3] } }
+  codec2: { needs: codec2, ships: { encoders: [libcodec2], decoders: [libcodec2] } }
+  ilbc: { needs: libilbc, ships: { encoders: [libilbc], decoders: [libilbc] } }
   soxr: { needs: soxr, ships: { resamplers: [soxr] } }
   chromaprint: { needs: chromaprint, ships: { muxers: [chromaprint] } }
+  # game and tracker module music (demuxers that decode as they read)
+  gme: { needs: libgme, ships: { demuxers: [libgme] } }
+  modplug: { needs: libmodplug, ships: { demuxers: [libmodplug] } }
+  openmpt: { needs: libopenmpt, min: 0.2.6557, ships: { demuxers: [libopenmpt] } }
 
   # text, subtitles, XML, compression
   freetype: { needs: freetype, ships: { filters: [{ drawtext: { with: [harfbuzz] } }] } }
@@ -208,9 +247,14 @@ options:
   lzma: { needs: xz }
   # FFmpeg probes the C library's iconv even under --disable-autodetect, so glibc, musl and Android (API 28+) builds
   # have it whether or not a target lists it (listing it makes configure fail without it): built in there. Windows has
-  # no iconv and Apple's is a library of its own: GNU libiconv is built and linked there.
+  # no iconv and Apple's is a library of its own: GNU libiconv is built and linked there. Bionic's iconv is API 28's:
+  # an Android build for an older level (android-api:) has none, and can't list it.
   iconv:
-    { builtin: true, needs: [{ libiconv: { platforms: [win-*, osx-*, ios-*, maccatalyst-*] } }] }
+    {
+      builtin: true,
+      needs: [{ libiconv: { platforms: [win-*, osx-*, ios-*, maccatalyst-*] } }],
+      android-api: 28,
+    }
 
   # network
   srt: { needs: srt, min: 1.3.0, ships: { protocols: [srt] } }

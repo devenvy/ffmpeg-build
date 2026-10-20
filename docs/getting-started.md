@@ -25,7 +25,9 @@ Start with bare targets and a couple of libraries: the first build then takes mi
 
 `init` writes `ffmpeg-build.yml` with one target, `linux-x64-lgplv3`; `profile add` gives it the dav1d (AV1) decoder
 and the Opus codec; `check` says the target is possible; `lock` looks up the newest FFmpeg 9 release and library
-versions and writes them to `ffmpeg.lock`. `ffmpeg-build options` lists every name a target can take, with the
+versions and writes them to `ffmpeg.lock`. The target says `ffmpeg: 9`; write `ffmpeg: latest` instead to follow
+each new FFmpeg major as the engine supports it: the daily lock update (below) then moves it, in a pull request your
+CI checks ([targets](targets.md#always-the-newest-ffmpeg-ffmpeg-latest)). `ffmpeg-build options` lists every name a target can take, with the
 licenses and platforms each allows.
 
     ffmpeg-build build --target linux-x64-lgplv3
@@ -46,8 +48,9 @@ builds FFmpeg again, and CI keeps the cache between runs.
 
 1. **Create a repository** for the folder and push `ffmpeg-build.yml` and `ffmpeg.lock` (and any `patches/` or test
    scripts the targets name). Its releases are where your builds will be published. A public repository can't take
-   nonfree targets; a private one takes releases only once `ffmpeg-build.yml` says `private-release: internal`
-   ([releases](releases.md#releases)).
+   nonfree targets. Builds released from a private one carry a written offer of their source rather than a link
+   nobody outside could open; `source-offer: support@example.com` at the top of `ffmpeg-build.yml` says who it
+   names ([building](building.md#whats-in-an-archive-third-party-noticestxt)).
 2. **Repository setting:** Settings, Actions, General, Workflow permissions: tick "Allow GitHub Actions to create and
    approve pull requests", so the lock updates can open their pull requests. Nothing else is needed: no tokens,
    branch protection or auto-merge.
@@ -61,6 +64,11 @@ builds FFmpeg again, and CI keeps the cache between runs.
 
    And [`examples/dependabot.yml`](../examples/dependabot.yml) as `.github/dependabot.yml`, to keep the actions they
    use current. Each example's header says which permissions it grants and why.
+
+   A test script that needs a secret (a key to decrypt a sample) lists the variable in its target's `test-env:`, and
+   `release.yml` passes the repository secret to `build.yml` as `secrets: { test-env: "DECRYPT_KEY=..." }` (commented
+   out in the example): only the test steps get it, masked, and only that target's scripts
+   ([tests that need a secret](building.md#tests-that-need-a-secret)).
 
 4. **The first release:** run `release` by hand from the Actions tab (or wait for its schedule). With nothing
    released yet, every release is due: it builds each target on its runner, tests it, and publishes a GitHub release

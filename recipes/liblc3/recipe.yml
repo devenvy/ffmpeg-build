@@ -1,0 +1,15 @@
+name: liblc3
+provides: lc3
+license: Apache-2.0
+license-files: [LICENSE]
+configure: [--enable-liblc3]
+source: { git: https://github.com/google/liblc3, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # liblc3: Google's LC3 / LC3plus Bluetooth LE Audio codec (Apache-2.0), static, for FFmpeg's liblc3 decoder and
+  # encoder (found through lc3.pc, 1.1.0 or later). Its tools and Python bindings are off by default. Its meson.build
+  # turns LTO on by default, and GCC's LTO objects in a static archive are only GCC's intermediate code, which FFmpeg's
+  # link can't use: off.
+  system: meson
+  args: [-Db_lto=false, -Dtools=false, -Dpython=false]

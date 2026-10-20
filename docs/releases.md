@@ -15,11 +15,13 @@ the sources archive.
   it). It finds the last releases on GitHub, from `GITHUB_REPOSITORY` or the folder's git remote; `--offline` treats
   every release as new.
 - **Nothing disappears silently.** A target that would lose a component its last release had stops `update` and the
-  release, until you say so with `allow-removal: [x264]` (on the target, or at the top for every target).
+  release, until you say so with `allow-removal: [x264]` (on the target, or at the top for every target). The last
+  release is the group's newest of the same FFmpeg major, or, for the first release on a new major (`ffmpeg: latest`
+  having moved), its newest of the major before. That case doesn't stop `update`: the move goes into its PR, whose
+  text lists the losses, and the PR's CI (`releases`) stops there.
 - **Where releases go is checked before anything builds.** A public repository takes no nonfree target. A private
-  one takes releases only when `ffmpeg-build.yml` says `private-release: internal` at the top: its builds, and the
-  source their `THIRD-PARTY-NOTICES.txt` links to, then reach only people with access to that repository. `releases`
-  checks this in CI's plan step, so nothing is built (or uploaded as a workflow artifact) that couldn't be published,
+  one takes any; its builds' `THIRD-PARTY-NOTICES.txt` make a written offer of their source, since nobody outside
+  could open a link into it (`source-offer:` names who to ask). `releases` checks this in CI's plan step, so nothing is built (or uploaded as a workflow artifact) that couldn't be published,
   and `bundle` checks it again.
 
 ### iOS and Mac Catalyst: the xcframework bundle
@@ -68,6 +70,8 @@ names their concurrency groups and `update-lock.yml`'s branch, so it has one spe
   target); a release is published with all its targets, so when the run publishes, a choice that leaves a due
   release part-built stops it (`releases --whole`), saying which targets are missing. Where each target builds is
   `ffmpeg-build.yml`'s `build:` section, else `platforms.yml` ([targets](targets.md#some-targets-at-a-time-and-where-they-build)).
+  `secrets: { test-env: ... }` (optional): `NAME=value` lines for the targets' test scripts, given to the test steps
+  only ([tests that need a secret](building.md#tests-that-need-a-secret)).
   One `all-builds` job to require. Its caller grants `contents: write` even with
   `never`: GitHub won't start a run whose called workflow has a job (the skipped release job) asking for more than
   the caller grants.

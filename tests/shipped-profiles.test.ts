@@ -1177,3 +1177,252 @@ describe('cuda-llvm, opencl, d3d12va, vdpau and rkmpp', () => {
     }
   });
 });
+
+// Batch c of #21, codecs: each can be listed where its library builds, in the licenses its library (and FFmpeg's own
+// class) allow, and `check` says why not elsewhere. None turns on by itself.
+describe('codec libraries', () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const V3 = ['lgplv3', 'gplv3', 'nonfree'];
+  const GPL = ['gplv2', 'gplv3', 'nonfree'];
+  const NOT_ARMHF = PLATFORMS.filter((p) => p !== 'linux-armhf');
+  const AVS2 = [
+    'linux-x64',
+    'linux-arm64',
+    'linux-musl-x64',
+    'linux-musl-arm64',
+    'win-x64',
+    'android-arm64',
+    'android-x64',
+  ];
+  const where: Record<
+    string,
+    {
+      platforms: readonly string[];
+      recipes: string[];
+      flags: string[];
+      licenses: string[];
+      ships: Record<string, string[]>;
+    }
+  > = {
+    theora: {
+      platforms: PLATFORMS,
+      recipes: ['libogg', 'libtheora'],
+      flags: ['--enable-libtheora'],
+      licenses: ALL,
+      ships: { encoders: ['libtheora'] },
+    },
+    // FFmpeg's class gpl
+    xvid: {
+      platforms: PLATFORMS,
+      recipes: ['xvidcore'],
+      flags: ['--enable-libxvid', '--extra-libs=-lm'],
+      licenses: GPL,
+      ships: { encoders: ['libxvid'] },
+    },
+    vvenc: {
+      platforms: PLATFORMS.filter((p) => p !== 'linux-armhf'),
+      recipes: ['vvenc'],
+      flags: ['--enable-libvvenc'],
+      licenses: ALL,
+      ships: { encoders: ['libvvenc'] },
+    },
+    twolame: {
+      platforms: PLATFORMS,
+      recipes: ['twolame'],
+      flags: ['--enable-libtwolame', '--extra-libs=-lm'],
+      licenses: ALL,
+      ships: { encoders: ['libtwolame'] },
+    },
+    shine: {
+      platforms: PLATFORMS,
+      recipes: ['shine'],
+      flags: ['--enable-libshine'],
+      licenses: ALL,
+      ships: { encoders: ['libshine'] },
+    },
+    // Apache-2.0: not GPLv2-compatible
+    lc3: {
+      platforms: PLATFORMS,
+      recipes: ['liblc3'],
+      flags: ['--enable-liblc3'],
+      licenses: V3,
+      ships: { encoders: ['liblc3'], decoders: ['liblc3'] },
+    },
+    codec2: {
+      platforms: PLATFORMS,
+      recipes: ['codec2'],
+      flags: ['--enable-libcodec2', '--extra-libs=-lm'],
+      licenses: ALL,
+      ships: { encoders: ['libcodec2'], decoders: ['libcodec2'] },
+    },
+    // abseil's headers (Apache-2.0) are compiled in
+    ilbc: {
+      platforms: PLATFORMS,
+      recipes: ['libilbc'],
+      flags: ['--enable-libilbc'],
+      licenses: V3,
+      ships: { encoders: ['libilbc'], decoders: ['libilbc'] },
+    },
+    // AVS: all three of FFmpeg's class gpl; xavs only where its 2011 configure works, davs2 and xavs2 on x86-64 (with
+    // their assembly) and 64-bit ARM (plain C)
+    xavs: {
+      platforms: ['linux-x64', 'linux-musl-x64', 'win-x64'],
+      recipes: ['xavs'],
+      flags: ['--enable-libxavs'],
+      licenses: GPL,
+      ships: { encoders: ['libxavs'] },
+    },
+    davs2: {
+      platforms: AVS2,
+      recipes: ['davs2'],
+      flags: ['--enable-libdavs2'],
+      licenses: GPL,
+      ships: { decoders: ['libdavs2'] },
+    },
+    // xavs2: not Android (its thread pool calls pthread_setaffinity_np)
+    xavs2: {
+      platforms: AVS2.filter((p) => !p.startsWith('android-')),
+      recipes: ['xavs2'],
+      flags: ['--enable-libxavs2'],
+      licenses: GPL,
+      ships: { encoders: ['libxavs2'] },
+    },
+    uavs3d: {
+      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      recipes: ['uavs3d'],
+      flags: ['--enable-libuavs3d'],
+      licenses: ALL,
+      ships: { decoders: ['libuavs3d'] },
+    },
+    xeve: {
+      platforms: NOT_ARMHF,
+      recipes: ['xeve'],
+      flags: ['--enable-libxeve'],
+      licenses: ALL,
+      ships: { encoders: ['libxeve'] },
+    },
+    xevd: {
+      platforms: NOT_ARMHF,
+      recipes: ['xevd'],
+      flags: ['--enable-libxevd'],
+      licenses: ALL,
+      ships: { decoders: ['evc'] },
+    },
+    oapv: {
+      platforms: NOT_ARMHF,
+      recipes: ['oapv'],
+      flags: ['--enable-liboapv'],
+      licenses: ALL,
+      ships: { encoders: ['liboapv'] },
+    },
+    svtjpegxs: {
+      platforms: PLATFORMS,
+      recipes: ['svt-jpegxs'],
+      flags: ['--enable-libsvtjpegxs'],
+      licenses: ALL,
+      ships: { encoders: ['libsvtjpegxs'], decoders: ['libsvtjpegxs'] },
+    },
+    // its COPYING's terms keep it out of GPL builds
+    'lcevc-dec': {
+      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      recipes: ['lcevcdec'],
+      flags: ['--enable-liblcevc-dec'],
+      licenses: ['lgplv2', 'lgplv3', 'nonfree'],
+      ships: { filters: ['lcevc'] },
+    },
+    // already an option (the shipped targets have it); its decoder side is now part of what `test` checks
+    openh264: {
+      platforms: PLATFORMS,
+      recipes: ['openh264'],
+      flags: ['--enable-libopenh264'],
+      licenses: ALL,
+      ships: { encoders: ['libopenh264'], decoders: ['libopenh264'] },
+    },
+    gme: {
+      platforms: PLATFORMS,
+      recipes: ['libgme'],
+      flags: ['--enable-libgme'],
+      licenses: ALL,
+      ships: { demuxers: ['libgme'] },
+    },
+    modplug: {
+      platforms: PLATFORMS,
+      recipes: ['libmodplug'],
+      flags: ['--enable-libmodplug'],
+      licenses: ALL,
+      ships: { demuxers: ['libmodplug'] },
+    },
+    openmpt: {
+      platforms: PLATFORMS,
+      recipes: ['libopenmpt'],
+      flags: ['--enable-libopenmpt'],
+      licenses: ALL,
+      ships: { demuxers: ['libopenmpt'] },
+    },
+  };
+  const CODECS = Object.keys(where);
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const planOn = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = CODECS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s', (option, platform) => {
+    // a license that takes it (gplv3, but for LCEVC)
+    const license = where[option]!.licenses.includes('gplv3') ? 'gplv3' : 'lgplv3';
+    const plan = planOn(platform, license, option);
+    expect(plan.errors).toEqual([]);
+    const cell = plan.cells[0]!;
+    expect(cell.options).toEqual([option]);
+    expect([...cell.recipes].sort()).toEqual(where[option]!.recipes);
+    expect(configureFlags(data, cell)).toEqual(expect.arrayContaining(where[option]!.flags));
+  });
+
+  const absent = CODECS.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'gplv3', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'gplv3', option)).toContain(
+      `not on ${platform}: the ${where[option]!.recipes.at(-1)!} recipe doesn't build there`,
+    );
+  });
+
+  it.each(CODECS)('%s is refused in the licenses that may not take it', (option) => {
+    for (const license of ALL.filter((l) => !where[option]!.licenses.includes(l))) {
+      expect(report('linux-x64', license, option), license).toContain('✗');
+    }
+  });
+
+  it('options offers each where it builds, in the licenses that allow it, with what it ships', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of CODECS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(where[name]!.platforms);
+      expect(fact.licenses, name).toEqual(where[name]!.licenses);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of CODECS) {
+        const shipped: Record<string, string[]> = {};
+        for (const s of data.ffmpeg.get(major)!.options[name]!.ships ?? []) {
+          (shipped[s.kind] ??= []).push(s.name);
+        }
+        expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      // openh264 is in the shipped targets already: the new options stay off
+      expect(c.options.filter((o) => CODECS.includes(o) && o !== 'openh264')).toEqual([]);
+    }
+  });
+});

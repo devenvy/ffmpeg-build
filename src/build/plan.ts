@@ -4,11 +4,14 @@ import { basename, join } from 'node:path';
 
 import { parseDocument } from 'yaml';
 
+import { androidApiFor, androidApiProblems, isAndroid } from '../android-api.ts';
 import { aboutSchema } from '../check.ts';
 import { versionInCell } from '../choose.ts';
 import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
+import { COMPONENT_FLAG, COMPONENT_KINDS } from '../ffmpeg-components.ts';
 import { allowedBy } from '../licenses.ts';
 import { packageVersion } from '../paths.ts';
+import { platformMatches } from '../platforms.ts';
 import { availability, type CellPlan } from '../resolve.ts';
 import { releaseVersion } from '../targets.ts';
 import { unique } from '../text.ts';
@@ -121,9 +124,40 @@ function optionFlags(data: EngineData, plan: CellPlan): string[] {
   );
 }
 
+/**
+ * A target's components: each kind it lists is built with only those names, and the components its options ship
+ * (libx264, whisper, ...), so turning a kind down never takes what an option on needs. These come before every other
+ * flag that enables a component: the platform's and the options' own (--enable-hwaccel=..., --enable-decoder=...)
+ * and the patch sets', which configure applies after them.
+ */
+function componentFlags(data: EngineData, plan: CellPlan): string[] {
+  const restricted = plan.components ?? {};
+  const kinds = COMPONENT_KINDS.filter((k) => restricted[k]);
+  if (!kinds.length) {
+    return [];
+  }
+  const options = optionsOf(data, plan.cell.major);
+  // what each option on ships here: its conditions (other options on, platforms) met
+  const needed: Partial<Record<string, string[]>> = {};
+  for (const s of plan.options
+    .flatMap((o) => options.get(o)?.ships ?? [])
+    .filter((x) => !x.with || x.with.every((w) => plan.options.includes(w)))
+    .filter((x) => !x.platforms || platformMatches(plan.cell.platform, x.platforms))) {
+    (needed[s.kind] ??= []).push(s.name);
+  }
+  return kinds.flatMap((k) => {
+    const names = unique([...restricted[k]!, ...(needed[k] ?? [])]);
+    return [
+      `--disable-${k}`,
+      ...(names.length ? [`--enable-${COMPONENT_FLAG[k]}=${names.join(',')}`] : []),
+    ];
+  });
+}
+
 export function configureFlags(data: EngineData, plan: CellPlan, depsDir = DEPS_DIR): string[] {
   return unique([
     ...COMMON_FLAGS,
+    ...componentFlags(data, plan),
     `--extra-cflags=-I${depsDir}/include`,
     `--extra-ldflags=-L${depsDir}/lib`,
     ...(data.platforms.get(plan.cell.platform)?.configure ?? []),
@@ -233,6 +267,7 @@ export function cacheKeys(
   platform: string,
   toolchain: string,
   pinOf: (recipe: string) => SourcePin | undefined = () => undefined,
+  androidApi?: number,
 ): Map<string, string> {
   const ids = new Map<string, { key: string; asDependency: string }>();
   const inBuild = new Set(recipes);
@@ -257,6 +292,8 @@ export function cacheKeys(
       toolchain,
       against,
       ...(pin ? { pin } : {}),
+      // android: the API level it is compiled for (a library built for 28 may call what 24 lacks)
+      ...(androidApi !== undefined ? { androidApi } : {}),
     };
     const id = {
       key: sha({ ...fact, files: recipeFilesHash(data.root, recipe) }),
@@ -332,6 +369,7 @@ export interface BuildPlan {
     configure: string[];
     verify: string[];
   }; // none: build the libraries only
+  androidApi?: number; // android-*: the Android API level the libraries and FFmpeg are compiled for
 }
 
 // How upstream devenvy/ffmpeg 10_write_legal.sh names each licence, and which of FFmpeg's COPYING texts govern it.
@@ -507,9 +545,10 @@ function atCommit(repo: string, ref: string): string {
 }
 
 /**
- * The SOURCE section: where the complete corresponding source is, all of it public. Never an offer to send it on
- * request: a release names its sources archive by URL; an unreleased build says where its source is recorded and that
- * it must be published with that archive before it is distributed.
+ * The SOURCE section: where the complete corresponding source is. A public release links its sources archive; a
+ * release in a private repository, and a build in no release, can't be pointed at, so they make a written offer of
+ * it instead, through the folder's source-offer: contact, or else whoever distributed the build. A public release
+ * makes the offer as well when there is a contact. A nonfree build isn't distributed, so it makes none.
  */
 export function noticesSource(a: {
   name: string;
@@ -517,13 +556,17 @@ export function noticesSource(a: {
   license: License;
   release?: string;
   repository?: string;
+  privateRepo?: boolean; // the release's repository is private: nobody outside it can open a link into it
+  sourceOffer?: string; // who the written offer names to ask for the source (ffmpeg-build.yml's source-offer:)
   sourcesArchive: string;
   source: BuildSource;
   ffmpegTarball: string;
   patchSets?: string[];
 }): string {
+  const publicRelease = Boolean(a.release) && !a.privateRepo;
+  const offer = a.license !== 'nonfree' && (Boolean(a.sourceOffer) || !publicRelease);
   const lines: string[] = [];
-  if (a.release && a.repository) {
+  if (a.release && a.repository && !a.privateRepo) {
     lines.push(
       'Complete corresponding source, as required by the licences above:',
       `  https://github.com/${a.repository}/releases/download/${a.release}/${a.sourcesArchive}`,
@@ -534,21 +577,33 @@ export function noticesSource(a: {
     );
   } else if (a.release) {
     lines.push(
-      `Complete corresponding source: ${a.sourcesArchive}, published with release ${a.release}. It holds FFmpeg's release`,
-      'tarball, every library at the exact version (and commit) it was built from, the patches applied, and the build',
-      'scripts and toolchain definitions.',
+      `Complete corresponding source: ${a.sourcesArchive}, published with release ${a.release}${a.privateRepo ? ' in a private' : '.'}`,
+      ...(a.privateRepo ? ['repository, which only people with access to it can open.'] : []),
+      "It holds FFmpeg's release tarball, every library at the exact version (and commit) it was built from, the patches",
+      'applied, and the build scripts and toolchain definitions.',
     );
   } else {
     lines.push(
       'This build was not published in a release (a local or unreleased build). Its source is recorded in',
       `${a.name}.sources.json beside it, every source with its sha256 (and commit), and kept in the build cache`,
-      `under sources/. It must be published together with its sources archive (${a.sourcesArchive}) before it is`,
-      'distributed.',
+      'under sources/.',
+      offer
+        ? `Keep its sources archive (${a.sourcesArchive}) for as long as the written offer below holds.`
+        : `It must be published together with its sources archive (${a.sourcesArchive}) before it is\ndistributed.`,
     );
   }
   lines.push('');
+  let definition = 'not recorded (the build had no FFMPEG_BUILD_SOURCE_REPO and no git remote)';
+  if (a.source.repo && a.source.ref) {
+    // a private repository's tree is no link anyone could open: its files are in the sources archive
+    definition = a.privateRepo
+      ? `${a.source.repo} at commit ${a.source.ref.replace(/-dirty$/, '')} (private: its ffmpeg-build.yml and ffmpeg.lock are in the sources archive)`
+      : atCommit(a.source.repo, a.source.ref);
+  } else if (a.source.repo) {
+    definition = a.source.repo;
+  }
   lines.push(
-    `Build definition: ${a.source.repo && a.source.ref ? atCommit(a.source.repo, a.source.ref) : (a.source.repo ?? 'not recorded (the build had no FFMPEG_BUILD_SOURCE_REPO and no git remote)')}`,
+    `Build definition: ${definition}`,
     a.patchSets?.length
       ? `FFmpeg ${a.version}, upstream release, modified by the patch sets ${a.patchSets.join(', ')} (in the sources archive): ${a.ffmpegTarball}`
       : `FFmpeg ${a.version}, unmodified upstream: ${a.ffmpegTarball}`,
@@ -557,12 +612,31 @@ export function noticesSource(a: {
     a.release
       ? `directly. SOURCES.md in ${a.sourcesArchive} lists every source with its sha256.`
       : `directly. ${a.name}.sources.json lists every source with its sha256.`,
-    '',
-    'Everything is public; no request to the distributor is necessary to obtain it.',
   );
+  if (publicRelease) {
+    lines.push(
+      '',
+      'Everything is public; no request to the distributor is necessary to obtain it.',
+    );
+  }
+  if (offer) {
+    lines.push(
+      '',
+      'This is a written offer, valid for at least three years after this build was last distributed and for as long as',
+      'spare parts or customer support are offered for the product it came with: anyone who has this build may obtain',
+      `its complete corresponding source (${a.sourcesArchive}), on a medium customarily used for software interchange or`,
+      'by download, for no more than the cost of physically performing that distribution, by asking',
+      `${a.sourceOffer ?? 'whoever distributed this build to you'}.`,
+    );
+  }
   if (a.license === 'nonfree') {
     lines.push(
       '',
+      ...(a.privateRepo && a.repository
+        ? [
+            `${a.repository} is a private repository: this build, and its source, are only for people with access to it.`,
+          ]
+        : []),
       'This is a nonfree build (--enable-nonfree): it is for internal use only and is not offered for redistribution.',
     );
   }
@@ -608,6 +682,7 @@ export function makeBuildPlan(args: {
   name?: string;
   release?: string;
   repository?: string;
+  privateRepo?: boolean; // the release's repository is private
   group?: string;
   source?: BuildSource;
 }): BuildPlan {
@@ -616,10 +691,16 @@ export function makeBuildPlan(args: {
   // the lock's pins hold for the versions it locked, which are the versions built here
   const pinOf = (lib: string): SourcePin | undefined =>
     locked.libraries[lib] === versionOf(lib) ? locked.pins?.libraries[lib] : undefined;
-  const keys = cacheKeys(data, cell.recipes, versionOf, cell.cell.platform, args.imageId, pinOf);
+  const platform = cell.cell.platform;
+  // check refuses an android-api: older than the build's options and libraries support; this is its guard
+  const tooOld = androidApiProblems(data, cell, profile.androidApi);
+  if (tooOld.length) {
+    throw new Error(tooOld.join('; '));
+  }
+  const api = isAndroid(platform) ? androidApiFor(profile.androidApi) : undefined;
+  const keys = cacheKeys(data, cell.recipes, versionOf, platform, args.imageId, pinOf, api);
   const version = cell.cell.version;
   const license = cell.cell.license;
-  const platform = cell.cell.platform;
   const setup = setupOf(data, platform);
   const image = data.platforms.get(platform)!.image;
   // named as the release names them: an x.y release is x.y.0 (releaseVersion); the tarball keeps upstream's name
@@ -646,6 +727,7 @@ export function makeBuildPlan(args: {
     image,
     toolchain: args.imageId,
     engine,
+    ...(api !== undefined ? { androidApi: api } : {}),
     name,
     target: args.variant,
     license,
@@ -692,6 +774,8 @@ export function makeBuildPlan(args: {
         license,
         ...(args.release ? { release: args.release } : {}),
         ...(args.repository ? { repository: args.repository } : {}),
+        ...(args.privateRepo ? { privateRepo: true } : {}),
+        ...(profile.sourceOffer ? { sourceOffer: profile.sourceOffer } : {}),
         sourcesArchive,
         source: args.source ?? {},
         ffmpegTarball: archives[0]!,

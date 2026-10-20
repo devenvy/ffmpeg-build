@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
-import { name, text } from './common.ts';
+import { androidApiLevel, name, text } from './common.ts';
 import { LICENSES } from './profile.ts';
+import { ENV_NAME, RESERVED_TEST_ENV } from '../commands/test-env.ts';
+import { COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
 
 // ffmpeg-build.yml: one per folder. Bases hold shared lists; each target is exactly one build.
 const names = z.array(name, { error: 'expected a list of names, like [dav1d, opus]' }).default([]);
@@ -9,18 +11,57 @@ const pins = z
   .record(name, text, { error: 'expected library: version pairs, like { dav1d: "~1.5" }' })
   .default({});
 
-const base = z.strictObject({ with: names, without: names, pin: pins });
+// components: { decoders: [h264, hevc], filters: [scale] }: the kinds listed are built with only those names (and
+// what the target's options and patch sets need); kinds left out keep FFmpeg's defaults
+const componentNames = z.array(
+  z.string().regex(/^[a-z0-9_-]+$/, { error: 'expected a component name like h264 or scale' }),
+  { error: 'expected a list of component names, like [h264, hevc]' },
+);
+const components = z
+  .strictObject(
+    Object.fromEntries(COMPONENT_KINDS.map((k) => [k, componentNames.optional()])) as Record<
+      ComponentKind,
+      z.ZodOptional<typeof componentNames>
+    >,
+    { error: `expected components: by kind (${COMPONENT_KINDS.join(', ')})` },
+  )
+  .default({});
+
+const SOURCE_OFFER = 'expected who to ask for the source, like an email address';
+
+// ffmpeg: on a base is the series its targets build unless they say their own (one base for `ffmpeg: latest`)
+const base = z.strictObject({
+  ffmpeg: text.optional(),
+  with: names,
+  without: names,
+  pin: pins,
+  components,
+});
 
 const target = z.strictObject({
   platform: text,
   license: z.enum(LICENSES, { error: `expected one of ${LICENSES.join(', ')}` }),
-  ffmpeg: text,
+  ffmpeg: text.optional(), // else its last base's that has one
   base: names,
   with: names,
   without: names,
   pin: pins,
+  components,
   patches: z.array(text).default([]),
   tests: z.array(text).default([]),
+  // the environment variables its tests: scripts get (build.yml's test-env secret, else test's own environment)
+  'test-env': z
+    .array(
+      z
+        .string({ error: 'expected a variable name' })
+        .regex(ENV_NAME, { error: 'expected a variable name like DECRYPT_KEY' })
+        .refine((n) => !RESERVED_TEST_ENV.includes(n), {
+          error: (issue) => `${String(issue.input)} is set by ffmpeg-build test itself`,
+        }),
+      { error: 'expected a list of variable names, like [DECRYPT_KEY]' },
+    )
+    .default([]),
+  'android-api': androidApiLevel.optional(), // android-* only: the oldest Android it loads on (default 28)
   'release-group': name.optional(), // targets that release together (default: the folder's one group)
   'allow-removal': names, // components it may lose since the last release
 });
@@ -43,7 +84,12 @@ export const folderSchema = z.strictObject({
     })
     .optional(),
   'allow-removal': names, // components any target may lose since the last release
-  'private-release': z.enum(['internal'], { error: 'expected internal' }).optional(), // releases go to a private repository, acknowledged
+  // who THIRD-PARTY-NOTICES.txt's written offer names to ask for the source (none: whoever distributed the build)
+  'source-offer': z
+    .string({ error: SOURCE_OFFER })
+    .trim()
+    .min(1, { error: SOURCE_OFFER })
+    .optional(),
   targets: z.record(name, target, {
     error: 'expected targets: a name for each build, with platform, license and ffmpeg',
   }),

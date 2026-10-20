@@ -152,6 +152,26 @@ variables, and the platform's environment (`{CC}`, `{CROSS_PREFIX}`, `{TOOLCHAIN
    (`platformsOf`), with the process runner stubbed (see `tests/recipe-harness.ts`), and compare the commands and files
    with what the library needs. The suite (`pnpm test`) also loads every recipe, so a schema mistake fails it.
 4. Build it for real (`node scripts/try-recipes.ts <name>@<version>`, then a target that uses it), as below.
+5. Check it the way CI will: `ffmpeg-build recipe-check <name>` (below).
+
+### Checking a recipe on every platform
+
+    pnpm run dev recipe-check zlib --plan              # what would build where, without building
+    pnpm run dev recipe-check zlib --platform linux-*  # build it on the Linux platforms
+    pnpm run dev recipe-check zlib                     # every platform this machine can build
+
+`recipe-check` builds the recipes you name, and every recipe that builds against them (needs or uses them there), on
+every platform each claims (`platforms:`) that `platforms.yml` builds, without FFmpeg, in the same Docker images (and,
+for Apple, natively on a Mac) as every build, at the canary lock's versions (`--lock` names another). It writes a
+throwaway folder (a temporary one, or `--dir`): `ffmpeg-build.yml` with one `nonfree` target per platform and FFmpeg
+option (nonfree, so every library and every `uses:` may go in), chosen as the fewest options that build everything
+on the platform, and `ffmpeg.lock` seeded from the canary's (only what it lacks is looked up). Then it runs
+`ffmpeg-build build --target <t> --only <recipes>` for each target, carrying on past a failure, and says which failed
+(the logs are in `<dir>/dist`, or `--out`). Apple platforms need a Mac; on Linux or Windows, `--platform` leaves them
+out (`--dry-run` says what would build).
+
+A recipe that claims a platform no FFmpeg option builds it on fails the check: narrow its `platforms:` (or offer the
+option there). One that no option builds on any platform is only noted.
 
 ## What CI checks
 
@@ -159,9 +179,11 @@ variables, and the platform's environment (`{CC}`, `{CROSS_PREFIX}`, `{TOOLCHAIN
   actionlint and zizmor), `test` (Linux and Windows, coverage on Linux), `build` (the package as npm will publish it),
   `audit`, `dependency-review`, `shellcheck` over the remaining shell scripts, and `package` (the packed package
   installed globally builds a library natively). `result` needs them all and is the one required check.
-- **A change to a recipe** (`recipes.yml`, on a pull request or a push to `main` touching `recipes/`): that library, and what it builds against (not FFmpeg), is built on every target in
-  `examples/canary` that uses it, at the canary lock's versions (`ffmpeg-build build --target T --only R`). The
-  canary's targets between them build every recipe.
+- **A change to a recipe** (`recipes.yml`, which `ci.yml` calls on every pull request, so `result` needs it; and on a
+  push to `main` touching `recipes/`, which keeps main's library caches warm): `ffmpeg-build recipe-check` (above)
+  plans the changed recipes' check targets once, and one job per platform builds them: Linux, Windows, Android and
+  armhf in their Docker images on Linux runners, Apple natively on macOS runners. A pull request that changes no recipe
+  builds nothing. A failed build on any platform, or a recipe claiming a platform nothing builds it on, fails `result`.
 - **A change to a toolchain** (`toolchains.yml`, on a pull request or a push to `main` touching `platforms/`,
   `images/`, `platforms.yml` or `src/build/`, or by hand from the Actions tab): the small targets in
   `examples/test-builds` build and test in full, on every kind of runner, through the reusable `build.yml` with the
@@ -172,7 +194,10 @@ variables, and the platform's environment (`{CC}`, `{CROSS_PREFIX}`, `{TOOLCHAIN
   consumer's update PR meets it.
 - **Every night** (`ffmpeg-support.yml`): `scripts/ffmpeg-support.ts` keeps `ffmpeg/<major>.yml`'s releases equal to
   FFmpeg's tags and reports what a new release's configure adds, drops or reclassifies. When `ffmpeg/` changed it
-  opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. It runs as the devenvy-bot app when the
+  opens or refreshes one pull request on `ffmpeg-build/ffmpeg-support`. A new major is only reported: adding its
+  `ffmpeg/<major>.yml` (and `ffmpeg/components/<major>.yml`, which `scripts/ffmpeg-support.ts --write` writes once the
+  major's file exists) is a person's review, and the engine release that ships it moves every consumer's
+  `ffmpeg: latest` targets to that major in their next lock update. It runs as the devenvy-bot app when the
   organization has it, and the app's push starts the pull request's CI; without it, `GITHUB_TOKEN` pushes and then
   dispatches `ci.yml` on the branch.
 - **Every night** (`release.yml`, below): the next patch release, when anything the package ships changed.
@@ -235,7 +260,8 @@ later, which Node 24 has. Setting it up, once:
 
 ## Changes that need more than tests
 
-- **A recipe or platform change** should be built for real (`ffmpeg-build build --target ...`) and, where a published
+- **A recipe or platform change** should be built for real (`ffmpeg-build recipe-check <name>` for a recipe,
+  `ffmpeg-build build --target ...` for a whole build) and, where a published
   counterpart exists, compared with it (`scripts/compare-published*.sh`). Say in the pull request what you built and
   paste the comparison's last lines. A difference you mean to keep goes in the matching `*.expected` file, with its
   reason.

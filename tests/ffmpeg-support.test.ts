@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 import { fixtureData, fixtureEngineRoot } from './helpers.ts';
+import { COMPONENT_KINDS, type Components } from '../src/ffmpeg-components.ts';
 import {
   formatSupport,
   newMajors,
@@ -14,6 +16,9 @@ import {
   supportReport,
   writeReleases,
 } from '../src/ffmpeg-support.ts';
+
+const emptyComponents = (): Components =>
+  Object.fromEntries(COMPONENT_KINDS.map((k) => [k, []])) as unknown as Components;
 
 // the shape of FFmpeg's configure lists: lists of names, some holding other lists by $NAME
 const CONFIGURE = [
@@ -177,6 +182,43 @@ describe('the FFmpeg support check', () => {
         write: false,
       });
       expect(dry).toContain('(run with --write to apply)');
+    });
+
+    it("writes each major's components from its newest release with write, and reports a change", async () => {
+      const r = root();
+      const upstream = ['9.0.0', '9.0.1', '9.0.2', '9.1.0'];
+      const componentsOf = async (version: string) =>
+        Promise.resolve({
+          ...emptyComponents(),
+          decoders: version === '9.1.0' ? ['aac', 'h264', 'vvc'] : ['aac', 'h264'],
+        });
+      const text = await supportCheck({
+        data: fixtureData(),
+        dataRoot: r,
+        upstream,
+        configureOf,
+        componentsOf,
+        write: true,
+      });
+      const file = parse(readFileSync(join(r, 'ffmpeg', 'components', '9.yml'), 'utf8')) as {
+        release: string;
+        decoders: string[];
+        encoders: string[];
+      };
+      expect(file.release).toBe('9.1.0');
+      expect(file.decoders).toEqual(['aac', 'h264', 'vvc']);
+      expect(file.encoders).toEqual([]);
+      expect(text).toContain('- components: from 9.1.0 (applied)');
+      // run again: nothing changed, nothing said
+      const again = await supportCheck({
+        data: fixtureData(),
+        dataRoot: r,
+        upstream,
+        configureOf,
+        componentsOf,
+        write: true,
+      });
+      expect(again).not.toContain('- components:');
     });
 
     it("fails when the releases line isn't in the form it rewrites", async () => {

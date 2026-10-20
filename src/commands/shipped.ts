@@ -11,10 +11,11 @@ import {
   optionsOf,
   valuesOn,
 } from '../engine-data.ts';
+import { COMPONENT_FLAG, COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
 import { platformMatches } from '../platforms.ts';
+import { SHIPPED_KINDS, type ShippedKind } from '../schema/engine.ts';
 
 import type { Step } from './test-library.ts';
-import type { ShippedKind } from '../schema/engine.ts';
 
 /** A component the build must have: `kind` is the list it is in (ffmpeg -<kind>), `option` the option that adds it. */
 export interface Expected {
@@ -74,7 +75,7 @@ export function expectedComponents(
 ): Expected[] {
   const on = enabledOptions(data, major, platform, configure);
   const options = optionsOf(data, major);
-  return [...on].flatMap((option) =>
+  const fromOptions: Expected[] = [...on].flatMap((option) =>
     options
       .get(option)!
       .ships.filter(
@@ -84,6 +85,29 @@ export function expectedComponents(
       )
       .map((s) => ({ option, kind: s.kind, name: s.name })),
   );
+  // a restricted kind (components:): --disable-decoders --enable-decoder=h264,hevc. Each name must be in the build,
+  // as `ffmpeg -<kind>` lists it; -hwaccels lists types (vaapi), not these names, so those stay configure's to check
+  const flags = configure.split(/\s+/);
+  const has = new Set(fromOptions.map((e) => `${e.kind} ${e.name}`));
+  const fromComponents: Expected[] = COMPONENT_KINDS.filter(
+    (k): k is ComponentKind & ShippedKind =>
+      k !== 'hwaccels' && (SHIPPED_KINDS as readonly string[]).includes(k),
+  )
+    .filter((k) => flags.includes(`--disable-${k}`))
+    .flatMap((kind) =>
+      flags
+        .filter((f) => f.startsWith(`--enable-${COMPONENT_FLAG[kind]}=`))
+        // -buildconf records the list as configure quoted it: --enable-muxer='mp4,null'
+        .flatMap((f) =>
+          f
+            .slice(f.indexOf('=') + 1)
+            .replace(/^(['"])(.*)\1$/, '$2')
+            .split(','),
+        )
+        .filter((name) => name && !has.has(`${kind} ${name}`))
+        .map((name) => ({ option: 'components', kind, name })),
+    );
+  return [...fromOptions, ...fromComponents];
 }
 
 /** Every component any option of FFmpeg `major` names, as the smoke program's `<kind>:<name>` arguments. */

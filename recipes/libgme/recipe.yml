@@ -1,0 +1,36 @@
+name: libgme
+provides: gme
+# LGPL-2.1-or-later as built: the GPL-2.0 YM2612 emulator (license.gpl2.txt) is only compiled with
+# GME_YM2612_EMU=MAME; the default, Nuked, is LGPL
+license: LGPL-2.1-or-later
+license-files: [license.txt]
+configure: [--enable-libgme]
+source: { git: https://github.com/libgme/game-music-emu, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # Game_Music_Emu: video game music emulation (NSF, SPC, GBS, VGM, ...; LGPL-2.1-or-later), static, for FFmpeg's
+  # libgme demuxer (found through libgme.pc). C++. The library alone: no player, demo or tests, and without its
+  # optional zlib (compressed VGZ files; FFmpeg's demuxer reads the uncompressed formats). Its .pc's Libs.private is
+  # the compiler's whole implicit link line (libgcc_s, absolute paths on some toolchains): it becomes this platform's
+  # C++ runtime and libm.
+  system: cmake
+  args:
+    [
+      -DGME_BUILD_SHARED=OFF,
+      -DGME_BUILD_STATIC=ON,
+      -DGME_BUILD_EXAMPLES=OFF,
+      -DGME_BUILD_TESTING=OFF,
+      -DGME_ENABLE_UBSAN=OFF,
+      -DGME_ZLIB=OFF,
+      -DGME_BUILD_FRAMEWORK=OFF,
+    ]
+  platforms:
+    # Hes_Emu.cpp uses time_t without <ctime>, which glibc's headers bring in by the way and musl's don't
+    'linux-musl-*': { env: { CXXFLAGS: '+= -include ctime' } }
+  after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libgme.pc',
+          libs-private: { set: '{cxx-runtime} -lm', missing: after-libs },
+        }

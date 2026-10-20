@@ -47,7 +47,12 @@ export interface ToolchainOptions {
   command?: (command: string, args: string[]) => string;
   /** --in here: build with this machine's own compilers (Linux, MSYS2), not the image's or a cross toolchain */
   native?: boolean;
+  /** android: the API level to compile for (the plan's: the target's android-api:, default 28) */
+  androidApi?: number;
 }
+
+/** The Android API level a plan made before android-api: (with none) builds for. */
+const ANDROID_API_BEFORE = 28;
 
 const lines = (...value: string[]) => `${value.join('\n')}\n`;
 const posixDirname = (path: string) => path.replace(/[\\/][^\\/]+$/, '');
@@ -253,14 +258,16 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     const abi = arm ? 'arm64-v8a' : 'x86_64';
     const cpu = arm ? 'aarch64' : 'x86_64';
     const toolchain = `${ndk}/toolchains/llvm/prebuilt/linux-x86_64`;
+    // the NDK's per-level compiler drivers target that level's headers and libraries (aarch64-linux-android24-clang)
+    const api = String(options.androidApi ?? ANDROID_API_BEFORE);
     Object.assign(env, {
-      API: '28',
+      API: api,
       TOOLCHAIN: toolchain,
       ANDROID_TRIPLE: triple,
       ANDROID_ABI: abi,
       CROSS_HOST: triple,
-      CC: `${toolchain}/bin/${triple}28-clang`,
-      CXX: `${toolchain}/bin/${triple}28-clang++`,
+      CC: `${toolchain}/bin/${triple}${api}-clang`,
+      CXX: `${toolchain}/bin/${triple}${api}-clang++`,
       AR: `${toolchain}/bin/llvm-ar`,
       RANLIB: `${toolchain}/bin/llvm-ranlib`,
       STRIP: `${toolchain}/bin/llvm-strip`,
@@ -285,7 +292,7 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     cmakeArgs = [
       `-DCMAKE_TOOLCHAIN_FILE=${ndk}/build/cmake/android.toolchain.cmake`,
       `-DANDROID_ABI=${abi}`,
-      '-DANDROID_PLATFORM=android-28',
+      `-DANDROID_PLATFORM=android-${api}`,
     ];
     mesonArgs = ['--cross-file', meson];
   } else if (options.setup === 'windows') {

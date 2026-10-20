@@ -8,7 +8,7 @@ import { writeFileAtomic } from '../atomic-write.ts';
 import { buildSettingProblems, buildSettings } from '../build-settings.ts';
 import { checkProfile, type ProfileReport } from '../check.ts';
 import { EXIT_PROBLEM, EXIT_USAGE, type ExitCode } from '../cli-errors.ts';
-import { type EngineData, recipeForPin, resolveName } from '../engine-data.ts';
+import { type EngineData, knownMajors, recipeForPin, resolveName } from '../engine-data.ts';
 import { collectLibraryRequirements, folderLockMatches } from '../folder-choose.ts';
 import { addTo, missingByTarget, removeFrom, targetsReached } from '../folder-edit.ts';
 import { initFolder, type Selection, shippedFolder } from '../folder-init.ts';
@@ -186,7 +186,7 @@ function folderProblems(
     const key = `${t.releaseGroup ? `${t.releaseGroup}-` : ''}${ffmpeg ? releaseVersion(ffmpeg) : t.ffmpeg}`;
     releases.set(key, [...(releases.get(key) ?? []), t]);
   }
-  for (const [key, targets] of releases) {
+  for (const [key, targets] of folder.libraryOnly ? [] : releases) {
     for (const p of frameworkSliceProblems(targets)) {
       errors.push(releases.size > 1 ? `${key}: ${p}` : p);
     }
@@ -262,17 +262,56 @@ export function runFolderCheck(
   return { output: jsonFailure(error, problems, { targets: reports }), exitCode };
 }
 
-/** One target's check, at its locked FFmpeg release. */
+/**
+ * One target's check, at its locked FFmpeg release. A `latest` target with problems is told how to stay on the major
+ * before: the update that moved it may be what brought them.
+ */
 function targetReport(
   folder: Folder,
   t: Target,
   data: EngineData,
   lock: FolderLock | undefined,
 ): ProfileReport {
-  return checkProfile({ ok: true, profile: targetProfile(folder, t) }, data, {
+  const report = checkProfile({ ok: true, profile: targetProfile(folder, t) }, data, {
     target: { header: header(t, lock) },
     versions: lockedVersion(t, lock),
   });
+  const locked = t.ffmpeg === 'latest' ? lock?.ffmpeg['latest'] : undefined;
+  const major = locked?.split('.')[0];
+  const before = knownMajors(data)
+    .filter((m) => Number(m) < Number(major))
+    .at(-1);
+  if (report.problems && major && before) {
+    const where = t.ffmpegFrom ? `, on the target: it wins over base ${t.ffmpegFrom}'s` : '';
+    report.blocks.push({
+      lines: [
+        {
+          mark: '-',
+          text: `ffmpeg: latest is FFmpeg ${major} in ${LOCK_FILE}; a target not ready for it can name its major (ffmpeg: ${before}${where})`,
+        },
+      ],
+    });
+  }
+  return report;
+}
+
+/** What check finds wrong with each of `names` at `lock`'s FFmpeg releases, one line each: `<target>: <problem>`. */
+export function targetProblemsAt(
+  folder: Folder,
+  data: EngineData,
+  lock: FolderLock,
+  names: readonly string[],
+): string[] {
+  return folder.targets
+    .filter((t) => names.includes(t.name))
+    .flatMap((t) =>
+      problemLines(
+        checkProfile({ ok: true, profile: targetProfile(folder, t) }, data, {
+          target: { header: t.name },
+          versions: lockedVersion(t, lock),
+        }),
+      ).map((p) => `${t.name}: ${p}`),
+    );
 }
 
 /** The folder's own problems and notes (when there are any), then each chosen target's check; and whether the lock is stale. */

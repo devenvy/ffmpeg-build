@@ -1,0 +1,31 @@
+name: vvenc
+provides: vvenc
+license: BSD-3-Clause-Clear
+# its own licence, the VVC Test Model's it is based on, and the two header-only libraries compiled in
+license-files:
+  [
+    LICENSE.txt,
+    thirdparty/VTM_license.txt,
+    thirdparty/simde/COPYING,
+    thirdparty/nlohmann_json/LICENSE.MIT,
+  ]
+configure: [--enable-libvvenc]
+source: { git: https://github.com/fraunhoferhhi/vvenc, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# Not linux-armhf: its 32-bit ARM path forces NEON everywhere, and no packager builds it for 32-bit targets.
+platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # Fraunhofer's VVenC: H.266 / VVC encoder (BSD-3-Clause-Clear), static, for FFmpeg's libvvenc encoder (found
+  # through libvvenc.pc, 1.6.1 or later, whose Libs.private carries the C++ runtime). The library alone; link-time
+  # optimisation off (a static archive of GCC's LTO objects is no use to FFmpeg's link) and warnings not errors (each
+  # new compiler finds new ones).
+  system: cmake
+  args: [-DVVENC_LIBRARY_ONLY=ON, -DVVENC_ENABLE_LINK_TIME_OPT=OFF, -DVVENC_ENABLE_WERROR=OFF]
+  platforms:
+    # Arm SVE is switched on whenever the compiler takes the flag, and its run-time check reads getauxval, which
+    # Apple's and Windows' C libraries don't have: NEON only there
+    'osx-arm64': { args: [-DVVENC_ENABLE_ARM_SIMD_SVE=OFF, -DVVENC_ENABLE_ARM_SIMD_SVE2=OFF] }
+    'ios-*': { args: [-DVVENC_ENABLE_ARM_SIMD_SVE=OFF, -DVVENC_ENABLE_ARM_SIMD_SVE2=OFF] }
+    'maccatalyst-arm64':
+      { args: [-DVVENC_ENABLE_ARM_SIMD_SVE=OFF, -DVVENC_ENABLE_ARM_SIMD_SVE2=OFF] }
+    'win-arm64': { args: [-DVVENC_ENABLE_ARM_SIMD_SVE=OFF, -DVVENC_ENABLE_ARM_SIMD_SVE2=OFF] }

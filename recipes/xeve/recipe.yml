@@ -1,0 +1,36 @@
+name: xeve
+provides: xeve
+# Samsung's code and the ISO/IEC MPEG-5 EVC reference software it builds on, each under BSD-3-Clause (no patent grant)
+license: BSD-3-Clause
+license-files: [COPYING]
+# Its encoder needs more stack than musl gives a thread by default (128 KiB; FFmpeg runs each encoder in a thread
+# of its own), and crashes at ordinary frame sizes: on musl the ffmpeg program gets glibc's 8 MiB default (musl takes
+# a program's PT_GNU_STACK size as its threads' default). An application linking the libraries on musl gives its
+# threads the stack itself.
+configure:
+  - --enable-libxeve
+  - '--extra-ldflags=-Wl,-z,stack-size=8388608': { platforms: [linux-musl-*] }
+source: { git: https://github.com/mpeg5/xeve, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# Not linux-armhf: its NEON code uses AArch64-only intrinsics.
+platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # XEVE: MPEG-5 EVC encoder, main profile (BSD-3-Clause), static, for FFmpeg's libxeve encoder (found through xeve.pc,
+  # 0.5.1 or later). Its CMake always builds the shared library beside the static one, puts the static one in lib/xeve/
+  # (xeve.pc reaches it only through Libs.private), and its gcc branch, which Apple's clang also takes, adds -Werror
+  # to gcc-only warning flags. So: no -Werror, no command-line app, and after the install the static archive is
+  # moved to lib/, the shared library (and Windows' DLL and import library) removed, and the .pc's extra -L dropped.
+  system: cmake
+  args: [-DSET_PROF=MAIN]
+  before:
+    - replace-in-file: { path: CMakeLists.txt, from: ' -Werror', to: '' }
+    - replace-in-file: { path: CMakeLists.txt, from: 'add_subdirectory(app)', to: '' }
+  after:
+    - remove: { path: '{deps}/lib/libxeve.so*' }
+    - remove: { path: '{deps}/lib/libxeve*.dylib' }
+    - remove: { path: '{deps}/lib/libxeve.dll.a' }
+    - remove: { path: '{deps}/bin/libxeve.dll' }
+    - remove: { path: '{deps}/lib/xeve/import', recursive: true }
+    - move: { from: '{deps}/lib/xeve/libxeve.a', to: '{deps}/lib/libxeve.a' }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/xeve.pc', libs-private: { remove: '-L${libdir}/xeve' } }

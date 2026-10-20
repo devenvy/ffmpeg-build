@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { COMPONENT_KINDS, type Components } from './ffmpeg-components.ts';
 import { expandPlatformPattern, PLATFORMS } from './platforms.ts';
 import { formatIssues } from './schema/common.ts';
 import { folderSchema } from './schema/targets.ts';
@@ -21,12 +22,16 @@ export interface Target {
   platform: string;
   license: License;
   ffmpeg: string; // one series: 9, 9.0 or latest
+  ffmpegFrom?: string; // the base it took ffmpeg: from, when the target doesn't say its own
   base: string[];
   with: string[]; // what the build gets, after its bases and its own lists
   without: string[]; // what it turns down (declined): never suggested, never built
   pin: Record<string, string>; // this target's version constraints
+  components: Partial<Components>; // the kinds built with only these names (its bases', a later layer replacing a kind)
   patches: string[];
   tests: string[];
+  testEnv: string[]; // the variables its tests get: build.yml's test-env secret, else test's environment
+  androidApi?: number; // android-api: the Android API level an android-* build is made for (default 28)
   releaseGroup?: string; // targets with the same group (and FFmpeg version) release together
   allowRemoval: string[]; // components it may lose since the last release
   origin: Map<string, string>; // name -> the layer (base or target name) that last included or declined it
@@ -35,19 +40,32 @@ export interface Target {
 export interface Folder {
   file: string; // as shown to the user
   dir: string; // absolute
-  bases: Record<string, { with: string[]; without: string[]; pin: Record<string, string> }>;
+  bases: Record<
+    string,
+    {
+      ffmpeg?: string;
+      with: string[];
+      without: string[];
+      pin: Record<string, string>;
+      components: Partial<Components>;
+    }
+  >;
   pin: Record<string, string>; // folder-wide version constraints
   notify: { newFfmpeg: boolean };
   allowRemoval: string[]; // components any target may lose since the last release
-  privateRelease?: 'internal'; // releases go to a private repository: builds and their source only for those with access
+  sourceOffer?: string; // who the notices' written offer names to ask for the source
   build: BuildSettingEntry[]; // where and how platforms build (the build: section), in the file's order
   targets: Target[];
+  // recipe-check's folder: its targets build libraries alone (build --only) and are never released, so an Apple
+  // slice needs no xcframework bundle's other three
+  libraryOnly?: true;
 }
 
 export type FolderResult =
   { ok: true; folder: Folder } | { ok: false; file: string; errors: string[] };
 
-const BUILD_KEYS = ['platform', 'license', 'ffmpeg'];
+const BUILD_KEYS = ['platform', 'license'];
+const SERIES_FIX = 'write 9, 9.0 or latest';
 
 export function loadFolder(dir: string): FolderResult {
   let text: string;
@@ -86,7 +104,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       for (const k of BUILD_KEYS) {
         if (v && typeof v === 'object' && k in v) {
           errors.push(
-            `bases.${b}: ${k} belongs on a target, not a base (a base only holds with, without and pin)`,
+            `bases.${b}: ${k} belongs on a target, not a base (a base only holds ffmpeg, with, without, pin and components)`,
           );
         }
       }
@@ -110,6 +128,9 @@ export function parseFolderText(text: string, dir: string): FolderResult {
   };
   for (const [b, layer] of Object.entries(data.bases)) {
     both(`bases.${b}`, layer);
+    if (layer.ffmpeg !== undefined && !isFfmpegSeries(layer.ffmpeg)) {
+      errors.push(`bases.${b}: ffmpeg: ${layer.ffmpeg} is not an FFmpeg series (${SERIES_FIX})`);
+    }
   }
   for (const pattern of Object.keys(data.build)) {
     if (!expandPlatformPattern(pattern).length) {
@@ -117,7 +138,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
     }
   }
   /** A target with its bases applied, once all of them are defined. */
-  const layered = (t: string, d: (typeof data.targets)[string]): Target => {
+  const layered = (t: string, d: (typeof data.targets)[string], ffmpeg: string): Target => {
     // a later layer overwrites an earlier one, name by name: included, or declined
     const state = new Map<string, boolean>();
     const origin = new Map<string, string>();
@@ -135,17 +156,30 @@ export function parseFolderText(text: string, dir: string): FolderResult {
         origin.set(n, layerName);
       }
     }
+    // components: per kind, the last layer that lists it
+    const comps: Partial<Components> = {};
+    for (const layer of [...d.base.map((b) => data.bases[b]!), d]) {
+      for (const k of COMPONENT_KINDS) {
+        const listed = layer.components[k];
+        if (listed) {
+          comps[k] = listed;
+        }
+      }
+    }
     return {
       name: t,
       platform: d.platform,
       license: d.license,
-      ffmpeg: d.ffmpeg,
+      ffmpeg,
       base: d.base,
       with: [...state].filter(([, inc]) => inc).map(([n]) => n),
       without: [...state].filter(([, inc]) => !inc).map(([n]) => n),
       pin: d.pin,
+      components: comps,
       patches: d.patches,
       tests: d.tests,
+      testEnv: d['test-env'],
+      ...(d['android-api'] !== undefined ? { androidApi: d['android-api'] } : {}),
       ...(d['release-group'] ? { releaseGroup: d['release-group'] } : {}),
       allowRemoval: d['allow-removal'],
       origin,
@@ -157,16 +191,27 @@ export function parseFolderText(text: string, dir: string): FolderResult {
     if (!PLATFORMS.includes(d.platform)) {
       errors.push(`${label}: platform ${d.platform} is not a platform ffmpeg-build knows`);
     }
-    if (!isFfmpegSeries(d.ffmpeg)) {
-      errors.push(`${label}: ffmpeg: ${d.ffmpeg} is not an FFmpeg series (write 9, 9.0 or latest)`);
+    if (d.ffmpeg !== undefined && !isFfmpegSeries(d.ffmpeg)) {
+      errors.push(`${label}: ffmpeg: ${d.ffmpeg} is not an FFmpeg series (${SERIES_FIX})`);
     }
     const unknown = d.base.filter((b) => !(b in data.bases));
     for (const b of unknown) {
       errors.push(`${label}: base ${b} is not defined under bases:`);
     }
     both(label, d);
-    if (!unknown.length) {
-      targets.push(layered(t, d));
+    // its own ffmpeg:, else the last of its bases that has one
+    const ffmpegFrom =
+      d.ffmpeg === undefined
+        ? d.base.findLast((b) => data.bases[b]?.ffmpeg !== undefined)
+        : undefined;
+    const series = d.ffmpeg ?? (ffmpegFrom ? data.bases[ffmpegFrom]!.ffmpeg : undefined);
+    if (series === undefined && !unknown.length) {
+      errors.push(
+        `${label}: no ffmpeg: (write ffmpeg: 9, 9.0 or latest on the target, or on one of its bases)`,
+      );
+    }
+    if (!unknown.length && series !== undefined) {
+      targets.push({ ...layered(t, d, series), ...(ffmpegFrom ? { ffmpegFrom } : {}) });
     }
   }
   if (!Object.keys(data.targets).length) {
@@ -184,7 +229,7 @@ export function parseFolderText(text: string, dir: string): FolderResult {
       pin: data.pin,
       notify: { newFfmpeg: data.notify?.['new-ffmpeg'] !== 'false' },
       allowRemoval: data['allow-removal'],
-      ...(data['private-release'] ? { privateRelease: data['private-release'] } : {}),
+      ...(data['source-offer'] ? { sourceOffer: data['source-offer'] } : {}),
       build: Object.entries(data.build).map(([pattern, s]) => ({
         pattern,
         ...(s.runner !== undefined ? { runner: s.runner } : {}),
@@ -241,7 +286,10 @@ export function targetProfile(folder: Folder, t: Target): Profile {
     with: t.with.map((n) => ({ name: n })),
     without: t.without.map((n) => ({ name: n })),
     pin: [],
+    components: t.components,
     patches: t.patches,
     tests: t.tests,
+    ...(t.androidApi !== undefined ? { androidApi: t.androidApi } : {}),
+    ...(folder.sourceOffer ? { sourceOffer: folder.sourceOffer } : {}),
   };
 }

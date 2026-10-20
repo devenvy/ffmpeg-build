@@ -61,6 +61,13 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "ffmpeg": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "minLength": 1
+          },
           "with": {
             "default": [],
             "type": "array",
@@ -91,6 +98,90 @@
               ],
               "minLength": 1
             }
+          },
+          "components": {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "decoders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "encoders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "hwaccels": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "demuxers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "muxers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "parsers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "bsfs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "protocols": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "indevs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "outdevs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -137,11 +228,12 @@
         "pattern": "^[a-z0-9][a-z0-9._+-]*$"
       }
     },
-    "private-release": {
-      "type": "string",
-      "enum": [
-        "internal"
-      ]
+    "source-offer": {
+      "type": [
+        "string",
+        "number"
+      ],
+      "minLength": 1
     },
     "targets": {
       "type": "object",
@@ -215,6 +307,90 @@
               "minLength": 1
             }
           },
+          "components": {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "decoders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "encoders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "hwaccels": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "demuxers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "muxers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "parsers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "bsfs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "protocols": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "indevs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "outdevs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "patches": {
             "default": [],
             "type": "array",
@@ -237,6 +413,18 @@
               "minLength": 1
             }
           },
+          "test-env": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            }
+          },
+          "android-api": {
+            "type": "string",
+            "pattern": "^\\d+$"
+          },
           "release-group": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._+-]*$"
@@ -252,8 +440,7 @@
         },
         "required": [
           "platform",
-          "license",
-          "ffmpeg"
+          "license"
         ],
         "additionalProperties": false
       }

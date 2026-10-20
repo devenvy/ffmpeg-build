@@ -1,10 +1,13 @@
-# Recipe checks: a change to a recipe builds that library (and what it builds against, not FFmpeg) on every canary
-# target that uses it, at the canary lock's versions. A change to the toolchains (src/build, images, platforms.yml)
-# is toolchains.yml's: it builds the small test targets in full.
+# Recipe checks: a change to recipes/<name>/ builds that library, and every recipe that builds against it, on every
+# platform it claims (without FFmpeg), at the canary lock's versions. `ffmpeg-build recipe-check --plan` writes the
+# check targets once (one per platform and option, locked) and plans one job per platform; each job builds its
+# platform from that same folder. A recipe that claims a platform no option builds it on fails the check; one no
+# platform builds is a notice. ci.yml calls this on every pull request and its required `result` needs it (no recipe
+# changed: nothing builds, and it passes); a push to main runs it too, which keeps main's library caches warm.
+# A change to the toolchains (src/build, images, platforms.yml) is toolchains.yml's.
 name: Recipes
 on:
-  pull_request:
-    paths: ['recipes/**']
+  workflow_call:
   push:
     branches: [main]
     paths: ['recipes/**']
@@ -17,20 +20,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
+      recipes: ${{ steps.diff.outputs.recipes }}
       matrix: ${{ steps.plan.outputs.matrix }}
       any: ${{ steps.plan.outputs.any }}
+      lock: ${{ steps.plan.outputs.lock }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-      - name: engine
-        run: corepack pnpm install --frozen-lockfile && npm link
-      - id: plan
-        name: what changed, and which canary targets build it
+      - id: diff
+        name: the recipes that changed
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
@@ -40,34 +40,66 @@ jobs:
             BASE="$(git rev-parse -q --verify 'HEAD~1^{commit}' || git hash-object -t tree /dev/null)"
           fi
           git diff --name-only "${BASE}" HEAD > "${RUNNER_TEMP}/changed"
-          sed -n 's#^recipes/\([^/]*\)/.*#\1#p' "${RUNNER_TEMP}/changed" | sort -u > "${RUNNER_TEMP}/recipes"
-          (cd examples/canary && ffmpeg-build plan --json) > "${RUNNER_TEMP}/plan.json"
-          (cd examples/canary && ffmpeg-build releases --json --offline) > "${RUNNER_TEMP}/releases.json"
-          # shellcheck disable=SC2016 # the script is JavaScript: its ${...} are JavaScript's, not the shell's
-          node -e '
-            const fs = require("fs");
-            const [planFile, relFile, recipesFile] = process.argv.slice(1);
-            const changed = fs.readFileSync(recipesFile, "utf8").split("\n").filter(Boolean);
-            const runner = Object.fromEntries(JSON.parse(fs.readFileSync(relFile, "utf8")).flatMap((r) => r.targets.map((t) => [t.name, { runner: t.runner, cacheKey: t.cacheKey, platform: t.platform }])));
-            const include = [];
-            for (const t of JSON.parse(fs.readFileSync(planFile, "utf8"))) {
-              const only = changed.filter((c) => t.builds.some((b) => b.libraries.includes(c)));
-              if (only.length) include.push({ target: t.target, only: only.join(","), ...runner[t.target] });
-            }
-            const out = fs.openSync(process.env.GITHUB_OUTPUT, "a");
-            fs.writeSync(out, `matrix=${JSON.stringify({ include })}\nany=${include.length > 0}\n`);
-            const unused = changed.filter((c) => !include.some((i) => i.only.split(",").includes(c)));
-            if (unused.length) console.log(`::notice::no canary target builds ${unused.join(", ")}; build it by hand on its platform`);
-          ' "${RUNNER_TEMP}/plan.json" "${RUNNER_TEMP}/releases.json" "${RUNNER_TEMP}/recipes"
+          # a recipe removed (or renamed away) has nothing left to build
+          recipes="$(sed -n 's#^recipes/\([^/]*\)/.*#\1#p' "${RUNNER_TEMP}/changed" | sort -u | while read -r r; do
+            if [ -f "recipes/${r}/recipe.yml" ]; then echo "${r}"; else echo "::notice::recipes/${r} is gone; nothing to build" >&2; fi
+          done | tr '\n' ' ')"
+          echo "recipes=${recipes% }" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.diff.outputs.recipes != ''
+        with:
+          node-version: 24
+      - name: engine
+        if: steps.diff.outputs.recipes != ''
+        run: corepack pnpm install --frozen-lockfile && npm link
+      - id: plan
+        name: where each recipe builds
+        env:
+          RECIPES: ${{ steps.diff.outputs.recipes }}
+        run: |
+          if [ -z "${RECIPES}" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status=0
+          # shellcheck disable=SC2086 # the recipe names, one argument each
+          ffmpeg-build recipe-check ${RECIPES} --plan --json --dir "${RUNNER_TEMP}/recipe-check" > "${RUNNER_TEMP}/plan.json" || status=$?
+          if ! jq -e '.platforms' "${RUNNER_TEMP}/plan.json" > /dev/null 2>&1; then
+            jq -r '.error? // empty' "${RUNNER_TEMP}/plan.json" 2>/dev/null | sed 's/^/::error::/'
+            cat "${RUNNER_TEMP}/plan.json"
+            exit 1
+          fi
+          jq -r '.unbuildable[] | "::notice::no option builds \(.) on any platform, so nothing checks it here"' "${RUNNER_TEMP}/plan.json"
+          jq -r '.unbuilt[] | "::error::\(.recipe) claims \(.platforms | join(", ")), but no option builds it there: correct its platforms: in recipes/\(.recipe)/recipe.yml"' "${RUNNER_TEMP}/plan.json"
+          {
+            echo "matrix=$(jq -c '{include: [.platforms[] | {platform, runner, targets: ([.targets[].name] | join(" "))}]}' "${RUNNER_TEMP}/plan.json")"
+            echo "any=$(jq '.platforms | length > 0' "${RUNNER_TEMP}/plan.json")"
+            echo "lock=$(sha256sum "${RUNNER_TEMP}/recipe-check/ffmpeg.lock" 2>/dev/null | cut -c1-16)"
+          } >> "$GITHUB_OUTPUT"
+          jq -r '"checks \(.recipes | join(", "))", (.platforms[] | "- \(.platform): \([.targets[] | "\(.name) (\(.only | join(", ")))"] | join("; "))")' "${RUNNER_TEMP}/plan.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.plan.outputs.any == 'true'
+        with:
+          name: recipe-check
+          path: ${{ runner.temp }}/recipe-check
+          include-hidden-files: true
+          retention-days: 5
+          if-no-files-found: error
+      # after the outputs: the platforms that do build are still built
+      - name: every platform a recipe claims builds it
+        if: steps.plan.outputs.status != '' && steps.plan.outputs.status != '0'
+        run: exit 1
 
   recipe:
     needs: changed
-    if: needs.changed.outputs.any == 'true'
+    if: ${{ !cancelled() && needs.changed.outputs.any == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.changed.outputs.matrix) }}
+    name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
       FFMPEG_BUILD_IMAGE_CACHE: gha
     steps:
@@ -79,24 +111,42 @@ jobs:
           node-version: 24
       - name: engine
         run: corepack pnpm install --frozen-lockfile && npm link
-      # Apple targets (the osx canary's MoltenVK) build natively with Homebrew's tools; the rest in Docker
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipe-check
+          path: ${{ runner.temp }}/recipe-check
+      # Apple platforms build natively with Homebrew's tools (x86_64 ones run their own programs under Rosetta); the
+      # rest in their Docker images on Linux (Windows, Android and armhf cross-built)
       - name: Apple build tools
         if: runner.os == 'macOS'
         run: sed 's/#.*//' platforms/apple-brew.txt | xargs brew install
+      - name: Rosetta (x86_64 builds run under it on Apple silicon)
+        if: runner.os == 'macOS' && endsWith(matrix.platform, '-x64')
+        run: sudo softwareupdate --install-rosetta --agree-to-license
       - name: buildx with the Actions cache
         if: runner.os == 'Linux'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: expose the Actions cache to buildx
         if: runner.os == 'Linux'
         uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      # the libraries, by platform, recipes and lock: a recipe change saves the libraries it rebuilt under a key of its own
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ffmpeg-build
-          key: ${{ matrix.cacheKey }}
+          key: ffmpeg-build-libs-${{ matrix.platform }}-recipes-${{ hashFiles('recipes/**', 'platforms/**', 'platforms.yml', 'images/**', 'src/build/**') }}-${{ needs.changed.outputs.lock }}
           restore-keys: ffmpeg-build-libs-${{ matrix.platform }}-
-      - name: build ${{ matrix.only }} for ${{ matrix.target }}
-        working-directory: examples/canary
+      - name: build ${{ matrix.targets }}
         env:
-          MATRIX_TARGET: ${{ matrix.target }}
-          MATRIX_ONLY: ${{ matrix.only }}
-        run: ffmpeg-build build --target "${MATRIX_TARGET}" --only "${MATRIX_ONLY}" --out "${RUNNER_TEMP}/dist"
+          RECIPES: ${{ needs.changed.outputs.recipes }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          # shellcheck disable=SC2086 # the recipe names, one argument each
+          ffmpeg-build recipe-check ${RECIPES} --platform "${PLATFORM}" --dir "${RUNNER_TEMP}/recipe-check" --out "${RUNNER_TEMP}/dist"
+      - name: the build logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recipe-check-logs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/dist/*.log
+          retention-days: 5
+          if-no-files-found: ignore

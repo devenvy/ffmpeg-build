@@ -1,0 +1,68 @@
+name: lcevcdec
+provides: lcevc-dec
+# BSD-3-Clause-Clear (no patent licence: LCEVC's patents are V-Nova's to license) with COPYING's further terms: the
+# library keeps its own licence inside a larger work and "must not adopt the licence of the incorporating project",
+# which conflicts with the GPL's terms for the whole: LGPL and nonfree builds only (licenses.yml).
+license: LicenseRef-LCEVCdec
+license-files: [LICENSE.md, COPYING]
+configure: [--enable-liblcevc-dec]
+source: { git: https://github.com/v-novaltd/LCEVCdec, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+# Not win-arm64: its build takes the x86 SIMD path there, and its Windows threads header misses errno.h.
+platforms: [linux-*, win-x64, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # V-Nova's LCEVC decoder SDK (liblcevc_dec), static, for FFmpeg's LCEVC enhancement (the lcevc filter and the
+  # decoders' LCEVC side data; found through lcevc_dec.pc, 4.0.0 or later in 8.1 and 9). C++17. Its configure
+  # needs git and Python 3 (it writes version files) and fetches nothing. The decoder libraries alone: no samples,
+  # executables, tests, docs, Vulkan pipeline, metrics, tracing or JSON configuration, and nothing installed to
+  # share/ (docs). Static, its .pc lists all seven of its libraries in Libs, but the C++ runtime and libm before them,
+  # where a static link has nothing yet to resolve: they move to the end, the runtime as this platform's. The licence
+  # texts it installs anyway (a licenses/ folder in deps) are removed: THIRD-PARTY-NOTICES.txt carries the ones that
+  # apply.
+  system: cmake
+  args:
+    [
+      -DVN_SDK_EXECUTABLES=OFF,
+      -DVN_SDK_SAMPLE_SOURCE=OFF,
+      -DVN_SDK_UNIT_TESTS=OFF,
+      -DVN_SDK_DOCS=OFF,
+      -DVN_SDK_PIPELINE_VULKAN=OFF,
+      -DVN_SDK_JSON_CONFIG=OFF,
+      -DVN_SDK_TRACING=OFF,
+      -DVN_SDK_METRICS=OFF,
+      -DVN_SDK_SYSTEM_INSTALL=OFF,
+      -DVN_SDK_BUILD_DETAILS=OFF,
+    ]
+  platforms:
+    # it names its threads with SetThreadDescription (Windows 10), which win-x64's mingw-w64 11 has in kernel32's
+    # import library but doesn't declare: a header declaring it is included first
+    win-x64:
+      before:
+        - write-file:
+            path: '{src}/_lcevc-compat.h'
+            text: |
+              #pragma once
+              #include <stddef.h>
+              #ifdef __cplusplus
+              extern "C"
+              #endif
+              __declspec(dllimport) long __stdcall SetThreadDescription(void *thread, const wchar_t *name);
+      args:
+        [
+          '-DCMAKE_C_FLAGS=-include {src}/_lcevc-compat.h',
+          '-DCMAKE_CXX_FLAGS=-include {src}/_lcevc-compat.h',
+        ]
+    # its Android code draws to ANativeWindow and AHardwareBuffer surfaces: libandroid and libnativewindow
+    'android-*':
+      after:
+        - edit-pkg-config:
+            {
+              path: '{deps}/lib/pkgconfig/lcevc_dec.pc',
+              libs: { append: -landroid -lnativewindow },
+            }
+  after:
+    - remove: { path: '{deps}/licenses', recursive: true }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/lcevc_dec.pc', libs: { remove: -lstdc++ -lc++ -lm } }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/lcevc_dec.pc', libs: { append: '{cxx-runtime} -lm' } }

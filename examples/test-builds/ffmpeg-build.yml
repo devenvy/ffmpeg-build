@@ -5,9 +5,12 @@
 # The GPU options each platform offers ride along (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): small, and only a full
 # build and `ffmpeg-build test` show that FFmpeg took them (clang emitting the CUDA kernels' PTX, the D3D12 video
 # headers, the OpenCL loader linked statically, Rockchip MPP).
+# tests/test-env.sh checks that build.yml's test-env secret reaches a target's tests: natively (linux-x64, osx-arm64,
+# win-x64 on its test runner) and in the test containers (Alpine for linux-musl-arm64, Debian armhf for linux-armhf).
 bases:
   small: { with: [dav1d, opus] }
 targets:
+  # components: a restricted build, so the --disable-<kind> / --enable-<kind>=a,b path is built and tested for real
   linux-x64-lgplv3:
     {
       platform: linux-x64,
@@ -15,6 +18,9 @@ targets:
       ffmpeg: 9,
       base: [small],
       with: [cuda-llvm, opencl, vdpau],
+      components: { muxers: [mp4, matroska, null], protocols: [file, pipe] },
+      tests: [tests/test-env.sh],
+      test-env: [FFB_TEST_ENV_CHECK],
     }
   linux-arm64-lgplv3:
     {
@@ -31,6 +37,8 @@ targets:
       ffmpeg: 9,
       base: [small],
       with: [cuda-llvm, opencl, d3d12va],
+      tests: [tests/test-env.sh],
+      test-env: [FFB_TEST_ENV_CHECK],
     }
   linux-armhf-lgplv3:
     {
@@ -39,6 +47,8 @@ targets:
       ffmpeg: 9,
       base: [small],
       with: [opencl, vdpau, rkmpp],
+      tests: [tests/test-env.sh],
+      test-env: [FFB_TEST_ENV_CHECK],
     }
   linux-musl-arm64-lgplv3:
     {
@@ -47,12 +57,24 @@ targets:
       ffmpeg: 9,
       base: [small],
       with: [cuda-llvm, opencl, vdpau, rkmpp],
+      tests: [tests/test-env.sh],
+      test-env: [FFB_TEST_ENV_CHECK],
     }
   win-arm64-lgplv3:
     { platform: win-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [opencl, d3d12va] }
-  android-arm64-lgplv3: { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small] }
+  # android-api: 24, below the default 28: the NDK's API 24 compilers, and the smoke program linked for API 24
+  android-arm64-lgplv3:
+    { platform: android-arm64, license: lgplv3, ffmpeg: 9, base: [small], android-api: 24 }
   osx-arm64-lgplv3:
-    { platform: osx-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [opencl] }
+    {
+      platform: osx-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [opencl],
+      tests: [tests/test-env.sh],
+      test-env: [FFB_TEST_ENV_CHECK],
+    }
   # MoltenVK linked statically into the frameworks (--enable-vulkan-static), as the shipped v3 targets have it
   ios-arm64-lgplv3:
     { platform: ios-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [vulkan, placebo] }

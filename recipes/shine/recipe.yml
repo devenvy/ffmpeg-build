@@ -1,0 +1,21 @@
+# The release tarball (its configure generated).
+name: shine
+provides: shine
+# COPYING is the GNU Library GPL version 2, and no file says "or any later version"
+license: LGPL-2.0-only
+license-files: [COPYING]
+configure: [--enable-libshine]
+source: { url: 'https://github.com/toots/shine/releases/download/{version}/shine-{version}.tar.gz' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/toots/shine }
+platforms: all
+build:
+  # shine: fixed-point MP3 encoder (LGPL-2.0), static, for FFmpeg's libshine encoder (found through shine.pc). Only
+  # the library, its header and the .pc: not the shineenc program.
+  system: autotools
+  # its 2017 config.sub doesn't know every triple the cross builds use (aarch64-w64-mingw32): autoreconf refreshes it
+  bootstrap: autoreconf
+  args: [--disable-shared, --enable-static, --with-pic]
+  # C17: its `void shine_mdct_initialise()` declaration conflicts with the definition under C23, newer GCCs' default
+  env: { CFLAGS: '+= -std=gnu17' }
+  make-targets: [libshine.la]
+  install-targets: [install-libLTLIBRARIES, install-libshine_laHEADERS, install-pkgconfigDATA]

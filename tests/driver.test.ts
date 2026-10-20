@@ -394,18 +394,18 @@ describe.skipIf(!hasTools)('the driver: THIRD-PARTY-NOTICES.txt and sources', ()
     );
   });
 
-  it('points an unreleased build at its recorded sources, with no offer to send them', () => {
+  it('points an unreleased build at its recorded sources, and offers them through whoever distributes it', () => {
     const source = sectionOf(notices(first.name), 'SOURCE');
     expect(source).toContain(`Its source is recorded in\n${first.name}.sources.json beside it`);
     expect(source).toContain(
-      'It must be published together with its sources archive (ffmpeg-9.0.0-sources.tar.gz) before it is\ndistributed.',
+      'Keep its sources archive (ffmpeg-9.0.0-sources.tar.gz) for as long as the written offer below holds.',
     );
     expect(source).toContain('Build definition: https://github.com/acme/media-builds/tree/c0ffee');
     expect(source).toContain(
       'FFmpeg 9.0.0, unmodified upstream: https://ffmpeg.org/releases/ffmpeg-9.0.0.tar.xz',
     );
-    expect(source).toContain('no request to the distributor is necessary');
-    expect(source).not.toMatch(/on request|write to|contact/i);
+    expect(source).toContain('by asking\nwhoever distributed this build to you.');
+    expect(source).not.toContain('Everything is public');
   });
 
   it('keeps every source in the cache and lists them in <name>.sources.json', () => {

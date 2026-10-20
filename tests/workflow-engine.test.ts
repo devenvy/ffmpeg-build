@@ -612,8 +612,33 @@ describe.skipIf(!bash || !jq)(
       expect(t.env).toEqual({
         HERE: `\${{ matrix.testHere }}`,
         MATRIX_TARGET: `\${{ matrix.target }}`,
+        FFMPEG_BUILD_TEST_ENV: `\${{ secrets.test-env }}`,
       }); // releases says it: expressions can't compare label lists
       expect(t.run).toContain('--must-run');
+    });
+
+    it('gives the test-env secret to the two test steps and nothing else, through env (never in a run: line)', () => {
+      const text = readFileSync(join(packageRoot, '.github', 'workflows', 'build.yml'), 'utf8');
+      const w = parse(text) as {
+        on: { workflow_call: { secrets: Record<string, { required: boolean }> } };
+        jobs: Record<string, { env?: Record<string, string>; steps: Step[] }>;
+      };
+      expect(w.on.workflow_call.secrets['test-env']!.required).toBe(false);
+      const using = Object.entries(w.jobs).flatMap(([job, j]) => [
+        ...(JSON.stringify(j.env ?? {}).includes('secrets.') ? [`${job} env`] : []),
+        ...j.steps
+          .filter((s) => JSON.stringify(s).includes('secrets.'))
+          .map((s) => `${job}: ${String(s.name)}`),
+      ]);
+      expect(using).toEqual([
+        `build: test \${{ matrix.target }}`,
+        `test: test \${{ matrix.target }}`,
+      ]);
+      for (const j of Object.values(w.jobs)) {
+        for (const s of j.steps) {
+          expect(s.run ?? '').not.toContain('secrets.');
+        }
+      }
     });
   },
 );

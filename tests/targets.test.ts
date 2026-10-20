@@ -57,6 +57,54 @@ describe('the folder file', () => {
     expect(t.origin.get('dav1d')).toBe('common');
   });
 
+  it("gives each target the folder's source-offer: contact, and none when it has none", () => {
+    const one = 'targets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9 }\n';
+    const profile = (text: string) => {
+      const f = ok(text);
+      return targetProfile(f, f.targets[0]!);
+    };
+    expect(profile(`source-offer: support@example.com\n${one}`).sourceOffer).toBe(
+      'support@example.com',
+    );
+    expect(profile(one).sourceOffer).toBeUndefined();
+    expect(errors(`source-offer: ""\n${one}`).join('\n')).toContain(
+      'expected who to ask for the source, like an email address',
+    );
+    // private-release: is gone: the engine reads the repository's visibility itself
+    expect(errors(`private-release: internal\n${one}`).join('\n')).toContain('private-release');
+  });
+
+  it('takes components: from its bases, a later layer replacing a kind; none means none restricted', () => {
+    const f = ok(
+      [
+        'bases:',
+        '  slim: { components: { decoders: [h264, hevc], filters: [scale] } }',
+        '  audio: { components: { decoders: [aac, opus] } }',
+        'targets:',
+        '  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, base: [slim, audio], components: { filters: [scale, fps] } }',
+        '  b: { platform: linux-x64, license: lgplv3, ffmpeg: 9 }',
+        '',
+      ].join('\n'),
+    );
+    const [a, b] = f.targets;
+    // audio's decoders replace slim's; the target's filters replace slim's; kinds nobody lists stay unrestricted
+    expect(a!.components).toEqual({ decoders: ['aac', 'opus'], filters: ['scale', 'fps'] });
+    expect(b!.components).toEqual({});
+  });
+
+  it('refuses components: of a kind FFmpeg has no list for, or names FFmpeg could never have', () => {
+    expect(
+      errors(
+        'targets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, components: { codecs: [h264] } }\n',
+      ).join('\n'),
+    ).toContain('codecs');
+    expect(
+      errors(
+        'targets:\n  a: { platform: linux-x64, license: lgplv3, ffmpeg: 9, components: { filters: ["Scale Up"] } }\n',
+      ).join('\n'),
+    ).toContain('expected a component name');
+  });
+
   it('turns a target into one build: one platform, one license, one series, no conditions, no pins', () => {
     const f = ok(layered);
     const p = targetProfile(f, f.targets[0]!);
@@ -79,6 +127,27 @@ describe('the folder file', () => {
     expect(f.targets[0]!.pin).toEqual({ x265: '4.1' });
   });
 
+  it('takes ffmpeg: from its bases when the target has none: the last base that sets it, the target over all', () => {
+    const f = ok(
+      [
+        'bases:',
+        '  newest: { ffmpeg: latest }',
+        '  nine: { ffmpeg: 9 }',
+        '  common: { with: [dav1d] }',
+        'targets:',
+        '  a: { platform: linux-x64, license: gplv3, base: [newest, common] }',
+        '  b: { platform: linux-x64, license: gplv3, base: [newest, nine] }',
+        '  c: { platform: linux-x64, license: gplv3, base: [newest], ffmpeg: "9.0" }',
+        '',
+      ].join('\n'),
+    );
+    expect(f.targets.map((t) => [t.name, t.ffmpeg, t.ffmpegFrom])).toEqual([
+      ['a', 'latest', 'newest'],
+      ['b', '9', 'nine'],
+      ['c', '9.0', undefined],
+    ]);
+  });
+
   it('says what is wrong, with the fix', () => {
     expect(
       errors(
@@ -93,7 +162,15 @@ describe('the folder file', () => {
         'bases:\n  b: { platform: linux-x64, with: [a] }\ntargets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: 9 }\n',
       ),
     ).toEqual([
-      'bases.b: platform belongs on a target, not a base (a base only holds with, without and pin)',
+      'bases.b: platform belongs on a target, not a base (a base only holds ffmpeg, with, without, pin and components)',
+    ]);
+    expect(
+      errors(
+        'bases:\n  b: { ffmpeg: ten }\ntargets:\n  t: { platform: linux-x64, license: gplv3, ffmpeg: 9, base: [b] }\n',
+      ),
+    ).toEqual(['bases.b: ffmpeg: ten is not an FFmpeg series (write 9, 9.0 or latest)']);
+    expect(errors('targets:\n  t: { platform: linux-x64, license: gplv3 }\n')).toEqual([
+      'targets.t: no ffmpeg: (write ffmpeg: 9, 9.0 or latest on the target, or on one of its bases)',
     ]);
     expect(errors('targets:\n  t: { platform: linux-x86, license: gplv3, ffmpeg: 9 }\n')).toEqual([
       'targets.t: platform linux-x86 is not a platform ffmpeg-build knows',
@@ -138,7 +215,7 @@ describe('the editor schema for ffmpeg-build.yml', () => {
       'build',
       'notify',
       'pin',
-      'private-release',
+      'source-offer',
       'targets',
     ]);
     expect(schema.additionalProperties).toBe(false);

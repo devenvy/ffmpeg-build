@@ -1,5 +1,5 @@
-// The example folders CI builds: recipes.yml builds a changed recipe only on the canary targets that use it, and
-// canary.yml builds them every week, so a recipe no canary target builds is never built by CI.
+// The example folders CI builds: canary.yml builds the canary's targets every week against the newest upstream
+// versions, so a recipe no canary target builds would never meet a new upstream release there.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

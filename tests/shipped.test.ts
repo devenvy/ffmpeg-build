@@ -56,6 +56,35 @@ describe('what a build must ship', () => {
     ).toEqual(['hwaccels vaapi', 'encoders libopus']);
   });
 
+  it('expects the components a restricted kind was built with: what components: listed must be in the build', () => {
+    const configure = [
+      '--disable-decoders',
+      '--enable-decoder=h264,hevc',
+      '--disable-muxers',
+      '--enable-muxer=mp4',
+      // -hwaccels lists types (vaapi), not these names: configure's own check covers them
+      '--disable-hwaccels',
+      '--enable-hwaccel=h264_vaapi',
+      // an --enable- of a kind left unrestricted is not a components: list
+      '--enable-filter=scale',
+    ].join(' ');
+    expect(
+      expectedComponents(data, '9', 'linux-x64', configure).map((e) => [e.option, e.kind, e.name]),
+    ).toEqual([
+      ['components', 'decoders', 'h264'],
+      ['components', 'decoders', 'hevc'],
+      ['components', 'muxers', 'mp4'],
+    ]);
+  });
+
+  it("reads a list as ffmpeg -buildconf records it: FFmpeg's configure quotes an argument with a comma", () => {
+    const configure =
+      '--disable-muxers --enable-muxer=\'mp4,matroska,null\' --disable-protocols --enable-protocol="file,pipe"';
+    expect(
+      expectedComponents(data, '9', 'linux-x64', configure).map((e) => `${e.kind} ${e.name}`),
+    ).toEqual(['muxers mp4', 'muxers matroska', 'muxers null', 'protocols file', 'protocols pipe']);
+  });
+
   it("asks the smoke program about every component the major's options name, once each", () => {
     expect(smokeProbes(data, '9')).toEqual([
       'decoders:libdav1d',

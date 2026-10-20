@@ -38,6 +38,12 @@ on:
         description: with publish never only (refused otherwise), build only the releases that changed since they were last published (a cheaper pull-request check); changed-only always does
         type: boolean
         default: false
+    secrets:
+      # Only the test steps get it, as FFMPEG_BUILD_TEST_ENV: `ffmpeg-build test` takes it out of its environment, masks
+      # each value and gives each target's scripts only the names its test-env: lists (docs/building.md)
+      test-env:
+        description: NAME=value lines (one per variable, each value one line) for the targets' test scripts; each target gets the names its test-env lists. Empty in runs without secrets (a pull request from a fork)
+        required: false
 
 # read-only everywhere; only the release job writes (it creates the GitHub release)
 permissions:
@@ -264,6 +270,7 @@ jobs:
         env:
           HERE: ${{ matrix.testHere }}
           MATRIX_TARGET: ${{ matrix.target }}
+          FFMPEG_BUILD_TEST_ENV: ${{ secrets.test-env }}
         run: |
           must=
           if [ "${HERE}" = true ]; then must=--must-run; fi
@@ -363,6 +370,7 @@ jobs:
         working-directory: ${{ inputs.folder }}
         env:
           MATRIX_TARGET: ${{ matrix.target }}
+          FFMPEG_BUILD_TEST_ENV: ${{ secrets.test-env }}
         run: ffmpeg-build test --target "${MATRIX_TARGET}" --dist "${RUNNER_TEMP}/dist" --must-run
 
   ios:
