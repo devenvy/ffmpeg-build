@@ -71,7 +71,20 @@ describe('libzmq', () => {
       'libzmq',
       `Name: libzmq\nLibs: -L\${libdir} -lzmq\nLibs.private: -lstdc++  -lrt\nRequires.private: \nCflags: -I\${includedir} \n`,
     );
+    const clock =
+      '#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\nconst uint64_t nsecs_per_usec = 1000;\n#endif\n';
+    put(join(h.src, 'src', 'clock.cpp'), clock);
+    put(join(h.src, 'src', 'polling_util.hpp'), '#include <stdlib.h>\n#include <vector>\n');
     await build(h, 'libzmq');
+    expect(h.read(join(h.src, 'src', 'polling_util.hpp'))).toBe(
+      `#include <stdlib.h>\n#include <vector>\n${platform === 'win-arm64' ? '#include <new>\n' : ''}`,
+    );
+    // llvm-mingw's arm64 build takes the clock_gettime path, which needs nsecs_per_usec on Windows too
+    expect(h.read(join(h.src, 'src', 'clock.cpp'))).toBe(
+      platform === 'win-arm64'
+        ? '#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\n#endif\nconst uint64_t nsecs_per_usec = 1000;\n'
+        : clock,
+    );
     const win = platform.startsWith('win-');
     expect(commands(h)).toEqual(
       cmakeLines(h, [
