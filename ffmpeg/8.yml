@@ -60,6 +60,26 @@ auto-components:
   - ass
   - srt
   - rist
+  - theora
+  - xvid
+  - vvenc
+  - xavs
+  - davs2
+  - xavs2
+  - uavs3d
+  - xeve
+  - xevd
+  - oapv
+  - svtjpegxs
+  - lcevc-dec
+  - twolame
+  - shine
+  - lc3
+  - codec2
+  - ilbc
+  - gme
+  - modplug
+  - openmpt
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
@@ -242,8 +262,8 @@ options:
   uavs3d: { needs: uavs3d, min: 1.1.41, ships: { decoders: [libuavs3d] } }
   # MPEG-5 EVC (main profile; FFmpeg's xeveb/xevdb are the baseline-only builds of the same libraries)
   xeve: { needs: xeve, min: 0.5.1, ships: { encoders: [libxeve] } }
-  # FFmpeg names libxevd's decoder evc (its own EVC parsing has no decoder)
-  xevd: { needs: xevd, min: 0.4.1, ships: { decoders: [evc] } }
+  # configure's libxevd decoder, which ffmpeg -decoders lists as evc (FFmpeg's own EVC parsing has no decoder)
+  xevd: { needs: xevd, min: 0.4.1, ships: { decoders: [libxevd] } }
   oapv: { needs: oapv, min: 0.2.0.0, ships: { encoders: [liboapv] } }
   svtjpegxs:
     {

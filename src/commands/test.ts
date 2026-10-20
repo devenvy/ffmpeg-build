@@ -19,8 +19,8 @@ import { packageRoot } from '../paths.ts';
 import { artifactName, type Folder, FOLDER_FILE, type Target, targetProfile } from '../targets.ts';
 import { extractTarGzFile } from '../untar.ts';
 import { FolderError } from './folder.ts';
-import { scriptEnv, targetTestEnv } from './test-env.ts';
 import { expectedComponents, type Has, listedAs, listedNames, shippedSteps } from './shipped.ts';
+import { scriptEnv, targetTestEnv } from './test-env.ts';
 import { cannotLink, LIBRARY_PLATFORM, testLibrary } from './test-library.ts';
 
 import type { EngineData } from '../engine-data.ts';

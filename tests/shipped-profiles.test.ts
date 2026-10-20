@@ -1306,7 +1306,7 @@ describe('codec libraries', () => {
       recipes: ['xevd'],
       flags: ['--enable-libxevd'],
       licenses: ALL,
-      ships: { decoders: ['evc'] },
+      ships: { decoders: ['libxevd'] }, // configure's name; ffmpeg -decoders lists it as evc
     },
     oapv: {
       platforms: NOT_ARMHF,
