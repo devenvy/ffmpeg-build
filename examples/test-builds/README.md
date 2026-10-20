@@ -19,7 +19,8 @@ has no mpeg4 codecs and round-trips its frame with ffv1 in the simulator.
 
 ios-arm64 and maccatalyst-arm64 also build Vulkan and libplacebo, with MoltenVK linked statically into their frameworks
 (the canary builds macOS's MoltenVK dylib). The Linux, Windows and macOS targets also take the GPU options their
-platform offers (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): only a full build and its test show FFmpeg took them.
+platform offers (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): only a full build and its test show FFmpeg took them. So do
+Apple's built-in ones: avfoundation on the Apple slices (not the lean simulator one), and coreimage on macOS.
 
 `.github/workflows/toolchains.yml` builds and tests them through the reusable `build.yml`, with the engine from this
 repository's source (`engine: source`), whenever a toolchain changes (`platforms/`, `images/`, `platforms.yml`,

@@ -25,15 +25,13 @@ batches:
   g: Nonfree (nonfree builds only)
   h: Large ML backends (last; where they build reasonably)
 options:
-  # f. Devices
-  sdl2: { reason: pending, issue: 21, batch: f, note: 'sdl2 (SDL output device, ffplay)' }
-  opengl: { reason: pending, issue: 21, batch: f, note: 'opengl (OpenGL output device)' }
-  appkit: { reason: pending, issue: 21, batch: f, note: 'appkit (macOS framework; built in there)' }
-  avfoundation:
-    { reason: pending, issue: 21, batch: f, note: 'avfoundation (Apple capture device; built in)' }
-  coreimage:
-    { reason: pending, issue: 21, batch: f, note: 'coreimage (macOS filters; built in there)' }
-  metal: { reason: pending, issue: 21, batch: f, note: 'metal (Apple GPU filters; built in)' }
+  # f. Devices: what is left of it has an issue of its own
+  metal:
+    {
+      reason: pending,
+      issue: 62,
+      note: "metal (yadif_videotoolbox's Metal shaders; built in on macOS): it builds, but the filter crashes as its thread exits on GitHub's macOS runners (an autorelease pool over-release); waits for a run on real hardware and, if it crashes there too, an upstream fix",
+    }
 
   # g. Nonfree (nonfree builds only)
   libfdk_aac: { reason: pending, issue: 21, batch: g, note: 'fdk-aac (AAC encoder and decoder)' }
@@ -88,6 +86,16 @@ options:
   omx_rpi:
     { reason: deprecated-upstream, note: 'OpenMAX IL for the Raspberry Pi; FFmpeg 9 removed it' }
   libcelt: { reason: deprecated-upstream, note: 'CELT, part of Opus now; FFmpeg 9 removed it' }
+  opengl:
+    {
+      reason: deprecated-upstream,
+      note: 'OpenGL, for the opengl output device, which FFmpeg 7.1 deprecated and 8.0 removed (libavdevice 62); configure still takes the flag, but nothing in FFmpeg 8 or 9 uses it',
+    }
+  sdl2:
+    {
+      reason: deprecated-upstream,
+      note: 'SDL 2, for the sdl2 output device, which FFmpeg 7.1 deprecated and 8.0 removed (libavdevice 62); only ffplay uses it now, and no platform here builds ffplay (platforms.yml: --disable-ffplay, or no programs)',
+    }
   mmal:
     {
       reason: deprecated-upstream,

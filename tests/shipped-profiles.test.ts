@@ -2312,3 +2312,103 @@ describe('capture device libraries', () => {
     }
   });
 });
+
+// Batch f of #21, devices: Apple's capture device (AVFoundation) and the macOS framework behind the coreimage filters,
+// built in (the OS provides them). Nothing to build or license; none turns on by itself. (metal waits on #62.)
+describe("Apple's capture device and Core Image", () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const apple = PLATFORMS.filter((p) => /^(osx|ios|maccatalyst)-/.test(p));
+  const macos = PLATFORMS.filter((p) => p.startsWith('osx-'));
+  const where: Record<
+    string,
+    { platforms: string[]; flags: string[]; ships: Record<string, string[]> }
+  > = {
+    // the avfoundation input device: cameras and microphones, and on macOS screens
+    avfoundation: { platforms: apple, flags: ['--enable-avfoundation'], ships: {} },
+    // the coreimage and coreimagesrc filters, which need AppKit too (appkit turns nothing else on)
+    coreimage: {
+      platforms: macos,
+      flags: ['--enable-coreimage', '--enable-appkit'],
+      ships: { filters: ['coreimage', 'coreimagesrc'] },
+    },
+  };
+  const OPTIONS = Object.keys(where);
+  const text = (platform: string, license: string, options: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${options}]\n`;
+  const planOn = (platform: string, license: string, options: string) => {
+    const r = parseProfileText(text(platform, license, options), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = OPTIONS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s is built in on %s, in every license', (option, platform) => {
+    for (const license of ALL) {
+      const plan = planOn(platform, license, option);
+      expect(plan.errors, license).toEqual([]);
+      const cell = plan.cells[0]!;
+      expect(cell.options).toEqual([option]);
+      expect([...cell.recipes]).toEqual([]);
+      expect(configureFlags(data, cell)).toEqual(expect.arrayContaining(where[option]!.flags));
+    }
+  });
+
+  const absent = OPTIONS.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'nonfree', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'nonfree', option)).toContain(
+      `not on ${platform}: FFmpeg doesn't support ${option} there`,
+    );
+  });
+
+  it('options offers each where it is built in, in every license, with what it ships', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of OPTIONS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(where[name]!.platforms);
+      expect(fact.licenses, name).toEqual(ALL);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        const shipped: Record<string, string[]> = {};
+        for (const s of data.ffmpeg.get(major)!.options[name]!.ships ?? []) {
+          (shipped[s.kind] ??= []).push(s.name);
+        }
+        expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
+      }
+    }
+  });
+
+  it('turns on AppKit with coreimage, which its filters need too, and nothing else', () => {
+    const flags = (option: string) =>
+      configureFlags(data, planOn('osx-arm64', 'lgplv2', option).cells[0]!);
+    expect(flags('coreimage')).toContain('--enable-appkit');
+    expect(flags('avfoundation').filter((f) => /appkit|coreimage/.test(f))).toEqual([]);
+  });
+
+  it('leaves metal pending, on the crash #62 tracks', () => {
+    for (const major of ['8', '9']) {
+      expect(data.ffmpeg.get(major)!.options['metal']).toBeUndefined();
+    }
+  });
+
+  it('brings its device and filters to a target that restricts them (auto-components)', () => {
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!['auto-components'], `${major} ${name}`).toContain(name);
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => OPTIONS.includes(o))).toEqual([]);
+    }
+  });
+});

@@ -120,6 +120,8 @@ auto-components:
   - caca
   - dc1394
   - iec61883
+  - avfoundation
+  - coreimage
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
@@ -172,6 +174,18 @@ options:
       kind: hwaccel,
       platforms: [osx-*, ios-*, maccatalyst-*],
       ships: { encoders: [aac_at] },
+    }
+  # Apple's capture device (cameras and microphones; screens on macOS), and the macOS framework behind the coreimage
+  # filters, which needs AppKit too (appkit turns nothing else on). (The input device isn't in ships:, which names
+  # what `ffmpeg -<kind>` lists, and devices are -devices'.) metal waits on #62.
+  avfoundation: { builtin: true, kind: device, platforms: [osx-*, ios-*, maccatalyst-*] }
+  coreimage:
+    {
+      builtin: true,
+      kind: framework,
+      platforms: [osx-*],
+      configure: [--enable-coreimage, --enable-appkit],
+      ships: { filters: [coreimage, coreimagesrc] },
     }
 
   # TLS (one per build: group tls; the profile lists which, per platform and license)
