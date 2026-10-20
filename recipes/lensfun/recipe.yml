@@ -42,8 +42,8 @@ build:
     - replace-in-file:
         {
           path: include/lensfun/config.h.in.cmake,
-          from: '#define CONF_DATADIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/lensfun"',
-          to: '#define CONF_DATADIR "/usr/share/lensfun"',
+          from: '#define SYSTEM_DB_PATH "${CMAKE_INSTALL_FULL_DATAROOTDIR}/lensfun"',
+          to: '#define SYSTEM_DB_PATH "/usr/share/lensfun"',
         }
   after:
     - remove: { path: '{deps}/share/lensfun', recursive: true }
