@@ -17,16 +17,12 @@
 # `node scripts/ffmpeg-coverage.ts` prints the counts and any problem; `--issue` prints the pending entries as issue
 # #21's checklist.
 batches:
-  c: Codecs
   d: Filters / processing
   e: Protocols / IO
   f: Devices
   g: Nonfree (nonfree builds only)
   h: Large ML backends (last; where they build reasonably)
 options:
-  # c. Codecs
-  librav1e: { reason: pending, issue: 21, batch: c, note: 'rav1e (AV1 encoder, in Rust)' }
-
   # d. Filters / processing
   libvidstab:
     { reason: pending, issue: 21, batch: d, note: 'vidstab (video stabilisation filters)' }
