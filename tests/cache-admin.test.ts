@@ -341,6 +341,73 @@ describe('pruning the cache', () => {
   });
 });
 
+describe("a Rust library's kept crates", () => {
+  const CRATE = 'crates/libc-0.2.172.crate';
+  /** dav1d's entry, recording a crate kept under sources/crates/ too. */
+  function rustCache(ageDays = 0): string {
+    const root = libraryCache([{ key: A, name: 'dav1d', version: '1.5.4', ageDays }]);
+    const record = {
+      name: 'dav1d',
+      version: '1.5.4',
+      origin: 'https://example.com/dav1d/dav1d-1.5.4.tar.xz',
+      file: 'dav1d/dav1d-1.5.4.tar.xz',
+      sha256: sha('source of dav1d'),
+      crates: [
+        {
+          name: 'libc',
+          version: '0.2.172',
+          license: 'MIT',
+          source: 'crates.io',
+          file: CRATE,
+          sha256: sha('crate'),
+          linked: true,
+          texts: [],
+        },
+      ],
+    };
+    writeEntry(root, A, 'dav1d', record);
+    if (ageDays) {
+      age(join(root, 'libs', `${A}.tar.gz`), ageDays);
+    }
+    mkdirSync(join(root, 'sources', 'crates'), { recursive: true });
+    writeFileSync(join(root, 'sources', CRATE), 'crate');
+    age(join(root, 'sources', CRATE), 40);
+    return root;
+  }
+
+  it('are verified with the entry', async () => {
+    const root = rustCache();
+    expect(await entryProblem(root, await entry(root, A))).toBeUndefined();
+    writeFileSync(join(root, 'sources', CRATE), 'changed');
+    expect(await entryProblem(root, await entry(root, A))).toBe(
+      `its kept source ${CRATE} doesn't match its sha256`,
+    );
+    rmSync(join(root, 'sources', CRATE));
+    expect(await entryProblem(root, await entry(root, A))).toBe(`its kept source ${CRATE} is gone`);
+  });
+
+  it('are marked used with the build that used them', () => {
+    const root = rustCache();
+    const record = join(mkdtempSync(join(tmpdir(), 'ffmpeg-build-out-')), 'x.sources.json');
+    writeFileSync(
+      record,
+      JSON.stringify({
+        libraries: [{ file: 'dav1d/dav1d-1.5.4.tar.xz', crates: [{ file: CRATE }, {}] }],
+      }),
+    );
+    touchKeptSources(root, record);
+    expect(usedRecently(join(root, 'sources', CRATE))).toBe(true);
+  });
+
+  it('are kept by a prune while an entry records them, and go with the last one', async () => {
+    const root = rustCache(1);
+    expect((await pruneCache(root, 30)).sources).toEqual([]);
+    expect(existsSync(join(root, 'sources', CRATE))).toBe(true);
+    age(join(root, 'libs', `${A}.tar.gz`), 40);
+    expect((await pruneCache(root, 30)).sources).toContain(CRATE);
+  });
+});
+
 describe('clearing the cache', () => {
   it('empties libs/ and sources/ and leaves the locks', () => {
     const root = libraryCache([

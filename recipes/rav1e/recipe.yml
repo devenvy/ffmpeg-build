@@ -1,7 +1,8 @@
 name: rav1e
 provides: rav1e
-# rav1e's own licence, and the Alliance for Open Media patent licence it comes with
-license: BSD-2-Clause
+# rav1e's own licence (and the Alliance for Open Media patent licence it comes with), and its crates': MIT, or MIT
+# among their choices (the engine checks every crate linked in against this when it builds, build.cargo below)
+license: BSD-2-Clause AND MIT
 license-files: [LICENSE, PATENTS]
 # Like XEVE, it needs more stack than musl gives FFmpeg's encoder thread by default (128 KiB): every musl build asks
 # for glibc's 8 MiB (platforms.yml)
@@ -19,6 +20,14 @@ build:
   # installs the same Rust into the build's own folder first, with the target's standard library, and cargo-c 0.10.26
   # from crates.io (--locked).
   system: none
+  # the crates cargo cinstall compiles in (rav1e with its default features and cargo-c's capi), fetched and checked
+  # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. av-metrics and profiling publish no
+  # licence file in their crates: the standard text of their licence (MIT, or MIT among their choices)
+  cargo:
+    target: '{target}'
+    package: rav1e
+    features: [capi]
+    standard-texts: [av-metrics, profiling]
   # its build scripts (libgit2, for the version string) run here, so they are compiled with the build machine's own
   # compilers and flags, not the platform's (which the cc crate otherwise takes from CC and CFLAGS). Rust keeps source
   # paths in its panic messages: the source folder (with Apple's CARGO_HOME) and the images' /opt/cargo crates are

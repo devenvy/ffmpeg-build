@@ -21,6 +21,7 @@ import {
   saveCache,
   writeSourceRecord,
 } from './cache.ts';
+import { type CrateInventory, crateLicenseProblems, discoverCrates, keepCrates } from './cargo.ts';
 import { fetchSource, keepGitSource, sourceRecord, type SourceRecord } from './fetch.ts';
 import {
   editPcField,
@@ -607,11 +608,64 @@ async function syncShadercDeps(src: string, env: NodeJS.ProcessEnv): Promise<voi
   }
 }
 
+/**
+ * A Rust library's crates (build.cargo), once its before: steps have set up Rust: listed, checked against
+ * licenses.yml before anything is compiled, and the build told to stay offline from then on.
+ */
+async function rustCrates(
+  context: BuildContext,
+  library: { name?: string | undefined; license?: string | undefined; build: PlannedBuild },
+  scope: RecipeScope,
+  env: NodeJS.ProcessEnv,
+): Promise<CrateInventory | undefined> {
+  const cargo = library.build.cargo;
+  if (!cargo) {
+    return undefined;
+  }
+  const name = library.name ?? 'the library';
+  const plan = context.buildPlan;
+  if (!plan.cargo || library.license === undefined) {
+    throw new Error(
+      `${name} builds with cargo, but the build plan has no licence table for its crates (made by an older engine?)`,
+    );
+  }
+  const table = new Map(Object.entries(plan.cargo.licenses));
+  const inventory = await discoverCrates({
+    library: name,
+    src: scope.src,
+    env,
+    target: scope.text(cargo.target),
+    package: scope.text(cargo.package),
+    features: scope.argv(cargo.features),
+    standardTexts: cargo['standard-texts'],
+    textIds: Object.keys(plan.cargo.texts),
+    table,
+  });
+  const problems = crateLicenseProblems({
+    library: name,
+    recipeLicense: library.license,
+    buildLicense: plan.license,
+    table,
+    crates: [inventory.root, ...inventory.crates.filter((c) => c.linked)],
+  });
+  if (problems.length) {
+    throw new Error(`${name}'s Rust crates fail the licence check: ${problems.join('; ')}`);
+  }
+  // what was just listed is all the build may use: nothing more is fetched
+  Object.assign(env, { CARGO_NET_OFFLINE: 'true' });
+  return inventory;
+}
+
 export async function runRecipe(
   context: BuildContext,
-  library: { name?: string; version: string; build: PlannedBuild },
+  library: {
+    name?: string;
+    version: string;
+    license?: string;
+    build: PlannedBuild;
+  },
   src: string,
-): Promise<void> {
+): Promise<{ crates?: CrateInventory }> {
   const build = library.build;
   const extra = additions(build, context.buildPlan.platform);
   const scope = new RecipeScope(
@@ -646,6 +700,7 @@ export async function runRecipe(
   for (const item of [...(build.before ?? []), ...extra.before]) {
     await runStep(item, scope, env);
   }
+  const crates = await rustCrates(context, library, scope, env);
   // after the before-steps, which may set the variables the arguments use
   const args = () => scope.argv([...build.args, ...extra.args]);
   if (build.steps.length) {
@@ -717,6 +772,37 @@ export async function runRecipe(
   for (const item of [...build.after, ...extra.after]) {
     await runStep(item, scope, env);
   }
+  return crates ? { crates } : {};
+}
+
+/**
+ * A Rust library from the cache goes through the same licence gate as one just built: the entry may come from a build
+ * under another licence (the key doesn't hold it), or licenses.yml may have changed since.
+ */
+function checkRestoredCrates(
+  context: BuildContext,
+  library: PlannedLibrary,
+  record: SourceRecord,
+): void {
+  if (!library.build.cargo || !record.crates) {
+    return;
+  }
+  const plan = context.buildPlan;
+  if (!plan.cargo) {
+    throw new Error(
+      `${library.name} builds with cargo, but the build plan has no licence table for its crates (made by an older engine?)`,
+    );
+  }
+  const problems = crateLicenseProblems({
+    library: library.name,
+    recipeLicense: library.license,
+    buildLicense: plan.license,
+    table: new Map(Object.entries(plan.cargo.licenses)),
+    crates: record.crates.filter((c) => c.linked),
+  });
+  if (problems.length) {
+    throw new Error(`${library.name}'s Rust crates fail the licence check: ${problems.join('; ')}`);
+  }
 }
 
 export async function buildLibrary(
@@ -730,17 +816,22 @@ export async function buildLibrary(
     'archives' in library.source
       ? { sha256: library.source.sha256 }
       : { commit: library.source.commit };
-  const restored = await restoreCache(cached, depsDir, sources, library.name, undefined, pin);
+  // a Rust library's entry must list its crates: one without (an older engine's) is built again
+  const restored = await restoreCache(cached, depsDir, sources, library.name, undefined, pin, {
+    crates: Boolean(library.build.cargo),
+  });
   if (restored) {
     step(`${library.name} ${library.version}: from cache`);
+    checkRestoredCrates(context, library, restored);
     return restored;
   }
   step(`${library.name} ${library.version}: building`);
   const src = join(work, 'src', library.name);
   const fetched = await fetchSource(library.source, src, library.name, sources, work);
   const before = listing(depsDir);
+  let built: Awaited<ReturnType<typeof runRecipe>>;
   try {
-    await runRecipe(context, library, src);
+    built = await runRecipe(context, library, src);
   } catch (error) {
     const detail = error instanceof Error ? `: ${error.message}` : '';
     throw new Error(`building ${library.name} ${library.version} failed (see above)${detail}`, {
@@ -755,12 +846,19 @@ export async function buildLibrary(
     depsDir,
     library.licenseFiles,
   );
+  // (after copyLicenses, which starts the library's legal folder afresh)
+  const rust = built.crates
+    ? keepCrates(built.crates, { library: library.name, sources, depsDir })
+    : undefined;
   if (!fetched.kept) {
     const git = await keepGitSource(src, library.name, sources, work);
     fetched.kept = git.kept;
     fetched.commit = git.commit;
   }
-  const record = sourceRecord(library.name, library.version, fetched, sources);
+  const record: SourceRecord = {
+    ...sourceRecord(library.name, library.version, fetched, sources),
+    ...(rust ?? {}),
+  };
   writeSourceRecord(depsDir, record);
   const files = changedFiles(before, listing(depsDir));
   if (!files.some((file) => !file.startsWith(`${FFB_SHARE}/`))) {

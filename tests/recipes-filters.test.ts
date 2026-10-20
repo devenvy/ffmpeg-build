@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { fakeCargo } from './cargo-fake.ts';
 import {
   build,
   cmakeLines,
@@ -811,7 +812,21 @@ describe('librsvg', () => {
   it.each(platformsOf('librsvg'))('%s', async (platform) => {
     const h = fake(platform);
     put(join(h.src, 'meson.build'), '  foreach i: native_libs.stdout().split()\n');
+    fakeCargo(h, { name: 'librsvg-c', version: '2.63.3', license: 'LGPL-2.1-or-later' }, [
+      { name: 'librsvg', version: '2.63.3', license: 'LGPL-2.1-or-later', path: 'rsvg' },
+      { name: 'nalgebra', version: '0.34.0', license: 'Apache-2.0', files: { LICENSE: 'a' } },
+      { name: 'selectors', version: '0.40.0', license: 'MPL-2.0' },
+    ]);
     await build(h, 'librsvg');
+    // its crates for the platform's Rust target, before meson; meson's cargo then builds offline
+    const lines = commands(h);
+    expect(lines.findIndex((l) => l.startsWith('cargo fetch'))).toBeLessThan(
+      lines.findIndex((l) => l.startsWith('meson setup')),
+    );
+    expect(lines.find((l) => l.startsWith('cargo tree'))).toContain(
+      `-p librsvg-c --target ${targets[platform]!}`,
+    );
+    expect(h.calls.find((c) => c.command === 'meson')!.env['CARGO_NET_OFFLINE']).toBe('true');
     const setup = commands(h).find((line) => line.startsWith('meson setup'))!;
     expect(setup).toContain(`-Dtriplet=${targets[platform]!}`);
     for (const arg of [

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import type { SourceRecord } from './fetch.ts';
 import type { BuildContext } from './library.ts';
@@ -38,6 +38,67 @@ function expandVariables(value: string, env: NodeJS.ProcessEnv, setup: string): 
   });
 }
 
+/** `a`, `a and b`, `a, b and c`. */
+function listed(names: readonly string[]): string {
+  return names.length > 1
+    ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)!}`
+    : names.join('');
+}
+
+/**
+ * What a Rust library adds under its entry: the crates linked into it, then every licence text they ship, each text
+ * once (most crates carry the same Apache-2.0 text), headed with every crate and file it is for. A crate reviewed to
+ * ship none (cargo: standard-texts:) gets the engine's standard text of its licence, marked so.
+ */
+function crateNotices(context: BuildContext, library: string, record: SourceRecord): string {
+  const linked = (record.crates ?? [])
+    .filter((c) => c.linked)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+  let result = '';
+  if (linked.length) {
+    result += `Rust crates compiled into ${library} (from its Cargo.lock, for this platform; each crates.io crate is in the sources\narchive as crates.io serves it, under sources/crates/):\n\n`;
+    for (const c of linked) {
+      result += `  ${c.name} ${c.version} (${c.license ?? ''}${c.source === 'path' ? `; part of the ${library} source` : ''})\n`;
+    }
+    result += '\n';
+  }
+  if (record.rust) {
+    result += `Rust's standard library (Rust ${record.rust.version}) is linked in too: its notices are under RUST STANDARD LIBRARY below.\n\n`;
+  }
+  const texts = new Map<string, string[]>();
+  const add = (contents: string, label: string) => {
+    texts.set(contents, [...(texts.get(contents) ?? []), label]);
+  };
+  const legal = join(context.depsDir, 'share', 'ffmpeg-build', 'legal', library);
+  for (const c of linked) {
+    for (const file of c.texts) {
+      add(
+        requiredFile(
+          join(legal, 'crates', `${c.name}-${c.version}`, file),
+          `${library}'s crate ${c.name} ${c.version} has no ${file} in ${legal}`,
+        ),
+        `${c.name} ${c.version}: ${file}`,
+      );
+    }
+    for (const id of c.standard ?? []) {
+      const standard = context.buildPlan.cargo?.texts[id];
+      if (standard === undefined) {
+        throw new Error(
+          `the build plan has no standard ${id} text for ${library}'s crate ${c.name} ${c.version}`,
+        );
+      }
+      add(
+        standard,
+        `${c.name} ${c.version}: the standard ${id} text (the crate ships no licence file; its Cargo.toml names as authors: ${c.authors?.length ? c.authors.join(', ') : 'none'})`,
+      );
+    }
+  }
+  for (const [contents, labels] of texts) {
+    result += text(labels.join('; '), contents);
+  }
+  return result;
+}
+
 export function writeNotices(
   context: BuildContext,
   ffmpegDir: string,
@@ -69,6 +130,8 @@ export function writeNotices(
   result += section('COMPONENTS');
   result +=
     'Each library built into this build: its licence, where its source comes from (upstream, at the exact version and\ncommit), and every licence file it ships, in full.\n\n';
+  // the Rust standard library's notices, by text: once for every library that links that one
+  const rust = new Map<string, { version: string; libraries: string[] }>();
   for (const library of [...plan.libraries].sort((a, b) => a.name.localeCompare(b.name))) {
     const record = records.find((item) => item.name === library.name);
     if (!record) {
@@ -88,6 +151,32 @@ export function writeNotices(
           `${library.name}'s licence file ${file.path} isn't in ${join(context.depsDir, 'share', 'ffmpeg-build', 'legal', library.name)}`,
         ),
       );
+    }
+    result += crateNotices(context, library.name, record);
+    for (const file of record.rust?.texts ?? []) {
+      const path = join(
+        context.depsDir,
+        'share',
+        'ffmpeg-build',
+        'legal',
+        library.name,
+        'rust',
+        file,
+      );
+      const contents = requiredFile(
+        path,
+        `${library.name}'s Rust standard library notices ${file} aren't in ${dirname(path)}`,
+      );
+      const seen = rust.get(contents) ?? { version: record.rust!.version, libraries: [] };
+      seen.libraries.push(library.name);
+      rust.set(contents, seen);
+    }
+  }
+  if (rust.size) {
+    result += section('RUST STANDARD LIBRARY');
+    for (const [contents, { version, libraries }] of rust) {
+      result += `Rust ${version}'s standard library, linked into ${listed(libraries)}: its notices as the Rust toolchain ships them\n(COPYRIGHT-library), the licences of its own code and of every crate it is built from.\n\n`;
+      result += text(`COPYRIGHT-library (Rust ${version})`, contents);
     }
   }
   if (plan.patches.length) {

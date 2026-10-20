@@ -16,6 +16,7 @@ import { retry, run } from './run.ts';
 import { readFileIfPresent } from '../read-file.ts';
 import { listTarGzMembers } from '../untar.ts';
 
+import type { CrateRecord, RustRecord } from './cargo.ts';
 import type { Source } from './plan.ts';
 import type { Submodules } from '../schema/engine.ts';
 
@@ -27,6 +28,23 @@ export interface SourceRecord {
   sha256: string;
   commit?: string;
   cached?: boolean;
+  crates?: CrateRecord[]; // a Rust library: the crates its build compiled (build/cargo.ts)
+  rust?: RustRecord; // a Rust library: the standard library it links
+}
+
+/** Every file a source record keeps under the cache's sources/: its own source, and its crates' .crate files. */
+export function keptFiles(record: {
+  file: string;
+  sha256: string;
+  crates?:
+    readonly { name: string; file?: string | undefined; sha256?: string | undefined }[] | undefined;
+}): { file: string; sha256: string }[] {
+  return [
+    { file: record.file, sha256: record.sha256 },
+    ...(record.crates ?? []).flatMap((c) =>
+      c.file && c.sha256 ? [{ file: c.file, sha256: c.sha256 }] : [],
+    ),
+  ];
 }
 
 export interface FetchedSource {

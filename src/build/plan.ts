@@ -353,6 +353,9 @@ export interface BuildPlan {
   patches: PlannedPatchSet[];
   // THIRD-PARTY-NOTICES.txt: the governing COPYING texts of FFmpeg to include, and the sections the plan can write
   notices: { governing: string[]; header: string; build: string; source: string };
+  // a build with a Rust library (a recipe with cargo:): licenses.yml, which its crates are checked against, and the
+  // standard licence texts (license-texts/) for crates reviewed to ship none
+  cargo?: { licenses: Record<string, License[]>; texts: Record<string, string> };
   ffmpeg?: {
     version: string;
     archives: string[];
@@ -668,6 +671,26 @@ export function plannedPatches(profile: Profile, major: string): PlannedPatchSet
   });
 }
 
+/**
+ * What a build with a Rust library needs to check and credit its crates (BuildPlan's cargo): licenses.yml, and the
+ * standard licence texts the engine has (license-texts/<SPDX id>.txt). None when no recipe in it has cargo:.
+ */
+export function cargoPlan(data: EngineData, recipes: readonly string[]): BuildPlan['cargo'] {
+  if (!recipes.some((r) => data.recipes.get(r)?.build.cargo)) {
+    return undefined;
+  }
+  const dir = join(data.root, 'license-texts');
+  return {
+    licenses: Object.fromEntries(data.licenses),
+    texts: Object.fromEntries(
+      readdirSync(dir)
+        .filter((f) => f.endsWith('.txt'))
+        .sort()
+        .map((f) => [f.slice(0, -'.txt'.length), readFileSync(join(dir, f), 'utf8')]),
+    ),
+  };
+}
+
 export function makeBuildPlan(args: {
   profile: Profile;
   data: EngineData;
@@ -712,6 +735,7 @@ export function makeBuildPlan(args: {
   // FFmpeg's pin is the target's own series' (the lock refuses one release pinned two ways, but a series is what a
   // target names); when the cell has no series of its own in the lock, the pin of the series that locked this version
   const series = cell.cell.series;
+  const cargo = cargoPlan(data, cell.recipes);
   const ffmpegSha =
     locked.ffmpeg[series] === version
       ? locked.pins?.ffmpeg[series]?.sha256
@@ -755,6 +779,7 @@ export function makeBuildPlan(args: {
       notice: s.notice,
     })),
     patches,
+    ...(cargo ? { cargo } : {}),
     notices: {
       governing: GOVERNING_TEXTS[license],
       header: noticesHeader({

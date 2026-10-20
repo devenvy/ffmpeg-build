@@ -16,10 +16,10 @@ import { basename, dirname, join } from 'node:path';
 
 import { shipsSymbols, symbolsName } from '../targets.ts';
 import { keptPath } from './cache.ts';
+import { keptFiles, type SourceRecord } from './fetch.ts';
 import { checkNotices, writeNotices } from './notices.ts';
 import { run, searchOutput, step } from './run.ts';
 
-import type { SourceRecord } from './fetch.ts';
 import type { BuildContext } from './library.ts';
 
 /** How far the sources record is indented. */
@@ -671,7 +671,8 @@ export async function stageBuild(
   renameSync(temp, recordPath);
   const sourceOut = join(context.out, `${plan.name}.sources`);
   rmSync(sourceOut, { recursive: true, force: true });
-  for (const kept of [ffmpeg.file, ...libraries.map((library) => library.file)]) {
+  // (a Rust library's crates too)
+  for (const { file: kept } of [ffmpeg, ...libraries].flatMap(keptFiles)) {
     // a record restored from the cache names its source: never anything outside the two sources folders
     const from = keptPath(context.sources, kept);
     const to = keptPath(sourceOut, kept);

@@ -14,6 +14,7 @@ import { join, relative } from 'node:path';
 import { vi } from 'vitest';
 
 import { type BuildContext, runRecipe } from '../src/build/library.ts';
+import { cargoPlan } from '../src/build/plan.ts';
 import { run } from '../src/build/run.ts';
 import { createToolchain } from '../src/build/toolchain.ts';
 import { type EngineData, loadEngineData } from '../src/engine-data.ts';
@@ -109,7 +110,12 @@ export function harness(
     jobs: 4,
     env: toolchain.env,
     toolchain,
-    buildPlan: { platform, setup } as BuildContext['buildPlan'],
+    // a Rust library's crates are checked against licenses.yml, as a real plan carries it
+    buildPlan: {
+      platform,
+      setup,
+      cargo: cargoPlan(engineData(), ['rav1e']),
+    } as BuildContext['buildPlan'],
   };
   const version = options.version ?? '1.2.3';
   const base: NodeJS.ProcessEnv = {
@@ -178,7 +184,12 @@ export function harness(
 
 /** Runs the named recipe's build (bootstrap, before, steps or system, after) in the harness. */
 export async function build(h: Harness, name: string): Promise<void> {
-  await runRecipe(h.context, { version: h.base['VERSION']!, build: recipe(name).build }, h.src);
+  const r = recipe(name);
+  await runRecipe(
+    h.context,
+    { name, version: h.base['VERSION']!, license: r.license, build: r.build },
+    h.src,
+  );
 }
 
 /** The recorded commands as short lines, `cwd$ command args [env]`, easy to compare with what a bash script ran. */

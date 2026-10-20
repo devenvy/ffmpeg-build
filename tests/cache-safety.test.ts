@@ -157,6 +157,76 @@ describe('restoring a poisoned cache entry', () => {
   });
 });
 
+describe("a Rust library's cache entry", () => {
+  const crate = {
+    name: 'libc',
+    version: '0.2.172',
+    license: 'MIT OR Apache-2.0',
+    source: 'crates.io',
+    file: 'crates/libc-0.2.172.crate',
+    sha256: sha('crate'),
+    linked: true,
+    texts: ['LICENSE-MIT'],
+  };
+  const path = {
+    name: 'ivf',
+    version: '0.1.4',
+    license: 'BSD-2-Clause',
+    source: 'path',
+    linked: true,
+    texts: [],
+  };
+  const rust = { ...good, crates: [crate, path], rust: { version: '1.98.1', texts: ['C.txt'] } };
+  const withCrate = (record: object, content = 'crate') => {
+    const c = cacheFolder(record);
+    mkdirSync(join(c.sources, 'crates'), { recursive: true });
+    writeFileSync(join(c.sources, 'crates', 'libc-0.2.172.crate'), content);
+    return c;
+  };
+
+  it('keeps its crates and standard library in the record', async () => {
+    const c = withCrate(rust);
+    expect(parseSourceRecord(rust, 'zlib', c.sources)).toEqual(rust);
+    expect(
+      await restoreCache(c.entry, c.deps, c.sources, 'zlib', c.runner, {}, { crates: true }),
+    ).toEqual({
+      ...rust,
+      cached: true,
+    });
+  });
+
+  it.each([
+    ['a crate file outside sources/', { ...rust, crates: [{ ...crate, file: '../../out/x' }] }],
+    ['a crate without a sha256', { ...rust, crates: [{ ...crate, sha256: undefined }] }],
+    ['a crate of another kind of source', { ...rust, crates: [{ ...crate, source: 'git' }] }],
+  ])('is refused with %s', (_why, record) => {
+    expect(
+      parseSourceRecord(record, 'zlib', mkdtempSync(join(tmpdir(), 'ffmpeg-build-records-'))),
+    ).toBeUndefined();
+  });
+
+  it('is built again when a kept crate is gone or differs', async () => {
+    const differs = withCrate(rust, 'other');
+    expect(
+      await restoreCache(differs.entry, differs.deps, differs.sources, 'zlib', differs.runner),
+    ).toBeUndefined();
+    expect(existsSync(differs.entry)).toBe(false);
+    const gone = cacheFolder(rust);
+    expect(
+      await restoreCache(gone.entry, gone.deps, gone.sources, 'zlib', gone.runner),
+    ).toBeUndefined();
+  });
+
+  it('is built again when it lists no crates (an older engine made it)', async () => {
+    const c = cacheFolder(good);
+    expect(
+      await restoreCache(c.entry, c.deps, c.sources, 'zlib', c.runner, {}, { crates: true }),
+    ).toBeUndefined();
+    expect(existsSync(c.entry)).toBe(false);
+    expect(unpacked(c.calls)).toBe(false);
+  });
+});
+
 describe('checking a tar.gz’s members before a system tar unpacks it', () => {
   it('lists members with their link targets, without unpacking', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ffmpeg-build-members-'));

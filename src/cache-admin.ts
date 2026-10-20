@@ -20,6 +20,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { keptPath, parseSourceRecord } from './build/cache.ts';
+import { keptFiles } from './build/fetch.ts';
 import { acquireLock, type HeldLock, isAlive, LockBusyError, readHolder } from './file-lock.ts';
 import { readTarGzMember } from './untar.ts';
 
@@ -152,6 +153,7 @@ interface EntryRecord {
   file: string;
   sha256: string;
   commit?: string;
+  crates?: { name: string; file?: string; sha256?: string }[]; // a Rust library's, kept under sources/crates/
 }
 
 export interface CacheEntry {
@@ -227,12 +229,14 @@ export async function entryProblem(root: string, e: CacheEntry): Promise<string 
   if (!e.record.file) {
     return 'its record names no kept source';
   }
-  const kept = keptPath(join(root, 'sources'), e.record.file);
-  if (!existsSync(kept)) {
-    return `its kept source ${e.record.file} is gone`;
-  }
-  if ((await fileSha256(kept)) !== e.record.sha256) {
-    return `its kept source ${e.record.file} doesn't match its sha256`;
+  for (const { file, sha256 } of keptFiles(e.record)) {
+    const kept = keptPath(join(root, 'sources'), file);
+    if (!existsSync(kept)) {
+      return `its kept source ${file} is gone`;
+    }
+    if ((await fileSha256(kept)) !== sha256) {
+      return `its kept source ${file} doesn't match its sha256`;
+    }
   }
   return undefined;
 }
@@ -251,14 +255,20 @@ export function touchEntries(root: string, keys: readonly string[]): void {
 
 /** Marks the kept sources a build's <name>.sources.json lists (FFmpeg's among them) as used now. */
 export function touchKeptSources(root: string, sourcesJson: string): void {
-  let record: { ffmpeg?: { file?: string }; libraries?: { file?: string }[] };
+  let record: {
+    ffmpeg?: { file?: string };
+    libraries?: { file?: string; crates?: { file?: string }[] }[];
+  };
   try {
     record = JSON.parse(readFileSync(sourcesJson, 'utf8')) as typeof record;
   } catch {
     return; // no build record (a failed build, or a libraries-only one)
   }
   const now = new Date();
-  const files = [record.ffmpeg?.file, ...(record.libraries ?? []).map((l) => l.file)];
+  const files = [
+    record.ffmpeg?.file,
+    ...(record.libraries ?? []).flatMap((l) => [l.file, ...(l.crates ?? []).map((c) => c.file)]),
+  ];
   for (const file of files.filter((f): f is string => Boolean(f))) {
     try {
       utimesSync(keptPath(join(root, 'sources'), file), now, now);
@@ -297,7 +307,9 @@ export async function pruneCache(
     rmSync(e.path, { force: true });
   }
   const kept = new Set(
-    entries.filter((e) => !old.includes(e)).flatMap((e) => (e.record?.file ? [e.record.file] : [])),
+    entries
+      .filter((e) => !old.includes(e))
+      .flatMap((e) => (e.record?.file ? keptFiles(e.record).map((k) => k.file) : [])),
   );
   const sources: string[] = [];
   let bytes = old.reduce((n, e) => n + e.bytes, 0);
