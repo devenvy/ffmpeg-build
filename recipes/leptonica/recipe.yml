@@ -1,0 +1,39 @@
+name: leptonica
+license: BSD-2-Clause
+license-files: [leptonica-license.txt]
+needs: [zlib, libpng]
+source: { git: https://github.com/DanBloomberg/leptonica, ref: '{version}' }
+versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+# only Tesseract builds against it
+platforms: all
+build:
+  # Leptonica: image processing (BSD-2-Clause), static, under Tesseract. With zlib and PNG alone: FFmpeg hands
+  # Tesseract decoded pixels, so its other image formats (JPEG, TIFF, GIF, WebP, JPEG 2000) would only add libraries.
+  # No programs.
+  system: cmake
+  args:
+    [
+      -DBUILD_PROG=OFF,
+      -DSW_BUILD=OFF,
+      -DENABLE_ZLIB=ON,
+      -DENABLE_PNG=ON,
+      -DENABLE_GIF=OFF,
+      -DENABLE_JPEG=OFF,
+      -DENABLE_TIFF=OFF,
+      -DENABLE_WEBP=OFF,
+      -DENABLE_OPENJPEG=OFF,
+    ]
+  platforms:
+    # On Windows its .pc is named for the build configuration (lept_Release.pc), which pkg-config doesn't look for;
+    # and mingw's library is given a DLL's suffix (libleptonica-<version>.dll) even when static, which -lleptonica
+    # doesn't find.
+    'win-*':
+      before:
+        - replace-in-file:
+            {
+              path: src/CMakeLists.txt,
+              from: "if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX",
+              to: "if(MINGW AND BUILD_SHARED_LIBS)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX",
+            }
+      after:
+        - move: { from: '{deps}/lib/pkgconfig/lept_Release.pc', to: '{deps}/lib/pkgconfig/lept.pc' }

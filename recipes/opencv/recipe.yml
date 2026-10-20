@@ -1,0 +1,127 @@
+name: opencv
+provides: opencv
+license: Apache-2.0
+license-files: [LICENSE]
+configure: [--enable-libopencv]
+needs: [zlib]
+source: { git: https://github.com/opencv/opencv, ref: '{version}' }
+# OpenCV 4: FFmpeg's ocv filter is written against OpenCV's C API (core_c.h, imgproc_c.h), which OpenCV 5 removed
+versions: { git-tags: '^(4\.\d+\.\d+)$' }
+platforms: all
+build:
+  # OpenCV: computer vision (Apache-2.0, so v3 builds only), static, its core and imgproc modules alone, for FFmpeg's
+  # ocv filter (found through opencv4.pc). Nothing it would download during the build (IPP, ITT, ADE, protobuf), no
+  # OpenCL, CUDA, LAPACK, Eigen, video or image I/O, apps, Java or Python bindings, tests or examples; zlib from deps.
+  system: cmake
+  args:
+    [
+      '-DBUILD_LIST=core,imgproc',
+      -DOPENCV_GENERATE_PKGCONFIG=ON,
+      -DBUILD_ZLIB=OFF,
+      -DBUILD_TESTS=OFF,
+      -DBUILD_PERF_TESTS=OFF,
+      -DBUILD_EXAMPLES=OFF,
+      -DBUILD_DOCS=OFF,
+      -DBUILD_opencv_apps=OFF,
+      -DBUILD_JAVA=OFF,
+      -DBUILD_opencv_python3=OFF,
+      -DBUILD_ANDROID_PROJECTS=OFF,
+      -DBUILD_ANDROID_EXAMPLES=OFF,
+      -DBUILD_IPP_IW=OFF,
+      -DWITH_IPP=OFF,
+      -DWITH_ITT=OFF,
+      -DWITH_ADE=OFF,
+      -DWITH_PROTOBUF=OFF,
+      -DWITH_OPENCL=OFF,
+      -DWITH_CUDA=OFF,
+      -DWITH_LAPACK=OFF,
+      -DWITH_EIGEN=OFF,
+      -DWITH_OPENMP=OFF,
+      -DWITH_TBB=OFF,
+      -DWITH_KLEIDICV=OFF,
+      -DWITH_FFMPEG=OFF,
+      -DWITH_GSTREAMER=OFF,
+      -DWITH_1394=OFF,
+      -DWITH_V4L=OFF,
+      -DWITH_GTK=OFF,
+      -DWITH_QT=OFF,
+      -DWITH_JPEG=OFF,
+      -DWITH_PNG=OFF,
+      -DWITH_TIFF=OFF,
+      -DWITH_WEBP=OFF,
+      -DWITH_OPENJPEG=OFF,
+      -DWITH_JASPER=OFF,
+      -DWITH_OPENEXR=OFF,
+      -DWITH_IMGCODEC_HDR=OFF,
+      -DWITH_IMGCODEC_SUNRASTER=OFF,
+      -DWITH_IMGCODEC_PXM=OFF,
+      -DWITH_IMGCODEC_PFM=OFF,
+      -DOPENCV_FORCE_3RDPARTY_BUILD=OFF,
+    ]
+  platforms:
+    # Android: OpenCV's own SDK layout (sdk/native/...) would put it where nothing finds it: the usual layout
+    'android-*':
+      args:
+        [
+          -DOPENCV_LIB_INSTALL_PATH=lib,
+          -DOPENCV_LIB_ARCHIVE_INSTALL_PATH=lib,
+          -DOPENCV_3P_LIB_INSTALL_PATH=lib/opencv4/3rdparty,
+          -DOPENCV_CONFIG_INSTALL_PATH=lib/cmake/opencv4,
+          -DOPENCV_INCLUDE_INSTALL_PATH=include/opencv4,
+          -DOPENCV_OTHER_INSTALL_PATH=share/opencv4,
+          -DOPENCV_BIN_INSTALL_PATH=bin,
+        ]
+    # its temporary file names come from COM's CoCreateGuid
+    'win-*':
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/opencv4.pc', libs-private: { add: -lole32 } }
+  # No build folder in the library (the staged-binary check refuses one; seen on Apple):
+  # - its build information (cv::getBuildInformation, compiled in) lists the compiler and linker flags, which name the
+  #   work folder (the engine's -ffile-prefix-map): left out; the build, source and install folders it names
+  #   elsewhere (install prefix, dependencies' paths) are written as <build>, <source> and <prefix>;
+  # - its data-file search (cv::utils::findDataFile, for samples and tests) records the build folder and install
+  #   prefix: neither (it still searches OPENCV_DATA_PATH and the folder relative to the library).
+  before:
+    - replace-in-file:
+        {
+          path: CMakeLists.txt,
+          from: '^(\s*status\("    (?:C\+\+ flags|C flags|Linker flags) \((?:Release|Debug)\):"\s+)\$\{.*\}\)$',
+          to: '$1"(not recorded)")',
+          regex: true,
+        }
+    - replace-in-file:
+        {
+          path: cmake/OpenCVUtils.cmake,
+          from: "function(ocv_output_status msg)\n",
+          to: "function(ocv_output_status msg)\n  string(REPLACE \"${CMAKE_BINARY_DIR}\" \"<build>\" msg \"${msg}\")\n  string(REPLACE \"${CMAKE_SOURCE_DIR}\" \"<source>\" msg \"${msg}\")\n  string(REPLACE \"${CMAKE_INSTALL_PREFIX}\" \"<prefix>\" msg \"${msg}\")\n",
+        }
+    - replace-in-file:
+        {
+          path: modules/core/CMakeLists.txt,
+          from: '#define OPENCV_BUILD_DIR \"${CMAKE_BINARY_DIR}\"',
+          to: '#define OPENCV_BUILD_DIR \"\"',
+        }
+    - replace-in-file:
+        {
+          path: modules/core/CMakeLists.txt,
+          from: '#define OPENCV_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\"',
+          to: '// install prefix not recorded',
+        }
+    # its .pc isn't made for iOS at all
+    - replace-in-file:
+        {
+          path: cmake/OpenCVGenPkgconfig.cmake,
+          from: 'if(MSVC OR IOS OR XROS)',
+          to: 'if(MSVC OR XROS)',
+        }
+  # Its .pc is made but not installed on Android (only "UNIX AND NOT ANDROID", or MinGW): copied in. It names no C++
+  # runtime, which a static link from C (FFmpeg's probe and filter) needs.
+  after:
+    - copy: { from: _build/unix-install/opencv4.pc, into: '{deps}/lib/pkgconfig' }
+      when: { missing: '{deps}/lib/pkgconfig/opencv4.pc' }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/opencv4.pc',
+          libs-private: { add: '{cxx-runtime}', missing: after-libs },
+        }

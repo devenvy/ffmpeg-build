@@ -1,0 +1,12 @@
+name: cpu-features
+license: Apache-2.0
+license-files: [LICENSE]
+source: { git: https://github.com/google/cpu_features, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# Tesseract's Android build detects NEON through its NDK compatibility layer
+platforms: [android-*]
+build:
+  # cpu_features: CPU feature detection (Apache-2.0), static, with its ndk_compat library (the NDK's old cpufeatures
+  # API), which Tesseract uses on Android. No list_cpu_features program or tests.
+  system: cmake
+  args: [-DBUILD_TESTING=OFF, -DBUILD_EXECUTABLE=OFF, -DENABLE_INSTALL=ON]

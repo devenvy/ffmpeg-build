@@ -10,7 +10,7 @@ needs:
   - libpng
   - glib
   - { freetype: { platforms: [linux-*, android-*, ios-*, maccatalyst-*] } }
-  - { fontconfig: { platforms: [linux-*] } }
+  - { fontconfig: { platforms: [linux-*, android-*] } }
 source:
   {
     git: https://gitlab.freedesktop.org/cairo/cairo.git,
@@ -22,10 +22,11 @@ versions: { git-tags: '^(1\.\d*[02468]\.\d+)$' }
 platforms: all
 build:
   # cairo: 2D vector graphics (LGPL-2.1-only OR MPL-1.1), static, for FFmpeg's drawvg filter (found through cairo.pc)
-  # and, to come, under Pango and librsvg (FFmpeg's SVG decoder). A deps folder holds one cairo, so it is built as
-  # librsvg needs it: the image, PNG, PDF, PostScript and SVG surfaces (zlib, libpng), cairo-gobject (on GLib: the
-  # cairo option brings GLib too), and the platform's fonts: FreeType and Fontconfig on Linux, FreeType on Android,
-  # iOS and Mac Catalyst, DirectWrite on Windows, Quartz (Core Text) on macOS. No X11/XCB, tests or BFD symbol lookup.
+  # and under Pango and librsvg (FFmpeg's SVG decoder). A deps folder holds one cairo, so it is built as librsvg
+  # needs it: the image, PNG, PDF, PostScript and SVG surfaces (zlib, libpng), cairo-gobject (on GLib: the cairo
+  # option brings GLib too), and the platform's fonts: FreeType and Fontconfig on Linux and Android (Pango's font map
+  # there needs cairo's Fontconfig support), FreeType on iOS and Mac Catalyst, DirectWrite on Windows, Quartz (Core
+  # Text) on macOS. No X11/XCB, tests or BFD symbol lookup.
   system: meson
   args:
     [
@@ -46,7 +47,7 @@ build:
     'linux-*':
       { args: [-Dfreetype=enabled, -Dfontconfig=enabled, -Dquartz=disabled, -Ddwrite=disabled] }
     'android-*':
-      { args: [-Dfreetype=enabled, -Dfontconfig=disabled, -Dquartz=disabled, -Ddwrite=disabled] }
+      { args: [-Dfreetype=enabled, -Dfontconfig=enabled, -Dquartz=disabled, -Ddwrite=disabled] }
     # on Windows cairo.h declares the API dllimport unless CAIRO_WIN32_STATIC_BUILD is defined, which its .pc doesn't
     # pass on; and its DirectWrite font backend is C++ on COM, whose runtime and ole32 a static link needs
     'win-*':

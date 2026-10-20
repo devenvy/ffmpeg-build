@@ -1450,6 +1450,15 @@ describe('filter and processing libraries', () => {
     ...(p.startsWith('linux-') && !p.startsWith('linux-musl-') ? [] : ['proxy-libintl']),
     ...(/^(osx|ios|maccatalyst)-/.test(p) ? ['libiconv'] : []),
   ];
+  /** cairo and what it needs: GLib, pixman, libpng, FreeType and Fontconfig on Linux and Android, FreeType on iOS. */
+  const cairoStack = (p: string) => [
+    ...glibStack(p),
+    'cairo',
+    'libpng',
+    'pixman',
+    ...(/^(linux|android|ios|maccatalyst)-/.test(p) ? ['freetype'] : []),
+    ...(/^(linux|android)-/.test(p) ? ['fontconfig', 'libexpat'] : []),
+  ];
   const where: Record<
     string,
     {
@@ -1610,20 +1619,54 @@ describe('filter and processing libraries', () => {
     cairo: {
       platforms: PLATFORMS,
       recipe: 'cairo',
-      recipes: (p) => {
-        const fonts = p.startsWith('linux-') ? ['fontconfig', 'freetype', 'libexpat'] : [];
-        return [
-          ...glibStack(p),
-          'cairo',
-          'libpng',
-          'pixman',
-          ...fonts,
-          ...(/^(android|ios|maccatalyst)-/.test(p) ? ['freetype'] : []),
-        ].sort();
-      },
+      recipes: (p) => cairoStack(p).sort(),
       flags: ['--enable-cairo'],
       licenses: ALL,
       ships: { filters: ['drawvg'] },
+    },
+    // on cairo and Pango (not on Apple); its Apache-2.0 Rust crates keep it to v3 builds
+    rsvg: {
+      platforms: PLATFORMS.filter((p) => !/^(osx|ios|maccatalyst)-/.test(p)),
+      recipe: 'librsvg',
+      recipes: (p) =>
+        [
+          ...new Set([
+            ...cairoStack(p),
+            'freetype',
+            'fribidi',
+            'harfbuzz',
+            'librsvg',
+            'libxml2',
+            'pango',
+          ]),
+        ].sort(),
+      flags: ['--enable-librsvg'],
+      licenses: V3,
+      ships: { decoders: ['librsvg'] },
+    },
+    // Apache-2.0: v3 builds
+    tesseract: {
+      platforms: PLATFORMS,
+      recipe: 'tesseract',
+      recipes: (p) =>
+        [
+          'leptonica',
+          'libpng',
+          'tesseract',
+          'zlib',
+          ...(p.startsWith('android-') ? ['cpu-features'] : []),
+        ].sort(),
+      flags: ['--enable-libtesseract'],
+      licenses: V3,
+      ships: { filters: ['ocr'] },
+    },
+    opencv: {
+      platforms: PLATFORMS,
+      recipe: 'opencv',
+      recipes: () => ['opencv', 'zlib'],
+      flags: ['--enable-libopencv'],
+      licenses: V3,
+      ships: { filters: ['ocv'] },
     },
   };
   const OPTIONS = Object.keys(where);
@@ -1679,6 +1722,14 @@ describe('filter and processing libraries', () => {
           (shipped[s.kind] ??= []).push(s.name);
         }
         expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
+      }
+    }
+  });
+
+  it('brings its filters and decoders to a target that restricts them (auto-components)', () => {
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!['auto-components'], `${major} ${name}`).toContain(name);
       }
     }
   });

@@ -442,8 +442,6 @@ describe('the LV2 host stack', () => {
   });
 });
 
-const apple = (p: string) => /^(osx|ios|maccatalyst)-/.test(p);
-
 // GLib and what it builds on: PCRE2 (8-bit, no JIT), libffi, and proxy-libintl's stubs where the C library has no
 // gettext; nothing fetched as a subproject.
 describe('GLib', () => {
@@ -667,8 +665,17 @@ describe('cairo', () => {
         '-Ddwrite=disabled',
       ];
     }
-    // FreeType alone on Android, iOS and Mac Catalyst (cairo's Quartz backend is macOS's)
-    if (/^(android|ios|maccatalyst)-/.test(p)) {
+    // Fontconfig on Android too: Pango's font map there needs cairo's
+    if (p.startsWith('android-')) {
+      return [
+        '-Dfreetype=enabled',
+        '-Dfontconfig=enabled',
+        '-Dquartz=disabled',
+        '-Ddwrite=disabled',
+      ];
+    }
+    // FreeType alone on iOS and Mac Catalyst (cairo's Quartz backend is macOS's)
+    if (/^(ios|maccatalyst)-/.test(p)) {
       return [
         '-Dfreetype=enabled',
         '-Dfontconfig=disabled',
@@ -736,9 +743,251 @@ describe('cairo', () => {
       ]),
     );
   });
-  it('is LGPL-2.1-only OR MPL-1.1, on GLib, Fontconfig on Linux only', () => {
+  it('is LGPL-2.1-only OR MPL-1.1, on GLib, Fontconfig on Linux and Android', () => {
     expect(recipe('cairo').license).toBe('LGPL-2.1-only OR MPL-1.1');
     expect(recipe('cairo').needs.map((n) => n.name)).toContain('glib');
-    expect(apple('osx-arm64')).toBe(true);
+    expect(recipe('cairo').needs).toContainEqual({
+      name: 'fontconfig',
+      platforms: ['linux-*', 'android-*'],
+    });
+    expect(platformsOf('fontconfig')).toEqual(
+      PLATFORMS.filter((p) => /^(linux|osx|android)-/.test(p)),
+    );
+  });
+});
+
+// Pango on cairo, HarfBuzz and FriBidi, with GLib's glib-mkenums from deps, the platform's fonts, and two small
+// source fixes (a missing include; a warning newer clangs make an error). Not on Apple.
+describe('pango', () => {
+  it.each(platformsOf('pango'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'pango', 'pangofc-fontmap.c'), '#include <hb-ft.h>\n');
+    put(join(h.src, 'meson.build'), "    '-Werror=unused-but-set-variable',\n");
+    await build(h, 'pango');
+    const fc = /^(linux|android)-/.test(platform) ? 'enabled' : 'disabled';
+    expect(commands(h)).toEqual(
+      mesonLines(h, [
+        '--wrap-mode=nofallback',
+        '-Dintrospection=disabled',
+        '-Ddocumentation=false',
+        '-Dman-pages=false',
+        '-Dbuild-testsuite=false',
+        '-Dbuild-examples=false',
+        '-Dsysprof=disabled',
+        '-Dlibthai=disabled',
+        '-Dxft=disabled',
+        '-Dcairo=enabled',
+        `-Dfontconfig=${fc}`,
+        `-Dfreetype=${fc}`,
+      ]).map((line) => `${line} [PATH=${h.deps}/bin:${env(h, 'PATH')}]`),
+    );
+    expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe(
+      '#include <hb-ft.h>\n#include <fontconfig/fcfreetype.h>\n',
+    );
+    expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Wunused-but-set-variable',\n");
+  });
+  it('stays on 1.56 while GLib does on 2.86, and leaves out Apple', () => {
+    expect(recipe('pango').versions).toEqual({ 'git-tags': '^(1\\.56\\.\\d+)$' });
+    expect(platformsOf('pango')).toEqual(
+      PLATFORMS.filter((p) => !/^(osx|ios|maccatalyst)-/.test(p)),
+    );
+  });
+});
+
+// librsvg's Rust library through its meson and cargo-c, for the platform's Rust target.
+describe('librsvg', () => {
+  const targets: Record<string, string> = {
+    'linux-x64': 'x86_64-unknown-linux-gnu',
+    'linux-arm64': 'aarch64-unknown-linux-gnu',
+    'linux-musl-x64': 'x86_64-unknown-linux-musl',
+    'linux-musl-arm64': 'aarch64-unknown-linux-musl',
+    'linux-armhf': 'armv7-unknown-linux-gnueabihf',
+    'win-x64': 'x86_64-pc-windows-gnu',
+    'win-arm64': 'aarch64-pc-windows-gnullvm',
+    'android-arm64': 'aarch64-linux-android',
+    'android-x64': 'x86_64-linux-android',
+  };
+  it.each(platformsOf('librsvg'))('%s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'meson.build'), '  foreach i: native_libs.stdout().split()\n');
+    await build(h, 'librsvg');
+    const setup = commands(h).find((line) => line.startsWith('meson setup'))!;
+    expect(setup).toContain(`-Dtriplet=${targets[platform]!}`);
+    for (const arg of [
+      '--wrap-mode=nofallback',
+      '-Dpixbuf=disabled',
+      '-Drsvg-convert=disabled',
+      '-Davif=disabled',
+    ]) {
+      expect(setup).toContain(arg);
+    }
+    expect(setup).toContain('RUSTFLAGS=--remap-path-prefix=');
+    expect(h.read(join(h.src, 'meson.build'))).toBe(
+      platform.startsWith('linux-musl-')
+        ? "  foreach i: native_libs.stdout().replace('unwind', 'gcc_eh').split()\n"
+        : '  foreach i: native_libs.stdout().split()\n',
+    );
+  });
+  it('is v3 builds only, for its Apache-2.0 crates, and not on Apple', () => {
+    expect(recipe('librsvg').license).toContain('Apache-2.0');
+    expect(recipe('librsvg').provides).toBe('rsvg');
+    expect(platformsOf('librsvg')).toEqual(platformsOf('pango'));
+  });
+});
+
+// Tesseract on Leptonica (zlib and PNG alone), cpu_features' NDK layer on Android.
+describe('tesseract', () => {
+  it.each(platformsOf('leptonica'))('leptonica on %s', async (platform) => {
+    const h = fake(platform);
+    const win = platform.startsWith('win-');
+    put(
+      join(h.src, 'src', 'CMakeLists.txt'),
+      'if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX\n',
+    );
+    if (win) {
+      put(pcPath(h, 'lept_Release'), 'Libs: -lleptonica\n');
+    }
+    await build(h, 'leptonica');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DBUILD_PROG=OFF',
+        '-DSW_BUILD=OFF',
+        '-DENABLE_ZLIB=ON',
+        '-DENABLE_PNG=ON',
+        '-DENABLE_GIF=OFF',
+        '-DENABLE_JPEG=OFF',
+        '-DENABLE_TIFF=OFF',
+        '-DENABLE_WEBP=OFF',
+        '-DENABLE_OPENJPEG=OFF',
+      ]),
+    );
+    expect(
+      h
+        .read(join(h.src, 'src', 'CMakeLists.txt'))
+        .startsWith(win ? 'if(MINGW AND BUILD_SHARED_LIBS)' : 'if(MINGW)\n'),
+    ).toBe(true);
+    expect(h.files(h.deps).includes('lib/pkgconfig/lept.pc')).toBe(win);
+  });
+  it.each(platformsOf('tesseract'))('tesseract on %s', async (platform) => {
+    const h = fake(platform);
+    put(
+      join(h.src, 'CMakeLists.txt'),
+      'check_leptonica_tiff_support()\nset(LIB_Ws2_32 Ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64.*|AARCH64.*")\n',
+    );
+    put(join(h.src, 'src', 'viewer', 'scrollview.h'), '#include <cstdio>\n');
+    put(
+      join(h.src, 'src', 'arch', 'simddetect.cpp'),
+      '#include <numeric> // for std::inner_product\n',
+    );
+    h.onRun = (call) => {
+      if (call.command === 'cmake' && call.args[0] === '--install') {
+        put(pcPath(h, 'tesseract'), `Libs: -L\${libdir} -ltesseract55\nLibs.private:\n`);
+      }
+      return undefined;
+    };
+    await build(h, 'tesseract');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, [
+        '-DBUILD_TRAINING_TOOLS=OFF',
+        '-DBUILD_TESTS=OFF',
+        '-DGRAPHICS_DISABLED=ON',
+        '-DOPENMP_BUILD=OFF',
+        '-DDISABLE_CURL=ON',
+        '-DDISABLE_ARCHIVE=ON',
+        '-DDISABLE_TIFF=ON',
+        '-DENABLE_NATIVE=OFF',
+        '-DINSTALL_CONFIGS=OFF',
+        '-DENABLE_CCACHE=OFF',
+        '-DENABLE_PRECOMPILED_HEADERS=OFF',
+        ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
+      ]),
+    );
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      'set(LIB_Ws2_32 ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64.*|AARCH64.*")\n',
+    );
+    expect(h.read(join(h.src, 'src', 'viewer', 'scrollview.h'))).toBe(
+      '#include <cstdio>\n#include <string>\n',
+    );
+    expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toContain('#include <cstdlib>\n');
+    expect(h.read(pcPath(h, 'tesseract'))).toBe(
+      `Libs: -L\${libdir} -ltesseract55\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('win-') ? ' -lws2_32' : ''}\nRequires.private: lept\n`,
+    );
+  });
+  it.each(platformsOf('cpu-features'))('cpu-features on %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'cpu-features');
+    expect(commands(h)).toEqual(
+      cmakeLines(h, ['-DBUILD_TESTING=OFF', '-DBUILD_EXECUTABLE=OFF', '-DENABLE_INSTALL=ON']),
+    );
+  });
+  it('is Apache-2.0, and takes cpu_features on Android only', () => {
+    expect(recipe('tesseract').license).toBe('Apache-2.0');
+    expect(platformsOf('cpu-features')).toEqual(PLATFORMS.filter((p) => p.startsWith('android-')));
+  });
+});
+
+// OpenCV's core and imgproc alone, in the usual layout everywhere, its .pc completed for a static link from C.
+describe('opencv', () => {
+  it.each(platformsOf('opencv'))('%s', async (platform) => {
+    const h = fake(platform);
+    const android = platform.startsWith('android-');
+    const pc = `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm\n`;
+    // not installed on Android: copied from the build folder
+    put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    put(
+      join(h.src, 'CMakeLists.txt'),
+      `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
+        `  status("    Linker flags (Debug):"   \${CMAKE_EXE_LINKER_FLAGS} \${CMAKE_EXE_LINKER_FLAGS_DEBUG})\n` +
+        `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
+    );
+    put(
+      join(h.src, 'cmake', 'OpenCVUtils.cmake'),
+      `function(ocv_output_status msg)\n  message(STATUS "\${msg}")\n`,
+    );
+    put(
+      join(h.src, 'modules', 'core', 'CMakeLists.txt'),
+      `#define OPENCV_INSTALL_PREFIX \\"\${CMAKE_INSTALL_PREFIX}\\"\n#define OPENCV_BUILD_DIR \\"\${CMAKE_BINARY_DIR}\\"\n`,
+    );
+    put(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'), 'if(MSVC OR IOS OR XROS)\n  return()\n');
+    await build(h, 'opencv');
+    // no build, source or install folder recorded in the library
+    expect(h.read(join(h.src, 'cmake', 'OpenCVUtils.cmake'))).toBe(
+      'function(ocv_output_status msg)\n' +
+        `  string(REPLACE "\${CMAKE_BINARY_DIR}" "<build>" msg "\${msg}")\n` +
+        `  string(REPLACE "\${CMAKE_SOURCE_DIR}" "<source>" msg "\${msg}")\n` +
+        `  string(REPLACE "\${CMAKE_INSTALL_PREFIX}" "<prefix>" msg "\${msg}")\n` +
+        `  message(STATUS "\${msg}")\n`,
+    );
+    expect(h.read(join(h.src, 'modules', 'core', 'CMakeLists.txt'))).toBe(
+      '// install prefix not recorded\n#define OPENCV_BUILD_DIR \\"\\"\n',
+    );
+    // and its .pc made for iOS too
+    expect(h.read(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'))).toBe(
+      'if(MSVC OR XROS)\n  return()\n',
+    );
+    const setup = commands(h)[0]!;
+    for (const arg of [
+      '-DBUILD_LIST=core,imgproc',
+      '-DWITH_IPP=OFF',
+      '-DWITH_OPENCL=OFF',
+      '-DBUILD_ZLIB=OFF',
+    ]) {
+      expect(setup).toContain(arg);
+    }
+    expect(setup.includes('-DOPENCV_LIB_INSTALL_PATH=lib')).toBe(android);
+    // no build folder in its build information
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      'status("    C++ flags (Release):"    "(not recorded)")\n' +
+        '  status("    Linker flags (Debug):"   "(not recorded)")\n' +
+        `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
+    );
+    const win = platform.startsWith('win-') ? ' -lole32' : '';
+    expect(h.read(pcPath(h, 'opencv4'))).toBe(
+      `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm ${cxxRuntime(platform)}${win}\n`,
+    );
+  });
+  it('is OpenCV 4 (the C API FFmpeg uses), Apache-2.0', () => {
+    expect(recipe('opencv').versions).toEqual({ 'git-tags': '^(4\\.\\d+\\.\\d+)$' });
+    expect(recipe('opencv').license).toBe('Apache-2.0');
   });
 });

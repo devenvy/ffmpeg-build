@@ -1,0 +1,95 @@
+name: librsvg
+provides: rsvg
+# librsvg's own code is LGPL-2.1-or-later; its Rust crates (Cargo.lock, compiled in) add MIT (or MIT-dual) crates,
+# MPL-2.0 (cssparser, selectors), Unicode-3.0 (the ICU4X crates), BSD-3-Clause and three Apache-2.0-only crates
+# (nalgebra, simba, approx: its transforms' maths), which keep it out of version 2 builds. (The list is cargo tree's
+# over the pinned Cargo.lock, every target. The crates' own texts and sources aren't yet in THIRD-PARTY-NOTICES or
+# the sources archive, as for rav1e: devenvy/ffmpeg-build#40.)
+license: LGPL-2.1-or-later AND Apache-2.0 AND MPL-2.0 AND MIT AND Unicode-3.0 AND BSD-3-Clause
+license-files: [COPYING.LIB]
+configure: [--enable-librsvg]
+needs: [cairo, pango, glib, libxml2, freetype, harfbuzz]
+source:
+  {
+    git: https://gitlab.gnome.org/GNOME/librsvg.git,
+    ref: '{version}',
+    mirror: https://github.com/GNOME/librsvg.git,
+  }
+# x.y.9x tags are betas of the next minor
+versions: { git-tags: '^(2\.\d+\.(?:\d|[0-8]\d))$' }
+# where Pango builds: not on Apple (recipes/pango)
+platforms: [linux-*, win-*, android-*]
+build:
+  # librsvg: SVG rendering (Rust, with a C API), static, for FFmpeg's librsvg decoder (found through librsvg-2.0.pc),
+  # on cairo, Pango, GLib, libxml2, FreeType and HarfBuzz. Its meson builds the Rust library with cargo-c for the
+  # platform's Rust target (-Dtriplet), the crates as its Cargo.lock pins them; the images carry Rust and cargo-c
+  # (rav1e's). The library alone:
+  # no rsvg-convert, gdk-pixbuf (or its loader), AVIF (dav1d), introspection, Vala, docs or tests.
+  system: meson
+  args:
+    [
+      --wrap-mode=nofallback,
+      -Dintrospection=disabled,
+      -Dpixbuf=disabled,
+      -Dpixbuf-loader=disabled,
+      -Drsvg-convert=disabled,
+      -Ddocs=disabled,
+      -Dvala=disabled,
+      -Dtests=false,
+      -Davif=disabled,
+      '-Dtriplet={target}',
+    ]
+  # its build scripts run here, compiled with the build machine's own compilers and flags; Rust keeps source paths in
+  # panic messages: the source folder and the images' /opt/cargo crates are remapped, so no build folder ends up in
+  # the library
+  env:
+    HOST_CC: cc
+    HOST_CXX: c++
+    HOST_CFLAGS: -O2
+    HOST_CXXFLAGS: -O2
+    RUSTFLAGS: '--remap-path-prefix={src}=/work/src/librsvg --remap-path-prefix=/opt/cargo=/cargo'
+  platforms:
+    linux-x64: { vars: { target: x86_64-unknown-linux-gnu } }
+    linux-arm64: { vars: { target: aarch64-unknown-linux-gnu } }
+    linux-musl-x64: { vars: { target: x86_64-unknown-linux-musl } }
+    linux-musl-arm64: { vars: { target: aarch64-unknown-linux-musl } }
+    # Rust's musl targets name LLVM's libunwind among the libraries a static link needs, which Alpine's GCC hasn't
+    # got: GCC's own static unwinder (libgcc_eh, the same _Unwind_* API) instead, as for rav1e
+    'linux-musl-*':
+      before:
+        - replace-in-file:
+            {
+              path: meson.build,
+              from: 'foreach i: native_libs.stdout().split()',
+              to: "foreach i: native_libs.stdout().replace('unwind', 'gcc_eh').split()",
+            }
+    linux-armhf:
+      vars: { target: armv7-unknown-linux-gnueabihf }
+      env:
+        CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+        CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+        AR_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-ar
+    win-x64:
+      vars: { target: x86_64-pc-windows-gnu }
+      env:
+        CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: '{CC}'
+        CC_x86_64_pc_windows_gnu: '{CC}'
+        AR_x86_64_pc_windows_gnu: '{AR}'
+    win-arm64:
+      vars: { target: aarch64-pc-windows-gnullvm }
+      env:
+        CARGO_TARGET_AARCH64_PC_WINDOWS_GNULLVM_LINKER: '{CC}'
+        CC_aarch64_pc_windows_gnullvm: '{CC}'
+        AR_aarch64_pc_windows_gnullvm: '{AR}'
+    android-arm64:
+      vars: { target: aarch64-linux-android }
+      env:
+        CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: '{CC}'
+        CC_aarch64_linux_android: '{CC}'
+        AR_aarch64_linux_android: '{AR}'
+    android-x64:
+      vars: { target: x86_64-linux-android }
+      env:
+        CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: '{CC}'
+        CC_x86_64_linux_android: '{CC}'
+        AR_x86_64_linux_android: '{AR}'
