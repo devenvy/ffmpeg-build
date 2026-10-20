@@ -138,7 +138,9 @@ options:
   # FFmpeg's Vulkan: the Khronos loader on glibc and musl Linux, and on macOS with MoltenVK beside it; on Windows,
   # linux-armhf and Android only the headers (FFmpeg loads the system's Vulkan library at run time); on iOS and Mac
   # Catalyst MoltenVK linked statically into the libav* frameworks (--enable-vulkan-static). Each library's recipe
-  # gives the flags.
+  # gives the flags. android-api: 28 (vulkan, placebo) is policy, not a link requirement: the headers build for any
+  # level, but Android's Vulkan is 1.1 from Android 9 (API 28) and FFmpeg's needs a 1.3 device, so an older floor
+  # would ship a Vulkan no device at that level can run.
   vulkan: {
       needs:
         [
@@ -147,11 +149,17 @@ options:
           { moltenvk: { platforms: [ios-arm64, maccatalyst-*] } },
         ],
       min: 1.3.277,
+      android-api: 28,
       # FFmpeg 8.x compiles its Vulkan filters' shaders only with libshaderc
       ships: { hwaccels: [vulkan], filters: [{ scale_vulkan: { with: [shaderc] } }] },
     }
   placebo:
-    { needs: libplacebo, min: 5.229.0, ships: { filters: [{ libplacebo: { with: [vulkan] } }] } }
+    {
+      needs: libplacebo,
+      min: 5.229.0,
+      android-api: 28,
+      ships: { filters: [{ libplacebo: { with: [vulkan] } }] },
+    }
   # FFmpeg 8.x only gets its Vulkan filters' shader compiler through libshaderc
   shaderc: { needs: shaderc, min: 2019.1 }
   whisper: { needs: whisper.cpp, min: 1.7.5, since: 8.0.0, ships: { filters: [whisper] } }
@@ -241,9 +249,14 @@ options:
   lzma: { needs: xz }
   # FFmpeg probes the C library's iconv even under --disable-autodetect, so glibc, musl and Android (API 28+) builds
   # have it whether or not a target lists it (listing it makes configure fail without it): built in there. Windows has
-  # no iconv and Apple's is a library of its own: GNU libiconv is built and linked there.
+  # no iconv and Apple's is a library of its own: GNU libiconv is built and linked there. Bionic's iconv is API 28's:
+  # an Android build for an older level (android-api:) has none, and can't list it.
   iconv:
-    { builtin: true, needs: [{ libiconv: { platforms: [win-*, osx-*, ios-*, maccatalyst-*] } }] }
+    {
+      builtin: true,
+      needs: [{ libiconv: { platforms: [win-*, osx-*, ios-*, maccatalyst-*] } }],
+      android-api: 28,
+    }
 
   # network
   srt: { needs: srt, min: 1.3.0, ships: { protocols: [srt] } }

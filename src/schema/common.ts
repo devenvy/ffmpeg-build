@@ -7,6 +7,17 @@ export const name = z.string({ error: 'expected a name' }).regex(/^[a-z0-9][a-z0
 export const version = z
   .string({ error: 'expected a version' })
   .regex(/^\d+(\.\d+)*$/, { error: 'expected a version like 9.0.2' });
+/** The Android API levels the image's NDK (r27d) builds for: 64-bit Android starts at 21. */
+const ANDROID_API_LEVELS = { min: 21, max: 35 } as const;
+const ANDROID_API_ERROR = `expected an Android API level from ${ANDROID_API_LEVELS.min} to ${ANDROID_API_LEVELS.max}, like 24`;
+/** An Android API level (`android-api: 24`): YAML gives it as text, it is a number after parsing. */
+export const androidApiLevel = z
+  .string({ error: ANDROID_API_ERROR })
+  .regex(/^\d+$/, { error: ANDROID_API_ERROR })
+  .transform(Number)
+  .refine((n) => n >= ANDROID_API_LEVELS.min && n <= ANDROID_API_LEVELS.max, {
+    error: ANDROID_API_ERROR,
+  });
 export const flag = z
   .enum(['true', 'false'], { error: 'expected true or false' })
   .transform((v) => v === 'true');

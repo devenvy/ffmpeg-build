@@ -117,6 +117,35 @@ build:
 - A release is published with all its targets. Builds that come from somewhere else (another machine, another
   workflow) get their own `release-group:`, so they are their own release.
 
+## Older Android: `android-api`
+
+An Android build is compiled for API level 28 (Android 9): the oldest Android its libraries load on. An app with a
+lower `minSdk` sets the level on its android targets, from 21 to 35:
+
+```yaml
+targets:
+  android-arm64:
+    platform: android-arm64
+    license: lgplv3
+    ffmpeg: 9
+    with: [dav1d, opus, mediacodec, jni]
+    android-api: 24 # loads on Android 7.0+
+```
+
+- **What can't go lower.** Some options and libraries need Android 9's APIs, and `check` refuses a target that has one
+  and a lower level, naming it: `iconv` (Bionic's iconv is API 28's), `whisper` (whisper.cpp links Android's Vulkan
+  1.1 library directly), and `vulkan` and `placebo` (they build for any level, but FFmpeg's Vulkan needs a Vulkan 1.3
+  device, and Android has Vulkan 1.1 only from Android 9). Their `android-api:` in
+  [`ffmpeg/<major>.yml`](../ffmpeg/9.yml) and the recipes says so.
+- **iconv.** FFmpeg finds the C library's iconv by itself on Android 9 and up, whether or not a target lists `iconv`;
+  a build for an older level has none (no `-sub_charenc`).
+- **What it changes.** The NDK's compilers for that level build FFmpeg and every library (`aarch64-linux-android24-clang`,
+  CMake's `ANDROID_PLATFORM=android-24`), and `ffmpeg-build test` links its smoke program for that level, so a library
+  that calls what that Android lacks fails the link. The libraries are cached per level, and setting `android-api:`
+  makes the target's release due. Leaving it out keeps 28, and the build it always had.
+- **What CI runs.** The tests run the build on an Android 15 emulator; a level below 28 is checked by the compile and
+  that link, not on an old Android.
+
 ## Slimmer builds: components
 
 `with:` picks libraries. FFmpeg's own components (its built-in decoders, encoders, demuxers, muxers, parsers,

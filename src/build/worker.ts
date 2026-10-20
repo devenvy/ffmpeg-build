@@ -50,6 +50,7 @@ function setupEnvironment(buildPaths: BuildPaths, plan: BuildPlan) {
     engine: buildPaths.engine,
     env: base,
     native: process.env['FFB_IN'] === 'here',
+    ...(plan.androidApi !== undefined ? { androidApi: plan.androidApi } : {}),
   });
 }
 

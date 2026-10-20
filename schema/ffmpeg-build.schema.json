@@ -421,6 +421,10 @@
               "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
             }
           },
+          "android-api": {
+            "type": "string",
+            "pattern": "^\\d+$"
+          },
           "release-group": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._+-]*$"

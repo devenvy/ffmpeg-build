@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { flag, name, oneOrMany, text, version } from './common.ts';
+import { androidApiLevel, flag, name, oneOrMany, text, version } from './common.ts';
 
 // configure's licence lists: gpl (EXTERNAL_LIBRARY_GPL_LIST), version3, gplv3 (needs both: gpl and version3) and nonfree
 const FFMPEG_LICENSE_CLASSES = ['gpl', 'version3', 'gplv3', 'nonfree'] as const;
@@ -126,6 +126,8 @@ const option = z
       .enum(FFMPEG_LICENSE_CLASSES, { error: 'expected gpl, version3, gplv3 or nonfree' })
       .optional(),
     platforms: platforms.optional(),
+    // the oldest Android API level a build with it can be made for (android-* targets' android-api:)
+    'android-api': androidApiLevel.optional(),
     group: name.optional(),
     configure: z.array(text).optional(), // overrides the recipe's flags, for a library behind several options
     // what a build with the option on must report (ffmpeg -filters, -encoders, ...): `ffmpeg-build test` checks it
@@ -513,6 +515,8 @@ export const recipeSchema = z.strictObject({
   versions: versionsSchema,
   // recipes released together (the Vulkan SDK's headers, loader and SPIR-V headers): the lock gives them one version
   'version-group': name.optional(),
+  // the oldest Android API level it builds and links for (android-* targets' android-api: may not go lower)
+  'android-api': androidApiLevel.optional(),
   notes: z.record(z.string(), text).optional(),
   // globs under DEPS_DIR that ship next to FFmpeg's libraries; relative and inside it; `{ <glob>: { platforms: [...] } }`
   // for one only some platforms ship

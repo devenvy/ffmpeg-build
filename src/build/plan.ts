@@ -4,6 +4,7 @@ import { basename, join } from 'node:path';
 
 import { parseDocument } from 'yaml';
 
+import { androidApiFor, androidApiProblems, isAndroid } from '../android-api.ts';
 import { aboutSchema } from '../check.ts';
 import { versionInCell } from '../choose.ts';
 import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
@@ -266,6 +267,7 @@ export function cacheKeys(
   platform: string,
   toolchain: string,
   pinOf: (recipe: string) => SourcePin | undefined = () => undefined,
+  androidApi?: number,
 ): Map<string, string> {
   const ids = new Map<string, { key: string; asDependency: string }>();
   const inBuild = new Set(recipes);
@@ -290,6 +292,8 @@ export function cacheKeys(
       toolchain,
       against,
       ...(pin ? { pin } : {}),
+      // android: the API level it is compiled for (a library built for 28 may call what 24 lacks)
+      ...(androidApi !== undefined ? { androidApi } : {}),
     };
     const id = {
       key: sha({ ...fact, files: recipeFilesHash(data.root, recipe) }),
@@ -365,6 +369,7 @@ export interface BuildPlan {
     configure: string[];
     verify: string[];
   }; // none: build the libraries only
+  androidApi?: number; // android-*: the Android API level the libraries and FFmpeg are compiled for
 }
 
 // How upstream devenvy/ffmpeg 10_write_legal.sh names each licence, and which of FFmpeg's COPYING texts govern it.
@@ -686,10 +691,16 @@ export function makeBuildPlan(args: {
   // the lock's pins hold for the versions it locked, which are the versions built here
   const pinOf = (lib: string): SourcePin | undefined =>
     locked.libraries[lib] === versionOf(lib) ? locked.pins?.libraries[lib] : undefined;
-  const keys = cacheKeys(data, cell.recipes, versionOf, cell.cell.platform, args.imageId, pinOf);
+  const platform = cell.cell.platform;
+  // check refuses an android-api: older than the build's options and libraries support; this is its guard
+  const tooOld = androidApiProblems(data, cell, profile.androidApi);
+  if (tooOld.length) {
+    throw new Error(tooOld.join('; '));
+  }
+  const api = isAndroid(platform) ? androidApiFor(profile.androidApi) : undefined;
+  const keys = cacheKeys(data, cell.recipes, versionOf, platform, args.imageId, pinOf, api);
   const version = cell.cell.version;
   const license = cell.cell.license;
-  const platform = cell.cell.platform;
   const setup = setupOf(data, platform);
   const image = data.platforms.get(platform)!.image;
   // named as the release names them: an x.y release is x.y.0 (releaseVersion); the tarball keeps upstream's name
@@ -716,6 +727,7 @@ export function makeBuildPlan(args: {
     image,
     toolchain: args.imageId,
     engine,
+    ...(api !== undefined ? { androidApi: api } : {}),
     name,
     target: args.variant,
     license,

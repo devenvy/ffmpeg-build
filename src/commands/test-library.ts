@@ -11,6 +11,7 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSyn
 import { tmpdir } from 'node:os';
 import { posix } from 'node:path';
 
+import { androidApiFor } from '../android-api.ts';
 import { packageRoot } from '../paths.ts';
 import {
   expectedComponents,
@@ -40,8 +41,6 @@ const ANDROID: Record<string, { triple: string; abi: string }> = {
   'android-arm64': { triple: 'aarch64-linux-android', abi: 'arm64-v8a' },
   'android-x64': { triple: 'x86_64-linux-android', abi: 'x86_64' },
 };
-/** The Android toolchain's API level: the oldest Android the libraries load on. */
-const ANDROID_API = 28;
 /** FFmpeg's libraries, each before the ones it needs, as a static link order would want them. */
 const LIBS = ['avformat', 'avfilter', 'avcodec', 'swscale', 'swresample', 'avutil'];
 /** How long a command may run by default (ten minutes: a link, a simulator boot). */
@@ -67,7 +66,11 @@ export interface Step {
 const smokeSource = (engineRoot = packageRoot): string =>
   posix.join(engineRoot.replaceAll('\\', '/'), 'platforms', 'test', 'smoke.c');
 
-/** The NDK clang that links the smoke program against an Android build's lib/<abi>. */
+/**
+ * The NDK clang that links the smoke program against an Android build's lib/<abi>, for the API level the build was
+ * made for: a library that calls what that level's C library lacks fails the link (lld refuses a shared library's
+ * undefined symbols in a program).
+ */
 export function androidSmoke(
   platform: string,
   ndk: string,
@@ -75,18 +78,11 @@ export function androidSmoke(
   run: string,
   out: string,
   source: string,
+  api: number,
 ): Command {
   const { triple, abi } = ANDROID[platform]!;
   return {
-    cmd: posix.join(
-      ndk,
-      'toolchains',
-      'llvm',
-      'prebuilt',
-      hostDir,
-      'bin',
-      `${triple}${ANDROID_API}-clang`,
-    ),
+    cmd: posix.join(ndk, 'toolchains', 'llvm', 'prebuilt', hostDir, 'bin', `${triple}${api}-clang`),
     args: [
       source,
       '-I',
@@ -371,6 +367,8 @@ export function testLibrary(o: {
   rosetta: boolean;
   /** the engine's data, for what each option the build has on must ship */
   data: EngineData;
+  /** android: the target's android-api: (default 28), the level the smoke program is linked for */
+  androidApi?: number;
 }): Step[] {
   const host = o.host ?? process.platform;
   const arch = o.arch ?? process.arch;
@@ -390,6 +388,7 @@ export function testLibrary(o: {
         o.dir,
         out,
         smokeSource(),
+        androidApiFor(o.androidApi),
       );
     } else {
       const sdkName = APPLE_SDK[o.platform] ?? 'macosx';

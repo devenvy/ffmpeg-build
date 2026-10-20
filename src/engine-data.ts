@@ -63,6 +63,7 @@ export interface OptionInfo {
   kind?: string; // for builtins: muxer, hwaccel, tls, ...
   configure?: string[];
   ships: ShippedComponent[]; // what a build with it on must report (ffmpeg -filters, -encoders, ...)
+  androidApi?: number; // the oldest Android API level a build with it can be made for
 }
 
 export function loadEngineData(root: string): EngineData {
@@ -521,6 +522,7 @@ export function optionsOf(data: EngineData, major: string): Map<string, OptionIn
       ...(o.kind ? { kind: o.kind } : {}),
       ...(o.configure ? { configure: o.configure } : {}),
       ships: o.ships ?? [],
+      ...(o['android-api'] !== undefined ? { androidApi: o['android-api'] } : {}),
     });
   }
   byMajor.set(major, result);
