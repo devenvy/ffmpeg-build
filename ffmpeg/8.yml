@@ -80,6 +80,7 @@ auto-components:
   - gme
   - modplug
   - openmpt
+  - rav1e
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)

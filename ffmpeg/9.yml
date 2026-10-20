@@ -80,6 +80,7 @@ auto-components:
   - gme
   - modplug
   - openmpt
+  - rav1e
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
