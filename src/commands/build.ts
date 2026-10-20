@@ -108,6 +108,15 @@ export async function releaseIdentity(
   if (!repository) {
     return { release };
   }
+  // CI reads it once for the whole release (build.yml's plan job): each build asking GitHub on its own runs an
+  // unauthenticated runner past its rate limit
+  const given = setting(env['FFMPEG_BUILD_REPO_PRIVATE']);
+  if (given !== undefined) {
+    if (given !== 'true' && given !== 'false') {
+      throw new CliError(`FFMPEG_BUILD_REPO_PRIVATE is "${given}": expected true or false`);
+    }
+    return { release, repository, privateRepo: given === 'true' };
+  }
   try {
     return { release, repository, privateRepo: await repoIsPrivate(repository) };
   } catch (e) {

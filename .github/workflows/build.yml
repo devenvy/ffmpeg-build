@@ -69,6 +69,7 @@ jobs:
       tests: ${{ steps.plan.outputs.tests }}
       any_tests: ${{ steps.plan.outputs.any_tests }}
       engine: ${{ steps.engine.outputs.version }}
+      private: ${{ steps.visibility.outputs.private }}
     steps:
       # a misspelt value would otherwise build every release (publish) or publish what it shouldn't: stop first
       - name: inputs
@@ -138,6 +139,13 @@ jobs:
             echo "::error::ffmpeg-build ${have} is a ${have%%.*}.x engine, but these workflows (@v${WORKFLOWS_MAJOR}) run ${WORKFLOWS_MAJOR}.x engines only: call the workflows @v${have%%.*}, or set the engine input (or ffmpeg.lock's engine:) to a ${WORKFLOWS_MAJOR}.x release"
             exit 1
           fi
+      # whether this repository is private decides where the builds' notices say their source is: read once here, with
+      # the token, rather than by every build (an unauthenticated runner past GitHub's rate limit is refused)
+      - id: visibility
+        name: repository visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "private=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .private)" >> "$GITHUB_OUTPUT"
       - id: plan
         name: releases
         working-directory: ${{ inputs.folder }}
@@ -187,6 +195,7 @@ jobs:
       FFMPEG_BUILD_SOURCE_REF: ${{ github.sha }}
       # the release the notices name: only when this run publishes it (a PR check's builds go nowhere)
       FFMPEG_BUILD_RELEASE: ${{ inputs.publish != 'never' && matrix.release || '' }}
+      FFMPEG_BUILD_REPO_PRIVATE: ${{ needs.plan.outputs.private }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
