@@ -16,6 +16,9 @@ export const PLATFORMS: readonly string[] = [
   'android-x64',
 ];
 
+/** The platforms whose builds ship libraries and no programs: `ffmpeg-build test` links a smoke program against them. */
+export const LIBRARY_PLATFORM = /^(android|ios|maccatalyst)-/;
+
 function globToRegExp(pattern: string): RegExp {
   const body = pattern
     .split('*')

@@ -35,8 +35,6 @@ import type { LICENSE_FLAGS } from '../build/plan.ts';
 import type { EngineData } from '../engine-data.ts';
 import type { RuntimeNames } from '../ffmpeg-components.ts';
 
-export const LIBRARY_PLATFORM = /^(android|ios|maccatalyst)-/;
-
 /** Where on a device the Android smoke program and the libraries go. */
 const ANDROID_DIR = '/data/local/tmp/ffmpeg-build-test';
 const ANDROID: Record<string, { triple: string; abi: string }> = {

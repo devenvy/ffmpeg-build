@@ -16,7 +16,7 @@ import {
   type RuntimeNames,
 } from './ffmpeg-components.ts';
 import { allowedBy } from './licenses.ts';
-import { describePlatforms, platformMatches } from './platforms.ts';
+import { describePlatforms, LIBRARY_PLATFORM, platformMatches } from './platforms.ts';
 import { isCommit } from './ranges.ts';
 import {
   type Absence,
@@ -94,6 +94,7 @@ export function checkProfile(
     ...patchProblems(profile, data, ctx),
     ...testsProblems(profile),
     ...componentProblems(profile, data, plan.cells),
+    ...testEncodeProblems(profile, plan.cells),
     ...androidApiBlocks(profile, data, plan.cells),
     ...shipsProblems(data, ctx),
     ...withBlocks(profile, data, plan.cells, ctx),
@@ -469,6 +470,37 @@ function componentProblems(profile: Profile, data: EngineData, cells: CellPlan[]
       }
     }
   }
+  return lines.length ? [{ lines }] : [];
+}
+
+/**
+ * What `ffmpeg-build test` (which build.yml runs on every build) needs of a build with programs: it encodes a test
+ * pattern, `ffmpeg -f lavfi -i testsrc2 -f null -` (lavfi hands ffmpeg wrapped frames, which the null muxer takes as
+ * they are).
+ */
+const TEST_ENCODE: readonly (readonly [ComponentKind, string])[] = [
+  ['indevs', 'lavfi'],
+  ['filters', 'testsrc2'],
+  ['decoders', 'wrapped_avframe'],
+  ['encoders', 'wrapped_avframe'],
+  ['muxers', 'null'],
+];
+
+/** A target's components: that leave out what `ffmpeg-build test`'s encode needs, which would fail its test. */
+function testEncodeProblems(profile: Profile, cells: CellPlan[]): Block[] {
+  if (!cells.some((c) => !LIBRARY_PLATFORM.test(c.cell.platform))) {
+    return [];
+  }
+  const lines = TEST_ENCODE.filter(([kind, name]) => {
+    const listed = profile.components?.[kind];
+    return listed !== undefined && !listed.includes(name);
+  }).map(([kind, name]): Line => ({
+    mark: '✗',
+    text: `components: ${kind}: add ${name}`,
+    detail: [
+      `\`ffmpeg-build test\` encodes a test pattern (ffmpeg -f lavfi -i testsrc2 -f null -), which needs it: without it the build fails its test`,
+    ],
+  }));
   return lines.length ? [{ lines }] : [];
 }
 

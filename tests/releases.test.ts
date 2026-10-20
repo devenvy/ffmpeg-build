@@ -151,7 +151,7 @@ describe('ffmpeg-build releases', () => {
       join(d, 'ffmpeg-build.yml'),
       FOLDER.replace(
         'with: [dav1d, opus] }',
-        'with: [dav1d, opus], components: { decoders: [h264, libdav1d] } }',
+        'with: [dav1d, opus], components: { decoders: [h264, libdav1d, wrapped_avframe] } }',
       ),
     );
     const r = await runCliAsync(['releases'], { cwd: d, env });

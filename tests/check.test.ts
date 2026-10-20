@@ -339,9 +339,65 @@ describe('components in check', () => {
   };
 
   it('passes names FFmpeg has', () => {
-    expect(withComponents({ decoders: ['h264', 'hevc'], muxers: ['mp4', 'null'] })).not.toContain(
-      '✗',
+    expect(
+      withComponents({ decoders: ['h264', 'hevc', 'wrapped_avframe'], muxers: ['mp4', 'null'] }),
+    ).not.toContain('✗');
+  });
+
+  // `ffmpeg-build test` (which build.yml runs on every build) encodes a test pattern: ffmpeg -f lavfi -i testsrc2
+  // -f null -. A build whose components: leave out what that needs fails its test, so check says what to add.
+  it("refuses components that leave out what `ffmpeg-build test`'s encode needs, naming what to add", () => {
+    const text = withComponents({
+      decoders: ['h264'],
+      encoders: ['aac'],
+      muxers: ['mp4'],
+      filters: ['scale'],
+      indevs: [],
+    });
+    const why =
+      '`ffmpeg-build test` encodes a test pattern (ffmpeg -f lavfi -i testsrc2 -f null -), which needs it';
+    expect(text).toContain('✗ components: decoders: add wrapped_avframe');
+    expect(text).toContain('✗ components: encoders: add wrapped_avframe');
+    expect(text).toContain('✗ components: muxers: add null');
+    expect(text).toContain('✗ components: filters: add testsrc2');
+    expect(text).toContain('✗ components: indevs: add lavfi');
+    expect(text).toContain(why);
+  });
+
+  it('asks only of the kinds a target restricts: the null muxer there, wrapped_avframe left out', () => {
+    // the null muxer there, wrapped_avframe left out of the encoders and decoders listed
+    const text = withComponents({
+      decoders: ['h264'],
+      encoders: ['aac'],
+      muxers: ['mp4', 'null'],
+    });
+    expect(text).toContain('✗ components: decoders: add wrapped_avframe');
+    expect(text).toContain('✗ components: encoders: add wrapped_avframe');
+    expect(text).not.toContain('add null');
+    expect(text).not.toContain('add testsrc2');
+    expect(text).not.toContain('add lavfi');
+    // what examples/test-builds lists
+    expect(
+      withComponents({
+        decoders: ['h264', 'wrapped_avframe'],
+        encoders: ['aac', 'wrapped_avframe'],
+        muxers: ['mp4', 'null'],
+        filters: ['scale', 'testsrc2'],
+        indevs: ['lavfi'],
+      }),
+    ).not.toContain('✗');
+  });
+
+  it("asks nothing of a library build (Android, iOS, Mac Catalyst), whose test doesn't run ffmpeg", () => {
+    const loaded = parseProfileText(
+      'name: t\nffmpeg: 9\nplatforms: [android-arm64]\nlicense: lgplv3\nwith: [dav1d]\n',
+      't.yml',
     );
+    if (!loaded.ok) {
+      throw new Error(loaded.errors.join('\n'));
+    }
+    const profile = { ...loaded.profile, components: { encoders: ['aac'], muxers: ['mp4'] } };
+    expect(formatReport(checkProfile({ ok: true, profile }, data))).not.toContain('add ');
   });
 
   it('refuses a name FFmpeg 9 has no component of that kind for', () => {
@@ -365,7 +421,9 @@ describe('components in check', () => {
     const text = withComponents({ encoders: ['aac', 'libx265'] });
     expect(text).toContain('✗ components: encoders: libx265');
     expect(text).toContain('libx265 comes with x265: add x265 to with:');
-    expect(withComponents({ encoders: ['aac', 'libx265'] }, '[dav1d, x265]')).not.toContain('✗');
+    expect(
+      withComponents({ encoders: ['aac', 'libx265', 'wrapped_avframe'] }, '[dav1d, x265]'),
+    ).not.toContain('✗');
   });
 
   it("names the options that would bring a component it lists, from the components file's needs", () => {
@@ -374,7 +432,10 @@ describe('components in check', () => {
     // the TLS options this platform has; schannel and securetransport are Windows' and Apple's
     expect(text).toContain('https comes with gnutls or openssl: add one of them to with:');
     expect(
-      withComponents({ encoders: ['h264_vaapi'], protocols: ['https'] }, '[vaapi, openssl]'),
+      withComponents(
+        { encoders: ['h264_vaapi', 'wrapped_avframe'], protocols: ['https'] },
+        '[vaapi, openssl]',
+      ),
     ).not.toContain('✗');
     // a licence switch the target's licence doesn't turn on
     const lgpl = parseProfileText(

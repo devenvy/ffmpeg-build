@@ -21,7 +21,8 @@ import { extractTarGzFile } from '../untar.ts';
 import { FolderError } from './folder.ts';
 import { expectedComponents, type Has, listedAs, listedNames, shippedSteps } from './shipped.ts';
 import { scriptEnv, targetTestEnv } from './test-env.ts';
-import { cannotLink, LIBRARY_PLATFORM, testLibrary } from './test-library.ts';
+import { cannotLink, testLibrary } from './test-library.ts';
+import { LIBRARY_PLATFORM } from '../platforms.ts';
 
 import type { EngineData } from '../engine-data.ts';
 import type { ShippedKind } from '../schema/engine.ts';
