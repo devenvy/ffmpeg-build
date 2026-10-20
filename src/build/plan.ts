@@ -17,6 +17,7 @@ import { releaseVersion } from '../targets.ts';
 import { unique } from '../text.ts';
 import { treeHash } from '../tree-hash.ts';
 import { buildModules } from './modules.ts';
+import { rustLinkProblem } from './rust-archive.ts';
 import { parseYaml } from '../yaml.ts';
 
 import type { LockedProfile, SourcePin } from '../lockfile.ts';
@@ -717,6 +718,13 @@ export function makeBuildPlan(args: {
   const tooOld = androidApiProblems(data, cell, profile.androidApi);
   if (tooOld.length) {
     throw new Error(tooOld.join('; '));
+  }
+  const rustProblem = rustLinkProblem(
+    cell.recipes.filter((r) => data.recipes.get(r)?.build.cargo),
+    platform,
+  );
+  if (rustProblem) {
+    throw new Error(rustProblem);
   }
   const api = isAndroid(platform) ? androidApiFor(profile.androidApi) : undefined;
   const keys = cacheKeys(data, cell.recipes, versionOf, platform, args.imageId, pinOf, api);

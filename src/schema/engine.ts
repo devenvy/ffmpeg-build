@@ -484,13 +484,16 @@ const recipeBuild = z
     // a Rust library: the crates its Cargo.lock compiles in for the platform's Rust target, fetched after before:
     // and listed by cargo (package and features as the build selects them), go into THIRD-PARTY-NOTICES.txt and the
     // sources archive, and are checked against licenses.yml before the build; it then builds offline.
-    // standard-texts: crates reviewed to take the standard text of their licence, as they ship no licence file
+    // standard-texts: crates reviewed to take the standard text of their licence, as they ship no licence file.
+    // exports: the library's C API (globs, as nm names them: rav1e_*); every other symbol its Rust objects define
+    // takes the library's own prefix once it is built, so two Rust libraries link into one FFmpeg (build/rust-archive.ts)
     cargo: z
       .strictObject({
         target: text,
         package: text,
         features: z.array(text).default([]),
         'standard-texts': z.array(text).default([]),
+        exports: z.array(z.string().regex(/^[\w.$*]+$/)).min(1),
       })
       .optional(),
     env: buildEnv.default({}),

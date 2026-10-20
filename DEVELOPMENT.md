@@ -75,19 +75,19 @@ clone (six attempts, 4 s doubling).
 
 ### build:
 
-| Key                                                      | What it does                                                                                                                                                                        |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system:`                                                | `cmake`, `meson`, `autotools` or `none` (then `steps:` does the build)                                                                                                              |
-| `args:`                                                  | the build system's arguments (or, with `none`, what `{args}` holds)                                                                                                                 |
-| `source-dir:`                                            | where CMakeLists.txt / meson.build / configure is                                                                                                                                   |
-| `configure-script:`, `make-targets:`, `install-targets:` | autotools: the script, `make -j<n> <targets>`, `make <install targets>` (`[]`: none)                                                                                                |
-| `bootstrap:`                                             | before anything else: `autogen` (`./autogen.sh`), `autoreconf` (`autoreconf -fi`) or a script in the source; a list tries each in turn, quietly, and the first that works wins      |
-| `cargo: { target, package, features, standard-texts }`   | a Rust library: its crates, after `before:` (below)                                                                                                                                 |
-| `env:`                                                   | environment variables: a value, or `+= ...` to append to the toolchain's                                                                                                            |
-| `unset:`                                                 | environment variables to remove (YAML's `null` is read as text here, so it can't do that)                                                                                           |
-| `vars:`                                                  | recipe variables for placeholders: text, or a list                                                                                                                                  |
-| `before:`, `steps:`, `after:`                            | steps around (or, with `steps:`, instead of) the standard build                                                                                                                     |
-| `platforms:`                                             | per platform glob (`win-*`, `linux-x64`): `args`, `env`, `unset`, `vars`, `before`, `after` added for the platforms it matches, in the order written; a later match's variable wins |
+| Key                                                             | What it does                                                                                                                                                                        |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system:`                                                       | `cmake`, `meson`, `autotools` or `none` (then `steps:` does the build)                                                                                                              |
+| `args:`                                                         | the build system's arguments (or, with `none`, what `{args}` holds)                                                                                                                 |
+| `source-dir:`                                                   | where CMakeLists.txt / meson.build / configure is                                                                                                                                   |
+| `configure-script:`, `make-targets:`, `install-targets:`        | autotools: the script, `make -j<n> <targets>`, `make <install targets>` (`[]`: none)                                                                                                |
+| `bootstrap:`                                                    | before anything else: `autogen` (`./autogen.sh`), `autoreconf` (`autoreconf -fi`) or a script in the source; a list tries each in turn, quietly, and the first that works wins      |
+| `cargo: { target, package, features, standard-texts, exports }` | a Rust library: its crates, after `before:`, and its C API (below)                                                                                                                  |
+| `env:`                                                          | environment variables: a value, or `+= ...` to append to the toolchain's                                                                                                            |
+| `unset:`                                                        | environment variables to remove (YAML's `null` is read as text here, so it can't do that)                                                                                           |
+| `vars:`                                                         | recipe variables for placeholders: text, or a list                                                                                                                                  |
+| `before:`, `steps:`, `after:`                                   | steps around (or, with `steps:`, instead of) the standard build                                                                                                                     |
+| `platforms:`                                                    | per platform glob (`win-*`, `linux-x64`): `args`, `env`, `unset`, `vars`, `before`, `after` added for the platforms it matches, in the order written; a later match's variable wins |
 
 The standard builds:
 
@@ -120,6 +120,16 @@ the library for the target (`cargo tree -e normal,no-proc-macro`), and builds of
 - every crates.io crate of Cargo.lock is kept as crates.io serves it (`sources/crates/<name>-<version>.crate` in the
   cache, `.sources/` and the release's sources archive, as `cargo vendor` would hold them; SOURCES.md lists each and
   says how to build offline from them).
+
+A Rust static library carries its own copy of Rust's standard library, under the same names every library built by
+the same rustc gives it, so two of them (rav1e and librsvg) can't link into one FFmpeg as they are. Once it is built,
+each static library it installed under `lib/` keeps its C API (`exports:`, globs as nm names its symbols: `rav1e_*`)
+and every other symbol its Rust objects (`*.rcgu.o`) define takes the library's own prefix (`ffb.rav1e.`), renamed
+consistently in all of them with the platform's `objcopy --redefine-syms` (`src/build/rust-archive.ts`). Each library
+then calls its own copy of Rust, as two Rust shared libraries in one program do, and its C, assembly and import members
+are left as they are. An `exports:` glob that matches nothing the Rust objects define fails the build. Xcode has no
+objcopy, so on Apple a library is left as built and a target with two Rust libraries is refused (rav1e is the only
+one there).
 
 ### Steps
 

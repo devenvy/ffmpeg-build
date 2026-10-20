@@ -356,7 +356,12 @@ describe('a recipe with cargo:', () => {
         build: parse({
           system: 'none',
           vars: { target: x86 },
-          cargo: { target: '{target}', package: 'sample', features: ['capi'] },
+          cargo: {
+            target: '{target}',
+            package: 'sample',
+            features: ['capi'],
+            exports: ['sample_*'],
+          },
           before: [['before']],
           steps: [['cargo', 'cinstall', '--locked']],
         }),
@@ -393,7 +398,7 @@ describe('a recipe with cargo:', () => {
           license: 'BSD-2-Clause AND MIT',
           build: parse({
             system: 'none',
-            cargo: { target: x86, package: 'sample' },
+            cargo: { target: x86, package: 'sample', exports: ['sample_*'] },
             steps: [['cargo', 'cinstall']],
           }),
         },
