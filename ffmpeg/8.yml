@@ -104,6 +104,10 @@ auto-components:
   - rabbitmq
   - ssh
   - rtmp
+  - bluray
+  - dvdnav
+  - dvdread
+  - cdio
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
@@ -419,3 +423,23 @@ options:
   rtmp: { needs: librtmp, ships: { protocols: [librtmp, librtmpe, librtmps, librtmpt, librtmpte] } }
   # GMP: the Diffie-Hellman of FFmpeg's own rtmpe and rtmpte (ffrtmpcrypt), without a TLS library that does it
   gmp: { needs: gmp, ffmpeg-license: version3, ships: { protocols: [rtmpe, rtmpte] } }
+
+  # discs: Blu-ray (the bluray protocol), DVD-Video (the dvdvideo demuxer, which takes both dvdnav and dvdread) and
+  # audio CDs (the libcdio input device), from a drive, a folder or an image
+  bluray: { needs: libbluray, ships: { protocols: [bluray] } }
+  dvdnav:
+    {
+      needs: libdvdnav,
+      ffmpeg-license: gpl,
+      min: 6.1.0,
+      ships: { demuxers: [{ dvdvideo: { with: [dvdread] } }] },
+    }
+  dvdread:
+    {
+      needs: libdvdread,
+      ffmpeg-license: gpl,
+      min: 6.1.1,
+      ships: { demuxers: [{ dvdvideo: { with: [dvdnav] } }] },
+    }
+  # (its libcdio input device isn't in ships:, which names what `ffmpeg -<kind>` lists, and devices are -devices')
+  cdio: { needs: libcdio-paranoia, ffmpeg-license: gpl }

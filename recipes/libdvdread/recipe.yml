@@ -1,0 +1,33 @@
+name: libdvdread
+provides: dvdread
+license: GPL-2.0-or-later
+license-files: [COPYING]
+configure: [--enable-libdvdread]
+# the release tarballs (VideoLAN's download site and two of its mirrors): code.videolan.org's git often stalls
+source:
+  url: 'https://download.videolan.org/pub/videolan/libdvdread/{version}/libdvdread-{version}.tar.xz'
+  mirrors:
+    - 'https://ftp.osuosl.org/pub/videolan/libdvdread/{version}/libdvdread-{version}.tar.xz'
+    - 'https://www.mirrorservice.org/sites/videolan.org/libdvdread/{version}/libdvdread-{version}.tar.xz'
+versions:
+  { listing: 'https://download.videolan.org/pub/videolan/libdvdread/', files: '^(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # libdvdread: DVD-Video reading (GPL-2.0-or-later; FFmpeg's class gpl), static, for FFmpeg's dvdvideo demuxer (with
+  # libdvdnav; found through dvdread.pc, 6.1.1 or later): a VIDEO_TS folder, a mounted disc or an .iso image. Not
+  # linked to libdvdcss: a CSS-encrypted disc needs the system's libdvdcss, which it loads at run time when there is
+  # one. No docs.
+  system: meson
+  args: [-Denable_docs=false, -Dlibdvdcss=disabled]
+  platforms:
+    # its public dvd_filesystem.h types off64_t for glibc, MSVC and the BSDs; musl (1.2.4 on) declares off64_t only
+    # when _LARGEFILE64_SOURCE comes before its first header, which libdvdnav's sources don't do (its off_t is 64-bit
+    # anyway): musl takes the BSDs' typedef
+    'linux-musl-*':
+      before:
+        - replace-in-file:
+            {
+              path: src/dvdread/dvd_filesystem.h,
+              from: '#elif defined(__APPLE__) || defined(__FreeBSD__)',
+              to: '#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)',
+            }

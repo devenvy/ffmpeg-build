@@ -9,8 +9,10 @@ import {
   build,
   cmakeLines,
   commands,
+  configureLine,
   type Harness,
   harness,
+  mesonLines,
   pcPath,
   platformsOf,
   recipe,
@@ -329,5 +331,115 @@ describe('gmp', () => {
   it('builds everywhere, for FFmpeg’s gmp option', () => {
     expect(platformsOf('gmp')).toEqual(PLATFORMS);
     expect(recipe('gmp').provides).toBe('gmp');
+  });
+});
+
+// Discs: Blu-ray (libbluray on libudfread and libxml2), DVD-Video (libdvdread, libdvdnav) and audio CDs (libcdio,
+// libcdio-paranoia), each a static library alone.
+const NOT_APPLE_MOBILE = PLATFORMS.filter((p) => /^(linux|win|osx|android)-/.test(p));
+const DESKTOP = PLATFORMS.filter((p) => /^(linux|win|osx)-/.test(p));
+describe('libudfread', () => {
+  it.each(platformsOf('libudfread'))('%s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libudfread');
+    expect(commands(h)).toEqual(mesonLines(h, ['-Denable_examples=false']));
+  });
+  it('builds where libbluray does', () => {
+    expect(platformsOf('libudfread')).toEqual(platformsOf('libbluray'));
+  });
+});
+
+describe('libbluray', () => {
+  it.each(platformsOf('libbluray'))('%s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libbluray');
+    expect(commands(h)).toEqual(
+      mesonLines(h, [
+        '-Denable_tools=false',
+        '-Denable_examples=false',
+        '-Denable_docs=false',
+        '-Dbdj_jar=disabled',
+        '-Dfreetype=disabled',
+        '-Dfontconfig=disabled',
+        '-Dlibxml2=enabled',
+        '-Dembed_udfread=false',
+      ]),
+    );
+  });
+  it('is LGPL-2.1-or-later on libudfread and libxml2; not iOS or Mac Catalyst', () => {
+    expect(recipe('libbluray').license).toBe('LGPL-2.1-or-later');
+    expect(recipe('libbluray').needs).toEqual([{ name: 'libudfread' }, { name: 'libxml2' }]);
+    expect(platformsOf('libbluray')).toEqual(NOT_APPLE_MOBILE);
+  });
+});
+
+describe('libdvdread and libdvdnav', () => {
+  it.each(platformsOf('libdvdread'))('libdvdread %s', async (platform) => {
+    const h = fake(platform);
+    const header = join(h.src, 'src', 'dvdread', 'dvd_filesystem.h');
+    put(header, '#elif defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n');
+    await build(h, 'libdvdread');
+    expect(commands(h)).toEqual(mesonLines(h, ['-Denable_docs=false', '-Dlibdvdcss=disabled']));
+    // musl has no off64_t unless asked first: it takes the BSDs' typedef (its off_t is 64-bit)
+    expect(h.read(header)).toBe(
+      `#elif ${platform.startsWith('linux-musl-') ? 'defined(__linux__) || ' : ''}defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n`,
+    );
+  });
+  it.each(platformsOf('libdvdnav'))('libdvdnav %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libdvdnav');
+    expect(commands(h)).toEqual(mesonLines(h, ['-Denable_docs=false', '-Denable_examples=false']));
+  });
+  it('are GPL-2.0-or-later, everywhere', () => {
+    expect(recipe('libdvdread').license).toBe('GPL-2.0-or-later');
+    expect(recipe('libdvdnav').license).toBe('GPL-2.0-or-later');
+    expect(recipe('libdvdnav').needs).toEqual([{ name: 'libdvdread' }]);
+    expect(platformsOf('libdvdread')).toEqual(PLATFORMS);
+    expect(platformsOf('libdvdnav')).toEqual(PLATFORMS);
+  });
+});
+
+describe('libcdio and libcdio-paranoia', () => {
+  const libraryOnly = (h: Harness, args: string[]) => [
+    configureLine(h, ['--disable-shared', '--enable-static', '--with-pic', ...args]),
+    'make -j4 -C lib',
+    'make -C lib install',
+    'make -C include install',
+    'make install-pkgconfigDATA',
+  ];
+  it.each(platformsOf('libcdio'))('libcdio %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libcdio');
+    expect(commands(h)).toEqual(
+      libraryOnly(h, [
+        '--disable-cxx',
+        '--disable-cpp-progs',
+        '--disable-example-progs',
+        '--disable-joliet',
+        '--disable-cddb',
+        '--disable-vcd-info',
+        '--disable-rpath',
+        '--without-cd-drive',
+        '--without-cd-info',
+        '--without-cdda-player',
+        '--without-cd-read',
+        '--without-iso-info',
+        '--without-iso-read',
+      ]),
+    );
+  });
+  it.each(platformsOf('libcdio-paranoia'))('libcdio-paranoia %s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'libcdio-paranoia');
+    expect(commands(h)).toEqual(
+      libraryOnly(h, ['--disable-cxx', '--disable-cpp-progs', '--disable-example-progs']),
+    );
+  });
+  it('are GPL-3.0-or-later, where CD drives are: Linux, Windows and macOS', () => {
+    expect(recipe('libcdio').license).toBe('GPL-3.0-or-later');
+    expect(recipe('libcdio-paranoia').license).toBe('GPL-3.0-or-later');
+    expect(recipe('libcdio-paranoia').needs).toEqual([{ name: 'libcdio' }]);
+    expect(platformsOf('libcdio')).toEqual(DESKTOP);
+    expect(platformsOf('libcdio-paranoia')).toEqual(DESKTOP);
   });
 });

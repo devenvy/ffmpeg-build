@@ -1,0 +1,35 @@
+name: libbluray
+provides: bluray
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+configure: [--enable-libbluray]
+needs: [libudfread, libxml2]
+# the release tarballs (VideoLAN's download site and two of its mirrors): code.videolan.org's git often stalls
+source:
+  url: 'https://download.videolan.org/pub/videolan/libbluray/{version}/libbluray-{version}.tar.xz'
+  mirrors:
+    - 'https://ftp.osuosl.org/pub/videolan/libbluray/{version}/libbluray-{version}.tar.xz'
+    - 'https://www.mirrorservice.org/sites/videolan.org/libbluray/{version}/libbluray-{version}.tar.xz'
+versions:
+  { listing: 'https://download.videolan.org/pub/videolan/libbluray/', files: '^(\d+\.\d+\.\d+)$' }
+# Linux, Windows, macOS and Android (folders and images there too); not iOS or Mac Catalyst, where its Apple code's
+# DiskArbitration framework (mounted-disc discovery) isn't there
+platforms: [linux-*, win-*, osx-*, android-*]
+build:
+  # libbluray: Blu-ray disc reading (LGPL-2.1-or-later), static, for FFmpeg's bluray protocol (found through
+  # libbluray.pc): a disc's BDMV folder, a mounted disc or an .iso image (through libudfread). With libxml2 for the
+  # disc's metadata. Without BD-J (Blu-ray Java menus: a JDK at build time and a JVM at run time), fonts (FreeType,
+  # Fontconfig: only BD-J draws text), tools, examples or docs. AACS and BD+ decryption libraries are loaded at run time
+  # when the system has them (libaacs, libbdplus); none is part of the build.
+  system: meson
+  args:
+    [
+      -Denable_tools=false,
+      -Denable_examples=false,
+      -Denable_docs=false,
+      -Dbdj_jar=disabled,
+      -Dfreetype=disabled,
+      -Dfontconfig=disabled,
+      -Dlibxml2=enabled,
+      -Dembed_udfread=false,
+    ]

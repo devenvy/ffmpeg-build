@@ -1746,6 +1746,7 @@ describe('filter and processing libraries', () => {
 describe('protocol and I/O libraries', () => {
   const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
   const V3 = ['lgplv3', 'gplv3', 'nonfree'];
+  const GPL = ['gplv2', 'gplv3', 'nonfree'];
   /** The C++ runtime FFmpeg's link takes for a C++ library it finds without pkg-config. */
   const cxxRuntime = (p: string) => {
     if (/^(osx|ios|maccatalyst|android)-/.test(p)) {
@@ -1836,6 +1837,45 @@ describe('protocol and I/O libraries', () => {
       flags: () => ['--enable-librtmp'],
       licenses: ALL,
       ships: { protocols: ['librtmp', 'librtmpe', 'librtmps', 'librtmpt', 'librtmpte'] },
+      auto: true,
+    },
+    // Blu-ray: not iOS or Mac Catalyst (libbluray's Apple code wants DiskArbitration)
+    bluray: {
+      platforms: PLATFORMS.filter((p) => /^(linux|win|osx|android)-/.test(p)),
+      recipe: 'libbluray',
+      recipes: () => ['libbluray', 'libudfread', 'libxml2', 'zlib'],
+      flags: () => ['--enable-libbluray'],
+      licenses: ALL,
+      ships: { protocols: ['bluray'] },
+      auto: true,
+    },
+    // DVD-Video: FFmpeg's class gpl; its demuxer takes both
+    dvdnav: {
+      platforms: PLATFORMS,
+      recipe: 'libdvdnav',
+      recipes: () => ['libdvdnav', 'libdvdread'],
+      flags: () => ['--enable-libdvdnav'],
+      licenses: GPL,
+      ships: { demuxers: ['dvdvideo'] },
+      auto: true,
+    },
+    dvdread: {
+      platforms: PLATFORMS,
+      recipe: 'libdvdread',
+      recipes: () => ['libdvdread'],
+      flags: () => ['--enable-libdvdread'],
+      licenses: GPL,
+      ships: { demuxers: ['dvdvideo'] },
+      auto: true,
+    },
+    // audio CDs, where there are drives; GPL-3.0-or-later (FFmpeg's class gpl). Its input device isn't a ships: kind.
+    cdio: {
+      platforms: PLATFORMS.filter((p) => /^(linux|win|osx)-/.test(p)),
+      recipe: 'libcdio-paranoia',
+      recipes: () => ['libcdio', 'libcdio-paranoia'],
+      flags: () => ['--enable-libcdio'],
+      licenses: ['gplv3', 'nonfree'],
+      ships: {},
       auto: true,
     },
   };
