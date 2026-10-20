@@ -15,6 +15,17 @@ build:
   # opening an .avs script needs AviSynth+ installed. The generated version.h is a CMake target of its own, which the
   # standard build doesn't make: built before the install.
   system: none
+  platforms:
+    # its architecture name for arch.h (the version string's) knows the Intel and PowerPC Macs, and fails on arm64:
+    # an architecture it doesn't know is taken as named
+    'osx-*':
+      before:
+        - replace-in-file:
+            {
+              path: avs_core/TargetArch.cmake,
+              from: 'message(FATAL_ERROR "Invalid OS X arch name: ${osx_arch}")',
+              to: 'list(APPEND ARCH ${osx_arch})',
+            }
   steps:
     - [
         cmake,

@@ -448,7 +448,14 @@ describe('libcdio and libcdio-paranoia', () => {
 describe('avisynth-headers', () => {
   it.each(platformsOf('avisynth-headers'))('%s', async (platform) => {
     const h = fake(platform);
+    const arch = join(h.src, 'avs_core', 'TargetArch.cmake');
+    const fatal = `        message(FATAL_ERROR "Invalid OS X arch name: \${osx_arch}")\n`;
+    put(arch, fatal);
     await build(h, 'avisynth-headers');
+    // on macOS an architecture its list doesn't name (arm64) is taken as named
+    expect(h.read(arch)).toBe(
+      platform.startsWith('osx-') ? `        list(APPEND ARCH \${osx_arch})\n` : fatal,
+    );
     // its HEADERS_ONLY install, with the generated version.h (a target of its own) made first
     expect(commands(h)).toEqual([
       [
