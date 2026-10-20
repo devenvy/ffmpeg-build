@@ -22,6 +22,11 @@ platforms:
         --enable-pic,
         '--extra-libs=-lpthread -ldl',
       ]
+  # musl gives a thread 128 KiB of stack by default, glibc 8 MiB. FFmpeg needs more than 128 KiB: the MPEG-TS demuxer
+  # (pmt_cb's copy of a program is about 133 KB) in the ffmpeg program's demux thread, and the rav1e and XEVE encoders
+  # in their threads. musl takes the largest PT_GNU_STACK size of the program and the libraries it starts with (at
+  # most 8 MiB) as its threads' default: the programs and libav* ask for glibc's 8 MiB, which an application linking
+  # them at start-up gets too (one that dlopens them later, or sets its threads' stack itself, doesn't).
   linux-musl-x64:
     image: linux-musl-x64
     setup: linux-musl
@@ -35,6 +40,7 @@ platforms:
         --enable-pic,
         '--extra-libs=-lpthread -ldl',
         --extra-ldflags=-static-libgcc,
+        '--extra-ldflags=-Wl,-z,stack-size=8388608',
       ]
   # 64-bit ARM: built natively in arm64 images, as upstream does on arm64 runners. An x64 host runs them under qemu
   # 8.1.5 (qemu 9.2 breaks the manylinux image's tar), registered with mirror.gcr.io/tonistiigi/binfmt:qemu-v8.1.5@sha256:
@@ -52,6 +58,7 @@ platforms:
         --enable-pic,
         '--extra-libs=-lpthread -ldl',
       ]
+  # (8 MiB thread stacks: as linux-musl-x64)
   linux-musl-arm64:
     image: linux-musl-arm64
     setup: linux-musl
@@ -64,6 +71,7 @@ platforms:
         --enable-pthreads,
         --enable-pic,
         --extra-ldflags=-static-libgcc,
+        '--extra-ldflags=-Wl,-z,stack-size=8388608',
       ]
   osx-arm64:
     image: macos

@@ -575,19 +575,6 @@ describe('lcevcdec', () => {
   });
 });
 
-// XEVE encodes on FFmpeg's encoder thread, which musl gives 128 KiB of stack: on musl the ffmpeg program
-// takes glibc's 8 MiB default instead (musl reads PT_GNU_STACK's size as its threads' default).
-describe.each(['xeve'])('%s on musl', (name) => {
-  it('links the ffmpeg program with an 8 MiB default thread stack there only', () => {
-    const flag = '--extra-ldflags=-Wl,-z,stack-size=8388608';
-    for (const platform of platformsOf(name)) {
-      expect(valuesOn(recipe(name), 'configure', platform).includes(flag), platform).toBe(
-        platform.startsWith('linux-musl-'),
-      );
-    }
-  });
-});
-
 // Batch c3: game and tracker module music.
 
 /** The C++ runtime a static link needs, as the engine's {cxx-runtime} names it. */
@@ -785,14 +772,6 @@ describe('rav1e', () => {
     expect(h.read(pcPath(h, 'rav1e'))).toBe(
       `Libs: -L\${libdir} -lrav1e -lc\nLibs.private: -lgcc_eh -lc\n`,
     );
-  });
-  it('gives the ffmpeg program an 8 MiB thread stack on musl only', () => {
-    const flag = '--extra-ldflags=-Wl,-z,stack-size=8388608';
-    for (const platform of platformsOf('rav1e')) {
-      expect(valuesOn(recipe('rav1e'), 'configure', platform).includes(flag), platform).toBe(
-        platform.startsWith('linux-musl-'),
-      );
-    }
   });
 });
 

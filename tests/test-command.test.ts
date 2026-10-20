@@ -592,6 +592,35 @@ describe('ffmpeg-build test', () => {
   );
 
   it.skipIf(process.platform === 'win32')(
+    'reads back an MPEG-TS the build wrote: its demuxer runs in a thread of its own, which a small stack crashes',
+    async () => {
+      const test = async (answers: string[]) => {
+        const d = built({}, 'lgplv3', answers);
+        return runTest(folderOf(d), data, {
+          target: 't',
+          dist: join(d, 'dist'),
+          runnable: ['linux-x64'],
+        });
+      };
+      // (writes the file it is told to: the last argument)
+      const wrote = '*"-f mpegts"*) for last; do :; done; : > "$last" ;;';
+      const ok = await test([wrote]);
+      expect(ok.output).toContain('✓ a test pattern written as MPEG-TS reads back');
+      // musl's 128 KiB thread stacks, before the 8 MiB default (devenvy/ffmpeg-build#38)
+      const crash = await test([wrote, '*smoke.ts*) echo "Segmentation fault"; exit 139 ;;']);
+      expect(crash.output).toContain('✗ a test pattern written as MPEG-TS reads back');
+      expect(crash.output).toContain('Segmentation fault');
+      expect(crash.exitCode).toBe(1);
+      // a build without what writing one takes (its components restricted) isn't failed for it
+      const none = await test(['*"-f mpegts"*) echo "Unknown encoder \'mpeg2video\'"; exit 1 ;;']);
+      expect(none.output).toContain(
+        "- MPEG-TS read back not checked: the build can't write one (Unknown encoder 'mpeg2video')",
+      );
+      expect(none.exitCode).toBe(0);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
     'checks that each option its configure line has on ships its components, from the listings ffmpeg prints',
     async () => {
       const d = built({}, 'lgplv3', [

@@ -27,6 +27,8 @@ import type { EngineData } from '../engine-data.ts';
 import type { ShippedKind } from '../schema/engine.ts';
 
 const KIB = 1024;
+/** The exit status the in-container MPEG-TS round trip gives when the build couldn't write one. */
+const TS_NOT_WRITTEN = 90;
 const MAX_OUTPUT_MIB = 64;
 /** The most a command run by `test` may print. */
 export const MAX_OUTPUT = MAX_OUTPUT_MIB * KIB * KIB;
@@ -547,6 +549,51 @@ export async function runTest(
     // the smoke test's ffmpeg finds its libraries only where the archive put them (a container has nothing else)
     const ffmpegRun = (args: string[]): ReturnType<typeof run> =>
       container ? docker(folder.dir, {}, ffmpeg!, args) : run(ffmpeg!, args, archiveEnv(env, host));
+    // a second of test pattern as MPEG-2 video in MPEG-TS, then read back: in a container both in one (its /tmp), as
+    // the archive's folder is mounted read-only; here in the archive's own (temporary) folder
+    const mpegtsRoundTrip = (exe: string): { wrote: boolean; code: number; out: string } => {
+      const write = (file: string) => [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        'testsrc2=duration=1:size=320x240:rate=25',
+        '-c:v',
+        'mpeg2video',
+        '-f',
+        'mpegts',
+        '-y',
+        file,
+      ];
+      const read = (file: string) => [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-i',
+        file,
+        '-f',
+        'null',
+        '-',
+      ];
+      if (container) {
+        const quoted = (args: string[]) => args.map((a) => `'${a}'`).join(' ');
+        const r = docker(folder.dir, {}, 'sh', [
+          '-c',
+          `"$0" ${quoted(write('/tmp/smoke.ts'))} || exit ${TS_NOT_WRITTEN}; exec "$0" ${quoted(read('/tmp/smoke.ts'))}`,
+          exe,
+        ]);
+        return { wrote: r.code !== TS_NOT_WRITTEN, code: r.code, out: r.error?.message ?? r.out };
+      }
+      const file = join(dir, 'smoke.ts');
+      const w = ffmpegRun(write(file));
+      if (w.code !== 0) {
+        return { wrote: false, code: w.code, out: w.error?.message ?? w.out };
+      }
+      const r = ffmpegRun(read(file));
+      return { wrote: true, code: r.code, out: r.error?.message ?? r.out };
+    };
     // Alpine has sh, not bash: add bash for a .sh script (the container's network is needed for that one step)
     const inContainer = (c: Container, script: string, test: string): ReturnType<typeof run> => {
       if (!test.endsWith('.sh')) {
@@ -599,6 +646,17 @@ export async function runTest(
         '-',
       ]);
       step(enc.code === 0, 'a one-second test pattern encodes', enc.out);
+      // the ffmpeg program reads its input in a thread of its own, and FFmpeg's MPEG-TS demuxer takes more stack
+      // than musl gives a thread by default (128 KiB): an MPEG-TS it writes must read back (devenvy/ffmpeg-build#38)
+      const ts = mpegtsRoundTrip(ffmpeg);
+      if (ts.wrote) {
+        step(ts.code === 0, 'a test pattern written as MPEG-TS reads back', ts.out);
+      } else {
+        step(
+          'info',
+          `MPEG-TS read back not checked: the build can't write one (${ts.out.trim().split('\n')[0] ?? ''})`,
+        );
+      }
       // what its configure line asked for is in it (ffmpeg/<major>.yml's ships:)
       const listings = new Map<ShippedKind, Set<string> | undefined>();
       const has: Has = (kind, name) => {

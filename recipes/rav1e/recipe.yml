@@ -3,11 +3,9 @@ provides: rav1e
 # rav1e's own licence, and the Alliance for Open Media patent licence it comes with
 license: BSD-2-Clause
 license-files: [LICENSE, PATENTS]
-# Like XEVE, it needs more stack than musl gives FFmpeg's encoder thread by default (128 KiB): on musl the ffmpeg
-# program takes glibc's 8 MiB default instead (musl reads PT_GNU_STACK's size as its threads' default)
-configure:
-  - --enable-librav1e
-  - '--extra-ldflags=-Wl,-z,stack-size=8388608': { platforms: [linux-musl-*] }
+# Like XEVE, it needs more stack than musl gives FFmpeg's encoder thread by default (128 KiB): every musl build asks
+# for glibc's 8 MiB (platforms.yml)
+configure: [--enable-librav1e]
 source: { git: https://github.com/xiph/rav1e, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
