@@ -243,6 +243,18 @@ Apple platforms build natively on a Mac with Xcode, not in a container. Install 
 (`FFMPEG_BUILD_WORK`), one build per platform at a time. Checking an osx-x64 build on Apple silicon runs it under
 Rosetta (`softwareupdate --install-rosetta --agree-to-license`); without it, the check says so and skips running.
 
+## OpenCL and the machine a build runs on
+
+A build with `opencl` on starts on any machine of its platform, GPU or not. On Linux and Windows, the Khronos OpenCL
+ICD loader is linked into libavutil statically, and finds the GPU vendors' OpenCL drivers at run time as the system's
+loader would (`/etc/OpenCL/vendors` on Linux, the registry on Windows). So an OpenCL build needs no OpenCL loader installed, only a driver to have a device to use;
+without one, OpenCL lists no platforms and everything else works. On macOS it uses the system's OpenCL framework.
+
+Khronos recommends the shared loader instead (`libOpenCL.so.1`, `OpenCL.dll`, which GPU drivers install), so that
+vendors and users can update it. It isn't used here because FFmpeg links OpenCL at load time: an ffmpeg linked to the
+shared loader would refuse to start on a machine without one, even for work that never touches a GPU. The built-in
+loader is the one Khronos publishes (Apache-2.0, so in v3 builds only) and is updated with the lock like any library.
+
 ## What's in an archive: `THIRD-PARTY-NOTICES.txt`
 
 Both archives carry one plain-text file at their root, `THIRD-PARTY-NOTICES.txt`, with every licence and notice the

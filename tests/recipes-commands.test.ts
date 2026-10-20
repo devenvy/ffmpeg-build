@@ -929,6 +929,11 @@ describe('opencl-icd-loader', () => {
     expect(valuesOn(recipe('opencl-icd-loader'), 'configure')).toEqual(['--enable-opencl']);
     expect(platformsOf('opencl-icd-loader')).toEqual(platformsOf('opencl-headers'));
   });
+  // static, inside libavutil: an OpenCL build starts on a machine without libOpenCL.so.1 or OpenCL.dll (the recipe
+  // says why it isn't the shared loader), and nothing of the loader ships beside FFmpeg
+  it('links into FFmpeg and ships nothing of its own', () => {
+    expect(recipe('opencl-icd-loader').runtime).toBeUndefined();
+  });
 });
 
 // Only vdpau/vdpau.h: FFmpeg reaches the driver through a VdpDevice's function pointers; libvdpau itself, and the
