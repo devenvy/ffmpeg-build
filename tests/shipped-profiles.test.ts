@@ -1740,3 +1740,136 @@ describe('filter and processing libraries', () => {
     }
   });
 });
+
+// Batch e of #21, protocols and I/O: each can be listed where its library builds, in the licenses its library (and
+// FFmpeg's class) allow. None turns on by itself.
+describe('protocol and I/O libraries', () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  /** The C++ runtime FFmpeg's link takes for a C++ library it finds without pkg-config. */
+  const cxxRuntime = (p: string) => {
+    if (/^(osx|ios|maccatalyst|android)-/.test(p)) {
+      return '-lc++';
+    }
+    if (p === 'win-arm64') {
+      return '-l:libc++.a';
+    }
+    return p.startsWith('linux-musl-') ? '-l:libstdc++.a' : '-lstdc++';
+  };
+  const where: Record<
+    string,
+    {
+      platforms: readonly string[];
+      /** the option's own recipe, which `check` names where it doesn't build */
+      recipe: string;
+      recipes: (platform: string) => string[];
+      flags: (platform: string) => string[];
+      licenses: string[];
+      ships: Record<string, string[]>;
+      /** whether its components come with it to a target that restricts them (auto-components) */
+      auto: boolean;
+    }
+  > = {
+    zmq: {
+      platforms: PLATFORMS,
+      recipe: 'libzmq',
+      recipes: () => ['libzmq'],
+      flags: () => ['--enable-libzmq'],
+      licenses: ALL,
+      ships: { protocols: ['libzmq'], filters: ['zmq', 'azmq'] },
+      auto: true,
+    },
+    rabbitmq: {
+      platforms: PLATFORMS,
+      recipe: 'rabbitmq-c',
+      recipes: () => ['rabbitmq-c'],
+      flags: () => ['--enable-librabbitmq'],
+      licenses: ALL,
+      ships: { protocols: ['libamqp'] },
+      auto: true,
+    },
+    // a support library, as zlib is for png: a target that restricts encoders lists hap itself
+    snappy: {
+      platforms: PLATFORMS,
+      recipe: 'snappy',
+      recipes: () => ['snappy'],
+      flags: (p) => ['--enable-libsnappy', `--extra-libs=${cxxRuntime(p)}`],
+      licenses: ALL,
+      ships: { encoders: ['hap'] },
+      auto: false,
+    },
+  };
+  const OPTIONS = Object.keys(where);
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const planOn = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = OPTIONS.flatMap((o) => where[o]!.platforms.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s', (option, platform) => {
+    const plan = planOn(platform, where[option]!.licenses[0]!, option);
+    expect(plan.errors).toEqual([]);
+    const cell = plan.cells[0]!;
+    expect(cell.options).toEqual([option]);
+    expect([...cell.recipes].sort()).toEqual(where[option]!.recipes(platform));
+    expect(configureFlags(data, cell)).toEqual(
+      expect.arrayContaining(where[option]!.flags(platform)),
+    );
+  });
+
+  const absent = OPTIONS.flatMap((o) =>
+    PLATFORMS.filter((p) => !where[o]!.platforms.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'nonfree', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'nonfree', option)).toContain(
+      `not on ${platform}: the ${where[option]!.recipe} recipe doesn't build there`,
+    );
+  });
+
+  it.each(OPTIONS)('%s is refused in the licenses that may not take it', (option) => {
+    for (const license of ALL.filter((l) => !where[option]!.licenses.includes(l))) {
+      expect(report('linux-x64', license, option), license).toContain('✗');
+    }
+  });
+
+  it('options offers each where it builds, in the licenses that allow it, with what it ships', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of OPTIONS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(where[name]!.platforms);
+      expect(fact.licenses, name).toEqual(where[name]!.licenses);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        const shipped: Record<string, string[]> = {};
+        for (const s of data.ffmpeg.get(major)!.options[name]!.ships ?? []) {
+          (shipped[s.kind] ??= []).push(s.name);
+        }
+        expect(shipped, `${major} ${name}`).toEqual(where[name]!.ships);
+      }
+    }
+  });
+
+  it('brings its protocols and filters to a target that restricts them, unless it is a support library', () => {
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!['auto-components'].includes(name), `${major} ${name}`).toBe(
+          where[name]!.auto,
+        );
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => OPTIONS.includes(o))).toEqual([]);
+    }
+  });
+});
