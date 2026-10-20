@@ -153,7 +153,10 @@ describe('about.yml values', () => {
         '9',
       );
       expect(
-        checkWith(file, { demuxers: ['mov', 'acme'], decoders: ['h264', 'adpcm_acme'] }),
+        checkWith(file, {
+          demuxers: ['mov', 'acme'],
+          decoders: ['h264', 'adpcm_acme', 'wrapped_avframe'],
+        }),
       ).not.toContain('✗');
     });
 

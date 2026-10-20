@@ -9,6 +9,7 @@ decoders:
   - hevc
   - libdav1d
   - png
+  - wrapped_avframe
 encoders:
   - aac
   - h264_nvenc
@@ -16,6 +17,7 @@ encoders:
   - libopus
   - libvpx_vp8
   - libx265
+  - wrapped_avframe
 hwaccels:
   - h264_nvdec
   - h264_vaapi
@@ -31,12 +33,14 @@ protocols:
   - https
   - libsrt
   - tls
-indevs: []
+indevs:
+  - lavfi
 outdevs: []
 filters:
   - deinterlace_vaapi
   - scale
   - scale_cuda
+  - testsrc2
   - transpose_vaapi
   - whisper
 # Each component's own name, where it isn't configure's: what `ffmpeg -encoders`, `-demuxers`, ... list (a format

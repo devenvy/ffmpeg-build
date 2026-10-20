@@ -160,13 +160,13 @@ keeps FFmpeg's defaults. Leave `components:` out and nothing changes.
 
 ```yaml
 bases:
-  slim: # what every platform's services use, nothing else
+  slim: # what every platform's services use, and what `ffmpeg-build test` needs (wrapped_avframe, null, testsrc2)
     components:
-      decoders: [h264, hevc, aac, pcm_s16le, mjpeg]
-      encoders: [aac, mjpeg]
+      decoders: [h264, hevc, aac, pcm_s16le, mjpeg, wrapped_avframe]
+      encoders: [aac, mjpeg, wrapped_avframe]
       demuxers: [mov, matroska, mpegts, rtsp]
-      muxers: [mp4, matroska, mpegts, image2]
-      filters: [scale, fps, aresample]
+      muxers: [mp4, matroska, mpegts, image2, null]
+      filters: [scale, fps, aresample, testsrc2]
       protocols: [file, pipe, tcp, udp, rtp]
 targets:
   linux-x64:
@@ -206,6 +206,11 @@ targets:
   `https comes with gnutls or openssl: add one of them to with:`. `test` fails a build missing any decoder, encoder,
   demuxer, muxer, protocol or filter configure was asked for by name, the listed ones and what came along, looked for by
   the name the build lists it under. (`-hwaccels` lists device types, not hwaccels, so those are configure's to check.)
+- **What `test` needs.** `ffmpeg-build test` (which `build.yml` runs on every build) encodes a test pattern with the
+  ffmpeg program: `ffmpeg -f lavfi -i testsrc2 -f null -`. That needs the `lavfi` input device, the `testsrc2` filter,
+  `wrapped_avframe` as decoder and encoder, and the `null` muxer, so for a build with programs (not Android, iOS or Mac
+  Catalyst, whose test links a program against the libraries instead), `check` refuses a `components:` kind that lists
+  names but leaves its one out: `components: encoders: add wrapped_avframe`.
 - **Layers.** A target takes each kind from the last of its bases and itself that lists it: a list replaces the one
   before it. `{ add: [drawbox] }` adds to the list the layers before it gave instead; with no list before it, it is
   refused (it would quietly make the kind just those names).

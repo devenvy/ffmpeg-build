@@ -24,13 +24,18 @@ import {
 import { hostEnv } from '../build/native.ts';
 import { type BuildIn, buildSettings, defaultIn, isApple } from '../build-settings.ts';
 import { LOCK_FILE, readFolderLock } from '../lockfile.ts';
-import { describePlatforms, expandPlatformPattern, expandPlatforms } from '../platforms.ts';
+import {
+  describePlatforms,
+  expandPlatformPattern,
+  expandPlatforms,
+  LIBRARY_PLATFORM,
+} from '../platforms.ts';
 import { planProfile } from '../resolve.ts';
 import { selectTargets } from '../select.ts';
 import { type Folder, FOLDER_FILE, type Target, targetProfile } from '../targets.ts';
 import { JSON_INDENT } from '../text.ts';
 import { FolderError, jsonFailure } from './folder.ts';
-import { androidNdk, cannotLink, LIBRARY_PLATFORM } from './test-library.ts';
+import { androidNdk, cannotLink } from './test-library.ts';
 import { BINFMT, containerFor, gitBash, runnablePlatforms } from './test.ts';
 
 import type { EngineData } from '../engine-data.ts';
