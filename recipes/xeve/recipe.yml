@@ -4,12 +4,8 @@ provides: xeve
 license: BSD-3-Clause
 license-files: [COPYING]
 # Its encoder needs more stack than musl gives a thread by default (128 KiB; FFmpeg runs each encoder in a thread
-# of its own), and crashes at ordinary frame sizes: on musl the ffmpeg program gets glibc's 8 MiB default (musl takes
-# a program's PT_GNU_STACK size as its threads' default). An application linking the libraries on musl gives its
-# threads the stack itself.
-configure:
-  - --enable-libxeve
-  - '--extra-ldflags=-Wl,-z,stack-size=8388608': { platforms: [linux-musl-*] }
+# of its own), and crashes at ordinary frame sizes: every musl build asks for glibc's 8 MiB (platforms.yml).
+configure: [--enable-libxeve]
 source: { git: https://github.com/mpeg5/xeve, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Not linux-armhf: its NEON code uses AArch64-only intrinsics.

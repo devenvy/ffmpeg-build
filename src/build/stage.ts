@@ -292,6 +292,19 @@ export const objdumpFor = (env: NodeJS.ProcessEnv): string =>
   env['CROSS_PREFIX'] ? `${env['CROSS_PREFIX']}-objdump` : 'objdump';
 
 /** A musl build links its C++ and GCC runtimes statically: no binary may need them as shared libraries. */
+/** The thread stack a musl build's programs and libraries ask for (platforms.yml's -z stack-size): glibc's 8 MiB. */
+const MUSL_THREAD_STACK = 8_388_608;
+/** Where MemSiz is among a readelf -lW program header's fields after its type. */
+const GNU_STACK_MEMSIZ = 4;
+
+/** The size an ELF file's PT_GNU_STACK asks for (its MemSiz), as `readelf -lW` prints it; undefined without one. */
+export function gnuStackSize(readelf: string): number | undefined {
+  const fields = /^\s*GNU_STACK\s+(.*)$/m.exec(readelf)?.[1]?.trim().split(/\s+/);
+  // Offset VirtAddr PhysAddr FileSiz MemSiz Flg Align
+  const memsiz = fields?.[GNU_STACK_MEMSIZ];
+  return memsiz === undefined ? undefined : Number(memsiz);
+}
+
 async function checkMuslRuntime(context: BuildContext, runDir: string): Promise<void> {
   for (const file of [
     join(runDir, 'ffmpeg'),
@@ -305,6 +318,16 @@ async function checkMuslRuntime(context: BuildContext, runDir: string): Promise<
       });
       if (/^(libstdc\+\+|libgcc_s)\.so/m.test(needed)) {
         throw new Error(`${basename(file)} needs a shared C++ or GCC runtime`);
+      }
+      // musl's threads get 128 KiB of stack unless a program or library asks for more: FFmpeg's demux and encoder
+      // threads need more (devenvy/ffmpeg-build#38)
+      const stack = gnuStackSize(
+        await run('readelf', ['-lW', file], { env: context.env, capture: true }),
+      );
+      if (stack === undefined || stack < MUSL_THREAD_STACK) {
+        throw new Error(
+          `${basename(file)} asks musl for ${stack === undefined ? 'no' : `a ${stack}-byte`} thread stack, not ${MUSL_THREAD_STACK} (platforms.yml's -Wl,-z,stack-size)`,
+        );
       }
     }
   }
