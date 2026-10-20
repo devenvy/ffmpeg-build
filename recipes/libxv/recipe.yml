@@ -1,0 +1,20 @@
+name: libxv
+provides: xlib
+license: SMLNJ AND HPND-sell-variant
+license-files: [COPYING]
+configure: [--enable-xlib]
+needs: [libxext]
+source:
+  url: 'https://xorg.freedesktop.org/releases/individual/lib/libXv-{version}.tar.xz'
+  mirrors: ['https://www.x.org/releases/individual/lib/libXv-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://xorg.freedesktop.org/releases/individual/lib/',
+    files: '^libXv-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+platforms: [linux-*]
+build:
+  # libXv: the X Video extension (SMLNJ and HPND licences), static, on libXext and libX11: FFmpeg's xlib option
+  # needs all three (xlib_x11, xlib_xext, xlib_xv) for its xv output device
+  system: autotools
+  args: [--disable-shared, --enable-static, --with-pic]

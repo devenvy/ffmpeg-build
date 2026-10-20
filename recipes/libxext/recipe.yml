@@ -1,0 +1,19 @@
+name: libxext
+license: MIT-open-group AND X11 AND HPND AND HPND-sell-variant AND SMLNJ AND MIT AND ISC AND HPND-doc AND HPND-doc-sell
+license-files: [COPYING]
+needs: [libx11]
+source:
+  url: 'https://xorg.freedesktop.org/releases/individual/lib/libXext-{version}.tar.xz'
+  mirrors: ['https://www.x.org/releases/individual/lib/libXext-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://xorg.freedesktop.org/releases/individual/lib/',
+    files: '^libXext-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+# where libX11 builds
+platforms: [linux-*]
+build:
+  # libXext: Xlib's common extensions (MIT-SHM, which FFmpeg's xv output device uses), static. No specs.
+  system: autotools
+  args:
+    [--disable-shared, --enable-static, --with-pic, --disable-specs, --without-xmlto, --without-fop]

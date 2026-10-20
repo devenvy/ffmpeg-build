@@ -1,0 +1,52 @@
+name: libcaca
+provides: caca
+license: WTFPL
+license-files: [COPYING]
+configure: [--enable-libcaca]
+needs: [ncurses]
+# released as 0.99 betas (0.99.beta20): the version here is the beta's number
+source:
+  url: 'https://github.com/cacalabs/libcaca/releases/download/v0.99.beta{version}/libcaca-0.99.beta{version}.tar.bz2'
+versions: { git-tags: '^v0\.99\.beta(\d+)$', repo: https://github.com/cacalabs/libcaca }
+platforms: [linux-*]
+build:
+  # libcaca: colour ASCII art (WTFPL), static, for FFmpeg's caca output device: video drawn in a terminal, through
+  # ncurses (or its raw and null drivers). No X11, OpenGL, S-Lang, Imlib2 or VGA drivers, no bindings, docs or tools.
+  # Its configure looks for ncurses without pkg-config: it is shown the deps folder. Its caca.pc names no ncurses:
+  # added.
+  system: autotools
+  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '+= -L{deps}/lib' }
+  args:
+    [
+      --disable-shared,
+      --enable-static,
+      --with-pic,
+      --enable-ncurses,
+      --disable-slang,
+      --disable-x11,
+      --disable-gl,
+      --disable-cocoa,
+      --disable-network,
+      --disable-vga,
+      --disable-kernel,
+      --disable-win32,
+      --disable-conio,
+      --disable-csharp,
+      --disable-java,
+      --disable-cxx,
+      --disable-python,
+      --disable-ruby,
+      --disable-imlib2,
+      --disable-doc,
+      --disable-cppunit,
+      --disable-zzuf,
+    ]
+  make-targets: [-C, caca]
+  install-targets: [-C, caca, install]
+  after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/caca.pc',
+          requires-private: { set: ncursesw },
+          libs-private: { add: -lm },
+        }

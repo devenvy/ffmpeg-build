@@ -1,0 +1,38 @@
+name: ncurses
+license: MIT-open-group
+license-files: [COPYING]
+# its maintainer's archive (ftp.gnu.org's copy as the mirror: it was unreachable for a while when this was written)
+source:
+  url: 'https://invisible-mirror.net/archives/ncurses/ncurses-{version}.tar.gz'
+  mirrors: ['https://ftp.gnu.org/gnu/ncurses/ncurses-{version}.tar.gz']
+versions:
+  {
+    listing: 'https://invisible-mirror.net/archives/ncurses/',
+    files: '^ncurses-(\d+\.\d+)\.tar\.gz$',
+  }
+# where libcaca builds
+platforms: [linux-*]
+build:
+  # ncurses (wide-character), static: libcaca's terminal output, for FFmpeg's caca output device. The terminal
+  # descriptions are the system's (its terminfo folders, compiled in); none is installed. The library and its .pc
+  # alone: no programs, C++ or Ada bindings, tests or man pages.
+  system: autotools
+  args:
+    [
+      --without-shared,
+      --with-normal,
+      --with-pic,
+      --enable-widec,
+      --without-debug,
+      --without-ada,
+      --without-cxx,
+      --without-cxx-binding,
+      --without-progs,
+      --without-tests,
+      --without-manpages,
+      --disable-db-install,
+      --enable-pc-files,
+      '--with-pkg-config-libdir={deps}/lib/pkgconfig',
+      --with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo,
+      --with-default-terminfo-dir=/usr/share/terminfo,
+    ]

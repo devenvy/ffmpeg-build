@@ -1,0 +1,18 @@
+name: libxau
+license: MIT-open-group
+license-files: [COPYING]
+needs: [xorgproto]
+source:
+  url: 'https://xorg.freedesktop.org/releases/individual/lib/libXau-{version}.tar.xz'
+  mirrors: ['https://www.x.org/releases/individual/lib/libXau-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://xorg.freedesktop.org/releases/individual/lib/',
+    files: '^libXau-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+# where libxcb builds
+platforms: [linux-*]
+build:
+  # libXau: X authorization (the X server's cookie, from $XAUTHORITY), static, under libxcb
+  system: autotools
+  args: [--disable-shared, --enable-static, --with-pic]

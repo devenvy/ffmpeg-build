@@ -115,6 +115,9 @@ auto-components:
   - jack
   - sndio
   - openal
+  - xcb
+  - xlib
+  - caca
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
@@ -239,8 +242,10 @@ options:
       needs: [{ d3d12-headers: { platforms: [win-x64] } }],
       ships: { hwaccels: [d3d12va], encoders: [hevc_d3d12va] },
     }
-  # The VDPAU hwaccels (NVIDIA's legacy Unix video decode API): the headers alone. Without libX11 FFmpeg has no
-  # vdpau_x11, so it can't create a VDPAU device itself: an application passes its own (AVVDPAUDeviceContext).
+  # The VDPAU hwaccels (NVIDIA's legacy Unix video decode API): the headers alone. Without libvdpau's library FFmpeg
+  # has no vdpau_x11, so it can't create a VDPAU device itself: an application passes its own (AVVDPAUDeviceContext).
+  # Not even with xlib: libvdpau loads the system's driver (libvdpau_<driver>.so), which links the system's libX11
+  # and libxcb, and would be handed the X connection of the build's static ones.
   vdpau: { needs: libvdpau, platforms: [linux-*], ships: { hwaccels: [vdpau] } }
   # Rockchip's video blocks (rockchip_mpp, with libdrm), on Rockchip's ARM SoCs
   rkmpp:
@@ -465,3 +470,10 @@ options:
   # OpenAL Soft (capture: the openal input device), on the system's audio (on Linux it loads ALSA, PulseAudio or
   # PipeWire at run time)
   openal: { needs: openal-soft }
+  # X11 and terminal devices (which `ffmpeg -devices` lists; devices aren't a ships: kind), all static: X11's
+  # libraries speak the protocol to the X server, so a build needs only a display at run time, not the system's X11
+  # libraries. xcb: x11grab, with its shm, shape and xfixes extensions (configure's four libxcb flags); xlib: the xv
+  # output device (libX11, libXext, libXv); caca: video drawn in a terminal (libcaca on ncurses).
+  xcb: { needs: libxcb, platforms: [linux-*] }
+  xlib: { needs: libxv, platforms: [linux-*] }
+  caca: { needs: libcaca, platforms: [linux-*] }

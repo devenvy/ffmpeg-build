@@ -1,0 +1,19 @@
+name: xcb-proto
+license: X11-distribute-modifications-variant
+license-files: [COPYING]
+source:
+  url: 'https://xorg.freedesktop.org/releases/individual/proto/xcb-proto-{version}.tar.xz'
+  mirrors: ['https://www.x.org/releases/individual/proto/xcb-proto-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://xorg.freedesktop.org/releases/individual/proto/',
+    files: '^xcb-proto-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+# where libxcb builds
+platforms: [linux-*]
+build:
+  # xcb-proto: the X protocol's XML descriptions and the Python generator (xcbgen) libxcb's build makes its C from.
+  # Nothing of it is linked: it runs at build time only.
+  # Its xcb-proto.pc goes where the build's pkg-config looks (lib/pkgconfig, not share/pkgconfig).
+  system: autotools
+  install-targets: [install, 'pkgconfigdir={deps}/lib/pkgconfig']
