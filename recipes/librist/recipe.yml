@@ -92,13 +92,16 @@ build:
     # same -l libs go into librist.pc after -lrist. librist 0.2.20's .pc does name mbedTLS, but as ABSOLUTE .a paths
     # (libeverest.a libmbedcrypto.a libp256m.a, the CMake package's targets), which FFmpeg's configure classifies as
     # input objects and places BEFORE -lrist -- the srt.pc problem. Those paths are replaced by the -l libs, ordered
-    # tls -> x509 -> crypto.
+    # tls -> x509 -> crypto. They are there only when Meson found mbedTLS through CMake's package: where Meson has no
+    # CMake (osx-x64, maccatalyst-x64 and android-x64 builds), librist's own find_library fallback names none, so the
+    # edit is optional.
     - replace-in-file:
         {
           path: '{deps}/lib/pkgconfig/librist.pc',
           from: '[^\s]*/lib(mbedtls|mbedx509|mbedcrypto|everest|p256m)\.a',
           to: '',
           regex: true,
+          optional: true,
         }
       when: { exists: '{deps}/lib/libmbedcrypto.a' }
     - edit-pkg-config:

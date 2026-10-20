@@ -188,6 +188,15 @@ describe('librist', () => {
       },
     );
   }
+  it('names mbedTLS when Meson found it without CMake (no .a paths in its .pc)', async () => {
+    const h = fake('osx-x64');
+    put(join(h.deps, 'lib', 'libmbedcrypto.a'));
+    writeFileSync(pcPath(h, 'librist'), `Libs: -L\${libdir} -lrist\nLibs.private: -lpthread\n`);
+    await build(h, 'librist');
+    expect(h.read(pcPath(h, 'librist'))).toBe(
+      `Libs: -L\${libdir} -lrist\nLibs.private: -lpthread -lmbedtls -lmbedx509 -lmbedcrypto\n`,
+    );
+  });
   it('fails when librist built its vendored mbedTLS', async () => {
     const h = fake('win-arm64');
     put(join(h.deps, 'lib', 'libmbedcrypto.a'));
