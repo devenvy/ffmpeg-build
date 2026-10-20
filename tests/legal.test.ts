@@ -617,4 +617,25 @@ describe('the release a build names in its notices', () => {
       await gh.close();
     }
   });
+
+  it("takes the visibility the workflow read once, so a release's builds don't each ask GitHub", async () => {
+    const gh = await fakeGitHub();
+    try {
+      const env = { FFMPEG_BUILD_RELEASE: '9.0.2.4', GITHUB_REPOSITORY: 'o/r' };
+      // GitHub refusing (as it does an unauthenticated runner past its rate limit) doesn't matter when it's given
+      gh.faults.push({ path: /repos\/o\/r$/, status: 403 });
+      expect(
+        await releaseIdentity(dir, { ...env, FFMPEG_BUILD_REPO_PRIVATE: 'true' }),
+      ).toMatchObject({ privateRepo: true });
+      expect(
+        await releaseIdentity(dir, { ...env, FFMPEG_BUILD_REPO_PRIVATE: 'false' }),
+      ).toMatchObject({ privateRepo: false });
+      expect(gh.faults).toHaveLength(1); // never asked
+      await expect(
+        releaseIdentity(dir, { ...env, FFMPEG_BUILD_REPO_PRIVATE: 'yes' }),
+      ).rejects.toThrow('FFMPEG_BUILD_REPO_PRIVATE is "yes": expected true or false');
+    } finally {
+      await gh.close();
+    }
+  });
 });
