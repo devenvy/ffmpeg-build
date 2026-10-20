@@ -1,9 +1,10 @@
 // musl gives a thread 128 KiB of stack unless the program or a library it starts with asks for more (PT_GNU_STACK's
 // size), and FFmpeg's MPEG-TS demuxer, in the ffmpeg program's demux thread, needs more than that
-// (devenvy/ffmpeg-build#38): every musl build links with an 8 MiB request, and staging checks each ELF file has it.
+// (devenvy/ffmpeg-build#38): every musl build links with an 8 MiB request, and staging checks the programs and
+// FFmpeg's libraries have it.
 import { describe, expect, it } from 'vitest';
 
-import { gnuStackSize } from '../src/build/stage.ts';
+import { asksMuslStack, gnuStackSize } from '../src/build/stage.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 
@@ -20,6 +21,25 @@ describe("musl builds' thread stacks", () => {
   it('are asked for by the platform, not by the recipes that happened to need it first (rav1e, XEVE)', () => {
     for (const [name, recipe] of data.recipes) {
       expect(JSON.stringify(recipe.configure), name).not.toContain('stack-size');
+    }
+  });
+
+  // musl's dynamic linker takes the largest PT_GNU_STACK of the program and the libraries it starts with (never of a
+  // dlopen'd one), so one that asks is enough: the programs and FFmpeg's own libraries, which every program using the
+  // build starts with. A runtime library shipped next to them (libvulkan, which FFmpeg dlopens) is the upstream's.
+  it("is checked on the programs and on FFmpeg's own libraries, not on the runtime libraries shipped with them", () => {
+    for (const name of [
+      'ffmpeg',
+      'ffprobe',
+      'libavcodec.so.62.11.100',
+      'libavutil.so.60.8.100',
+      'libswresample.so.6.1.100',
+      'libpostproc.so.59.1.100',
+    ]) {
+      expect(asksMuslStack(name), name).toBe(true);
+    }
+    for (const name of ['libvulkan.so.1.4.363', 'libOpenCL.so.1.0.0', 'libsomething.so']) {
+      expect(asksMuslStack(name), name).toBe(false);
     }
   });
 

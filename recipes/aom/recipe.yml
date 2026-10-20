@@ -10,7 +10,14 @@ license-files:
     third_party/x86inc/LICENSE,
   ]
 configure: [--enable-libaom]
-source: { git: https://aomedia.googlesource.com/aom, ref: 'v{version}' }
+# AOMedia publishes aom on googlesource only, which answers 503 for minutes at a time; the mirror is the media-autobuild
+# suite's copy on GitHub. A build takes from it only the commit ffmpeg.lock pins (checked after the clone).
+source:
+  {
+    git: https://aomedia.googlesource.com/aom,
+    ref: 'v{version}',
+    mirror: https://github.com/m-ab-s/aom.git,
+  }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
 build:

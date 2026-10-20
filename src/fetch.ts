@@ -662,6 +662,35 @@ export async function repoIsPrivate(repo: string): Promise<boolean> {
   return (await json<{ private: boolean }>(`${api()}/repos/${repo}`, `repository ${repo}`)).private;
 }
 
+const HTTP_UNAUTHORIZED = 401;
+
+/**
+ * Whether git's smart HTTP on `server` (https://github.com) serves `repo` without credentials, which needs no API
+ * rate limit: a public repository's refs come back (200, a git-upload-pack advertisement); any other repository asks
+ * for credentials (401), and is taken as private (it may also not exist: a written offer of the source is then the
+ * careful answer). Anything else is a FetchError.
+ */
+export async function repoIsPrivateByGit(server: string, repo: string): Promise<boolean> {
+  const url = `${server.replace(/\/$/, '')}/${repo}.git/info/refs?service=git-upload-pack`;
+  return withRetries(url, async (signal) => {
+    const res = await get(url, '*/*', signal);
+    await res.body?.cancel().catch(ignore);
+    if (res.status === HTTP_UNAUTHORIZED) {
+      return true;
+    }
+    if (
+      res.ok &&
+      res.headers.get('content-type') === 'application/x-git-upload-pack-advertisement'
+    ) {
+      return false;
+    }
+    throw new HttpError(
+      res.status,
+      `${repo}'s git refs: ${new URL(url).host} answered ${String(res.status)}`,
+    );
+  });
+}
+
 /** Whether FFmpeg version `a` is at least `b` (as three parts: 9.0 is 9.0.0). */
 export function ffmpegAtLeast(a: string, b: string): boolean {
   return !newer(versionKey({ ffmpeg: b, build: 0 }), versionKey({ ffmpeg: a, build: 0 }));

@@ -14,10 +14,12 @@ build:
   install-targets: [-C, src, install-libLTLIBRARIES, install-includeHEADERS]
   # Install pkg-config, dropping -lrt from Libs.private: clock_gettime is in libc on
   # every target we build (modern glibc/musl/bionic/darwin), and librt is absent on
-  # Android — so -lrt would break FFmpeg's static pkg-config link there.
+  # Android — so -lrt would break FFmpeg's static pkg-config link there. configure.ac
+  # adds -lrt for linux* hosts only (Android's triple is one); Apple and Windows have none.
   after:
     - copy: { from: src/kvazaar.pc, to: '{deps}/lib/pkgconfig/kvazaar.pc' }
     - replace-in-file: { path: '{deps}/lib/pkgconfig/kvazaar.pc', from: -lrt, to: '' }
+      when: { platforms: [linux-*, android-*] }
   platforms:
     # On Windows, kvazaar.h declares its API __declspec(dllimport) by default, so a
     # consumer emits a reference to the DLL import stub (__imp_kvz_api_get) and fails

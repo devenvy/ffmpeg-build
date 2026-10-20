@@ -2,7 +2,7 @@
 // THIRD-PARTY-NOTICES.txt (governing texts, the effective licence and why, the header, BUILD and SOURCE sections,
 // patch sets, shipped files), with the build definition build names.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -600,7 +600,8 @@ describe('the release a build names in its notices', () => {
   it("reads whether the release's repository is private, since that decides what the notices say", async () => {
     const gh = await fakeGitHub();
     try {
-      const env = { FFMPEG_BUILD_RELEASE: '9.0.2.4', GITHUB_REPOSITORY: 'o/r' };
+      // a token (the run's own): the API answers
+      const env = { FFMPEG_BUILD_RELEASE: '9.0.2.4', GITHUB_REPOSITORY: 'o/r', GITHUB_TOKEN: 't' };
       expect(await releaseIdentity(dir, env)).toEqual({
         release: '9.0.2.4',
         repository: 'o/r',
@@ -614,6 +615,71 @@ describe('the release a build names in its notices', () => {
         "can't read whether o/r is private, which decides where its notices say the source is",
       );
     } finally {
+      await gh.close();
+    }
+  });
+
+  it("takes the visibility from the run's event, when it names the repository (push, pull_request, workflow_dispatch)", async () => {
+    const gh = await fakeGitHub();
+    const events = mkdtempSync(join(tmpdir(), 'ffmpeg-build-event-'));
+    try {
+      const event = (body: unknown): string => {
+        const path = join(events, `${String(Math.random()).slice(2)}.json`);
+        writeFileSync(path, JSON.stringify(body));
+        return path;
+      };
+      const env = { FFMPEG_BUILD_RELEASE: '9.0.2.4', GITHUB_REPOSITORY: 'o/r' };
+      // GitHub refusing every API call: the event payload is enough
+      gh.faults.push({ path: /repos\/o\/r$/, status: 403 });
+      const payload = (isPrivate: boolean) => ({
+        ref: 'refs/heads/main',
+        repository: { full_name: 'O/R', private: isPrivate },
+      });
+      expect(
+        await releaseIdentity(dir, { ...env, GITHUB_EVENT_PATH: event(payload(true)) }),
+      ).toMatchObject({ privateRepo: true });
+      expect(
+        await releaseIdentity(dir, { ...env, GITHUB_EVENT_PATH: event(payload(false)) }),
+      ).toMatchObject({ privateRepo: false });
+      expect(gh.faults).toHaveLength(1); // never asked
+    } finally {
+      rmSync(events, { recursive: true, force: true });
+      await gh.close();
+    }
+  });
+
+  it("asks git's smart HTTP when the event doesn't say (a schedule's names no repository) and there's no token", async () => {
+    const gh = await fakeGitHub();
+    const events = mkdtempSync(join(tmpdir(), 'ffmpeg-build-event-'));
+    try {
+      const schedule = join(events, 'schedule.json');
+      writeFileSync(schedule, JSON.stringify({ schedule: '17 3 * * *', workflow: 'x.yml' }));
+      const env = {
+        FFMPEG_BUILD_RELEASE: '9.0.2.4',
+        GITHUB_REPOSITORY: 'o/r',
+        GITHUB_SERVER_URL: gh.base,
+        GITHUB_EVENT_PATH: schedule,
+      };
+      // the API refusing an unauthenticated runner past its rate limit, as it did devenvy/ffmpeg's 0.0.12 builds
+      gh.faults.push({ path: /repos\/o\/r$/, status: 403 }, { path: /repos\/o\/r$/, status: 403 });
+      expect(await releaseIdentity(dir, env)).toMatchObject({ privateRepo: false });
+      gh.private = true;
+      expect(await releaseIdentity(dir, env)).toMatchObject({ privateRepo: true });
+      expect(gh.faults).toHaveLength(2);
+      expect(gh.requests.filter((r) => r.path === '/o/r.git/info/refs')).toHaveLength(2);
+      // git's answer unreadable too: the API, then nothing is guessed
+      gh.faults.length = 0;
+      gh.faults.push({ path: /\/o\/r\.git\/info\/refs$/, status: 400 });
+      expect(await releaseIdentity(dir, env)).toMatchObject({ privateRepo: true });
+      gh.faults.push(
+        { path: /\/o\/r\.git\/info\/refs$/, status: 400 },
+        { path: /repos\/o\/r$/, status: 403 },
+      );
+      await expect(releaseIdentity(dir, env)).rejects.toThrow(
+        "can't read whether o/r is private, which decides where its notices say the source is",
+      );
+    } finally {
+      rmSync(events, { recursive: true, force: true });
       await gh.close();
     }
   });

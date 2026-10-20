@@ -108,11 +108,16 @@ describe('chromaprint', () => {
 });
 
 describe('kvazaar', () => {
-  // before: [[./autogen.sh]]; sed 's/-lrt//g' src/kvazaar.pc > deps/lib/pkgconfig/kvazaar.pc;
+  // before: [[./autogen.sh]]; sed 's/-lrt//g' src/kvazaar.pc > deps/lib/pkgconfig/kvazaar.pc (linux-*, android-*);
   // win-*: sed -i 's|^Cflags:.*|& -DKVZ_STATIC_LIB|'
-  const generated = `prefix=/d\nLibs: -L\${libdir} -lkvazaar\nLibs.private: -lpthread -lrt -lm\nCflags: -I\${includedir}\n`;
+  // kvazaar's configure.ac adds -lrt to LIBS for linux* hosts only (Android's triple is one): elsewhere the .pc has none
+  const linuxHost = (platform: string) =>
+    platform.startsWith('linux-') || platform.startsWith('android-');
+  const pc = (platform: string) =>
+    `prefix=/d\nLibs: -L\${libdir} -lkvazaar\nLibs.private: -lpthread${linuxHost(platform) ? ' -lrt' : ''} -lm\nCflags: -I\${includedir}\n`;
   it.each(platformsOf('kvazaar'))('%s', async (platform) => {
     const h = fake(platform);
+    const generated = pc(platform);
     mkdirSync(join(h.src, 'src'));
     writeFileSync(join(h.src, 'src', 'kvazaar.pc'), generated);
     await build(h, 'kvazaar');

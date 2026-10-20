@@ -157,7 +157,10 @@ hand), so a new engine is rarer than a new library version, and each one is mean
 **Compatibility:** the reusable workflows at `@v0` run any 0.x engine. Their first job checks the engine's major and
 stops, saying what to change, when it isn't 0. A new major of the engine comes with its own workflows (`@v1` after 0.x): change the
 `uses: ...@v0` lines to `@v1`, install a 1.x engine and run `ffmpeg-build update` in the same pull request. Within a
-major, a newer engine reads every lock and `ffmpeg-build.yml` an older one wrote.
+major, a newer engine reads every lock and `ffmpeg-build.yml` an older one wrote, and runs on the workflows of an
+older release (pinned by commit, `@<sha> # v0.0.9`): what a newer workflow gives the engine, it can do without. A pin
+behind the lock's engine is still worth moving, so `ffmpeg-build check` names each one (a warning on GitHub Actions,
+never a failure); Dependabot moves them.
 
 Copy-ready callers are in [`examples/workflows/`](../examples/workflows): a daily release train, a pull-request check,
 lock updates, a product's FFmpeg bumps and their automerge. [`examples/dependabot.yml`](../examples/dependabot.yml)

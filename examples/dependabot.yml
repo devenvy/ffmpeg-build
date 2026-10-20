@@ -1,14 +1,17 @@
-# A consumer's .github/dependabot.yml: the actions its workflows use, one grouped PR a week. (ffmpeg.lock is kept
-# current by ffmpeg-build update, not Dependabot.)
+# A consumer's .github/dependabot.yml: the actions its workflows use, in one grouped PR. (ffmpeg.lock is kept
+# current by ffmpeg-build update, not Dependabot.) Looked at daily, so ffmpeg-build's workflows follow the engine
+# update-lock moves ffmpeg.lock to within a day (`ffmpeg-build check` names a pin behind it).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    # a release waits a week before it is proposed, so a compromised one is usually caught first
+      interval: daily
+    # a release waits a week before it is proposed, so a compromised one is usually caught first; ffmpeg-build's own
+    # workflows don't wait: the engine they go with is already in ffmpeg.lock
     cooldown:
       default-days: 7
+      exclude: ['devenvy/ffmpeg-build*']
     groups:
       actions:
         patterns: ['*']
