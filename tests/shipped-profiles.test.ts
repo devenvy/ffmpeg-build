@@ -1536,6 +1536,41 @@ describe('filter and processing libraries', () => {
       licenses: ALL,
       ships: { decoders: ['libaribcaption'] },
     },
+    // GPL-2.0-or-later, and FFmpeg's class gpl
+    rubberband: {
+      platforms: PLATFORMS,
+      recipe: 'rubberband',
+      recipes: () => ['rubberband'],
+      flags: ['--enable-librubberband'],
+      licenses: GPL,
+      ships: { filters: ['rubberband'] },
+    },
+    // plugin hosts: the header (ladspa, frei0r) or lilv's stack (lv2); the plugins come from the system at run time.
+    // LADSPA needs dlopen, which Windows hasn't got
+    ladspa: {
+      platforms: PLATFORMS.filter((p) => !p.startsWith('win-')),
+      recipe: 'ladspa-sdk',
+      recipes: () => ['ladspa-sdk'],
+      flags: ['--enable-ladspa'],
+      licenses: ALL,
+      ships: { filters: ['ladspa'] },
+    },
+    lv2: {
+      platforms: PLATFORMS,
+      recipe: 'lilv',
+      recipes: () => ['lilv', 'lv2', 'serd', 'sord', 'sratom', 'zix'],
+      flags: ['--enable-lv2'],
+      licenses: ALL,
+      ships: { filters: ['lv2'] },
+    },
+    frei0r: {
+      platforms: PLATFORMS,
+      recipe: 'frei0r',
+      recipes: () => ['frei0r'],
+      flags: ['--enable-frei0r'],
+      licenses: GPL,
+      ships: { filters: ['frei0r', 'frei0r_src'] },
+    },
   };
   const OPTIONS = Object.keys(where);
   const text = (platform: string, license: string, option: string) =>

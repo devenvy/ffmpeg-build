@@ -1,0 +1,13 @@
+name: sratom
+license: ISC
+license-files: [COPYING]
+needs: [serd, sord, lv2]
+source: { git: https://github.com/lv2/sratom, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# only lilv builds against it
+platforms: all
+build:
+  # Sratom: LV2 atoms to and from RDF (ISC), static, for lilv (FFmpeg's lv2 filter). The library alone: no docs or
+  # tests.
+  system: meson
+  args: [-Ddocs=disabled, -Dtests=disabled]

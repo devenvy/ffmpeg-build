@@ -1,0 +1,24 @@
+name: lilv
+provides: lv2
+license: ISC
+license-files: [COPYING]
+configure: [--enable-lv2]
+needs: [zix, serd, sord, sratom, lv2]
+source: { git: https://github.com/lv2/lilv, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  # Lilv: the LV2 plugin host library (ISC), static, for FFmpeg's lv2 filter (found through lilv-0.pc, with zix, serd,
+  # sord, sratom and the LV2 headers). FFmpeg hosts the plugins; lilv finds them at run time on LV2_PATH (or the usual
+  # folders) and loads them (dlopen, LoadLibrary on Windows), so they come from the system or the application, not
+  # from this build. The library alone: no lv2info/lv2ls/lv2apply programs, Python or C++ bindings, docs or tests.
+  system: meson
+  args:
+    [
+      -Dtools=disabled,
+      -Dbindings_py=disabled,
+      -Dbindings_cpp=disabled,
+      -Ddocs=disabled,
+      -Dtests=disabled,
+      -Ddynmanifest=disabled,
+    ]

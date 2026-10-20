@@ -16,6 +16,7 @@ libraries:
   flite: { version: 2.2, commit: e9e2e37c329dbe98bfeb27a1828ef9a71fa84f88 }
   fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
   freetype: { version: 2.14.3, commit: 0a0221a1347e2f1e07c395263540026e9a0aa7c7 }
+  frei0r: { version: 3.6.0, commit: d63e2e3537ec9119d1376c3d8f021bc2bfe35470 }
   fribidi: { version: 1.0.17, commit: b93119f5fdc7ea47672cc304c1455ffa6dfe7536 }
   gmp: { version: 6.3.0, sha256: a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898 }
   gnutls: { version: 3.8.13, sha256: ffed8ec1bf09c2426d4f14aae377de4753b53e537d685e604e99a8b16ca9c97e }
@@ -23,6 +24,7 @@ libraries:
   highway: { version: 1.4.0, commit: 2607d3b5b0113992fe84d3848859eae13b3b52c1 }
   kissfft: { version: 131.2.0, commit: 7bce4153c6bc8aba2db0e889e576f9d00505cbe1 }
   kvazaar: { version: 2.3.2, commit: 6040962bed5cc68c5ad01234c38c08b8b2822068 }
+  ladspa-sdk: { version: 1.17, sha256: 27d24f279e4b81bd17ecbdcc38e4c42991bb388826c0b200067ce0eb59d3da5b }
   lcevcdec: { version: 4.3.0, commit: 741fb7c869cf61012f7dcebfcd9e56981198c78b }
   lcms2: { version: 2.19.1, commit: 21c582a594fe5279f90c0b93437c398f93bf62b0 }
   libaribcaption: { version: 1.1.2, commit: c64c23b8905ba514b87c9789269e9f66f949ffe0 }
@@ -55,6 +57,8 @@ libraries:
   libvpx: { version: 1.17.0, commit: 6df3ec34557879fff673706f4a1d9fbd0f3a6f0e }
   libwebp: { version: 1.6.0, commit: 4fa21912338357f89e4fd51cf2368325b59e9bd9 }
   libxml2: { version: 2.15.4, commit: 96498992efa48d52b0e8b83058bd88dbdaf153c1 }
+  lilv: { version: 0.28.0, commit: 2feec6a15d3300db3ac0337bafb863308a03cab6 }
+  lv2: { version: 1.18.10, commit: 0bcde338db1c63bbc503b4d1f6d7b55ed43154af }
   mbedtls: { version: 3.6.7, sha256: a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6 }
   moltenvk: { version: 1.4.2, commit: db66022459ffb663aa2b50f6b018bc2e124f5edf }
   nettle: { version: 4.0, sha256: 3addbc00da01846b232fb3bc453538ea5468da43033f21bb345cb1e9073f5094 }
@@ -70,11 +74,15 @@ libraries:
   quirc: { version: 1.2, commit: 542848dd6b9b0eaa9587bbf25b9bc67bd8a71fca }
   rav1e: { version: 0.8.1, commit: 1fe82de02510767539e89b2ee6fa846920ae2686 }
   rockchip-mpp: { version: 1.1.0, commit: c08762ebfadeb4e986d2fed993bc7a54862d3ebe }
+  rubberband: { version: 4.0.0, commit: 1d95888bec3ae0a17c0c4af791810d5a63f6bc35 }
+  serd: { version: 0.32.10, commit: 849b9ecd8d6c87da79f14e2630daa084002d7555 }
   shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
   shine: { version: 3.1.1, sha256: 58e61e70128cf73f88635db495bfc17f0dde3ce9c9ac070d505a0cd75b93d384 }
+  sord: { version: 0.16.22, commit: 5ab719fdae9b6db1204974f749dc64e62d2029af }
   soxr: { version: 0.1.3, commit: 945b592b70470e29f917f4de89b4281fbbd540c0 }
   speex: { version: 1.2.1, commit: 5dceaaf3e23ee7fd17c80cb5f02a838fd6c18e01 }
   spirv-headers: { version: 1.4.363.0, commit: 496543121ce6419f23d6fa5d7194ba66c36212d2 }
+  sratom: { version: 0.6.22, commit: 68bd465f0de009d58ae39e89eb029c728e74751f }
   srt: { version: 1.5.7, commit: 899348d8318eb9a3c5a5b6ec43c4a1114288773a }
   svt-jpegxs: f4720203534d6f5ea90f828a58814af5597461d7
   svtav1: { version: 4.2.0, commit: 9292ec8e32bce26f781f277ec8739b53426c4300 }
@@ -96,5 +104,6 @@ libraries:
   xvidcore: { version: 1.3.7, sha256: abbdcbd39555691dd1c9b4d08f0a031376a3b211652c0d8b3b8aa9be1303ce2d }
   xz: { version: 5.8.4, commit: d3e650e63c110e830fd5391e7f8b45df0b91d3da }
   zimg: { version: 3.0.6, commit: f819b14e8f39d1282400b0d9543e8ef73c1b2bbd }
+  zix: { version: 0.8.2, commit: 96163e9e071548df1bc2fb3b373c573246e9c5f7 }
   zlib: { version: 1.3.2, commit: da607da739fa6047df13e66a2af6b8bec7c2a498 }
   zvbi: { version: 0.2.45, commit: d3a5ee9f2b047bf16cd1ee5ccf6ec05ee75409d0 }

@@ -1,0 +1,13 @@
+name: lv2
+license: ISC
+license-files: [COPYING]
+source: { git: https://github.com/lv2/lv2, ref: 'v{version}' }
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
+# only lilv builds against it
+platforms: all
+build:
+  # LV2: the audio plugin standard's headers and specification bundles (ISC), which lilv (FFmpeg's lv2 filter) builds
+  # against. Headers only: no example plugins, docs or tests. Its spec bundles land in deps' lib/lv2, used by nothing
+  # here (at run time lilv reads the system's, from LV2_PATH).
+  system: meson
+  args: [-Dplugins=disabled, -Ddocs=disabled, -Dtests=disabled, -Donline_docs=false]

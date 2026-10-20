@@ -12,6 +12,7 @@ import {
   configureLine,
   type Harness,
   harness,
+  mesonLines,
   pcPath,
   platformsOf,
   recipe,
@@ -323,5 +324,120 @@ describe('libaribcaption', () => {
       { name: 'freetype', platforms: ['linux-*', 'android-*'] },
       { name: 'fontconfig', platforms: ['linux-*'] },
     ]);
+  });
+});
+
+/** The C++ runtime a static link needs, as `{cxx-runtime}` names it. */
+const cxxRuntime = (platform: string) => {
+  if (/^(osx|ios|maccatalyst|android)-/.test(platform)) {
+    return '-lc++';
+  }
+  if (platform === 'win-arm64') {
+    return '-l:libc++.a';
+  }
+  return platform.startsWith('linux-musl-') ? '-l:libstdc++.a' : '-lstdc++';
+};
+
+// Rubber Band's library alone, its own FFT (vDSP on Apple) and resampler; the C++ runtime and libm in its .pc.
+describe('rubberband', () => {
+  it.each(platformsOf('rubberband'))('%s', async (platform) => {
+    const h = fake(platform);
+    h.onRun = (call) => {
+      if (call.command === 'meson' && call.args[0] === 'install') {
+        put(pcPath(h, 'rubberband'), `Libs: -L\${libdir} -lrubberband\nCflags: -I\${includedir}\n`);
+      }
+      return undefined;
+    };
+    await build(h, 'rubberband');
+    const apple = /^(osx|ios|maccatalyst)-/.test(platform);
+    expect(commands(h)).toEqual(
+      mesonLines(h, [
+        '-Dresampler=builtin',
+        '-Djni=disabled',
+        '-Dladspa=disabled',
+        '-Dlv2=disabled',
+        '-Dvamp=disabled',
+        '-Dcmdline=disabled',
+        '-Dtests=disabled',
+        apple ? '-Dfft=vdsp' : '-Dfft=builtin',
+      ]),
+    );
+    expect(h.read(pcPath(h, 'rubberband'))).toBe(
+      `Libs: -L\${libdir} -lrubberband\nLibs.private: ${cxxRuntime(platform)} -lm\nCflags: -I\${includedir}\n`,
+    );
+  });
+  it('is GPL-2.0-or-later, and builds everywhere', () => {
+    expect(recipe('rubberband').license).toBe('GPL-2.0-or-later');
+    expect(platformsOf('rubberband')).toEqual(PLATFORMS);
+  });
+});
+
+// The plugin hosts' headers: frei0r.h and ladspa.h, nothing built.
+describe('frei0r and ladspa-sdk', () => {
+  it.each(platformsOf('frei0r'))('frei0r on %s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'include', 'frei0r.h'), 'f0r');
+    await build(h, 'frei0r');
+    expect(commands(h)).toEqual([]);
+    expect(h.files(h.deps)).toContain('include/frei0r.h');
+  });
+  it.each(platformsOf('ladspa-sdk'))('ladspa-sdk on %s', async (platform) => {
+    const h = fake(platform);
+    put(join(h.src, 'src', 'ladspa.h'), 'ladspa');
+    await build(h, 'ladspa-sdk');
+    expect(commands(h)).toEqual([]);
+    expect(h.files(h.deps)).toContain('include/ladspa.h');
+  });
+  it('LADSPA is not on Windows (FFmpeg loads its plugins with dlopen); frei0r is GPL, everywhere', () => {
+    expect(platformsOf('ladspa-sdk')).toEqual(PLATFORMS.filter((p) => !p.startsWith('win-')));
+    expect(recipe('frei0r').license).toBe('GPL-2.0-or-later');
+    expect(platformsOf('frei0r')).toEqual(PLATFORMS);
+  });
+});
+
+// The LV2 host stack: lilv on zix, serd, sord, sratom and the LV2 headers, each the library alone.
+describe('the LV2 host stack', () => {
+  const args: Record<string, string[]> = {
+    lv2: ['-Dplugins=disabled', '-Ddocs=disabled', '-Dtests=disabled', '-Donline_docs=false'],
+    zix: ['-Dbenchmarks=disabled', '-Ddocs=disabled', '-Dtests=disabled', '-Dtests_cpp=disabled'],
+    serd: ['-Dtools=disabled', '-Dman=disabled', '-Ddocs=disabled', '-Dtests=disabled'],
+    sord: [
+      '-Dtools=disabled',
+      '-Dbindings_cpp=disabled',
+      '-Dman=disabled',
+      '-Ddocs=disabled',
+      '-Dtests=disabled',
+    ],
+    sratom: ['-Ddocs=disabled', '-Dtests=disabled'],
+    lilv: [
+      '-Dtools=disabled',
+      '-Dbindings_py=disabled',
+      '-Dbindings_cpp=disabled',
+      '-Ddocs=disabled',
+      '-Dtests=disabled',
+      '-Ddynmanifest=disabled',
+    ],
+  };
+  const builds = Object.keys(args).flatMap((name) =>
+    platformsOf(name).map((p) => [name, p] as const),
+  );
+  it.each(builds)('%s on %s', async (name, platform) => {
+    const h = fake(platform);
+    await build(h, name);
+    expect(commands(h)).toEqual(mesonLines(h, args[name]!));
+  });
+  it('is ISC throughout, on every platform, lilv on the rest', () => {
+    for (const name of Object.keys(args)) {
+      expect(recipe(name).license, name).toBe('ISC');
+      expect(platformsOf(name), name).toEqual(PLATFORMS);
+    }
+    expect(recipe('lilv').needs.map((n) => n.name)).toEqual([
+      'zix',
+      'serd',
+      'sord',
+      'sratom',
+      'lv2',
+    ]);
+    expect(recipe('lilv').provides).toBe('lv2');
   });
 });

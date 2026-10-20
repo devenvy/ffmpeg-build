@@ -1,0 +1,25 @@
+# The LADSPA SDK is a tarball on ladspa.org (no repository), with the Debian archive's as the fallback; the download
+# page links it.
+name: ladspa-sdk
+provides: ladspa
+license: LGPL-2.1-or-later
+license-files: [doc/COPYING]
+configure: [--enable-ladspa]
+source:
+  url: 'https://www.ladspa.org/download/ladspa_sdk_{version}.tgz'
+  mirrors: ['https://deb.debian.org/debian/pool/main/l/ladspa-sdk/ladspa-sdk_{version}.orig.tar.gz']
+versions:
+  {
+    listing: 'https://www.ladspa.org/ladspa_sdk/download.html',
+    files: '^ladspa_sdk_(\d+\.\d+)\.tgz$',
+  }
+# FFmpeg's ladspa filter loads plugins with dlopen: not Windows, whose C library has none
+platforms: [linux-*, osx-*, ios-*, maccatalyst-*, android-*]
+build:
+  # LADSPA: the Linux Audio Developer's Simple Plugin API (LGPL-2.1-or-later), for FFmpeg's ladspa filter. FFmpeg only
+  # needs its header, ladspa.h: it loads the plugins themselves at run time (dlopen) from LADSPA_PATH or the usual
+  # folders, so they come from the system or the application, not from this build. The SDK's example plugins and
+  # programs aren't built.
+  system: none
+  steps:
+    - copy: { from: src/ladspa.h, into: '{deps}/include' }
