@@ -64,6 +64,29 @@ const isComponentKind = (k: string): k is ComponentKind =>
   (COMPONENT_KINDS as readonly string[]).includes(k);
 
 /**
+ * The names configure was asked for in one kind (`--enable-decoder=h264,hevc`), as -buildconf records the list:
+ * configure quotes one with a comma (`--enable-muxer='mp4,null'`).
+ */
+const askedFor = (flags: readonly string[], kind: ComponentKind): string[] =>
+  flags
+    .filter((f) => f.startsWith(`--enable-${COMPONENT_FLAG[kind]}=`))
+    .flatMap((f) =>
+      f
+        .slice(f.indexOf('=') + 1)
+        .replace(/^(['"])(.*)\1$/, '$2')
+        .split(','),
+    )
+    .filter(Boolean);
+
+/**
+ * Whether a build with these configure flags has a component configure knows by `name`: in a kind the target
+ * restricted (components: is `--disable-<kind>` and `--enable-<kind>=<names>`, all the engine passes), only one asked
+ * for; in any other kind, every component whose needs are met, so all the ones needing nothing.
+ */
+const inBuild = (flags: readonly string[], kind: ComponentKind, name: string): boolean =>
+  !flags.includes(`--disable-${kind}`) || askedFor(flags, kind).includes(name);
+
+/**
  * What a build of FFmpeg `major` for `platform` with this configure line must have: what each option on ships, and
  * every component configure was asked for by name (`--enable-decoder=h264,hevc`: a target's components:, what its
  * options brought, what its patch sets add). Each by the name the build lists it under (the components file's names:,
@@ -80,23 +103,9 @@ export function expectedComponents(
   const on = enabledOptions(data, major, platform, configure);
   const options = optionsOf(data, major);
   const flags = configure.split(/\s+/);
-  const asked = (kind: ComponentKind): string[] =>
-    flags
-      .filter((f) => f.startsWith(`--enable-${COMPONENT_FLAG[kind]}=`))
-      // -buildconf records the list as configure quoted it: --enable-muxer='mp4,null'
-      .flatMap((f) =>
-        f
-          .slice(f.indexOf('=') + 1)
-          .replace(/^(['"])(.*)\1$/, '$2')
-          .split(','),
-      )
-      .filter(Boolean);
   // (ships: hwaccels are device types, which no hwaccel list restricts)
   const leftOut = (kind: string, name: string): boolean =>
-    isComponentKind(kind) &&
-    kind !== 'hwaccels' &&
-    flags.includes(`--disable-${kind}`) &&
-    !asked(kind).includes(name);
+    isComponentKind(kind) && kind !== 'hwaccels' && !inBuild(flags, kind, name);
   const listed = (kind: ShippedKind, name: string): string =>
     isComponentKind(kind) && kind !== 'hwaccels'
       ? runtimeName(data, major, kind, name, names)
@@ -114,28 +123,81 @@ export function expectedComponents(
   );
   const has = new Set(fromOptions.map((e) => `${e.kind} ${e.name}`));
   const fromComponents = LISTED_KINDS.flatMap((kind) =>
-    asked(kind)
+    askedFor(flags, kind)
       .filter((name) => !has.has(`${kind} ${name}`))
       .map((name) => ({ option: 'components', kind, name })),
   );
   return [...fromOptions, ...fromComponents].map((e) => ({ ...e, name: listed(e.kind, e.name) }));
 }
 
-/** Every component any option of FFmpeg `major` names, as the smoke program's `<kind>:<name>` arguments. */
+/** The option an Expected of a build of libraries' defaults is under (DEFAULT_COMPONENTS). */
+const DEFAULTS = 'defaults';
+
+/**
+ * What a build of libraries is checked to have unless its components: leaves it out, by configure's names: the
+ * decoders, formats and bitstream filters most apps use. A kind the target restricts is checked for what it listed
+ * instead (expectedComponents).
+ */
+const DEFAULT_COMPONENTS: Readonly<
+  Partial<Record<ShippedKind & ComponentKind, readonly string[]>>
+> = {
+  decoders: ['h264', 'hevc', 'aac', 'mp3', 'flac', 'pcm_s16le', 'mjpeg'],
+  muxers: ['mp4', 'matroska', 'mpegts', 'wav', 'null'],
+  demuxers: ['mov', 'matroska', 'mpegts', 'wav'],
+  bsfs: ['h264_mp4toannexb', 'aac_adtstoasc'],
+};
+
+/** The defaults (DEFAULT_COMPONENTS) a build with this configure line must have, by the names it lists them under. */
+export function libraryDefaults(data: EngineData, major: string, configure: string): Expected[] {
+  const flags = configure.split(/\s+/);
+  return Object.entries(DEFAULT_COMPONENTS)
+    .filter(([kind]) => !flags.includes(`--disable-${kind}`))
+    .flatMap(([kind, list]) =>
+      list.map((name) => ({
+        option: DEFAULTS,
+        kind: kind as ShippedKind & ComponentKind,
+        name: runtimeName(data, major, kind as ComponentKind, name),
+      })),
+    );
+}
+
+/**
+ * The codecs the smoke program round-trips a frame with, in order: the first the build has as both encoder and
+ * decoder (configure's names, which are their own). All take a 160x120 yuv420p frame at 25 fps.
+ */
+const ROUND_TRIP = ['mpeg4', 'mpeg2video', 'mpeg1video', 'ffv1', 'rawvideo'] as const;
+
+/** The codec a build with this configure line round-trips a frame with (ROUND_TRIP), or none when it has none of them. */
+export function roundTripCodec(configure: string): string | undefined {
+  const flags = configure.split(/\s+/);
+  return ROUND_TRIP.find((c) => inBuild(flags, 'encoders', c) && inBuild(flags, 'decoders', c));
+}
+
+/** Why a build makes no round trip, for the step that says so. */
+export const NO_ROUND_TRIP = `it has none of ${ROUND_TRIP.join(', ')} as both encoder and decoder (components:)`;
+
+/** The kinds the smoke program lists everything of (`smoke: lists <kind> <name>`), as ffmpeg's -<kind> does. */
+const SMOKE_LISTED = new Set<ShippedKind>([
+  'encoders',
+  'decoders',
+  'muxers',
+  'demuxers',
+  'bsfs',
+  'filters',
+  'protocols',
+]);
+
+/**
+ * The smoke program's arguments: the codecs to round-trip a frame with, and every component of the kinds it can't
+ * list (device types, resamplers) that an option of FFmpeg `major` names, as `<kind>:<name>`.
+ */
 export function smokeProbes(data: EngineData, major: string): string[] {
-  return [
-    ...new Set(
-      [...optionsOf(data, major).values()].flatMap((o) =>
-        o.ships.map((s) => {
-          const name =
-            isComponentKind(s.kind) && s.kind !== 'hwaccels'
-              ? listedAs(runtimeName(data, major, s.kind, s.name))
-              : s.name;
-          return `${s.kind}:${name}`;
-        }),
-      ),
+  const probes = new Set(
+    [...optionsOf(data, major).values()].flatMap((o) =>
+      o.ships.filter((s) => !SMOKE_LISTED.has(s.kind)).map((s) => `${s.kind}:${s.name}`),
     ),
-  ].sort();
+  );
+  return [`roundtrip:${ROUND_TRIP.join(',')}`, ...[...probes].sort()];
 }
 
 /**
@@ -175,7 +237,7 @@ export function listedNames(kind: ShippedKind, out: string): Set<string> {
         .map((t) => t[1]!),
     );
   }
-  if (kind === 'hwaccels' || kind === 'protocols') {
+  if (kind === 'hwaccels' || kind === 'protocols' || kind === 'bsfs') {
     return new Set(
       out
         .split(/\r?\n/)
@@ -186,13 +248,23 @@ export function listedNames(kind: ShippedKind, out: string): Set<string> {
   return new Set(tableNames(out));
 }
 
-/** What the smoke program reported: `smoke: has <kind> <name>` or `smoke: lacks <kind> <name>`, per component. */
-export function smokeReport(out: string): Map<string, boolean> {
+/**
+ * What the smoke program reported, as a Has: a kind it lists has what its `smoke: lists <kind> <name>` lines name (a
+ * format listed as `mov,mp4,m4a` under each), any other what `smoke: has|lacks <kind> <name>` says.
+ */
+export function smokeReport(out: string): Has {
   const found = new Map<string, boolean>();
   for (const m of out.matchAll(/^smoke: (has|lacks) (\S+) (\S+)\s*$/gm)) {
     found.set(`${m[2]!} ${m[3]!}`, m[1] === 'has');
   }
-  return found;
+  for (const m of out.matchAll(/^smoke: lists (\S+) (\S+)\s*$/gm)) {
+    for (const name of m[2]!.split(',')) {
+      found.set(`${m[1]!} ${name}`, true);
+    }
+  }
+  return (kind, name) =>
+    found.get(`${kind} ${listedAs(name)}`) ??
+    (SMOKE_LISTED.has(kind) ? false : "the smoke program didn't report it");
 }
 
 /** The components the build should have, one step per option: what it has, or what it lacks. */
@@ -208,7 +280,16 @@ export function shippedSteps(expected: readonly Expected[], has: Has): Step[] {
     const unknown = results.filter((x) => typeof x.r === 'string');
     const known = results.filter((x) => typeof x.r === 'boolean').map((x) => x.e);
     const steps: Step[] = [];
-    if (lacking.length) {
+    if (option === DEFAULTS) {
+      if (lacking.length) {
+        steps.push({
+          ok: false,
+          what: `it lacks ${describe(lacking)}, which a build has unless its components: leaves ${lacking.length > 1 ? 'them' : 'it'} out`,
+        });
+      } else if (known.length) {
+        steps.push({ ok: true, what: `it has ${describe(known)}` });
+      }
+    } else if (lacking.length) {
       steps.push({
         ok: false,
         what: `${option} is on, but the build lacks ${describe(lacking)}`,
@@ -228,6 +309,7 @@ export function shippedSteps(expected: readonly Expected[], has: Has): Step[] {
 const STATIC_LIBRARY: Partial<Record<ShippedKind, string>> = {
   encoders: 'avcodec',
   decoders: 'avcodec',
+  bsfs: 'avcodec',
   filters: 'avfilter',
   muxers: 'avformat',
   demuxers: 'avformat',

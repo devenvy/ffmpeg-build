@@ -69,12 +69,21 @@ Android NDK from `ANDROID_NDK_HOME`, or Xcode's SDK), which proves a consumer ca
 where the platform can run: on the Android device or emulator `adb` sees (the libraries are pushed beside it; needs
 `patchelf`), in the iOS simulator (it boots one, and deletes it afterwards, when none is booted), or as a process on
 this Mac (Mac Catalyst; x86_64 under Rosetta on Apple silicon). The program prints the version and configure line,
-checked as `ffmpeg -version` and `-buildconf` are, encodes and decodes an MPEG-4 frame, looks up built-in
-decoders, muxers, demuxers, filters and bitstream filters, and looks up each component an option ships through the
-libraries' own lookups, which find what ffmpeg's listings would, so its configure line is checked as a program build's
-is. A build it can't run anywhere here (an iOS device build) has those components' names looked for in its libraries
-instead: weaker (a name compiled in, not its registration), and only for the codecs, filters and formats. A target's
-`tests:` scripts don't run for these builds.
+checked as `ffmpeg -version` and `-buildconf` are, checks every library answers, encodes and decodes a frame, and lists
+what the build registered (as ffmpeg's `-encoders`, `-decoders`, `-muxers`, `-demuxers`, `-bsfs`, `-filters` and
+`-protocols` would). What the build must have follows from its own configure line, so its `components:` is checked as
+a program build's is, and a slim build is asked only for what it was built with:
+
+- the frame round trip uses the first of mpeg4, mpeg2video, mpeg1video, ffv1 and rawvideo the build has as both encoder
+  and decoder (a decode-only build makes none, and `test` says so);
+- in each kind `components:` doesn't restrict, the decoders (h264, hevc, aac, mp3, flac, pcm_s16le, mjpeg), formats
+  (mp4, matroska, mpegts, wav, and the null muxer) and bitstream filters (h264_mp4toannexb, aac_adtstoasc) an
+  unrestricted build has;
+- what each option on ships, and every component configure was asked for by name.
+
+A build it can't run anywhere here (an iOS device build) has those components' names looked for in its libraries
+instead: weaker (a name compiled in, not its registration), and only for the codecs, filters, formats and bitstream
+filters. A target's `tests:` scripts don't run for these builds.
 
 On Windows, `.sh` tests run with Git Bash (`BASH`, else the one beside `git`, else the usual install folders; never
 WSL's `bash.exe`), `.cmd` and `.bat` with `cmd.exe`, and `.ps1` with `pwsh` (or Windows PowerShell). Elsewhere every

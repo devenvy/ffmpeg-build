@@ -13,6 +13,7 @@ import {
   libraryRun,
   pickSimulator,
   smokeResult,
+  smokeSteps,
 } from '../src/commands/test-library.ts';
 import {
   archiveEnv,
@@ -415,7 +416,7 @@ describe('ffmpeg-build test', () => {
     expect(smokeResult(0, out, '9.1.0', 'lgplv3')).toEqual([
       { ok: true, what: 'it says FFmpeg 9.1.0' },
       { ok: true, what: 'its configure line matches lgplv3' },
-      { ok: true, what: 'it encodes, decodes and finds the built-in components' },
+      { ok: true, what: 'its libraries load and answer' },
     ]);
     expect(
       smokeResult(
@@ -425,6 +426,138 @@ describe('ffmpeg-build test', () => {
         'lgplv3',
       ).map((s) => s.ok),
     ).toEqual([true, false, false]);
+  });
+
+  // devenvy/ffmpeg-build#53: a slim library build is asked only for what its configure line says it has
+  describe('what a run of the smoke program says the build has, from its own configure line', () => {
+    const run = (configure: string, lines: string[]) =>
+      smokeSteps({
+        code: 0,
+        out: [
+          'ffmpeg version 9.1.0',
+          `configuration: --disable-gpl --enable-version3 --disable-nonfree ${configure}`,
+          'smoke: the libraries load and answer',
+          ...lines,
+          'smoke: ok',
+        ].join('\n'),
+        version: '9.1.0',
+        license: 'lgplv3',
+        data,
+        platform: 'android-arm64',
+      });
+    const DEFAULTS = [
+      'decoders h264',
+      'decoders hevc',
+      'decoders aac',
+      'decoders mp3',
+      'decoders flac',
+      'decoders pcm_s16le',
+      'decoders mjpeg',
+      'muxers mp4',
+      'muxers matroska',
+      'muxers mpegts',
+      'muxers wav',
+      'muxers null',
+      'demuxers mov,mp4,m4a',
+      'demuxers matroska',
+      'demuxers mpegts',
+      'demuxers wav',
+      'bsfs h264_mp4toannexb',
+      'bsfs aac_adtstoasc',
+    ];
+
+    it('a full build: the mpeg4 round trip and the defaults', () => {
+      const steps = run('', [
+        'smoke: a mpeg4 frame encodes and decodes',
+        ...DEFAULTS.map((d) => `smoke: lists ${d}`),
+      ]);
+      expect(steps.slice(3)).toEqual([
+        { ok: true, what: 'a mpeg4 frame encodes and decodes' },
+        { ok: true, what: `it has ${DEFAULTS.join(', ')}` },
+      ]);
+      // without a default, or with the round trip made with another codec, it fails
+      const lacking = run('', [
+        'smoke: a ffv1 frame encodes and decodes',
+        ...DEFAULTS.filter((d) => d !== 'decoders hevc').map((d) => `smoke: lists ${d}`),
+      ]);
+      expect(lacking.slice(3).map((s) => [s.ok, s.what])).toEqual([
+        [
+          false,
+          'a mpeg4 frame encodes and decodes (it made the round trip with ffv1: its configure line has the mpeg4 encoder and decoder)',
+        ],
+        [false, 'it lacks decoders hevc, which a build has unless its components: leaves it out'],
+      ]);
+    });
+
+    it('a slim build: only what its components: asked for, and the round trip with the codec it has', () => {
+      const configure = [
+        '--disable-decoders',
+        '--enable-decoder=h264,ffv1',
+        '--disable-encoders',
+        '--enable-encoder=ffv1',
+        '--disable-demuxers',
+        '--enable-demuxer=mov',
+        '--disable-muxers',
+        '--enable-muxer=mp4',
+        '--disable-bsfs',
+        '--disable-filters',
+      ].join(' ');
+      const lines = [
+        'smoke: a ffv1 frame encodes and decodes',
+        'smoke: lists decoders h264',
+        'smoke: lists decoders ffv1',
+        'smoke: lists encoders ffv1',
+        'smoke: lists demuxers mov,mp4,m4a',
+        'smoke: lists muxers mp4',
+      ];
+      expect(run(configure, lines).slice(3)).toEqual([
+        { ok: true, what: 'a ffv1 frame encodes and decodes' },
+        {
+          ok: true,
+          what: 'components ships decoders h264, decoders ffv1, encoders ffv1, demuxers mov,mp4,m4a, muxers mp4',
+        },
+      ]);
+      // what it asked for and lacks fails it
+      expect(
+        run(
+          configure,
+          lines.filter((l) => !l.includes('muxers mp4')),
+        ).slice(4),
+      ).toEqual([
+        expect.objectContaining({
+          ok: false,
+          what: 'components is on, but the build lacks muxers mp4',
+        }) as unknown,
+      ]);
+    });
+
+    it('a decode-only build makes no round trip, and says so', () => {
+      const steps = run('--disable-encoders --disable-decoders --enable-decoder=h264', [
+        'smoke: no round trip',
+        'smoke: lists decoders h264',
+      ]);
+      expect(steps[3]).toEqual({
+        ok: 'info',
+        what: 'no frame round trip: it has none of mpeg4, mpeg2video, mpeg1video, ffv1, rawvideo as both encoder and decoder (components:)',
+      });
+    });
+
+    it('a run that failed is reported as smokeResult does, and nothing more', () => {
+      expect(
+        smokeSteps({
+          code: 1,
+          out: 'ffmpeg version 9.1.0\nconfiguration: --disable-gpl --enable-version3 --disable-nonfree\nsmoke: FAIL the ffv1 decoder made no frame\n',
+          version: '9.1.0',
+          license: 'lgplv3',
+          data,
+          platform: 'android-arm64',
+        }).map((s) => [s.ok, s.what]),
+      ).toEqual([
+        [true, 'it says FFmpeg 9.1.0'],
+        [true, 'its configure line matches lgplv3'],
+        [false, 'its libraries load and answer (the ffv1 decoder made no frame)'],
+      ]);
+    });
   });
 
   it('skips an Android build without the NDK, and fails it with --must-run', async () => {
