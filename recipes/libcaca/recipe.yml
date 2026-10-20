@@ -50,3 +50,4 @@ build:
           requires-private: { set: ncursesw },
           libs-private: { add: -lm },
         }
+# sweep: every edit on every platform (not to merge)

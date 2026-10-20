@@ -54,3 +54,4 @@ build:
       env: { CC: '{cc}', CXX: '{cxx}' }
     - [python3, ./waf, build, '-j{jobs}']
     - [python3, ./waf, install]
+# sweep: every edit on every platform (not to merge)

@@ -72,3 +72,4 @@ build:
         args: [-Dfreetype=enabled, -Dfontconfig=disabled, -Dquartz=disabled, -Ddwrite=disabled],
       }
     'maccatalyst-*': *freetype
+# sweep: every edit on every platform (not to merge)

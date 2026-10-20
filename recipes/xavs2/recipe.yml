@@ -46,3 +46,4 @@ build:
       cwd: build/linux
     - run: [make, install-lib-static]
       cwd: build/linux
+# sweep: every edit on every platform (not to merge)

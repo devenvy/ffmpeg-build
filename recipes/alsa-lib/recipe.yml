@@ -97,3 +97,4 @@ build:
     - [make, -C, include, install]
     - [make, -C, utils, install-pkgconfigDATA]
     - remove: { path: '{deps}/lib/pkgconfig/alsa-topology.pc' }
+# sweep: every edit on every platform (not to merge)

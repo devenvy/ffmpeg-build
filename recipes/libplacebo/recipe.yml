@@ -56,3 +56,4 @@ build:
           path: '{deps}/lib/pkgconfig/libplacebo.pc',
           libs-private: { append: '{cxx-runtime}', missing: after-libs },
         }
+# sweep: every edit on every platform (not to merge)

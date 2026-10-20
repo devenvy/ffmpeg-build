@@ -42,3 +42,4 @@ build:
         - move: { from: '{deps}/lib/OpenCL.a', to: '{deps}/lib/libOpenCL.a' }
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/OpenCL.pc', libs-private: { add: -lole32 } }
+# sweep: every edit on every platform (not to merge)

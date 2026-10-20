@@ -23,3 +23,4 @@ build:
   before:
     - replace-in-file:
         { path: CMakeLists.txt, from: 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")', to: '' }
+# sweep: every edit on every platform (not to merge)

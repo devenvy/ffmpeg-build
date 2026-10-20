@@ -23,3 +23,4 @@ build:
     # the static library needs the C library's threads
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/rockchip_mpp.pc', libs-private: { add: -lpthread } }
+# sweep: every edit on every platform (not to merge)

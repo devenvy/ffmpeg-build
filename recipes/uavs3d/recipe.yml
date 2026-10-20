@@ -26,3 +26,4 @@ build:
       before:
         - replace-in-file:
             { path: source/CMakeLists.txt, from: if(CMAKE_USE_PTHREADS_INIT), to: if(FALSE) }
+# sweep: every edit on every platform (not to merge)

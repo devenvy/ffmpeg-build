@@ -38,3 +38,4 @@ build:
           regex: true,
           optional: true,
         }
+# sweep: every edit on every platform (not to merge)

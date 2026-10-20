@@ -47,3 +47,4 @@ build:
     maccatalyst-arm64: { args: [--host=aarch64-apple-darwin] }
     maccatalyst-x64: { args: [--host=x86_64-apple-darwin] }
     osx-x64: { args: [--host=x86_64-apple-darwin] } # cross-compiled on Apple silicon
+# sweep: every edit on every platform (not to merge)

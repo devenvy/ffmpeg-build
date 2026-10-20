@@ -28,3 +28,4 @@ build:
     - move: { from: '{deps}/lib/xevd/libxevd.a', to: '{deps}/lib/libxevd.a' }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/xevd.pc', libs-private: { remove: '-L${libdir}/xevd' } }
+# sweep: every edit on every platform (not to merge)

@@ -80,3 +80,4 @@ build:
   #           it there would be an unknown-option error.
   # We already build and install shaderc.pc (pointed at the static libshaderc_combined above),
   # which is exactly what require_pkg_config wants.
+# sweep: every edit on every platform (not to merge)

@@ -20,3 +20,4 @@ build:
           from: '#if defined(_WIN32) && !defined(G_INTL_STATIC_COMPILATION)',
           to: '#if 0 /* static: ffmpeg-build */',
         }
+# sweep: every edit on every platform (not to merge)

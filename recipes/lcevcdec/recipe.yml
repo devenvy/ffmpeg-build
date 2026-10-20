@@ -66,3 +66,4 @@ build:
         { path: '{deps}/lib/pkgconfig/lcevc_dec.pc', libs: { remove: -lstdc++ -lc++ -lm } }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/lcevc_dec.pc', libs: { append: '{cxx-runtime} -lm' } }
+# sweep: every edit on every platform (not to merge)

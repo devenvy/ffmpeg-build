@@ -57,3 +57,4 @@ build:
       after:
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/lensfun.pc', cflags: { append: -DCONF_LENSFUN_STATIC } }
+# sweep: every edit on every platform (not to merge)

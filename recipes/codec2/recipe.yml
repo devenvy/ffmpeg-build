@@ -49,3 +49,4 @@ build:
       - '{cmake-cross-args}'
     - [cmake, --build, _build, --target, codec2, '-j{jobs}']
     - [cmake, --install, _build]
+# sweep: every edit on every platform (not to merge)

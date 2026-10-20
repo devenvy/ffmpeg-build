@@ -125,3 +125,4 @@ build:
           path: '{deps}/lib/pkgconfig/opencv4.pc',
           libs-private: { add: '{cxx-runtime}', missing: after-libs },
         }
+# sweep: every edit on every platform (not to merge)

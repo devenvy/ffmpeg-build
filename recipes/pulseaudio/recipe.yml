@@ -49,3 +49,4 @@ build:
       - -Dzshcompletiondir=no
     - [meson, compile, -C, _build]
     - [meson, install, -C, _build, --tags, 'runtime,devel']
+# sweep: every edit on every platform (not to merge)

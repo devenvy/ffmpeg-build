@@ -90,3 +90,4 @@ build:
     - [make, -C, librtmp, '-j{jobs}', librtmp.a, librtmp.pc, '{make-args}']
     - [make, -C, librtmp, install_base, '{make-args}']
     - remove: { path: '{deps}/man', recursive: true }
+# sweep: every edit on every platform (not to merge)

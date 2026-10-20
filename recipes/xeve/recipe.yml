@@ -30,3 +30,4 @@ build:
     - move: { from: '{deps}/lib/xeve/libxeve.a', to: '{deps}/lib/libxeve.a' }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/xeve.pc', libs-private: { remove: '-L${libdir}/xeve' } }
+# sweep: every edit on every platform (not to merge)

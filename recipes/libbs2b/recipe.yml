@@ -36,3 +36,4 @@ build:
         }
     - replace-in-file: { path: configure.ac, from: ' dist-lzma', to: '' }
     - [autoreconf, -fi]
+# sweep: every edit on every platform (not to merge)

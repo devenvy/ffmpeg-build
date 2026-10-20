@@ -107,3 +107,4 @@ build:
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/librist.pc', libs-private: { append: '{mbedtls-libs}' } }
       when: { exists: '{deps}/lib/libmbedcrypto.a' }
+# sweep: every edit on every platform (not to merge)

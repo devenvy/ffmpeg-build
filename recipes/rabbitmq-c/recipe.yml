@@ -26,3 +26,4 @@ build:
     # target carries but librabbitmq.pc doesn't
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/librabbitmq.pc', cflags: { add: -DAMQP_STATIC } }
+# sweep: every edit on every platform (not to merge)

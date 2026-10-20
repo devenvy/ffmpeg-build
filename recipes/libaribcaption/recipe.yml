@@ -32,3 +32,4 @@ build:
       after:
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/libaribcaption.pc', requires-private: { add: freetype2 } }
+# sweep: every edit on every platform (not to merge)

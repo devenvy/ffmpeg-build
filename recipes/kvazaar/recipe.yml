@@ -36,3 +36,4 @@ build:
               path: '{deps}/lib/pkgconfig/kvazaar.pc',
               cflags: { append: -DKVZ_STATIC_LIB, missing: skip },
             }
+# sweep: every edit on every platform (not to merge)

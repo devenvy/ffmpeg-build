@@ -124,3 +124,4 @@ build:
         vars: { target: darwin64-x86_64-cc },
         env: { CC: '+= -target {MCAT_TARGET} -isysroot {MCAT_SYSROOT}' },
       }
+# sweep: every edit on every platform (not to merge)

@@ -37,3 +37,4 @@ build:
           path: '{deps}/lib/pkgconfig/rubberband.pc',
           libs-private: { add: '{cxx-runtime} -lm', missing: after-libs },
         }
+# sweep: every edit on every platform (not to merge)

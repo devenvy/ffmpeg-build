@@ -55,3 +55,4 @@ build:
           path: '{deps}/lib/pkgconfig/davs2.pc',
           libs-private: { add: '{cxx-runtime}', missing: after-libs },
         }
+# sweep: every edit on every platform (not to merge)

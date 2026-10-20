@@ -104,3 +104,4 @@ build:
           line: 'prefix={deps}',
           message: failed to repoint fontconfig.pc at the deps folder,
         }
+# sweep: every edit on every platform (not to merge)

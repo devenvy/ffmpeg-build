@@ -27,3 +27,4 @@ build:
       after:
         - replace-in-file:
             { path: '{deps}/include/twolame.h', from: '__declspec(dllimport)', to: '' }
+# sweep: every edit on every platform (not to merge)

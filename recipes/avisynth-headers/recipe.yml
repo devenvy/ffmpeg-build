@@ -41,3 +41,4 @@ build:
       ]
     - [cmake, --build, _build, --target, VersionGen]
     - [cmake, --install, _build]
+# sweep: every edit on every platform (not to merge)

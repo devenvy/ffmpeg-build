@@ -58,3 +58,4 @@ build:
           path: '{deps}/lib/pkgconfig/libssh.pc',
           libs-private: { add: -lmbedcrypto, missing: after-libs },
         }
+# sweep: every edit on every platform (not to merge)

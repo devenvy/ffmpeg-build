@@ -27,3 +27,4 @@ build:
           regex: true,
         }
     - [autoreconf, -fi]
+# sweep: every edit on every platform (not to merge)

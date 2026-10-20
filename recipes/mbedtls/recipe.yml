@@ -50,3 +50,4 @@ build:
     'osx-*': *threads
     'ios-*': *threads
     'maccatalyst-*': *threads
+# sweep: every edit on every platform (not to merge)

@@ -37,3 +37,4 @@ build:
             }
       after:
         - move: { from: '{deps}/lib/pkgconfig/lept_Release.pc', to: '{deps}/lib/pkgconfig/lept.pc' }
+# sweep: every edit on every platform (not to merge)

@@ -35,3 +35,4 @@ build:
         path: '{deps}/lib/pkgconfig/libchromaprint.pc'
         libs-private: { append: '{cxx-runtime} -lm' }
         cflags: { add: -DCHROMAPRINT_NODLL, missing: skip }
+# sweep: every edit on every platform (not to merge)

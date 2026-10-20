@@ -53,3 +53,4 @@ build:
         { path: '{deps}/lib/pkgconfig/libjxl.pc', libs-private: { add: '{cxx-libs}' } }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/libjxl_threads.pc', libs-private: { add: '{cxx-libs}' } }
+# sweep: every edit on every platform (not to merge)

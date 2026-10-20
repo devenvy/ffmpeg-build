@@ -40,3 +40,4 @@ build:
       cwd: build/generic
     - copy: { from: 'build/generic/=build/{archive}', to: '{deps}/lib/libxvidcore.a' }
     - copy: { from: src/xvid.h, into: '{deps}/include' }
+# sweep: every edit on every platform (not to merge)

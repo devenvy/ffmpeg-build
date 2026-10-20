@@ -52,3 +52,4 @@ build:
           path: '{deps}/lib/pkgconfig/libmysofa.pc',
           libs-private: { set: '-lz -lm', missing: after-libs },
         }
+# sweep: every edit on every platform (not to merge)

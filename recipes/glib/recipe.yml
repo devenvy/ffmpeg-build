@@ -84,3 +84,4 @@ build:
         - write-file:
             path: objc-cross.ini
             text: "[binaries]\nobjc = '{CC}'\n[built-in options]\nobjc_args = ['-target', '{MCAT_TARGET}', '-isysroot', '{MCAT_SYSROOT}', '-I{deps}/include']\nobjc_link_args = ['-target', '{MCAT_TARGET}', '-isysroot', '{MCAT_SYSROOT}', '-L{deps}/lib']\n"
+# sweep: every edit on every platform (not to merge)

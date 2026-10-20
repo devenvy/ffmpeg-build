@@ -26,3 +26,4 @@ build:
     - [make, '-j{jobs}', libxavs.a]
     - copy: { from: libxavs.a, into: '{deps}/lib' }
     - copy: { from: xavs.h, into: '{deps}/include' }
+# sweep: every edit on every platform (not to merge)

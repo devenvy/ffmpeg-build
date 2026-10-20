@@ -20,3 +20,4 @@ build:
     # with both links on ARM
     - replace-in-file:
         { path: src/neon/oapv_sad_neon.c, from: sad_16b_neon_8x2n, to: oapv_sad_16b_neon_8x2n }
+# sweep: every edit on every platform (not to merge)

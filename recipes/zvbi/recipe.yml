@@ -76,3 +76,4 @@ build:
           to: 'AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create(0, 0, 0, 0);]])',
         }
     - [autoreconf, -fi]
+# sweep: every edit on every platform (not to merge)

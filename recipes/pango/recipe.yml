@@ -62,3 +62,4 @@ build:
     'linux-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'android-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'win-*': { args: [-Dfontconfig=disabled, -Dfreetype=disabled] }
+# sweep: every edit on every platform (not to merge)

@@ -145,3 +145,4 @@ build:
     # name: the same archive under it.
     - copy: { from: '{deps}/lib/libMoltenVK.a', to: '{deps}/lib/libvulkan.a' }
       when: { platforms: [ios-arm64, maccatalyst-*] }
+# sweep: every edit on every platform (not to merge)

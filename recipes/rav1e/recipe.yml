@@ -150,3 +150,4 @@ build:
           unset: [CC, CXX, CFLAGS, CXXFLAGS, CPPFLAGS, LDFLAGS, SDKROOT]
     'ios-*': *apple
     'maccatalyst-*': *apple
+# sweep: every edit on every platform (not to merge)
