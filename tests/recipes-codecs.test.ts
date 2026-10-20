@@ -741,7 +741,13 @@ describe('rav1e', () => {
     );
     // build scripts run here: compiled with this machine's compilers
     const last = h.calls.at(-1)!;
-    expect(last.env).toMatchObject({ HOST_CC: 'cc', HOST_CXX: 'c++', HOST_CFLAGS: '-O2' });
+    expect(last.env).toMatchObject({
+      HOST_CC: 'cc',
+      HOST_CXX: 'c++',
+      HOST_CFLAGS: '-O2',
+      // no build folder in the library's panic messages
+      RUSTFLAGS: `--remap-path-prefix=${h.src}=/work/src/rav1e --remap-path-prefix=/opt/cargo=/cargo`,
+    });
     // Apple: Rust and cargo-c into the build's folder first (cargo-c built for the Mac, without the platform's flags)
     expect(calls.slice(0, -1)).toEqual(
       apple

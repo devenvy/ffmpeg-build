@@ -22,8 +22,15 @@ build:
   # from crates.io (--locked).
   system: none
   # its build scripts (libgit2, for the version string) run here, so they are compiled with the build machine's own
-  # compilers and flags, not the platform's (which the cc crate otherwise takes from CC and CFLAGS)
-  env: { HOST_CC: cc, HOST_CXX: c++, HOST_CFLAGS: -O2, HOST_CXXFLAGS: -O2 }
+  # compilers and flags, not the platform's (which the cc crate otherwise takes from CC and CFLAGS). Rust keeps source
+  # paths in its panic messages: the source folder (with Apple's CARGO_HOME) and the images' /opt/cargo crates are
+  # remapped to fixed names, so no build folder ends up in the library (the staged-binary check)
+  env:
+    HOST_CC: cc
+    HOST_CXX: c++
+    HOST_CFLAGS: -O2
+    HOST_CXXFLAGS: -O2
+    RUSTFLAGS: '--remap-path-prefix={src}=/work/src/rav1e --remap-path-prefix=/opt/cargo=/cargo'
   steps:
     - run:
         [
