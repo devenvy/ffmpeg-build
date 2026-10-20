@@ -137,13 +137,15 @@ describe('ffmpeg/unsupported.yml', () => {
   it('reads entries with a reason and a note', () => {
     expect(
       parseUnsupported(
-        `${ok}  libvidstab: { reason: pending, issue: 21, batch: d, note: vidstab }\n  libcelt: { reason: deprecated-upstream, majors: [8], note: CELT }\n`,
+        `${ok}  libvidstab: { reason: pending, issue: 21, batch: d, note: vidstab }\n  libcelt: { reason: deprecated-upstream, majors: [8], note: CELT }\n` +
+          '  libsmbclient: { reason: shared-only, note: Samba }\n',
       ),
     ).toEqual({
       batches: { d: 'Filters' },
       options: {
         libvidstab: { reason: 'pending', issue: 21, batch: 'd', note: 'vidstab' },
         libcelt: { reason: 'deprecated-upstream', majors: ['8'], note: 'CELT' },
+        libsmbclient: { reason: 'shared-only', note: 'Samba' },
       },
     });
   });

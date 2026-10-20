@@ -443,3 +443,43 @@ describe('libcdio and libcdio-paranoia', () => {
     expect(platformsOf('libcdio-paranoia')).toEqual(DESKTOP);
   });
 });
+
+// Scripts: AviSynth+'s and VapourSynth's headers alone (FFmpeg loads them at run time), where they run.
+describe('avisynth-headers', () => {
+  it.each(platformsOf('avisynth-headers'))('%s', async (platform) => {
+    const h = fake(platform);
+    await build(h, 'avisynth-headers');
+    // its HEADERS_ONLY install, with the generated version.h (a target of its own) made first
+    expect(commands(h)).toEqual([
+      [
+        'cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -B _build -S .',
+        `-DCMAKE_INSTALL_PREFIX=${h.deps}`,
+        '-DCMAKE_INSTALL_INCLUDEDIR=include -DHEADERS_ONLY=ON',
+        ...h.context.toolchain.cmakeArgs,
+      ].join(' '),
+      'cmake --build _build --target VersionGen',
+      'cmake --install _build',
+    ]);
+  });
+  it('is GPL-2.0-or-later, on Linux, Windows and macOS', () => {
+    expect(recipe('avisynth-headers').license).toBe('GPL-2.0-or-later');
+    expect(platformsOf('avisynth-headers')).toEqual(DESKTOP);
+  });
+});
+
+describe('vapoursynth-headers', () => {
+  it.each(platformsOf('vapoursynth-headers'))('%s', async (platform) => {
+    const h = fake(platform);
+    const names = ['VapourSynth4.h', 'VSScript4.h', 'VSHelper4.h', 'VSConstants4.h'];
+    for (const n of names) {
+      put(join(h.src, 'include', n), n);
+    }
+    await build(h, 'vapoursynth-headers');
+    expect(commands(h)).toEqual([]);
+    expect(h.files(join(h.deps, 'include', 'vapoursynth'))).toEqual([...names].sort());
+  });
+  it('is LGPL-2.1-or-later, on Linux, Windows and macOS', () => {
+    expect(recipe('vapoursynth-headers').license).toBe('LGPL-2.1-or-later');
+    expect(platformsOf('vapoursynth-headers')).toEqual(DESKTOP);
+  });
+});

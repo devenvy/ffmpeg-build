@@ -108,6 +108,8 @@ auto-components:
   - dvdnav
   - dvdread
   - cdio
+  - avisynth
+  - vapoursynth
 options:
   # built into FFmpeg: nothing to build
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)
@@ -443,3 +445,8 @@ options:
     }
   # (its libcdio input device isn't in ships:, which names what `ffmpeg -<kind>` lists, and devices are -devices')
   cdio: { needs: libcdio-paranoia, ffmpeg-license: gpl }
+
+  # scripts: AviSynth+ (.avs) and VapourSynth (.vpy) as demuxers; the build has only their headers, and FFmpeg loads
+  # the user's AviSynth+ or VapourSynth at run time
+  avisynth: { needs: avisynth-headers, ffmpeg-license: gpl, ships: { demuxers: [avisynth] } }
+  vapoursynth: { needs: vapoursynth-headers, ships: { demuxers: [vapoursynth] } }

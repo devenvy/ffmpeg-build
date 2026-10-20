@@ -206,6 +206,8 @@ const REASONS = [
   'platform-not-built',
   'deprecated-upstream',
   'alternative-built',
+  // the library builds only as shared libraries (and their private ones), and every library here links in statically
+  'shared-only',
 ] as const;
 type Reason = (typeof REASONS)[number];
 
@@ -572,7 +574,7 @@ const WHAT_TO_DO: Record<ProblemKind, (p: CoverageProblem[]) => string[]> = {
     '- list it in ffmpeg/unsupported.yml with a reason, e.g.',
     ...ps.map((p) => `    ${p.name ?? ''}: { reason: pending, issue: <n>, note: <what it is> }`),
     '  (reasons: pending with the open issue tracking it, sdk-not-redistributable, needs-hardware-sdk,',
-    '  platform-not-built, deprecated-upstream, alternative-built with instead: <option>).',
+    '  platform-not-built, deprecated-upstream, alternative-built with instead: <option>, shared-only).',
     'DEVELOPMENT.md, "Adding support for an FFmpeg option", has the steps.',
   ],
   entry: () => ['Remove or correct these entries of ffmpeg/unsupported.yml as each line says.'],

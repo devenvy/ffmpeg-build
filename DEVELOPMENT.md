@@ -208,7 +208,8 @@ writes it (`node scripts/ffmpeg-support.ts --write`); it is never edited by hand
   `configure:` (on some platform the engine builds), or as `--enable-<option>` when it is `builtin: true`; or
 - **listed** in `ffmpeg/unsupported.yml` with a reason: `pending` (with the open `issue:` that tracks it, and its
   `batch:` there), `sdk-not-redistributable`, `needs-hardware-sdk`, `platform-not-built`, `deprecated-upstream`, or
-  `alternative-built` (with `instead:`, the option that does the job), and a `note:`. `majors:` limits an entry to
+  `alternative-built` (with `instead:`, the option that does the job) or `shared-only` (its library builds only as
+  shared libraries, and every library here links in statically), and a `note:`. `majors:` limits an entry to
   some FFmpeg majors; without it, it is for every major that offers the name.
 
 `tests/ffmpeg-coverage.test.ts` (part of `pnpm run test:ci`, so the required `result` check) fails, naming each, when

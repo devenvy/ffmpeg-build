@@ -1,0 +1,26 @@
+name: vapoursynth-headers
+provides: vapoursynth
+license: LGPL-2.1-or-later
+license-files: [COPYING.LESSER]
+configure: [--enable-vapoursynth]
+source: { git: https://github.com/vapoursynth/vapoursynth, ref: 'R{version}' }
+versions: { git-tags: '^R(\d+)$' }
+# where VapourSynth itself runs: Linux, Windows and macOS
+platforms: [linux-*, win-*, osx-*]
+build:
+  # VapourSynth's API 4 headers alone, for FFmpeg's vapoursynth demuxer, which loads VapourSynth's script library
+  # (libvapoursynth-script, or VSScript.dll) at run time: the build links nothing of it, and opening a .vpy script needs
+  # VapourSynth (and its Python) installed.
+  system: none
+  steps:
+    - copy:
+        {
+          from:
+            [
+              include/VapourSynth4.h,
+              include/VSScript4.h,
+              include/VSHelper4.h,
+              include/VSConstants4.h,
+            ],
+          into: '{deps}/include/vapoursynth',
+        }
