@@ -16,13 +16,14 @@ source:
   }
 # 1.56: 1.58 needs GLib 2.88, and GLib stays at 2.86 for win-x64's mingw-w64 (recipes/glib); move on with it
 versions: { git-tags: '^(1\.56\.\d+)$' }
-# only librsvg builds against it. Not iOS or Mac Catalyst: Pango's Apple backend links ApplicationServices, which
-# they haven't got, and its Fontconfig backend there would need cairo's (cairo's Quartz is macOS-only).
-platforms: [linux-*, win-*, osx-*, android-*]
+# only librsvg builds against it. Not on Apple: on macOS Pango's Core Text backend needs HarfBuzz built with Core
+# Text, which the shared harfbuzz recipe isn't (changing it would change every shipped macOS build's libass); on iOS
+# and Mac Catalyst it links ApplicationServices, which they haven't got.
+platforms: [linux-*, win-*, android-*]
 build:
   # Pango: text layout (LGPL-2.0-or-later), static, for librsvg's text. On cairo, with HarfBuzz and FriBidi, and the
   # platform's fonts: FreeType and Fontconfig (pangoft2) on Linux and Android, where Pango requires them; Windows'
-  # and Core Text's own elsewhere. No introspection, docs, tests, examples, libthai, Xft or sysprof.
+  # and Windows' own (DirectWrite) there. No introspection, docs, tests, examples, libthai, Xft or sysprof.
   system: meson
   args:
     [
@@ -62,4 +63,3 @@ build:
     'linux-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'android-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'win-*': { args: [-Dfontconfig=disabled, -Dfreetype=disabled] }
-    'osx-*': { args: [-Dfontconfig=disabled, -Dfreetype=disabled] }

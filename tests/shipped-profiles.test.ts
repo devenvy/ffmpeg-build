@@ -1624,9 +1624,9 @@ describe('filter and processing libraries', () => {
       licenses: ALL,
       ships: { filters: ['drawvg'] },
     },
-    // on cairo and Pango (not on iOS or Mac Catalyst); its Apache-2.0 Rust crates keep it to v3 builds
+    // on cairo and Pango (not on Apple); its Apache-2.0 Rust crates keep it to v3 builds
     rsvg: {
-      platforms: PLATFORMS.filter((p) => !/^(ios|maccatalyst)-/.test(p)),
+      platforms: PLATFORMS.filter((p) => !/^(osx|ios|maccatalyst)-/.test(p)),
       recipe: 'librsvg',
       recipes: (p) =>
         [

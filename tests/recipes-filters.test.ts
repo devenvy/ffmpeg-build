@@ -442,8 +442,6 @@ describe('the LV2 host stack', () => {
   });
 });
 
-const apple = (p: string) => /^(osx|ios|maccatalyst)-/.test(p);
-
 // GLib and what it builds on: PCRE2 (8-bit, no JIT), libffi, and proxy-libintl's stubs where the C library has no
 // gettext; nothing fetched as a subproject.
 describe('GLib', () => {
@@ -759,7 +757,7 @@ describe('cairo', () => {
 });
 
 // Pango on cairo, HarfBuzz and FriBidi, with GLib's glib-mkenums from deps, the platform's fonts, and two small
-// source fixes (a missing include; a warning newer clangs make an error). Not on iOS or Mac Catalyst.
+// source fixes (a missing include; a warning newer clangs make an error). Not on Apple.
 describe('pango', () => {
   it.each(platformsOf('pango'))('%s', async (platform) => {
     const h = fake(platform);
@@ -788,9 +786,11 @@ describe('pango', () => {
     );
     expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Wunused-but-set-variable',\n");
   });
-  it('stays on 1.56 while GLib does on 2.86, and leaves out iOS and Mac Catalyst', () => {
+  it('stays on 1.56 while GLib does on 2.86, and leaves out Apple', () => {
     expect(recipe('pango').versions).toEqual({ 'git-tags': '^(1\\.56\\.\\d+)$' });
-    expect(platformsOf('pango')).toEqual(PLATFORMS.filter((p) => !/^(ios|maccatalyst)-/.test(p)));
+    expect(platformsOf('pango')).toEqual(
+      PLATFORMS.filter((p) => !/^(osx|ios|maccatalyst)-/.test(p)),
+    );
   });
 });
 
@@ -806,8 +806,6 @@ describe('librsvg', () => {
     'win-arm64': 'aarch64-pc-windows-gnullvm',
     'android-arm64': 'aarch64-linux-android',
     'android-x64': 'x86_64-linux-android',
-    'osx-arm64': 'aarch64-apple-darwin',
-    'osx-x64': 'x86_64-apple-darwin',
   };
   it.each(platformsOf('librsvg'))('%s', async (platform) => {
     const h = fake(platform);
@@ -829,10 +827,8 @@ describe('librsvg', () => {
         ? "  foreach i: native_libs.stdout().replace('unwind', 'gcc_eh').split()\n"
         : '  foreach i: native_libs.stdout().split()\n',
     );
-    // macOS: Rust and cargo-c into the build's own folder first
-    expect(commands(h)[0]!.includes('rustup toolchain install 1.98.1')).toBe(apple(platform));
   });
-  it('is v3 builds only, for its Apache-2.0 crates, and not on iOS or Mac Catalyst', () => {
+  it('is v3 builds only, for its Apache-2.0 crates, and not on Apple', () => {
     expect(recipe('librsvg').license).toContain('Apache-2.0');
     expect(recipe('librsvg').provides).toBe('rsvg');
     expect(platformsOf('librsvg')).toEqual(platformsOf('pango'));
@@ -936,7 +932,15 @@ describe('opencv', () => {
     const h = fake(platform);
     const android = platform.startsWith('android-');
     const pc = `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm\n`;
-    put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    // not installed on Android and iOS: copied from the build folder
+    const copied = android || platform.startsWith('ios-');
+    put(copied ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    put(
+      join(h.src, 'CMakeLists.txt'),
+      `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
+        `  status("    Linker flags (Debug):"   \${CMAKE_EXE_LINKER_FLAGS} \${CMAKE_EXE_LINKER_FLAGS_DEBUG})\n` +
+        `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
+    );
     await build(h, 'opencv');
     const setup = commands(h)[0]!;
     for (const arg of [
@@ -948,6 +952,12 @@ describe('opencv', () => {
       expect(setup).toContain(arg);
     }
     expect(setup.includes('-DOPENCV_LIB_INSTALL_PATH=lib')).toBe(android);
+    // no build folder in its build information
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      'status("    C++ flags (Release):"    "(not recorded)")\n' +
+        '  status("    Linker flags (Debug):"   "(not recorded)")\n' +
+        `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
+    );
     const win = platform.startsWith('win-') ? ' -lole32' : '';
     expect(h.read(pcPath(h, 'opencv4'))).toBe(
       `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm ${cxxRuntime(platform)}${win}\n`,

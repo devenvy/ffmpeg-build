@@ -59,8 +59,7 @@ build:
       -DOPENCV_FORCE_3RDPARTY_BUILD=OFF,
     ]
   platforms:
-    # Android: OpenCV's own SDK layout (sdk/native/...) would put it where nothing finds it, and its .pc is made but
-    # not installed there: the usual layout, and the .pc copied in
+    # Android: OpenCV's own SDK layout (sdk/native/...) would put it where nothing finds it: the usual layout
     'android-*':
       args:
         [
@@ -77,10 +76,21 @@ build:
       after:
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/opencv4.pc', libs-private: { add: -lole32 } }
-  # its .pc names no C++ runtime, which a static link from C (FFmpeg's probe and filter) needs
+  # Its build information (cv::getBuildInformation, compiled into the library) lists the compiler flags, which name
+  # the build folder (the engine's -ffile-prefix-map; the staged-binary check refused it on Mac Catalyst): left out.
+  before:
+    - replace-in-file:
+        {
+          path: CMakeLists.txt,
+          from: '^(\s*status\("    (?:C\+\+ flags|C flags|Linker flags) \((?:Release|Debug)\):"\s+)\$\{.*\}\)$',
+          to: '$1"(not recorded)")',
+          regex: true,
+        }
+  # Its .pc is made but not installed on Android and iOS (only "UNIX AND NOT ANDROID", or MinGW): copied in. It names
+  # no C++ runtime, which a static link from C (FFmpeg's probe and filter) needs.
   after:
     - copy: { from: _build/unix-install/opencv4.pc, into: '{deps}/lib/pkgconfig' }
-      when: { platforms: [android-*] }
+      when: { missing: '{deps}/lib/pkgconfig/opencv4.pc' }
     - edit-pkg-config:
         {
           path: '{deps}/lib/pkgconfig/opencv4.pc',
