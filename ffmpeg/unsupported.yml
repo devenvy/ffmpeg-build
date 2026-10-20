@@ -24,26 +24,8 @@ batches:
   h: Large ML backends (last; where they build reasonably)
 options:
   # d. Filters / processing
-  libvidstab:
-    { reason: pending, issue: 21, batch: d, note: 'vidstab (video stabilisation filters)' }
-  librubberband:
-    { reason: pending, issue: 21, batch: d, note: 'rubberband (time-stretch and pitch filter)' }
-  frei0r: { reason: pending, issue: 21, batch: d, note: 'frei0r (video effect plugins)' }
-  ladspa: { reason: pending, issue: 21, batch: d, note: 'ladspa (audio effect plugins)' }
-  lv2: { reason: pending, issue: 21, batch: d, note: 'lv2 (audio effect plugins)' }
-  libmysofa:
-    { reason: pending, issue: 21, batch: d, note: 'mysofa (sofalizer: HRTF spatial audio)' }
-  libbs2b: { reason: pending, issue: 21, batch: d, note: 'bs2b (headphone crossfeed)' }
-  libqrencode:
-    { reason: pending, issue: 21, batch: d, note: 'qrencode (QR code source and filter)' }
-  libquirc: { reason: pending, issue: 21, batch: d, note: 'quirc (QR code reading)' }
   liblensfun: { reason: pending, issue: 21, batch: d, note: 'lensfun (lens correction)' }
   libopencolorio: { reason: pending, issue: 21, batch: d, note: 'opencolorio (colour management)' }
-  libflite: { reason: pending, issue: 21, batch: d, note: 'flite (speech synthesis source)' }
-  libzvbi: { reason: pending, issue: 21, batch: d, note: 'zvbi (teletext decoder)' }
-  libaribb24: { reason: pending, issue: 21, batch: d, note: 'aribb24 (ARIB STD-B24 captions)' }
-  libaribcaption:
-    { reason: pending, issue: 21, batch: d, note: 'aribcaption (ARIB STD-B24 captions)' }
   cairo: { reason: pending, issue: 21, batch: d, note: 'cairo (vector graphics; librsvg uses it)' }
   librsvg: { reason: pending, issue: 21, batch: d, note: 'librsvg (SVG decoder)' }
   libtesseract: { reason: pending, issue: 21, batch: d, note: 'tesseract (OCR filter)' }
