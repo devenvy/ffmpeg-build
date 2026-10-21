@@ -71,7 +71,8 @@
               "type": "string",
               "enum": [
                 "static",
-                "shared"
+                "shared",
+                "system-shared"
               ]
             }
           },
@@ -488,7 +489,8 @@
               "type": "string",
               "enum": [
                 "static",
-                "shared"
+                "shared",
+                "system-shared"
               ]
             }
           },
