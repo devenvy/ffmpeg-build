@@ -1,13 +1,15 @@
 import { createHash } from 'node:crypto';
 import {
   appendFileSync,
+  closeSync,
   copyFileSync,
   existsSync,
   linkSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
-  readFileSync,
+  readSync,
   rmSync,
 } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
@@ -18,6 +20,7 @@ import { listTarGzMembers } from '../untar.ts';
 
 import type { CrateRecord, RustRecord } from './cargo.ts';
 import type { Source } from './plan.ts';
+import type { SupplementalSource } from './supplemental-sources.ts';
 import type { Submodules } from '../schema/engine.ts';
 
 export interface SourceRecord {
@@ -30,17 +33,23 @@ export interface SourceRecord {
   cached?: boolean;
   crates?: CrateRecord[]; // a Rust library: the crates its build compiled (build/cargo.ts)
   rust?: RustRecord; // a Rust library: the standard library it links
+  supplementalSources?: SupplementalSource[];
 }
 
 /** Every file a source record keeps under the cache's sources/: its own source, and its crates' .crate files. */
 export function keptFiles(record: {
   file: string;
   sha256: string;
+  supplementalSources?: readonly { file: string; sha256: string }[] | undefined;
   crates?:
     readonly { name: string; file?: string | undefined; sha256?: string | undefined }[] | undefined;
 }): { file: string; sha256: string }[] {
   return [
     { file: record.file, sha256: record.sha256 },
+    ...(record.supplementalSources ?? []).map((input) => ({
+      file: input.file,
+      sha256: input.sha256,
+    })),
     ...(record.crates ?? []).flatMap((c) =>
       c.file && c.sha256 ? [{ file: c.file, sha256: c.sha256 }] : [],
     ),
@@ -55,8 +64,20 @@ export interface FetchedSource {
 
 export class SourceIntegrityError extends Error {}
 
+const HASH_CHUNK_BYTES = 65536;
 export function sha256(path: string): string {
-  return createHash('sha256').update(readFileSync(path)).digest('hex');
+  const hash = createHash('sha256');
+  const buffer = Buffer.alloc(HASH_CHUNK_BYTES);
+  const fd = openSync(path, 'r');
+  try {
+    let count;
+    while ((count = readSync(fd, buffer)) > 0) {
+      hash.update(buffer.subarray(0, count));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest('hex');
 }
 
 function placeOnce(temp: string, final: string): void {

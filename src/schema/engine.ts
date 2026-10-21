@@ -476,6 +476,7 @@ const recipeBuild = z
     system: z.enum(['cmake', 'meson', 'autotools', 'none']),
     args: z.array(text).default([]),
     'source-dir': relativePath.optional(),
+    'source-inventory': relativePath.optional(),
     'configure-script': relativePath.default('configure'),
     'make-targets': z.array(text).default([]),
     'install-targets': z.array(text).default(['install']),
