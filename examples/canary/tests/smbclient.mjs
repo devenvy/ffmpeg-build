@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
@@ -16,13 +16,16 @@ const SERVER =
   'mirror.gcr.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac';
 const name = `ffb-smb-${process.pid}`;
 const dir = mkdtempSync(join(tmpdir(), 'ffb-smb-'));
+const runtime = join(dir, 'runtime');
 const share = 'smb://ffbtest:ffb-test-pass@ffb-smb-server/media';
 const ffmpeg = process.env.FFMPEG;
 assert.ok(ffmpeg, 'The target test runner must set FFMPEG');
 
 const command = (program, args, timeout = COMMAND_TIMEOUT) => {
   const result = spawnSync(program, args, { encoding: 'utf8', timeout });
-  assert.equal(result.status, 0, `${program}: ${result.stderr}\n${result.stdout}`);
+  if (result.status !== 0) {
+    throw new Error(`${program} exited ${result.status}: ${result.stderr}\n${result.stdout}`);
+  }
   return result.stdout;
 };
 const docker = (args, timeout) => command('docker', args, timeout);
@@ -35,7 +38,7 @@ const remote = (args) =>
     '--user',
     '10001:10001',
     '--mount',
-    `type=bind,src=${dirname(ffmpeg)},dst=/ffmpeg,readonly`,
+    `type=bind,src=${runtime},dst=/ffmpeg,readonly`,
     '--mount',
     `type=bind,src=${dir},dst=/data,readonly`,
     CLIENT,
@@ -47,6 +50,10 @@ const remote = (args) =>
 const rows = (text) => text.split('\n').filter((line) => line.startsWith('0,'));
 try {
   chmodSync(dir, PUBLIC_DIRECTORY);
+  // The test runner extracts into a private 0700 directory. Copy its runtime
+  // so the unprivileged client can traverse it without changing that directory.
+  cpSync(dirname(ffmpeg), runtime, { recursive: true, verbatimSymlinks: true });
+  chmodSync(runtime, PUBLIC_DIRECTORY);
   command(ffmpeg, [
     '-hide_banner',
     '-nostdin',

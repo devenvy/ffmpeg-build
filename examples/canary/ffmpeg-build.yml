@@ -165,7 +165,7 @@ targets:
     license: gplv3
     ffmpeg: '9'
     with: [smbclient, gnutls]
-    tests: [tests/smbclient.mjs]
+    tests: [tests/smbclient.sh]
   linux-x64-nvidia-nonfree:
     platform: linux-x64
     license: nonfree
