@@ -6,8 +6,17 @@ configure: [--enable-libopus]
 source: { git: https://github.com/xiph/opus, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: '-DBUILD_SHARED_LIBS=ON' }
+      runtime: ['lib/libopus.so*']
 build:
   system: cmake
-  args: [-DOPUS_BUILD_TESTING=OFF, -DOPUS_BUILD_PROGRAMS=OFF]
+  vars: { shared-library-arg: [] }
+  args: ['{shared-library-arg}', -DOPUS_BUILD_TESTING=OFF, -DOPUS_BUILD_PROGRAMS=OFF]
   platforms:
     win-arm64: { args: [-DOPUS_DISABLE_INTRINSICS=ON] }

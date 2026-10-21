@@ -8,13 +8,28 @@ configure: [--enable-libshine]
 source: { url: 'https://github.com/toots/shine/releases/download/{version}/shine-{version}.tar.gz' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/toots/shine }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libshine.so*']
 build:
   # shine: fixed-point MP3 encoder (LGPL-2.0), static, for FFmpeg's libshine encoder (found through shine.pc). Only
   # the library, its header and the .pc: not the shineenc program.
   system: autotools
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
   # its 2017 config.sub doesn't know every triple the cross builds use (aarch64-w64-mingw32): autoreconf refreshes it
   bootstrap: autoreconf
-  args: [--disable-shared, --enable-static, --with-pic]
+  args: ['{shared-arg}', '{static-arg}', --with-pic]
+  before:
+    # Keep libm after the archive in static pkg-config links (FFmpeg 8 uses --as-needed).
+    - replace-in-file:
+        path: shine.pc.in
+        from: 'Libs: -L${libdir} -lm -lshine'
+        to: "Libs: -L${libdir} -lshine\nLibs.private: -lm"
   # C17: its `void shine_mdct_initialise()` declaration conflicts with the definition under C23, newer GCCs' default
   env: { CFLAGS: '+= -std=gnu17' }
   make-targets: [libshine.la]

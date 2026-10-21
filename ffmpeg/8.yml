@@ -371,10 +371,10 @@ options:
   lcevc-dec: { needs: lcevcdec, min: 4.0.0, ships: { filters: [lcevc] } }
 
   # audio
-  opus: { needs: opus, ships: { encoders: [libopus] } }
-  vorbis: { needs: libvorbis, ships: { encoders: [libvorbis] } }
+  opus: { needs: opus, ships: { encoders: [libopus], decoders: [libopus] } }
+  vorbis: { needs: libvorbis, ships: { encoders: [libvorbis], decoders: [libvorbis] } }
   mp3lame: { needs: libmp3lame, ships: { encoders: [libmp3lame] } }
-  speex: { needs: speex, ships: { decoders: [libspeex] } }
+  speex: { needs: speex, ships: { encoders: [libspeex], decoders: [libspeex] } }
   gsm: { needs: libgsm, ships: { decoders: [libgsm] } }
   opencore-amrnb:
     {

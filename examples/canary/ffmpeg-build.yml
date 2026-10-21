@@ -160,6 +160,21 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-audio-shared-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [vorbis, opus, speex, mp3lame, shine]
+    link:
+      {
+        libogg: shared,
+        libvorbis: shared,
+        opus: shared,
+        speex: shared,
+        libmp3lame: shared,
+        shine: shared,
+      }
+    tests: [tests/audio-linkage.sh]
   linux-x64-smbclient-gplv3:
     platform: linux-x64
     license: gplv3

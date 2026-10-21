@@ -7,9 +7,18 @@ needs: [libogg]
 source: { git: https://github.com/xiph/vorbis, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libvorbis.so*', 'lib/libvorbisenc.so*', 'lib/libvorbisfile.so*']
 build:
   system: autotools
-  args: [--disable-shared, --enable-static, '--with-ogg={deps}', --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
+  args: ['{shared-arg}', '{static-arg}', '--with-ogg={deps}', --with-pic]
   before: [[./autogen.sh]]
   make-targets: [-C, lib, libvorbis.la, libvorbisenc.la, libvorbisfile.la]
   install-targets: []
