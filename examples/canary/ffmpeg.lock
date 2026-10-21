@@ -1,6 +1,7 @@
 # ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
 engine: 0.0.1
 ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
   "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
 libraries:
   alsa-lib: { version: 1.2.16.1, sha256: f740db7f488255944ffd4428416ee3390a96742856916433df468c281436480e }
@@ -14,6 +15,8 @@ libraries:
   chromaprint: { version: 1.6.1, commit: aed8eba2202dd9d7b3b0a56c77904cc805490d72 }
   codec2: { version: 1.2.0, commit: 06d4c11e699b0351765f10398abb4f663a984f36 }
   cpu-features: { version: 0.11.0, commit: 81d13c49649f0714dd41fb56bb246398b6584085 }
+  cuda-nvcc: { version: 12.8.93, sha256: 9961b3484b6b71314063709a4f9529654f96782ad39e72bf1e00f070db8210d3 }
+  cuda-runtime: { version: 12.8.90, sha256: 8d566b5fe745c46842dc16945cf36686227536decd2302c372be86da37faca68 }
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
   davs2: { version: 1.7, commit: b06d7585620f4e90a6d19a2926bb4e59793b8942 }
