@@ -160,6 +160,12 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-crypto-shared-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [gcrypt, libtls]
+    link: { libgcrypt: shared, libgpg-error: shared }
   linux-x64-crypto-lgplv2:
     platform: linux-x64
     license: lgplv2
