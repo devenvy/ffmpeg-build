@@ -50,6 +50,21 @@ const good = {
 const unpacked = (calls: string[][]) => calls.some((a) => a.includes('-C'));
 
 describe('a cache entry’s source record', () => {
+  it('rebuilds a legacy cache when the recipe requires supplemental inputs', async () => {
+    const c = cacheFolder(good);
+    expect(
+      await restoreCache(
+        c.entry,
+        c.deps,
+        c.sources,
+        'zlib',
+        c.runner,
+        {},
+        { supplementalSources: true },
+      ),
+    ).toBeUndefined();
+    expect(unpacked(c.calls)).toBe(false);
+  });
   it('is accepted when it names this library, a source inside sources/, a sha256 and (for git) a commit', () => {
     const sources = mkdtempSync(join(tmpdir(), 'ffmpeg-build-records-'));
     expect(parseSourceRecord(good, 'zlib', sources)).toEqual(good);

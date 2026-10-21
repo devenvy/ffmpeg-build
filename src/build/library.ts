@@ -35,6 +35,7 @@ import {
 } from './recipe-ops.ts';
 import { run, step } from './run.ts';
 import { isolateRustArchive } from './rust-archive.ts';
+import { keepSupplementalSources } from './supplemental-sources.ts';
 import { platformMatches } from '../platforms.ts';
 import { readFileIfPresent } from '../read-file.ts';
 import { cxxRuntime, type Toolchain } from './toolchain.ts';
@@ -847,6 +848,7 @@ export async function buildLibrary(
   // a Rust library's entry must list its crates: one without (an older engine's) is built again
   const restored = await restoreCache(cached, depsDir, sources, library.name, undefined, pin, {
     crates: Boolean(library.build.cargo),
+    supplementalSources: Boolean(library.build['source-inventory']),
   });
   if (restored) {
     step(`${library.name} ${library.version}: from cache`);
@@ -887,6 +889,15 @@ export async function buildLibrary(
   const record: SourceRecord = {
     ...sourceRecord(library.name, library.version, fetched, sources),
     ...(rust ?? {}),
+    ...(library.build['source-inventory']
+      ? {
+          supplementalSources: keepSupplementalSources(
+            src,
+            sources,
+            library.build['source-inventory'],
+          ),
+        }
+      : {}),
   };
   writeSourceRecord(depsDir, record);
   const files = changedFiles(before, listing(depsDir));
