@@ -7,6 +7,14 @@ needs: [libogg]
 source: { git: https://github.com/xiph/theora, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libtheora.so*', 'lib/libtheoraenc.so*', 'lib/libtheoradec.so*']
 build:
   # libtheora: Xiph's Theora video codec (BSD-3-Clause), static, for FFmpeg's libtheora encoder (FFmpeg decodes Theora
   # itself). FFmpeg 9 finds it through theoraenc.pc (which requires theoradec and ogg); 8.x with
@@ -14,11 +22,12 @@ build:
   # the libraries and headers: no examples (they want SDL and libvorbis), no spec or Doxygen docs, and none of the
   # configure-time test programs that link libogg/libvorbis (a cross build can't run them).
   system: autotools
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
   bootstrap: autogen
   args:
     [
-      --disable-shared,
-      --enable-static,
+      '{shared-arg}',
+      '{static-arg}',
       --with-pic,
       --disable-examples,
       --disable-doc,

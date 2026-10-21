@@ -14,6 +14,15 @@ source:
 versions:
   { git-tags: '^v(\d+\.\d+\.\d+)$', repo: https://git.code.sf.net/p/opencore-amr/vo-amrwbenc }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libvo-amrwbenc.so*']
 build:
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]

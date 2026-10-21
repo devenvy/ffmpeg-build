@@ -14,6 +14,15 @@ source:
     ['https://deb.debian.org/debian/pool/main/o/opencore-amr/opencore-amr_{version}.orig.tar.gz']
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$', repo: https://git.code.sf.net/p/opencore-amr/code }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libopencore-amrnb.so*', 'lib/libopencore-amrwb.so*']
 build:
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]

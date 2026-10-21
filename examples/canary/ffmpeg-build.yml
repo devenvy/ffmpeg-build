@@ -193,6 +193,26 @@ targets:
     ffmpeg: '9'
     with: [tensorflow, torch, onnxruntime, openvino]
     tests: [tests/tensorflow.sh, tests/torch.sh, tests/onnxruntime.sh, tests/openvino.sh]
+  linux-x64-speech-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [theora, opencore-amrnb, opencore-amrwb, vo-amrwbenc, ilbc]
+    tests: [tests/speech-linkage.sh]
+  linux-x64-speech-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [theora, opencore-amrnb, opencore-amrwb, vo-amrwbenc, ilbc]
+    link:
+      {
+        libogg: shared,
+        libtheora: shared,
+        opencore-amr: shared,
+        vo-amrwbenc: shared,
+        libilbc: shared,
+      }
+    tests: [tests/speech-linkage.sh]
   linux-x64-audio-shared-lgplv2:
     platform: linux-x64
     license: lgplv2
