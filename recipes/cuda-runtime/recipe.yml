@@ -1,0 +1,16 @@
+name: cuda-runtime
+license: LicenseRef-NVIDIA-CUDA
+license-files: [LICENSE]
+# An unchanged NVIDIA vendor package, not an open-source library build.
+source:
+  url: 'https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-{version}-archive.tar.xz'
+versions:
+  listing: https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/
+  files: '^cuda_cudart-linux-x86_64-(12\.8\.\d+)-archive\.tar\.xz$'
+platforms: [linux-x64]
+build:
+  system: none
+  steps:
+    - copy: { from: 'include/*', into: '{deps}/include', recursive: true }
+    - copy: { from: 'lib/*_static.a', into: '{deps}/lib' }
+    - copy: { from: lib/libculibos.a, into: '{deps}/lib' }

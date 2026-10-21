@@ -15,6 +15,7 @@
 major: 9
 releases: [9.0, 9.0.1, 9.0.2]
 auto-components:
+  - cuda-nvcc
   - decklink
   - fdk-aac
   - mpeghdec
@@ -126,6 +127,16 @@ auto-components:
   - avfoundation
   - coreimage
 options:
+  cuda-nvcc:
+    {
+      needs: cuda-nvcc,
+      ffmpeg-license: nonfree,
+      ships:
+        {
+          hwaccels: [cuda],
+          filters: [scale_cuda, yadif_cuda, bwdif_cuda, overlay_cuda, thumbnail_cuda],
+        },
+    }
   decklink: { needs: decklink-headers, ffmpeg-license: nonfree, kind: device }
   fdk-aac:
     {

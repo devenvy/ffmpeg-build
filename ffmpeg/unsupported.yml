@@ -34,20 +34,6 @@ options:
     }
 
   # g. Nonfree (nonfree builds only)
-  cuda_nvcc:
-    {
-      reason: pending,
-      issue: 21,
-      batch: g,
-      note: "cuda-nvcc (CUDA toolkit: same; the cuda-llvm option already builds FFmpeg's CUDA filters)",
-    }
-  libnpp:
-    {
-      reason: pending,
-      issue: 21,
-      batch: g,
-      note: "libnpp (CUDA toolkit's NPP filters; gone in FFmpeg 9)",
-    }
 
   # h. Large ML backends
   libonnxruntime: { reason: pending, issue: 21, batch: h, note: 'onnxruntime (dnn filters)' }
@@ -56,10 +42,15 @@ options:
   libtorch: { reason: pending, issue: 21, batch: h, note: 'torch (dnn filters)' }
 
   # not planned
+  libnpp:
+    {
+      reason: deprecated-upstream,
+      note: 'NPP filters were deprecated in FFmpeg 8 and removed in FFmpeg 9; cuda-nvcc and cuda-llvm provide the maintained CUDA filters',
+    }
   cuda_sdk:
     {
       reason: deprecated-upstream,
-      note: "FFmpeg's configure: --enable-cuda-sdk is deprecated, use --enable-cuda-nvcc (pending above)",
+      note: "FFmpeg's configure: --enable-cuda-sdk is deprecated, use --enable-cuda-nvcc (the cuda-nvcc option)",
     }
   libmfx:
     {

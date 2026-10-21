@@ -1,0 +1,25 @@
+name: cuda-nvcc
+provides: cuda-nvcc
+license: LicenseRef-NVIDIA-CUDA
+license-files: [LICENSE, include/crt/host_config.h]
+configure:
+  - --enable-ffnvcodec
+  - --enable-cuda
+  - --enable-cuda-nvcc
+  - '--nvcc={deps}/bin/nvcc'
+  # CUDA 12.8's frontend cannot parse the image's GCC 14 type_traits. The image's system GCC 8 compiles PTX only.
+  - '--nvccflags=-ccbin=/usr/bin/g++ -gencode arch=compute_60,code=sm_60 -O2 -std=c++11'
+needs: [cuda-runtime, nv-codec]
+# The package supplies both the compiler and the CRT headers NPP's host headers include.
+source:
+  url: 'https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-{version}-archive.tar.xz'
+versions:
+  listing: https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/linux-x86_64/
+  files: '^cuda_nvcc-linux-x86_64-(12\.8\.\d+)-archive\.tar\.xz$'
+platforms: [linux-x64]
+build:
+  system: none
+  steps:
+    - copy: { from: 'include/*', into: '{deps}/include', recursive: true }
+    - copy: { from: 'bin/*', into: '{deps}/bin', recursive: true }
+    - copy: { from: nvvm, to: '{deps}/nvvm', recursive: true }

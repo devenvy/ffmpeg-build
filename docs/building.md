@@ -12,6 +12,12 @@ release publishes it beside the build's archives.
 
 ## What you need
 
+`cuda-nvcc` is an opt-in, nonfree option for Linux x64. It installs NVIDIA's unchanged CUDA vendor
+packages into the dependency folder; those recorded downloads are vendor artifacts rather than open-source code.
+The compiler and its support files are build tools, not part of FFmpeg's runtime archive.
+Running the CUDA filters needs a compatible NVIDIA driver and GPU. The CUDA 12.8 compiler uses the Linux image's system GCC 8
+for PTX compilation; native builds need a compatible compiler at `/usr/bin/g++`.
+
 The opt-in `decklink` option needs Blackmagic Desktop Video installed on the machine running FFmpeg, plus compatible
 hardware. The build includes only the SDK's headers and dispatch code; the driver and Desktop Video runtime remain
 system dependencies. It is available in nonfree builds on Linux x64, Windows x64 and macOS. On Linux and macOS it
