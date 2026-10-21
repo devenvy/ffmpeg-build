@@ -1,0 +1,6 @@
+Third-Party Modified Version of the Fraunhofer FDK MPEG-H Software
+
+Build modification, 2026-10-21: on 32-bit ARM Linux, the compiler renames schur_div to
+_mpeghdec_schur_div. Upstream's symbol prefix header omits this architecture-specific
+C++ symbol, which otherwise collides when statically linking fdk-aac and mpeghdec
+into the same FFmpeg library. No algorithm or public API is changed.

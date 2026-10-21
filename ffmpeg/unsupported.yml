@@ -34,7 +34,6 @@ options:
     }
 
   # g. Nonfree (nonfree builds only)
-  libfdk_aac: { reason: pending, issue: 21, batch: g, note: 'fdk-aac (AAC encoder and decoder)' }
   decklink:
     {
       reason: pending,
@@ -63,7 +62,6 @@ options:
       batch: g,
       note: "libnpp (CUDA toolkit's NPP filters; gone in FFmpeg 9)",
     }
-  libmpeghdec: { reason: pending, issue: 21, batch: g, note: 'mpeghdec (MPEG-H 3D Audio decoder)' }
 
   # h. Large ML backends
   libonnxruntime: { reason: pending, issue: 21, batch: h, note: 'onnxruntime (dnn filters)' }

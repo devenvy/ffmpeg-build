@@ -1,0 +1,48 @@
+name: fdk-aac
+provides: fdk-aac
+license: FDK-AAC
+license-files: [NOTICE, xhe-aac/NOTICE]
+configure: [--enable-libfdk-aac]
+source: { git: https://github.com/mstorsjo/fdk-aac.git, ref: 'v{version}' }
+# 3.x moved the AAC sources into cpp/. Its separate xHE library is not used by FFmpeg.
+versions: { git-tags: '^v(3\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: none
+  # Build and install only the standard AAC library, not the unrelated xHE encoder.
+  steps:
+    - - cmake
+      - -B
+      - _build
+      - -S
+      - .
+      - -DCMAKE_BUILD_TYPE=Release
+      - '-DCMAKE_INSTALL_PREFIX={deps}'
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DBUILD_SHARED_LIBS=OFF
+      - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+      - -DBUILD_PROGRAMS=OFF
+      - '{cmake-cross-args}'
+    - [cmake, --build, _build, --target, fdk-aac, '-j{jobs}']
+    - copy: { from: _build/libfdk-aac.a, to: '{deps}/lib/libfdk-aac.a' }
+    - copy: { from: _build/fdk-aac.pc, to: '{deps}/lib/pkgconfig/fdk-aac.pc' }
+    # CMake's constant sin probe can succeed without libm on Android x64, but AAC also calls frexpf and ldexpf.
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/fdk-aac.pc'
+        libs-private: { add: -lm }
+    - copy:
+        { from: 'cpp/libSYS/include/machine_type.h', to: '{deps}/include/fdk-aac/machine_type.h' }
+    - copy: { from: 'cpp/libSYS/include/genericStds.h', to: '{deps}/include/fdk-aac/genericStds.h' }
+    - copy: { from: 'cpp/libSYS/include/FDK_audio.h', to: '{deps}/include/fdk-aac/FDK_audio.h' }
+    - copy:
+        {
+          from: 'cpp/libSYS/include/syslib_channelMapDescr.h',
+          to: '{deps}/include/fdk-aac/syslib_channelMapDescr.h',
+        }
+    - copy:
+        { from: 'cpp/libAACenc/include/aacenc_lib.h', to: '{deps}/include/fdk-aac/aacenc_lib.h' }
+    - copy:
+        {
+          from: 'cpp/libAACdec/include/aacdecoder_lib.h',
+          to: '{deps}/include/fdk-aac/aacdecoder_lib.h',
+        }

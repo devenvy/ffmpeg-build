@@ -1,0 +1,33 @@
+name: mpeghdec
+provides: mpeghdec
+license: FDK-MPEG-H
+license-files: [LICENSE.txt, { recipe: BUILD-NOTICE.txt }]
+configure: [--enable-libmpeghdec]
+source: { git: https://github.com/Fraunhofer-IIS/mpeghdec.git, ref: 'r{version}' }
+# r4.0.1 isolates the internal symbols shared with static fdk-aac.
+versions: { git-tags: '^r(\d+\.\d+\.\d+)$' }
+platforms: all
+build:
+  system: cmake
+  args: [-Dmpeghdec_BUILD_BINARIES=OFF, -Dmpeghdec_BUILD_DOC=OFF, -Dmpeghdec_SYMBOL_PREFIX=ON]
+  after:
+    # Upstream installs this under share/pkgconfig; the engine searches lib/pkgconfig.
+    # C consumers need the C++ runtime, and Windows consumers need the static export macro.
+    - pkg-config:
+        name: mpeghdec
+        description: Fraunhofer MPEG-H decoder
+        version: '{version}'
+        cflags: -DMPEGHDEC_STATIC=1
+        libs: -lmpeghdec
+        libs-private: '-lm {cxx-runtime}'
+  vars: { cxx-runtime: -lstdc++ }
+  platforms:
+    linux-armhf:
+      # Upstream's generated prefix header misses this C++ symbol on 32-bit ARM (long differs from x64).
+      env: { CXXFLAGS: '+= -Dschur_div=_mpeghdec_schur_div' }
+    'osx-*,ios-*,maccatalyst-*':
+      vars: { cxx-runtime: -lc++ }
+    win-arm64:
+      vars: { cxx-runtime: '-l:libc++.a' }
+    'linux-musl-*':
+      vars: { cxx-runtime: '-l:libstdc++.a' }
