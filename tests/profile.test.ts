@@ -128,7 +128,7 @@ describe('profiles', () => {
 
   it('says plainly when a key is misspelled', () => {
     expect(errors('name: t\nffmpeg: 9\nplatform: all\nlicense: gplv3\n')).toContain(
-      'unknown key "platform" (a profile has: name, ffmpeg, platforms, license, with, without, pin, patches, tests)',
+      'unknown key "platform" (a profile has: name, ffmpeg, platforms, license, with, without, pin, link, patches, tests)',
     );
   });
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { name, oneOrMany, text } from './common.ts';
+import { libraryLinks, name, oneOrMany, text } from './common.ts';
 
 export const LICENSES = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'] as const;
 export type License = (typeof LICENSES)[number];
@@ -94,6 +94,7 @@ export const profileSchema = z.strictObject({
   with: entries.default([]),
   without: entries.default([]),
   pin: pins.default([]),
+  link: libraryLinks.optional(),
   patches: oneOrMany(
     text,
     'expected a patch folder like patches/acme-muxer, or a list of them',

@@ -202,7 +202,11 @@ export function targetFacts(
     return { error: `${t.platform} doesn't build yet (platforms.yml has no entry for it)` };
   }
   const profile = targetProfile(folder, t);
-  const cell = planProfile(profile, data, { [t.ffmpeg]: version }).cells[0];
+  const planned = planProfile(profile, data, { [t.ffmpeg]: version });
+  if (planned.errors.length) {
+    return { error: planned.errors.join('; ') };
+  }
+  const cell = planned.cells[0];
   if (!cell) {
     return { error: `${t.name} plans no build; run ffmpeg-build check` };
   }
@@ -225,6 +229,13 @@ export function targetFacts(
       with: [...t.with].sort(),
       without: [...t.without].sort(),
       pin: { ...folder.pin, ...t.pin },
+      ...(cell.linkages
+        ? {
+            link: Object.fromEntries(
+              Object.entries(cell.linkages).sort(([a], [b]) => a.localeCompare(b)),
+            ),
+          }
+        : {}),
       tests: t.tests,
       // only when it has some: a target without components: keeps the definition it always had
       ...(Object.keys(t.components).length ? { components: t.components } : {}),

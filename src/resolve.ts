@@ -9,12 +9,14 @@ import {
   recipeForPin,
   resolveName,
 } from './engine-data.ts';
+import { linkagePlan } from './linkage.ts';
 import { expandPlatforms, platformMatches } from './platforms.ts';
 import { type Condition, type License, LICENSES } from './schema/profile.ts';
 import { compareVersions, inSeries, matchesVersionCondition } from './versions.ts';
 
 import type { Components } from './ffmpeg-components.ts';
 import type { Profile } from './profile.ts';
+import type { Linkage } from './schema/common.ts';
 import type { FfmpegLicenseClass } from './schema/engine.ts';
 
 export interface Variant {
@@ -49,6 +51,7 @@ export interface CellPlan {
   cell: Cell;
   options: string[]; // what this build includes, sorted
   recipes: string[]; // libraries, dependencies first
+  linkages?: Record<string, Linkage>;
   pins: Record<string, string>; // library -> pinned version ("13.0"), first matching pin entry wins
   groups: Record<string, string | undefined>; // e.g. { tls: 'openssl' }; undefined when none is in
   withResults: WithResult[]; // every `with` entry whose condition matches this cell
@@ -263,10 +266,12 @@ export function resolveCell(profile: Profile, data: EngineData, cell: Cell): Cel
       pins[target.recipe] = entry.version;
     }
   }
+  const linking = linkagePlan(data, recipes, cell.platform, profile.link);
   return {
     cell,
     options: chosenOptions,
     recipes,
+    ...(Object.keys(linking.modes).length ? { linkages: linking.modes } : {}),
     pins,
     groups,
     withResults,
@@ -330,5 +335,12 @@ export function planProfile(
     : variants.flatMap((v) =>
         platforms.map((platform) => resolveCell(profile, data, { ...v, platform })),
       );
+  for (const cell of cells) {
+    errors.push(
+      ...linkagePlan(data, cell.recipes, cell.cell.platform, profile.link).errors.map(
+        (error) => `${cell.cell.platform}: ${error}`,
+      ),
+    );
+  }
   return { variants, platforms, cells, errors };
 }
