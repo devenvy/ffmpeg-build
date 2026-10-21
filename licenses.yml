@@ -63,4 +63,5 @@ licenses:
   # GPL builds (whose licence covers the whole work)
   LicenseRef-LCEVCdec: [lgplv2, lgplv3, nonfree]
   FDK-AAC: [nonfree]
+  FDK-MPEG-H: [nonfree]
   proprietary: [nonfree]

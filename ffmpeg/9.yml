@@ -15,6 +15,8 @@
 major: 9
 releases: [9.0, 9.0.1, 9.0.2]
 auto-components:
+  - fdk-aac
+  - mpeghdec
   - mediacodec
   - d3d11va
   - dxva2
@@ -123,6 +125,14 @@ auto-components:
   - avfoundation
   - coreimage
 options:
+  fdk-aac:
+    {
+      needs: fdk-aac,
+      ffmpeg-license: nonfree,
+      ships: { encoders: [libfdk_aac], decoders: [libfdk_aac] },
+    }
+  mpeghdec:
+    { needs: mpeghdec, ffmpeg-license: nonfree, min: 4.0.1, ships: { decoders: [libmpeghdec] } }
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
   # Android's hardware video (MediaCodec) and the Java bridge it needs (both built into FFmpeg; the OS provides them)

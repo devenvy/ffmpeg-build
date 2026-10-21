@@ -17,6 +17,7 @@ libraries:
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
   davs2: { version: 1.7, commit: b06d7585620f4e90a6d19a2926bb4e59793b8942 }
+  fdk-aac: { version: 3.0.0, commit: a68a51aa45d86a43c7b228e3d45624af09dcdd8d }
   flite: { version: 2.2, commit: e9e2e37c329dbe98bfeb27a1828ef9a71fa84f88 }
   fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
   freetype: { version: 2.14.3, commit: 0a0221a1347e2f1e07c395263540026e9a0aa7c7 }
@@ -93,6 +94,7 @@ libraries:
   mbedtls: { version: 3.6.7, sha256: a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6 }
   minizip-ng: { version: 4.2.2, commit: 7b2387161c542fa9f427352dcdef76097d0d692b }
   moltenvk: { version: 1.4.2, commit: db66022459ffb663aa2b50f6b018bc2e124f5edf }
+  mpeghdec: { version: 4.0.1, commit: 4448b69738da2fa5f2f2f2b0ce29eea32509e046 }
   ncurses: { version: 6.6, sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11 }
   nettle: { version: 4.0, sha256: 3addbc00da01846b232fb3bc453538ea5468da43033f21bb345cb1e9073f5094 }
   nv-codec: { version: 13.1.15.0, commit: 0a6fba9a2820628b8103464f4c8753ee05838baa }
