@@ -45,3 +45,17 @@ it('does not alter builds without ONNX or an upstream implementation that alread
   expect(fixDnnThreadLifecycle(root, ['--enable-libonnxruntime'])).toBe(false);
   expect(readFileSync(join(dir, 'dnn_backend_common.h'), 'utf8')).not.toContain('thread_started');
 });
+
+it('leaves the remaining file untouched when either DNN source file is absent', () => {
+  for (const filename of ['dnn_backend_common.c', 'dnn_backend_common.h']) {
+    const { root, dir } = makeSource();
+    const remaining = join(
+      dir,
+      filename.endsWith('.c') ? 'dnn_backend_common.h' : 'dnn_backend_common.c',
+    );
+    const before = readFileSync(remaining, 'utf8');
+    rmSync(join(dir, filename));
+    expect(fixDnnThreadLifecycle(root, ['--enable-libonnxruntime'])).toBe(false);
+    expect(readFileSync(remaining, 'utf8')).toBe(before);
+  }
+});

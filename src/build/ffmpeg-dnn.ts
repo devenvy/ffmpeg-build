@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const EXPECTED_JOIN_SITES = 2;
@@ -10,11 +10,17 @@ export function fixDnnThreadLifecycle(dir: string, configure: string[]): boolean
   }
   const sourcePath = join(dir, 'libavfilter', 'dnn', 'dnn_backend_common.c');
   const headerPath = join(dir, 'libavfilter', 'dnn', 'dnn_backend_common.h');
-  if (!existsSync(sourcePath) || !existsSync(headerPath)) {
-    return false;
+  let source: string;
+  let header: string;
+  try {
+    source = readFileSync(sourcePath, 'utf8');
+    header = readFileSync(headerPath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
   }
-  const source = readFileSync(sourcePath, 'utf8');
-  const header = readFileSync(headerPath, 'utf8');
   const joinThread = '    pthread_join(async_module->thread_id, &status);\n';
   const created =
     '        return ret;\n    }\n#else\n    ret = async_module->start_inference(async_module->args);';
