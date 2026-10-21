@@ -47,8 +47,8 @@ builds FFmpeg again, and CI keeps the cache between runs.
 ## 3. In CI: build, test and release on GitHub
 
 1. **Create a repository** for the folder and push `ffmpeg-build.yml` and `ffmpeg.lock` (and any `patches/` or test
-   scripts the targets name). Its releases are where your builds will be published. A public repository can't take
-   nonfree targets. Builds released from a private one carry a written offer of their source rather than a link
+   scripts the targets name). Its releases are where your builds will be published. Nonfree targets in a public
+   repository produce a warning without blocking the release. Distributable builds from a private one carry a written offer of their source rather than a link
    nobody outside could open; `source-offer: support@example.com` at the top of `ffmpeg-build.yml` says who it
    names ([building](building.md#whats-in-an-archive-third-party-noticestxt)).
 2. **Repository setting:** Settings, Actions, General, Workflow permissions: tick "Allow GitHub Actions to create and

@@ -19,10 +19,11 @@ the sources archive.
   release is the group's newest of the same FFmpeg major, or, for the first release on a new major (`ffmpeg: latest`
   having moved), its newest of the major before. That case doesn't stop `update`: the move goes into its PR, whose
   text lists the losses, and the PR's CI (`releases`) stops there.
-- **Where releases go is checked before anything builds.** A public repository takes no nonfree target. A private
-  one takes any; its builds' `THIRD-PARTY-NOTICES.txt` make a written offer of their source, since nobody outside
-  could open a link into it (`source-offer:` names who to ask). `releases` checks this in CI's plan step, so nothing is built (or uploaded as a workflow artifact) that couldn't be published,
-  and `bundle` checks it again.
+- **Nonfree releases produce an advisory.** When repository visibility is available, `releases` and `bundle` warn
+  about nonfree targets going to a public repository. The warning never blocks building or publishing, and needs no
+  profile setting. Missing visibility metadata skips the advisory. Licence classifications and notices remain in
+  the archives. Distributable builds from private repositories carry a written source offer because an outside
+  recipient cannot open their source links (`source-offer:` names who to ask).
 
 ### iOS and Mac Catalyst: the xcframework bundle
 

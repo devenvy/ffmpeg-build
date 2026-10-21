@@ -514,7 +514,7 @@ jobs:
           merge-multiple: true
       - name: bundle
         working-directory: ${{ inputs.folder }}
-        # bundle reads the repository's visibility itself: nonfree targets never go to a public repository
+        # bundle reports a non-blocking warning for nonfree targets in a public repository
         run: |
           ffmpeg-build bundle --release "${TAG}" --dist "${RUNNER_TEMP}/dist"
           du -sh "${RUNNER_TEMP}/dist"
