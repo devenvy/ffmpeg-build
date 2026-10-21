@@ -165,7 +165,7 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [onnxruntime]
-    tests: [tests/onnxruntime.mjs]
+    tests: [tests/onnxruntime.sh]
   linux-x64-nonfree:
     platform: linux-x64
     license: nonfree

@@ -4,4 +4,4 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [onnxruntime]
-    tests: [tests/inference.mjs]
+    tests: [tests/inference.sh]
