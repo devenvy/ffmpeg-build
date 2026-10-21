@@ -1,0 +1,11 @@
+2026-10-21: devenvy/ffmpeg-build builds only Samba's client-library target
+and bundles its dependent shared libraries beside FFmpeg. No Samba server,
+winbind service or system Samba installation is required. Library search
+paths are relative to the binaries after staging. Build-time-only flex
+and Parse::Yapp are not shipped as runtime dependencies.
+
+Static external archives are hidden with --exclude-libs,ALL when linking
+Samba's shared libraries. Several libraries use GnuTLS, and interposition
+between separate static copies otherwise corrupts crypto initialization.
+The source code itself is unchanged. AD-domain integration is disabled;
+authenticated SMB2/SMB3 file reads, seeks, writes and readback are tested.
