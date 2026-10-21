@@ -17,6 +17,7 @@ releases: [8.0, 8.0.1, 8.0.2, 8.0.3, 8.1, 8.1.1, 8.1.2, 8.1.3]
 auto-components:
   - cuda-nvcc
   - decklink
+  - smbclient
   - fdk-aac
   - mpeghdec
   - mediacodec
@@ -138,6 +139,7 @@ options:
         },
     }
   decklink: { needs: decklink-headers, ffmpeg-license: nonfree, kind: device }
+  smbclient: { needs: samba, ffmpeg-license: gplv3, ships: { protocols: [libsmbclient] } }
   libtls: { needs: libressl, ships: { protocols: [tls, https] } }
   gcrypt: { needs: libgcrypt, ships: { protocols: [rtmpe, rtmpte] } }
   fdk-aac:

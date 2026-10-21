@@ -4,6 +4,7 @@
 # is allowed in a build only when it and everything it needs are.
 licenses:
   MIT: all
+  Artistic-1.0-Perl: all
   MIT-Modern-Variant: all
   BSD-2-Clause: all
   BSD-2-Clause-Patent: all

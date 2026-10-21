@@ -1,0 +1,12 @@
+name: flex
+license: BSD-2-Clause
+license-files: [COPYING]
+source:
+  url: 'https://github.com/westes/flex/releases/download/v{version}/flex-{version}.tar.gz'
+versions: { git-tags: '^v(\d+\.\d+\.\d+)$', repo: https://github.com/westes/flex }
+platforms: [linux-x64]
+build:
+  system: autotools
+  # The image's runtime exports reallocarray but its older target headers do not declare it.
+  env: { ac_cv_func_reallocarray: 'no' }
+  args: [--disable-shared, --enable-static, --disable-nls]

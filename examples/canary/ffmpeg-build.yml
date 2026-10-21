@@ -160,6 +160,12 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-smbclient-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [smbclient, gnutls]
+    tests: [tests/smbclient.sh]
   linux-x64-nvidia-nonfree:
     platform: linux-x64
     license: nonfree
