@@ -12,6 +12,8 @@ licenses:
   BSD-3-Clause WITH PCRE2-exception: all
   BSD-3-Clause-Clear: all
   ISC: all
+  # LibreSSL retains the original OpenSSL/SSLeay terms; FFmpeg rejects GPL combinations without nonfree.
+  OpenSSL: [lgplv2, lgplv3, nonfree]
   0BSD: all
   # a public-domain dedication with a permissive fallback (Rust crates offer it beside MIT)
   Unlicense: all

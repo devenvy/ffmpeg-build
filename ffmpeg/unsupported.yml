@@ -122,18 +122,6 @@ options:
       instead: xevd,
       note: "xevd's baseline-profile-only build; the xevd option's main-profile build decodes baseline too",
     }
-  libtls:
-    {
-      reason: alternative-built,
-      instead: mbedtls,
-      note: "LibreSSL's libtls, a TLS library: a build takes one, and the TLS options (mbedtls on every platform; openssl, gnutls, schannel, securetransport where they build) do its job. LibreSSL would be a second OpenSSL-compatible libcrypto beside the OpenSSL other libraries may link, and FFmpeg refuses it in GPL builds",
-    }
-  gcrypt:
-    {
-      reason: alternative-built,
-      instead: gmp,
-      note: 'libgcrypt (with libgpg-error), which FFmpeg uses only for the Diffie-Hellman of rtmpe and rtmpte: the gmp option does that on every platform (as mbedtls and openssl do), without a second crypto library to port',
-    }
   pocketsphinx:
     {
       reason: deprecated-upstream,

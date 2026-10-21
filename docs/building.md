@@ -12,6 +12,12 @@ release publishes it beside the build's archives.
 
 ## What you need
 
+`gcrypt` and `libtls` are opt-in static alternatives on Linux x64. `gcrypt` uses libgcrypt and libgpg-error for
+encrypted RTMP; omit `gmp` when testing it because FFmpeg prefers GMP when both are enabled. `libtls` selects
+LibreSSL instead of another TLS provider. Its original OpenSSL licence permits the LGPL and nonfree profiles;
+FFmpeg rejects it in GPL profiles without nonfree. Certificate verification uses the system's CA bundle; pass
+`-ca_file /path/to/ca-bundle.pem` when it is not at `/etc/ssl/cert.pem`. The libraries do not ship a CA bundle.
+
 `ffmpeg-build doctor` (`--target`/`--platform` to narrow it, `--json` for scripts) says how each target builds and is
 tested on this machine, checks what that needs, and prints the install command for what's missing (exit 1 then). It lists each requirement
 once, with the targets that need it; one target (`--target <name>`) gets its own list, and `--json` has every

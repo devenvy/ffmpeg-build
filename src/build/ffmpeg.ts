@@ -34,6 +34,24 @@ export function unshadowVersionHeader(dir: string, setup: string): boolean {
   return true;
 }
 
+/** FFmpeg 9.0.2 uses a switch-only attribute between libtls error labels; keep FFmpeg 8 and corrected sources. */
+export function fixLibtlsFallthrough(dir: string, flags: readonly string[]): boolean {
+  if (!flags.includes('--enable-libtls')) {
+    return false;
+  }
+  const path = join(dir, 'libavformat', 'tls_libtls.c');
+  const before = readFileSync(path, 'utf8');
+  const after = before.replace(
+    '    av_fallthrough;\nfail:\n',
+    '    /* ffmpeg-build 2026-10-21: error labels need no switch fallthrough attribute. */\nfail:\n',
+  );
+  if (after === before) {
+    return false;
+  }
+  writeFileSync(path, after);
+  return true;
+}
+
 export async function buildFfmpeg(
   context: BuildContext,
 ): Promise<{ dir: string; record: SourceRecord }> {
@@ -70,6 +88,9 @@ export async function buildFfmpeg(
   }
   if (unshadowVersionHeader(dir, context.buildPlan.setup)) {
     step("VERSION removed: it would shadow libc++'s <version> (RELEASE gives the same version)");
+  }
+  if (fixLibtlsFallthrough(dir, ffmpeg.configure)) {
+    step('libtls: removed invalid switch fallthrough attribute between error labels');
   }
   const install = join(context.work, 'install');
   const env = {

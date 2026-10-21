@@ -1,0 +1,20 @@
+name: libressl
+provides: libtls
+license: OpenSSL AND ISC
+license-files: [COPYING]
+group: tls
+configure: [--enable-libtls]
+source: { url: 'https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/libressl-{version}.tar.gz' }
+versions:
+  listing: https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/
+  files: '^libressl-(4\.3\.\d+)\.tar\.gz$'
+platforms: [linux-x64]
+build:
+  system: cmake
+  args:
+    - -DBUILD_SHARED_LIBS=OFF
+    - -DLIBRESSL_APPS=OFF
+    - -DLIBRESSL_TESTS=OFF
+    - -DENABLE_NC=OFF
+    - -DOPENSSLDIR=/etc/ssl
+    - -DTLS_DEFAULT_CA_FILE=/etc/ssl/cert.pem

@@ -125,6 +125,8 @@ auto-components:
   - avfoundation
   - coreimage
 options:
+  libtls: { needs: libressl, ships: { protocols: [tls, https] } }
+  gcrypt: { needs: libgcrypt, ships: { protocols: [rtmpe, rtmpte] } }
   fdk-aac:
     {
       needs: fdk-aac,
