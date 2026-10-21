@@ -11,6 +11,15 @@ source:
   }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { library-mode-arg: '--default-library=shared' }
+      runtime: ['lib/libdav1d.so*']
 build:
   system: meson
-  args: [-Denable_tools=false, -Denable_tests=false]
+  vars: { library-mode-arg: [] }
+  args: ['{library-mode-arg}', -Denable_tools=false, -Denable_tests=false]

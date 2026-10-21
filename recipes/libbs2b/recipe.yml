@@ -11,6 +11,18 @@ source:
 versions:
   { listing: 'https://sourceforge.net/projects/bs2b/files/libbs2b/', files: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        runtime-link-flags: '-Wl,--as-needed -Wl,--exclude-libs,ALL'
+        runtime-libs: '-l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a'
+      runtime: ['lib/libbs2b.so*']
 build:
   # libbs2b: Bauer stereophonic-to-binaural crossfeed (MIT), static, for FFmpeg's bs2b filter (found through
   # libbs2b.pc). The library alone. Its configure insists on libsndfile, which only its two programs use: the check
@@ -18,11 +30,22 @@ build:
   # installed. autoreconf -fi, after those edits (`bootstrap:` would run before them), also refreshes a 2009
   # config.sub that knows no aarch64 or arm64 Apple triple.
   system: autotools
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      runtime-link-flags: '',
+      runtime-libs: '',
+    }
   # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
-  env: { CFLAGS: '+= -O2' }
+  env:
+    CFLAGS: '+= -O2'
+    # Bundle the compiler runtime into the selected shared library as private symbols.
+    LDFLAGS: '+= {runtime-link-flags?}'
+    LIBS: '+= {runtime-libs?}'
   # AC_FUNC_MALLOC assumes a cross build's malloc(0) returns NULL and calls an rpl_malloc nobody defines (Android's
   # link failed): every C library this builds for returns a pointer
-  args: [--disable-shared, --enable-static, --with-pic, ac_cv_func_malloc_0_nonnull=yes]
+  args: ['{shared-arg}', '{static-arg}', --with-pic, ac_cv_func_malloc_0_nonnull=yes]
   make-targets: [-C, src, libbs2b.la]
   install-targets: [-C, src, install-libLTLIBRARIES, install-bs2bHEADERS]
   after:
