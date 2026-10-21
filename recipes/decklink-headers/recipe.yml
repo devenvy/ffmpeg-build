@@ -18,7 +18,18 @@ build:
   system: none
   vars: { sdk-platform: Linux }
   platforms:
-    'osx-*': { vars: { sdk-platform: Mac } }
+    'osx-*':
+      vars: { sdk-platform: Mac }
+      before:
+        # Current SDK headers omit the conventional COM IUnknown IID that FFmpeg compares in its callbacks.
+        - replace-in-file:
+            path: DeckLinkSDK/Mac/include/DeckLinkAPI.h
+            from: '#include <CoreFoundation/CFPlugInCOM.h>'
+            to: |
+              #include <CoreFoundation/CFPlugInCOM.h>
+              #ifndef IID_IUnknown
+              #define IID_IUnknown CFUUIDGetUUIDBytes(IUnknownUUID)
+              #endif
     'win-*':
       vars: { sdk-platform: Win }
       before:
