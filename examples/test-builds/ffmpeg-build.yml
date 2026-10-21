@@ -4,7 +4,8 @@
 # win-arm64 on a Windows on Arm runner.
 # The GPU options each platform offers ride along (cuda-llvm, opencl, d3d12va, vdpau, rkmpp): small, and only a full
 # build and `ffmpeg-build test` show that FFmpeg took them (clang emitting the CUDA kernels' PTX, the D3D12 video
-# headers, the OpenCL loader linked statically, Rockchip MPP).
+# headers, the OpenCL loader linked statically, Rockchip MPP). So do Apple's built-in device and framework options:
+# avfoundation on the Apple slices but the lean simulator one, coreimage (with AppKit) on macOS.
 # Every platform librsvg builds on (Linux, Windows, Android) has rav1e and rsvg together: two Rust static libraries,
 # each with its own copy of Rust's standard library, under its own names (DEVELOPMENT.md, Rust libraries), so FFmpeg
 # links both (devenvy/ffmpeg-build#48) with each platform's linker (GNU ld, lld, MinGW's ld, llvm-mingw's lld).
@@ -121,13 +122,19 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [opencl, opencolorio],
+      with: [opencl, opencolorio, avfoundation, coreimage],
       tests: [tests/test-env.sh, tests/ocio.sh],
       test-env: [FFB_TEST_ENV_CHECK],
     }
   # MoltenVK linked statically into the frameworks (--enable-vulkan-static), as the shipped v3 targets have it
   ios-arm64-lgplv3:
-    { platform: ios-arm64, license: lgplv3, ffmpeg: 9, base: [small], with: [vulkan, placebo] }
+    {
+      platform: ios-arm64,
+      license: lgplv3,
+      ffmpeg: 9,
+      base: [small],
+      with: [vulkan, placebo, avfoundation],
+    }
   # slim (devenvy/ffmpeg-build#53), run in the iOS simulator: no mpeg4 codecs, so the smoke program round-trips a
   # frame with ffv1, the first codec of its list this build has as both encoder and decoder
   ios-sim-arm64-lgplv3:
@@ -151,6 +158,7 @@ targets:
       license: lgplv3,
       ffmpeg: 9,
       base: [small],
-      with: [vulkan, placebo],
+      with: [vulkan, placebo, avfoundation],
     }
-  maccatalyst-x64-lgplv3: { platform: maccatalyst-x64, license: lgplv3, ffmpeg: 9, base: [small] }
+  maccatalyst-x64-lgplv3:
+    { platform: maccatalyst-x64, license: lgplv3, ffmpeg: 9, base: [small], with: [avfoundation] }
