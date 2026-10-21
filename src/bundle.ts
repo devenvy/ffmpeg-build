@@ -1,7 +1,7 @@
 // `ffmpeg-build bundle`: after every target of a release has built into --dist, writes the rest of the release beside
 // the archives: the sources archive, manifest.yml, SHA256SUMS, release-notes.md, and bundle.json (what to upload).
 // It never uploads; the workflow does. It refuses anything that mustn't ship: a missing build, a component that
-// disappeared since the last release, a nonfree build headed for a public repository. A licence's iOS / Mac Catalyst
+// disappeared since the last release. A licence's iOS / Mac Catalyst
 // framework builds ship as its xcframework bundle (bundle --apple, src/bundle-apple.ts), one ios-<license> entry.
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -444,23 +444,16 @@ function releaseNotes(m: Manifest, rel: PlannedRelease, repo: string | undefined
 }
 
 /**
- * Whether these targets may be published to `repo`. A public repository takes no nonfree build; a private one takes
- * any (their notices, which read its visibility as they are built, make a written offer of the source). `strict` (bundle) also refuses when the repository or its
- * visibility can't be told; otherwise (planning, local runs) that is no problem.
+ * An advisory for nonfree targets headed to a public repository. Missing repository metadata never blocks a release.
  */
-export async function publishingProblems(
+export async function publishingNotes(
   targets: { name: string; license: string }[],
   repo: string | undefined,
-  o: { strict: boolean },
 ): Promise<string[]> {
   const nonfree = targets.filter((t) => t.license === 'nonfree').map((t) => t.name);
   const which = (names: string[]) => `${names.join(', ')} ${names.length > 1 ? 'are' : 'is'}`;
-  if (!repo) {
-    return o.strict && nonfree.length
-      ? [
-          `${which(nonfree)} nonfree, and there's no repository to check is private (GITHUB_REPOSITORY or the folder's git remote)`,
-        ]
-      : [];
+  if (!repo || !nonfree.length) {
+    return [];
   }
   let priv: boolean;
   try {
@@ -469,23 +462,18 @@ export async function publishingProblems(
     if (!(e instanceof FetchError)) {
       throw e;
     }
-    return o.strict
-      ? [
-          `${repo}'s visibility can't be read, so whether it may take these builds can't be told: ${e.message}`,
-        ]
-      : [];
+    return [];
   }
   return !priv && nonfree.length
     ? [
-        `${which(nonfree)} nonfree: internal use only, never published to a public repository (${repo} is public)`,
+        `warning: ${which(nonfree)} nonfree and will be published to public repository ${repo}; review its redistribution terms`,
       ]
     : [];
 }
 
 /**
  * Bundles the release `tag` from the builds in `dist`. Refuses (BundleError) when a build is missing or doesn't match
- * the lock, when a component disappeared since the last release, or when a nonfree build would go to a public (or an
- * unacknowledged private) repository.
+ * the lock, or when a component disappeared since the last release.
  */
 export async function bundle(
   folder: Folder,
@@ -495,15 +483,6 @@ export async function bundle(
 ): Promise<BundleResult> {
   const { rel, build } = releaseOf(folder, data, lock, o.engineRoot, o.tag);
   const repo = o.repo ?? publishingRepo(folder.dir);
-
-  const refused = await publishingProblems(
-    rel.targets.map((p) => ({ name: p.target.name, license: p.target.license })),
-    repo,
-    { strict: true },
-  );
-  if (refused.length) {
-    throw new BundleError(refused.join('\n'));
-  }
 
   // the always-on guard: the last release of this base
   let previous = o.previous;
@@ -624,7 +603,10 @@ export async function bundle(
 
   // "Latest" on GitHub goes to the release with the highest FFmpeg of its group
   let latest = true;
-  const notes: string[] = [];
+  const notes = await publishingNotes(
+    rel.targets.map((p) => ({ name: p.target.name, license: p.target.license })),
+    repo,
+  );
   if (repo) {
     try {
       for (const r of await listReleases(repo)) {

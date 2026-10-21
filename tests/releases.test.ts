@@ -298,14 +298,21 @@ describe('ffmpeg-build releases', () => {
     expect(r.exitCode).toBe(1);
   });
 
-  it('refuses, before anything builds, a nonfree target for a public repository, but not for a private one', async () => {
+  it('warns about a nonfree public release without blocking its build matrix', async () => {
     const nonfree = folder(
       `${FOLDER}  studio-internal: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d] }\n`,
     );
     const pub = await runCliAsync(['releases', '--json'], { cwd: nonfree, env });
-    expect(pub.exitCode).toBe(1);
-    expect(JSON.parse(pub.stdout).error).toContain(
-      'studio-internal is nonfree: internal use only, never published to a public repository (o/r is public)',
+    expect(pub.exitCode).toBe(0);
+    expect(JSON.parse(pub.stdout)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targets: expect.arrayContaining([expect.objectContaining({ name: 'studio-internal' })]),
+        }),
+      ]),
+    );
+    expect(pub.err).toContain(
+      'warning: studio-internal is nonfree and will be published to public repository o/r; review its redistribution terms',
     );
     gh.private = true;
     expect(
