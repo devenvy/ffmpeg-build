@@ -1,0 +1,35 @@
+name: onnxruntime
+provides: onnxruntime
+license: MIT AND Apache-2.0 AND BSD-3-Clause AND BSL-1.0 AND MPL-2.0
+license-files:
+  - LICENSE
+  - ThirdPartyNotices.txt
+  - third_party/ffb_deps/abseil_cpp/LICENSE
+  - third_party/ffb_deps/re2/LICENSE
+  - third_party/ffb_deps/Protobuf/LICENSE
+  - third_party/ffb_deps/Protobuf/third_party/utf8_range/LICENSE
+  - third_party/ffb_deps/date/LICENSE.txt
+  - third_party/ffb_deps/mp11/include/boost/mp11.hpp
+  - { recipe: LICENSE-Boost.txt }
+  - third_party/ffb_deps/nlohmann_json/LICENSE.MIT
+  - third_party/ffb_deps/GSL/LICENSE
+  - third_party/ffb_deps/safeint/LICENSE
+  - third_party/ffb_deps/flatbuffers/LICENSE
+  - third_party/ffb_deps/onnx/LICENSE
+  - third_party/ffb_deps/Eigen3/COPYING.README
+  - third_party/ffb_deps/Eigen3/COPYING.MPL2
+  - third_party/ffb_deps/Eigen3/COPYING.BSD
+  - third_party/ffb_deps/Eigen3/COPYING.MINPACK
+  - { recipe: BUILD-NOTICE.txt }
+configure: [--enable-libonnxruntime]
+source: { git: https://github.com/microsoft/onnxruntime.git, ref: 'v{version}' }
+# build.py records the matching transitive source commits. Update both together.
+versions: { git-tags: '^v(1\.31\.0)$' }
+platforms: [linux-x64]
+build:
+  system: none
+  steps:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'onnxruntime', 'build.py'), run_name='__main__')"

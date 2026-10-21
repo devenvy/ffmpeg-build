@@ -1,0 +1,7 @@
+2026-10-21: devenvy/ffmpeg-build builds ONNX Runtime 1.31.0 for static CPU
+inference. build.py pins the upstream dependencies, applies ONNX Runtime's
+own dependency patches, disables telemetry and optional GPU/training/Python
+features, and selects Eigen's MPL2-only headers. Its GNU ld GROUP file
+supplies the complete static archive closure, including RE2 (omitted from
+the upstream default static target). The original source archives and
+upstream patch files are retained with the build's sources.
