@@ -153,7 +153,7 @@ export function configureFlags(
     `--extra-ldflags=-L${depsDir}/lib`,
     ...(data.platforms.get(plan.cell.platform)?.configure ?? []),
     ...LICENSE_FLAGS[plan.cell.license],
-    ...optionFlags(data, plan),
+    ...optionFlags(data, plan).map((flag) => flag.replaceAll('{deps}', depsDir)),
   ]);
 }
 

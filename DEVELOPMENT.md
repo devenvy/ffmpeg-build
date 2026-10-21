@@ -65,6 +65,10 @@ build: { ... }
 `runtime:` lists files under the deps folder that ship next to FFmpeg's libraries (`lib/libvulkan.so*`); like
 `configure:` and `needs:`, an entry can be limited to some platforms (`'lib/libvulkan*.dylib': { platforms: [osx-*] }`).
 
+An option or recipe's FFmpeg `configure:` flags may use `{deps}` for the dependency installation folder, for example
+`'--extra-cxxflags=-I{deps}/include'` when FFmpeg compiles a C++ device. The build fills it for its actual folder,
+including native builds; it is not a fixed path into a Docker image.
+
 `source:` is `git:` (with `ref:`, an optional `mirror:`, and `submodules:`) or `url:` (a tarball, with `mirrors:`).
 `version-group: <name>` gives recipes released together one version in the lock: `lock` and `update` pick the newest
 version every member of the group has and allows (the Vulkan SDK's `vulkan-headers`, `vulkan-loader` and

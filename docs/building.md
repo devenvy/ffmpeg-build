@@ -12,6 +12,11 @@ release publishes it beside the build's archives.
 
 ## What you need
 
+The opt-in `decklink` option needs Blackmagic Desktop Video installed on the machine running FFmpeg, plus compatible
+hardware. The build includes only the SDK's headers and dispatch code; the driver and Desktop Video runtime remain
+system dependencies. It is available in nonfree builds on Linux x64, Windows x64 and macOS. On Linux and macOS it
+also builds static libklvanc for VANC output; Windows builds omit that extension.
+
 `ffmpeg-build doctor` (`--target`/`--platform` to narrow it, `--json` for scripts) says how each target builds and is
 tested on this machine, checks what that needs, and prints the install command for what's missing (exit 1 then). It lists each requirement
 once, with the targets that need it; one target (`--target <name>`) gets its own list, and `--json` has every
