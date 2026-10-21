@@ -118,6 +118,8 @@ auto-components:
   - xcb
   - xlib
   - caca
+  - dc1394
+  - iec61883
 options:
   # built into FFmpeg: nothing to build
   whep: { builtin: true, kind: muxer, since: 9.1.0 }
@@ -477,3 +479,9 @@ options:
   xcb: { needs: libxcb, platforms: [linux-*] }
   xlib: { needs: libxv, platforms: [linux-*] }
   caca: { needs: libcaca, platforms: [linux-*] }
+  # capture devices (which `ffmpeg -devices` lists; devices aren't a ships: kind), static, on Linux: libv4l2 for the
+  # v4l2 input device (built in any case; with it, its use_libv4l2 option), and FireWire's IIDC cameras (libdc1394)
+  # and DV/HDV camcorders (libiec61883)
+  v4l2: { needs: v4l-utils, platforms: [linux-*] }
+  dc1394: { needs: libdc1394, platforms: [linux-*] }
+  iec61883: { needs: libiec61883, platforms: [linux-*] }

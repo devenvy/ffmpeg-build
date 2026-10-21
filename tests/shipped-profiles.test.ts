@@ -2240,3 +2240,75 @@ describe('X11 and terminal device libraries', () => {
     }
   });
 });
+
+// Batch f of #21, devices: capture (libv4l2 for the v4l2 input device; FireWire cameras and camcorders), static, on
+// Linux, in every license; none turns on by itself.
+describe('capture device libraries', () => {
+  const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
+  const linuxAll = PLATFORMS.filter((p) => p.startsWith('linux-'));
+  const where: Record<string, { recipes: string[]; flags: string[]; auto: boolean }> = {
+    // the v4l2 input device is built without it too: no component needs it
+    v4l2: { recipes: ['v4l-utils'], flags: ['--enable-libv4l2'], auto: false },
+    dc1394: { recipes: ['libdc1394', 'libraw1394'], flags: ['--enable-libdc1394'], auto: true },
+    iec61883: {
+      recipes: ['libavc1394', 'libiec61883', 'libraw1394'],
+      flags: ['--enable-libiec61883', '--extra-libs=-lavc1394 -lrom1394 -lraw1394'],
+      auto: true,
+    },
+  };
+  const OPTIONS = Object.keys(where);
+  const text = (platform: string, license: string, option: string) =>
+    `name: t\nffmpeg: 9\nplatforms: [${platform}]\nlicense: ${license}\nwith: [${option}]\n`;
+  const planOn = (platform: string, license: string, option: string) => {
+    const r = parseProfileText(text(platform, license, option), 't.yml');
+    if (!r.ok) {
+      throw new Error(r.errors.join('\n'));
+    }
+    return planProfile(r.profile, data, { '9': '9.0.2' });
+  };
+  const report = (platform: string, license: string, option: string) =>
+    formatReport(checkProfile(parseProfileText(text(platform, license, option), 't.yml'), data));
+
+  const builds = OPTIONS.flatMap((o) => linuxAll.map((p) => [o, p] as const));
+  it.each(builds)('%s builds on %s, in every license', (option, platform) => {
+    for (const license of ALL) {
+      const plan = planOn(platform, license, option);
+      expect(plan.errors, license).toEqual([]);
+      const cell = plan.cells[0]!;
+      expect(cell.options).toEqual([option]);
+      expect([...cell.recipes].sort()).toEqual(where[option]!.recipes);
+      expect(configureFlags(data, cell)).toEqual(expect.arrayContaining(where[option]!.flags));
+    }
+  });
+
+  const absent = OPTIONS.flatMap((o) =>
+    PLATFORMS.filter((p) => !linuxAll.includes(p)).map((p) => [o, p] as const),
+  );
+  it.each(absent)('%s is unavailable on %s, and check says why', (option, platform) => {
+    expect(planOn(platform, 'nonfree', option).cells[0]?.options ?? []).not.toContain(option);
+    expect(report(platform, 'nonfree', option)).toContain(`not on ${platform}:`);
+  });
+
+  it('options offers each on Linux, in every license; devices are no ships: kind', () => {
+    const facts = optionFacts(data, '9');
+    for (const name of OPTIONS) {
+      const fact = facts.find((o) => o.name === name)!;
+      expect(fact.platforms, name).toEqual(linuxAll);
+      expect(fact.licenses, name).toEqual(ALL);
+    }
+    for (const major of ['8', '9']) {
+      for (const name of OPTIONS) {
+        expect(data.ffmpeg.get(major)!.options[name]!.ships ?? [], `${major} ${name}`).toEqual([]);
+        expect(data.ffmpeg.get(major)!['auto-components'].includes(name), `${major} ${name}`).toBe(
+          where[name]!.auto,
+        );
+      }
+    }
+  });
+
+  it('turns on in no shipped target', () => {
+    for (const c of cells) {
+      expect(c.options.filter((o) => OPTIONS.includes(o))).toEqual([]);
+    }
+  });
+});

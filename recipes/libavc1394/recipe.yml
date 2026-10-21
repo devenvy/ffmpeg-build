@@ -1,0 +1,30 @@
+name: libavc1394
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+needs: [libraw1394]
+# SourceForge tarballs, with Debian's byte-identical .orig.tar.gz as the mirror; versions from Debian's pool (the
+# SourceForge listing's links all end in /download)
+source:
+  url: 'https://downloads.sourceforge.net/project/libavc1394/libavc1394/libavc1394-{version}.tar.gz'
+  mirrors:
+    ['https://deb.debian.org/debian/pool/main/liba/libavc1394/libavc1394_{version}.orig.tar.gz']
+versions:
+  {
+    listing: 'https://deb.debian.org/debian/pool/main/liba/libavc1394/',
+    files: '^libavc1394_(\d+\.\d+\.\d+)\.orig\.tar\.gz$',
+  }
+# where libiec61883 builds
+platforms: [linux-*]
+build:
+  # libavc1394 and its librom1394: AV/C device control and the FireWire configuration ROM (LGPL-2.1-or-later), static.
+  # FFmpeg's iec61883 input device uses both, beside libiec61883. The libraries alone: its test programs don't build
+  # on musl (and aren't wanted).
+  # Its config.guess and config.sub (2010) know neither 64-bit ARM nor musl: autoreconf brings the image's.
+  system: autotools
+  bootstrap: autoreconf
+  args: [--disable-shared, --enable-static, --with-pic]
+  make-targets: [-C, common]
+  install-targets: [-C, libavc1394, install]
+  after:
+    - [make, -C, librom1394, install]
+    - [make, install-pkgconfigDATA]

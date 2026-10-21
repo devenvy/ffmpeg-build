@@ -1,0 +1,25 @@
+name: libiec61883
+provides: iec61883
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+# FFmpeg links it by -l flags, not pkg-config, in an order a static link can't resolve (-lraw1394 -lavc1394 -lrom1394
+# -liec61883): the libraries the later ones need come again at the end of its link line (--extra-libs)
+configure: [--enable-libiec61883, '--extra-libs=-lavc1394 -lrom1394 -lraw1394']
+# libavc1394 (and librom1394) for FFmpeg's iec61883 input device, which uses them beside it
+needs: [libraw1394, libavc1394]
+source:
+  url: 'https://www.kernel.org/pub/linux/libs/ieee1394/libiec61883-{version}.tar.xz'
+  mirrors: ['https://mirrors.edge.kernel.org/pub/linux/libs/ieee1394/libiec61883-{version}.tar.xz']
+versions:
+  {
+    listing: 'https://www.kernel.org/pub/linux/libs/ieee1394/',
+    files: '^libiec61883-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+platforms: [linux-*]
+build:
+  # libiec61883: IEC 61883 streams over FireWire (DV and MPEG-2 TS from camcorders and set-top boxes;
+  # LGPL-2.1-or-later), static, for FFmpeg's iec61883 input device. Its config.guess and config.sub (2008) know neither
+  # 64-bit ARM nor musl: autoreconf brings the image's.
+  system: autotools
+  bootstrap: autoreconf
+  args: [--disable-shared, --enable-static, --with-pic]

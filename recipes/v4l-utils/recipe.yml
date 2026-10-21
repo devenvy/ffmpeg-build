@@ -1,0 +1,55 @@
+name: v4l-utils
+provides: v4l2
+# libv4l (libv4l2 and libv4lconvert), what is built of v4l-utils
+license: LGPL-2.1-or-later
+license-files: [COPYING.libv4l]
+configure: [--enable-libv4l2]
+source:
+  url: 'https://linuxtv.org/downloads/v4l-utils/v4l-utils-{version}.tar.xz'
+versions:
+  {
+    listing: 'https://linuxtv.org/downloads/v4l-utils/',
+    files: '^v4l-utils-(\d+\.\d+\.\d+)\.tar\.xz$',
+  }
+platforms: [linux-*]
+build:
+  # libv4l2 and libv4lconvert (LGPL-2.1-or-later), static, for FFmpeg's v4l2 input device (its use_libv4l2 option:
+  # libv4l's format conversion, for cameras whose formats FFmpeg doesn't take). The libraries alone: no tools,
+  # plugins (a static libv4l2 loads none), LD_PRELOAD wrappers, libdvbv5, JPEG decoding (MJPEG cameras convert
+  # without it in FFmpeg itself) or docs.
+  system: meson
+  args:
+    [
+      -Dauto_features=disabled,
+      -Dv4l-utils=false,
+      -Dv4l-plugins=false,
+      -Dv4l-wrappers=false,
+      -Ddoxygen-doc=disabled,
+    ]
+  platforms:
+    # musl's ioctl takes an int request (POSIX's), and libv4l2 is built so (its config.h's LIBV4L_HAVE_POSIX_IOCTL);
+    # its installed header only says so when the user defines that, and declares glibc's unsigned long otherwise, which
+    # FFmpeg's v4l2 device (whose ioctl pointer is POSIX's on musl) can't take
+    'linux-musl-*':
+      after:
+        - replace-in-file:
+            {
+              path: '{deps}/include/libv4l2.h',
+              from: '#ifdef LIBV4L_HAVE_POSIX_IOCTL',
+              to: '#if 1 /* musl: built with POSIX ioctl */',
+            }
+  before:
+    # argp is only its tools', and libintl (gettext) only libdvbv5's, which aren't built; musl has neither in its C
+    # library
+    - replace-in-file:
+        {
+          path: meson.build,
+          from: "dep_argp = cc.find_library('argp')",
+          to: "dep_argp = cc.find_library('argp', required : false)",
+        }
+    - replace-in-file:
+        {
+          path: meson.build,
+          from: "dep_intl = dependency('intl')",
+          to: "dep_intl = dependency('intl', required : false)",
+        }

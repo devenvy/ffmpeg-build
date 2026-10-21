@@ -1,0 +1,30 @@
+name: libdc1394
+provides: dc1394
+license: LGPL-2.1-or-later
+license-files: [COPYING]
+configure: [--enable-libdc1394]
+needs: [libraw1394]
+source:
+  url: 'https://downloads.sourceforge.net/project/libdc1394/libdc1394-2/{version}/libdc1394-{version}.tar.gz'
+versions:
+  {
+    listing: 'https://sourceforge.net/projects/libdc1394/files/libdc1394-2/',
+    files: '^(\d+\.\d+\.\d+)$',
+  }
+# Linux (its FireWire stack): macOS 26 removed FireWire, and its Windows driver (CMU's 1394camera) is a separate SDK
+platforms: [linux-*]
+build:
+  # libdc1394: IIDC (DCAM) FireWire camera control and capture (LGPL-2.1-or-later), static, for FFmpeg's libdc1394
+  # input device. Through Linux's firewire-core (juju) and libraw1394; no USB cameras (libusb), no examples. Its
+  # configure looks for libraw1394 without pkg-config: it is shown the deps folder. Its .pc names no private
+  # libraries: libraw1394's and libm are added.
+  system: autotools
+  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '+= -L{deps}/lib' }
+  args: [--disable-shared, --enable-static, --with-pic, --disable-examples, --disable-sdltest]
+  after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libdc1394-2.pc',
+          requires-private: { set: libraw1394 },
+          libs-private: { add: -lm },
+        }
