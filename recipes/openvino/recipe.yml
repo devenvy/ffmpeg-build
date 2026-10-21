@@ -1,0 +1,40 @@
+name: openvino
+provides: openvino
+license: Apache-2.0 AND MIT AND BSD-3-Clause
+license-files:
+  - LICENSE
+  - licensing/runtime-third-party-programs.txt
+  - licensing/onednn_third-party-programs.txt
+  - thirdparty/xbyak/COPYRIGHT
+  - thirdparty/pugixml/LICENSE.md
+  - thirdparty/json/nlohmann_json/LICENSE.MIT
+  - src/plugins/intel_cpu/thirdparty/onednn/LICENSE
+  - src/plugins/intel_cpu/thirdparty/onednn/third_party/xbyak/COPYRIGHT
+  - { recipe: BUILD-NOTICE.txt }
+configure: [--enable-libopenvino]
+source:
+  git: https://github.com/openvinotoolkit/openvino.git
+  ref: '{version}'
+  submodules:
+    depth: 1
+    paths:
+      - thirdparty/xbyak
+      - thirdparty/pugixml
+      - thirdparty/json/nlohmann_json
+      - src/plugins/intel_cpu/thirdparty/onednn
+# The CPU-only dependency inventory is reviewed with each version.
+versions: { git-tags: '^(2026\.4\.1)$' }
+platforms: [linux-x64]
+build:
+  system: none
+  steps:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'build.py'), run_name='__main__')"
+    - pkg-config:
+        name: openvino
+        description: OpenVINO static CPU runtime with IR frontend
+        version: '{version}'
+        cflags: '-I{deps}/include -DOPENVINO_STATIC_LIBRARY'
+        libs: '-L{deps}/lib -lopenvino'

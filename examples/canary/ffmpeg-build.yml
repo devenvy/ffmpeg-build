@@ -160,6 +160,12 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-openvino-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [openvino]
+    tests: [tests/openvino.sh]
   linux-x64-onnxruntime-lgplv3:
     platform: linux-x64
     license: lgplv3

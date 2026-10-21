@@ -12,6 +12,10 @@ release publishes it beside the build's archives.
 
 ## What you need
 
+`openvino` builds a static CPU-only OpenVINO runtime on Linux x64. Models must be in OpenVINO IR format
+(`.xml` plus a `.bin` file when the model has weights). GPU/NPU devices and the other model frontends are disabled.
+Its sequential CPU backend needs no separately installed OpenVINO, TBB or OpenMP libraries.
+
 `onnxruntime` selects static CPU inference on Linux x64 with FFmpeg 9. It accepts ONNX models through FFmpeg's
 DNN filters; it does not include GPU execution providers, training or a Python runtime. ONNX Runtime and its
 transitive source commits are pinned together in the recipe. Apache-2.0 dependencies require a version 3 or

@@ -1,0 +1,10 @@
+2026-10-21: devenvy/ffmpeg-build builds OpenVINO's C API, CPU plugin and
+IR model frontend as static libraries. GPU/NPU devices, Python, JavaScript,
+network model downloads and other model frontends are disabled. Convert
+models to OpenVINO IR before using them with this build. CPU threading is
+sequential and does not require a system OpenMP or TBB runtime.
+
+The static dependency closure is obtained from OpenVINO's own CMake consumer
+target and bundled under private archive names with a relocatable GNU ld
+GROUP script. This preserves its plugin registry and circular references.
+The C++ runtime is also linked statically. Source code is unchanged.

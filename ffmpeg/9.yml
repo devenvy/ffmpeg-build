@@ -15,6 +15,7 @@
 major: 9
 releases: [9.0, 9.0.1, 9.0.2]
 auto-components:
+  - openvino
   - onnxruntime
   - fdk-aac
   - mpeghdec
@@ -126,6 +127,8 @@ auto-components:
   - avfoundation
   - coreimage
 options:
+  openvino:
+    { needs: openvino, ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] } }
   fdk-aac:
     {
       needs: fdk-aac,
