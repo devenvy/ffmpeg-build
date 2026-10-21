@@ -6,13 +6,33 @@ configure: [--enable-libzimg]
 source: { git: https://github.com/sekrit-twc/zimg.git, ref: 'release-{version}', submodules: true }
 versions: { git-tags: '^release-(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        runtime-link-flags: '-Wl,--as-needed -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
+        runtime-libs: '-l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a'
+      runtime: ['lib/libzimg.so*']
 build:
   # zimg: high-quality image scaling/colorspace/depth conversion (WTFPL), static.
   # Ported from devenvy/ffmpeg scripts/deps/zimg.sh. Its submodules come with the source.
   system: none
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      runtime-link-flags: '',
+      runtime-libs: '',
+    }
+  env: { LDFLAGS: '+= {runtime-link-flags?}', LIBS: '+= {runtime-libs?}' }
   bootstrap: autogen
   steps:
-    - [./configure, '--prefix={deps}', --disable-shared, --enable-static, --with-pic, '{args}']
+    - [./configure, '--prefix={deps}', '{shared-arg}', '{static-arg}', --with-pic, '{args}']
     - [make, '-j{jobs}']
     - [make, install]
   after:

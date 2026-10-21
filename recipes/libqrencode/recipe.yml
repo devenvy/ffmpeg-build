@@ -6,8 +6,17 @@ configure: [--enable-libqrencode]
 source: { git: https://github.com/fukuchi/libqrencode, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: -DBUILD_SHARED_LIBS=ON }
+      runtime: ['lib/libqrencode.so*']
 build:
   # libqrencode: QR Code encoding (LGPL-2.1-or-later), static, for FFmpeg's qrencode and qrencodesrc filters (found
   # through libqrencode.pc). The library alone: no qrencode program (and so no libpng) or tests.
   system: cmake
-  args: [-DWITH_TOOLS=NO, -DWITH_TESTS=NO, -DWITHOUT_PNG=YES]
+  vars: { shared-library-arg: [] }
+  args: ['{shared-library-arg}', -DWITH_TOOLS=NO, -DWITH_TESTS=NO, -DWITHOUT_PNG=YES]
