@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { type BuildIn, buildSettings, defaultIn } from '../build-settings.ts';
-import { publishingProblems } from '../bundle.ts';
+import { publishingNotes } from '../bundle.ts';
 import { CliError } from '../cli-errors.ts';
 import { FetchError } from '../fetch.ts';
 import { type FolderLock, LOCK_FILE, readFolderLock } from '../lockfile.ts';
@@ -192,22 +192,17 @@ export async function runReleases(
     }
     throw e;
   }
-  // where they'd be published must be able to take them, before anything is built (and uploaded as a CI artifact)
   const repo = options.offline ? undefined : publishingRepo(folder.dir);
   // without a repository there are no last releases to compare with: say so, rather than call each one never released
   const notes = options.offline || repo ? [] : [NO_REPOSITORY];
-  const refused = await publishingProblems(
-    folder.targets.map((t) => ({ name: t.name, license: t.license })),
-    repo,
-    { strict: false },
-  );
-  if (refused.length) {
-    if (options.json) {
-      return { output: jsonFailure(refused.join('\n'), refused), exitCode: 1 };
-    }
-    return { output: refused.map((e) => `✗ ${e}`).join('\n'), exitCode: 1 };
-  }
   const shown = chooseInRows(options.due ? rows.filter((r) => r.due) : rows, options.target);
+  const chosen = new Set(shown.flatMap((r) => r.targets.map((t) => t.name)));
+  notes.push(
+    ...(await publishingNotes(
+      folder.targets.filter((t) => chosen.has(t.name)),
+      repo,
+    )),
+  );
   const part = options.whole ? partReleases(shown) : [];
   if (part.length) {
     if (options.json) {
