@@ -71,7 +71,7 @@ describe('per-library linking', () => {
     expect(shared['zlib']).toBe(normal['zlib']);
   });
 
-  it.each(['link: { zlib: shared }\n', 'link: { typo: shared }\n', 'link: { libressl: static }\n'])(
+  it.each(['link: { typo: shared }\n', 'link: { libressl: static }\n'])(
     'rejects an unsupported, unknown or absent library: %s',
     (link) => {
       expect(resolve(link).plan.errors.length).toBeGreaterThan(0);
@@ -97,6 +97,7 @@ describe('per-library linking', () => {
     expect(planJson(profile, plan, data).builds[0]!.linkages).toEqual({
       libgcrypt: 'shared',
       'libgpg-error': 'static',
+      zlib: 'static',
     });
   });
 

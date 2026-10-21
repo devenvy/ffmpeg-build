@@ -20,10 +20,20 @@ source:
   }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: '-DBUILD_SHARED_LIBS=ON' }
+      runtime: ['lib/libaom.so*']
 build:
   system: cmake
+  vars: { shared-library-arg: [] }
   args:
     [
+      '{shared-library-arg}',
       -DENABLE_APPS=OFF,
       -DENABLE_EXAMPLES=OFF,
       -DENABLE_TOOLS=OFF,

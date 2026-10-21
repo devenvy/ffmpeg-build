@@ -6,13 +6,22 @@ configure: [--enable-zlib]
 source: { git: https://github.com/madler/zlib, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { library-mode: --shared }
+      runtime: ['lib/libz.so*']
 build:
   # zlib, static. Ported from devenvy/ffmpeg scripts/deps/zlib.sh (its own configure script, not CMake). Cross builds
   # name the target with CHOST, so zlib's configure takes the target's path (mingw on Windows) rather than the build
   # host's; CC/AR/RANLIB come from the platform setup. Native builds set no CHOST at all.
   system: none
+  vars: { library-mode: --static }
   steps:
-    - run: [./configure, '--prefix={deps}', --static]
+    - run: [./configure, '--prefix={deps}', '{library-mode}']
       env: { CHOST: '{host?}' }
     - [make, '-j{jobs}']
     - [make, install]
