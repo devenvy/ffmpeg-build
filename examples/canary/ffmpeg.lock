@@ -147,6 +147,7 @@ libraries:
   svt-jpegxs: f4720203534d6f5ea90f828a58814af5597461d7
   svtav1: { version: 4.2.0, commit: 9292ec8e32bce26f781f277ec8739b53426c4300 }
   tesseract: { version: 5.5.3, commit: db0ec62f81b0737fbbe184d8fea40af5738f8eef }
+  torch: { version: 2.14.1, commit: 5c4886908584029761b579af026dcfb627c84070 }
   twolame: { version: 0.4.0, sha256: cc35424f6019a88c6f52570b63e1baf50f62963a3eac52a03a800bb070d7c87d }
   uavs3d: { version: 1.2, commit: 0e20d2c291853f196c68922a264bcd8471d75b68 }
   v4l-utils: { version: 1.32.0, sha256: 6828828a17775526eb93fb258a9294d1d1073d633c344dd71ecd4e7a1ffb7dfc }

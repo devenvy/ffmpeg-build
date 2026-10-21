@@ -3,9 +3,13 @@ import { join } from 'node:path';
 
 const EXPECTED_JOIN_SITES = 2;
 
-/** FFmpeg 9's ONNX backend frees unused request items while probing a filter graph: joining thread zero crashes. */
+/** DNN backends free unused request items while probing a filter graph: joining thread zero crashes. */
 export function fixDnnThreadLifecycle(dir: string, configure: string[]): boolean {
-  if (!configure.includes('--enable-libonnxruntime')) {
+  if (
+    !configure.some((flag) =>
+      ['--enable-libonnxruntime', '--enable-libtorch', '--enable-libtensorflow'].includes(flag),
+    )
+  ) {
     return false;
   }
   const sourcePath = join(dir, 'libavfilter', 'dnn', 'dnn_backend_common.c');

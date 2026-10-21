@@ -1,0 +1,38 @@
+name: torch
+provides: torch
+license: BSD-3-Clause AND BSD-2-Clause AND MIT AND Apache-2.0 AND BSL-1.0 AND PSF-2.0
+license-files:
+  - LICENSE
+  - third_party/pybind11/LICENSE
+  - third_party/protobuf/LICENSE
+  - third_party/cpuinfo/LICENSE
+  - third_party/pthreadpool/LICENSE
+  - third_party/FP16/LICENSE
+  - third_party/psimd/LICENSE
+  - third_party/sleef/LICENSE.txt
+  - third_party/fmt/LICENSE
+  - third_party/pocketfft/LICENSE.md
+  - third_party/flatbuffers/LICENSE
+  - third_party/nlohmann/LICENSE.MIT
+  - third_party/kineto/LICENSE
+  - third_party/onnx/LICENSE
+  - third_party/ffb_python/pyyaml/LICENSE
+  - third_party/ffb_python/typing_extensions/LICENSE
+  - third_party/ffb_python/sympy/LICENSE
+  - third_party/ffb_python/mpmath/LICENSE
+  - third_party/ffb_python/packaging/LICENSE
+  - third_party/ffb_python/packaging/LICENSE.APACHE
+  - third_party/ffb_python/packaging/LICENSE.BSD
+  - { recipe: BUILD-NOTICE.txt }
+configure: [--enable-libtorch]
+source: { git: https://github.com/pytorch/pytorch.git, ref: 'v{version}' }
+# Update build.py's reviewed dependency inventory with the version.
+versions: { git-tags: '^v(2\.14\.1)$' }
+platforms: [linux-x64]
+build:
+  system: none
+  steps:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'torch', 'build.py'), run_name='__main__')"

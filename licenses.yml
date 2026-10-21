@@ -3,6 +3,7 @@
 # A recipe's expression is read with OR (either licence's builds) and AND (only builds both allow), and a library
 # is allowed in a build only when it and everything it needs are.
 licenses:
+  PSF-2.0: all
   MIT: all
   Artistic-1.0-Perl: all
   BSL-1.0: all

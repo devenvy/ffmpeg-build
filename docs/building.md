@@ -353,6 +353,16 @@ full commit, and a kept source inside `sources/`; and every member must stay ins
 path, no `..`, no link out of it, nothing written through a link) before tar unpacks it. An entry that fails is
 deleted (the entry only, never a path it names) and the library built again.
 
+### TorchScript CPU inference
+
+`with: [torch]` enables FFmpeg's Torch DNN backend on linux-x64 with a static,
+source-built CPU-only PyTorch runtime. It includes TorchScript model loading;
+Python, GPU runtimes, distributed execution, and pretrained models are not shipped.
+The build uses pinned source dependencies and source-only Python generators.
+Models must be compatible with the selected PyTorch version. The canary runs a
+locally authored parameterless ReLU model through both natural end of input and
+early output termination.
+
 ## Comparing with published builds
 
 `scripts/compare-published*.sh` compare a build with a published devenvy/ffmpeg archive: files, configure flags,

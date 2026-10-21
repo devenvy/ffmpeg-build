@@ -1,0 +1,26 @@
+2026-10-21: devenvy/ffmpeg-build builds the TorchScript CPU runtime statically.
+Python, GPU backends, distributed inference, external BLAS, OpenMP, oneDNN,
+XNNPACK and profiling integrations are disabled. Python is a build tool only;
+its pinned generator dependencies are fetched as source repositories and kept
+in the source archive. No Python runtime or vendor Torch binary is shipped.
+
+The generic upstream submodule-presence check is disabled after fetching and
+checking the reviewed CPU dependency set; it otherwise requires disabled GPU
+dependencies too. Actual CMake dependency checks remain enabled.
+
+The static closure follows upstream's CMake consumer target, with its omitted
+ONNX serialization archives added. The Torch/Torch-CPU archives retain their
+whole-archive registration semantics. C++ is linked statically.
+
+Torch's private Protobuf symbols and references take an ffb_torch_ prefix
+throughout its static closure, including local COMDAT group signatures, so
+they coexist with other DNN runtimes' own
+Protobuf versions. Public Torch symbols and ordinary C++ runtime symbols keep
+their names. LTO archives are rejected. The deterministic transformation map
+is retained in the library cache as share/ffmpeg-build/torch-protobuf-symbols.map.
+
+FFmpeg's Torch configure probe uses C++20 and this pkg-config closure. Its
+request count is corrected to the one request actually allocated, preventing
+early shutdown from destroying a model while inference is running. The device
+comes from the configured model device, allowing parameterless models. DNN's
+common cleanup joins only threads whose creation succeeded.
