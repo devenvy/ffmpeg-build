@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: write
     with:
-      folder: examples/test-builds
+      folder: examples/verify-g1
       engine: source
       publish: never
     # not a secret: a value tests/test-env.sh recognises, to check the test-env path end to end (masked all the same)
