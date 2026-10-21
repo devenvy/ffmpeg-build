@@ -189,6 +189,12 @@ targets:
     license: lgplv2
     ffmpeg: '9'
     with: [gcrypt, libtls]
+  linux-x64-onnxruntime-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [onnxruntime]
+    tests: [tests/onnxruntime.sh]
   linux-x64-nonfree:
     platform: linux-x64
     license: nonfree

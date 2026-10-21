@@ -108,6 +108,7 @@ libraries:
   nettle: { version: 4.0, sha256: 3addbc00da01846b232fb3bc453538ea5468da43033f21bb345cb1e9073f5094 }
   nv-codec: { version: 13.1.15.0, commit: 0a6fba9a2820628b8103464f4c8753ee05838baa }
   oapv: { version: 0.3.0.0, commit: 9f6fd2a7369db90acec67d99fc57724f1136fb84 }
+  onnxruntime: { version: 1.31.0, commit: 402979ac1bef89dcd55add41eaa7277c407599eb }
   openal-soft: { version: 1.25.2, commit: b2c48f7718ef3fcf67921a8b6534c4914e328970 }
   opencl-headers: { version: 2026.05.29, commit: 6fe718c31a45fe25151362a72ef041c3a1047cbd }
   opencl-icd-loader: { version: 2026.05.29, commit: b7bd2803acc779c03d96588e9ca9e9568a18698a }
