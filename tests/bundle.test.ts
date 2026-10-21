@@ -415,7 +415,7 @@ describe('ffmpeg-build bundle', () => {
     ).rejects.toThrow('no release 9.0.2 in this folder (it has 9.1.0)');
   });
 
-  it('never sends a nonfree build to a public repository, and to a private one freely', async () => {
+  it('bundles nonfree builds without a repository and warns for public publication', async () => {
     const nonfree =
       'targets:\n  studio: { platform: linux-x64, license: nonfree, ffmpeg: 9, with: [dav1d] }\n';
     const nowhere = builtFolder(nonfree);
@@ -425,7 +425,7 @@ describe('ffmpeg-build bundle', () => {
         dist: nowhere.dist,
         engineRoot: packageRoot,
       }),
-    ).rejects.toThrow("there's no repository to check is private");
+    ).resolves.toMatchObject({ tag: '9.1.0.0', notes: [] });
     const pub = builtFolder(nonfree);
     await expect(
       bundle(pub.folder, data, LOCK, {
@@ -434,9 +434,11 @@ describe('ffmpeg-build bundle', () => {
         engineRoot: packageRoot,
         repo: 'o/r',
       }),
-    ).rejects.toThrow(
-      'studio is nonfree: internal use only, never published to a public repository (o/r is public)',
-    );
+    ).resolves.toMatchObject({
+      notes: [
+        'warning: studio is nonfree and will be published to public repository o/r; review its redistribution terms',
+      ],
+    });
     gh.private = true;
     const internal = builtFolder(nonfree);
     await bundle(internal.folder, data, LOCK, {
