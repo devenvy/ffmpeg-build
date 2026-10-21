@@ -2,6 +2,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { fetchSource, sourceRecord, type SourceRecord } from './fetch.ts';
+import { fixDnnThreadLifecycle } from './ffmpeg-dnn.ts';
 import { run, step } from './run.ts';
 import { beforeFfmpeg } from './toolchain.ts';
 
@@ -70,6 +71,9 @@ export async function buildFfmpeg(
   }
   if (unshadowVersionHeader(dir, context.buildPlan.setup)) {
     step("VERSION removed: it would shadow libc++'s <version> (RELEASE gives the same version)");
+  }
+  if (fixDnnThreadLifecycle(dir, ffmpeg.configure)) {
+    step('DNN thread lifecycle corrected: only join threads after successful creation');
   }
   const install = join(context.work, 'install');
   const env = {

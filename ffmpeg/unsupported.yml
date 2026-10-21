@@ -64,7 +64,6 @@ options:
     }
 
   # h. Large ML backends
-  libonnxruntime: { reason: pending, issue: 21, batch: h, note: 'onnxruntime (dnn filters)' }
   libopenvino: { reason: pending, issue: 21, batch: h, note: 'openvino (dnn filters)' }
   libtensorflow: { reason: pending, issue: 21, batch: h, note: 'tensorflow (dnn filters)' }
   libtorch: { reason: pending, issue: 21, batch: h, note: 'torch (dnn filters)' }

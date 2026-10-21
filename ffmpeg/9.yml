@@ -15,6 +15,7 @@
 major: 9
 releases: [9.0, 9.0.1, 9.0.2]
 auto-components:
+  - onnxruntime
   - fdk-aac
   - mpeghdec
   - mediacodec
@@ -308,6 +309,11 @@ options:
       ships: { filters: [{ libplacebo: { with: [vulkan] } }] },
     }
   whisper: { needs: whisper.cpp, min: 1.7.5, ships: { filters: [whisper] } }
+  onnxruntime:
+    {
+      needs: onnxruntime,
+      ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] },
+    }
 
   # video
   x264: { needs: x264, ffmpeg-license: gpl, ships: { encoders: [libx264] } }

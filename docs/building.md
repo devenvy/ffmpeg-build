@@ -12,6 +12,11 @@ release publishes it beside the build's archives.
 
 ## What you need
 
+`onnxruntime` selects static CPU inference on Linux x64 with FFmpeg 9. It accepts ONNX models through FFmpeg's
+DNN filters; it does not include GPU execution providers, training or a Python runtime. ONNX Runtime and its
+transitive source commits are pinned together in the recipe. Apache-2.0 dependencies require a version 3 or
+nonfree profile. The source archive retains the dependency repositories and upstream patches used to build them.
+
 `ffmpeg-build doctor` (`--target`/`--platform` to narrow it, `--json` for scripts) says how each target builds and is
 tested on this machine, checks what that needs, and prints the install command for what's missing (exit 1 then). It lists each requirement
 once, with the targets that need it; one target (`--target <name>`) gets its own list, and `--json` has every
