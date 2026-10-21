@@ -26,6 +26,10 @@ build:
     - [cmake, --build, _build, --target, fdk-aac, '-j{jobs}']
     - copy: { from: _build/libfdk-aac.a, to: '{deps}/lib/libfdk-aac.a' }
     - copy: { from: _build/fdk-aac.pc, to: '{deps}/lib/pkgconfig/fdk-aac.pc' }
+    # CMake's constant sin probe can succeed without libm on Android x64, but AAC also calls frexpf and ldexpf.
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/fdk-aac.pc'
+        libs-private: { add: -lm }
     - copy:
         { from: 'cpp/libSYS/include/machine_type.h', to: '{deps}/include/fdk-aac/machine_type.h' }
     - copy: { from: 'cpp/libSYS/include/genericStds.h', to: '{deps}/include/fdk-aac/genericStds.h' }
