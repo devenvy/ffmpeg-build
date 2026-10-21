@@ -64,4 +64,5 @@ licenses:
   LicenseRef-LCEVCdec: [lgplv2, lgplv3, nonfree]
   FDK-AAC: [nonfree]
   FDK-MPEG-H: [nonfree]
+  LicenseRef-DeckLink-SDK: [nonfree]
   proprietary: [nonfree]

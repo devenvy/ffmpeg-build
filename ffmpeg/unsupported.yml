@@ -34,20 +34,6 @@ options:
     }
 
   # g. Nonfree (nonfree builds only)
-  decklink:
-    {
-      reason: pending,
-      issue: 21,
-      batch: g,
-      note: 'decklink (Blackmagic SDK: only if its licence allows use in CI)',
-    }
-  libklvanc:
-    {
-      reason: pending,
-      issue: 21,
-      batch: g,
-      note: "klvanc (VANC data: only decklink's output device uses it, so it comes with decklink)",
-    }
   cuda_nvcc:
     {
       reason: pending,

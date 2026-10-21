@@ -1,0 +1,54 @@
+name: decklink-headers
+provides: decklink
+license: LicenseRef-DeckLink-SDK
+# The source's headers carry the complete grant; no separate licence file exists.
+license-files:
+  [DeckLinkSDK/Linux/include/DeckLinkAPIDispatch.cpp, DeckLinkSDK/Win/include/DeckLinkAPI.idl]
+configure:
+  - --enable-decklink
+  - '--extra-cxxflags=-I{deps}/include'
+  - '--enable-libklvanc': { platforms: [linux-x64, osx-*] }
+needs:
+  - libklvanc: { platforms: [linux-x64, osx-*] }
+source: { git: https://github.com/MediaArea/decklink-sdk-headers.git }
+versions: { git-branch: main }
+# Desktop Video's system runtime is required; it is not bundled. No driver for musl or mobile platforms.
+platforms: [linux-x64, win-x64, osx-*]
+build:
+  system: none
+  vars: { sdk-platform: Linux }
+  platforms:
+    'osx-*':
+      vars: { sdk-platform: Mac }
+      before:
+        # Current SDK headers omit the conventional COM IUnknown IID that FFmpeg compares in its callbacks.
+        - replace-in-file:
+            path: DeckLinkSDK/Mac/include/DeckLinkAPI.h
+            from: '#include <CoreFoundation/CFPlugInCOM.h>'
+            to: |
+              #include <CoreFoundation/CFPlugInCOM.h>
+              #ifndef IID_IUnknown
+              #define IID_IUnknown CFUUIDGetUUIDBytes(IUnknownUUID)
+              #endif
+    'win-*':
+      vars: { sdk-platform: Win }
+      before:
+        # The main IDL includes all legacy interfaces. FFmpeg includes the v14 compatibility header separately.
+        # Prefer llvm-mingw's self-contained generator in the cross image, or MSYS2's native widl.
+        - run:
+            - python3
+            - -c
+            - |
+              import pathlib, shutil, subprocess
+              arm = shutil.which('aarch64-w64-mingw32-widl')
+              widl = str(pathlib.Path(arm).with_name('x86_64-w64-mingw32-widl')) if arm else shutil.which('widl')
+              if not widl:
+                  widl = shutil.which('x86_64-w64-mingw32-widl')
+              if not widl:
+                  raise SystemExit('DeckLink needs widl from mingw-w64-tools')
+              subprocess.check_call([widl, '-h', '-o', 'DeckLinkAPI.h', 'DeckLinkAPI.idl'])
+              subprocess.check_call([widl, '-u', '-o', 'DeckLinkAPI_i.c', 'DeckLinkAPI.idl'])
+              pathlib.Path('DeckLinkAPI_v14_2_1.h').write_text('#include "DeckLinkAPI.h"\n')
+          cwd: DeckLinkSDK/Win/include
+  steps:
+    - copy: { from: 'DeckLinkSDK/{sdk-platform}/include/*', into: '{deps}/include' }
