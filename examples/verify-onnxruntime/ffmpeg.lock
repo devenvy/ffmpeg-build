@@ -1,0 +1,6 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  onnxruntime: { version: 1.31.0, commit: 402979ac1bef89dcd55add41eaa7277c407599eb }
