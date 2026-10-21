@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { fetchSource, sourceRecord, type SourceRecord } from './fetch.ts';
 import { fixDnnThreadLifecycle } from './ffmpeg-dnn.ts';
+import { fixTorchBackend } from './ffmpeg-torch.ts';
 import { run, step } from './run.ts';
 import { beforeFfmpeg } from './toolchain.ts';
 
@@ -95,6 +96,9 @@ export async function buildFfmpeg(
   }
   if (fixDnnThreadLifecycle(dir, ffmpeg.configure)) {
     step('DNN thread lifecycle corrected: only join threads after successful creation');
+  }
+  if (fixTorchBackend(dir, ffmpeg.configure)) {
+    step('Torch: modern static probe, parameterless models and request cleanup corrected');
   }
   const install = join(context.work, 'install');
   const env = {

@@ -297,6 +297,12 @@ targets:
     license: lgplv2
     ffmpeg: '9'
     with: [gcrypt, libtls]
+  linux-x64-ml-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [torch, onnxruntime, openvino]
+    tests: [tests/torch.sh, tests/onnxruntime.sh, tests/openvino.sh]
   linux-x64-openvino-lgplv3:
     platform: linux-x64
     license: lgplv3
