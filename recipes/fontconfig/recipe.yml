@@ -18,7 +18,17 @@ versions: { git-tags: '^(\d+\.\d+\.(?:\d|[0-8]\d))$' }
 # or Mac Catalyst. On Android only for Pango (librsvg's text), which requires it there; Android has no fonts.conf of
 # its own, so an application names its fonts with FONTCONFIG_FILE.
 platforms: [linux-*, osx-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        default-library: '--default-library=shared'
+      runtime: ['lib/libfontconfig*.so*']
 build:
+  vars: { default-library: --default-library=static }
   # fontconfig: system font discovery so drawtext can pick fonts by name (HPND-sell-variant), static. Ported from
   # devenvy/ffmpeg scripts/deps/fontconfig.sh.
   #
@@ -60,7 +70,7 @@ build:
       - --libdir=/usr/lib
       - --sysconfdir=/etc
       - --localstatedir=/var
-      - --default-library=static
+      - '{default-library}'
       - --buildtype=release
       - -Ddoc=disabled
       - -Dtests=disabled
