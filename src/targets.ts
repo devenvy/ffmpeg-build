@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 
 import { COMPONENT_KINDS, type Components } from './ffmpeg-components.ts';
 import { expandPlatformPattern, PLATFORMS } from './platforms.ts';
-import { formatIssues } from './schema/common.ts';
+import { formatIssues, type Linkage } from './schema/common.ts';
 import { type ComponentLists, folderSchema } from './schema/targets.ts';
 import { unique } from './text.ts';
 import { isFfmpegSeries } from './versions.ts';
@@ -28,6 +28,7 @@ export interface Target {
   with: string[]; // what the build gets, after its bases and its own lists
   without: string[]; // what it turns down (declined): never suggested, never built
   pin: Record<string, string>; // this target's version constraints
+  link?: Record<string, Linkage>;
   components: Partial<Components>; // the kinds built with only these names (its bases', a later layer replacing a kind)
   patches: string[];
   tests: string[];
@@ -48,6 +49,7 @@ export interface Folder {
       with: string[];
       without: string[];
       pin: Record<string, string>;
+      link?: Record<string, Linkage>;
       components: ComponentLists;
     }
   >;
@@ -178,8 +180,14 @@ export function parseFolderText(text: string, dir: string): FolderResult {
         }
       }
     }
+    const links: Record<string, Linkage> = {};
+    for (const base of d.base) {
+      Object.assign(links, data.bases[base]!.link ?? {});
+    }
+    Object.assign(links, d.link ?? {});
     return {
       name: t,
+      ...(Object.keys(links).length ? { link: links } : {}),
       platform: d.platform,
       license: d.license,
       ffmpeg,
@@ -299,6 +307,7 @@ export function targetProfile(folder: Folder, t: Target): Profile {
     with: t.with.map((n) => ({ name: n })),
     without: t.without.map((n) => ({ name: n })),
     pin: [],
+    ...(t.link ? { link: t.link } : {}),
     components: t.components,
     patches: t.patches,
     tests: t.tests,

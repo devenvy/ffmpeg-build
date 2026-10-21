@@ -69,6 +69,13 @@ An option or recipe's FFmpeg `configure:` flags may use `{deps}` for the depende
 `'--extra-cxxflags=-I{deps}/include'` when FFmpeg compiles a C++ device. The build fills it for its actual folder,
 including native builds; it is not a fixed path into a Docker image.
 
+Recipes may declare `linkage: { default: static, modes: { static: {}, shared: { vars: {...}, runtime: [...] } } }`.
+Each mode sets recipe variables after platform-specific variables and may replace its runtime globs; `platforms:`
+limits a mode to platforms where it was verified. Targets and bases select modes with `link: { recipe: shared }`.
+The selected mode affects the library cache, its consumers, release identity, plan output and build notices.
+Dependencies retain their own modes. Verify full builds, dependency closure, relocation and real runtime use
+before declaring a selectable mode. Recipes without this declaration retain their existing behavior.
+
 `source:` is `git:` (with `ref:`, an optional `mirror:`, and `submodules:`) or `url:` (a tarball, with `mirrors:`).
 `version-group: <name>` gives recipes released together one version in the lock: `lock` and `update` pick the newest
 version every member of the group has and allows (the Vulkan SDK's `vulkan-headers`, `vulkan-loader` and

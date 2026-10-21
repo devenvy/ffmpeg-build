@@ -8,6 +8,7 @@ import type { EngineData } from './engine-data.ts';
 import type { LockedProfile } from './lockfile.ts';
 import type { Profile } from './profile.ts';
 import type { ProfilePlan } from './resolve.ts';
+import type { Linkage } from './schema/common.ts';
 
 /** A report's problems as one line each ("pin: schannel: schannel is part of FFmpeg itself; ..."). */
 export function problemLines(report: ProfileReport): string[] {
@@ -77,7 +78,13 @@ export function formatPlan(
     out.push(`  FFmpeg ${seriesLabel(v)} (${v.version}) · ${v.license}`);
     const rows = new Map<
       string,
-      { platforms: string[]; options: string[]; recipes: string[]; pins: Record<string, string> }
+      {
+        platforms: string[];
+        options: string[];
+        recipes: string[];
+        pins: Record<string, string>;
+        linkages?: Record<string, Linkage>;
+      }
     >();
     for (const c of plan.cells.filter(
       (cell) => cell.cell.series === v.series && cell.cell.license === v.license,
@@ -87,12 +94,13 @@ export function formatPlan(
           ? `${r} ${shortVersionOf(versionInCell(profile, data, locked, c.cell, r) ?? '?')}`
           : r,
       );
-      const key = JSON.stringify([c.options, libraries, c.pins]);
+      const key = JSON.stringify([c.options, libraries, c.pins, c.linkages]);
       const row = rows.get(key) ?? {
         platforms: [],
         options: c.options,
         recipes: libraries,
         pins: c.pins,
+        ...(c.linkages ? { linkages: c.linkages } : {}),
       };
       row.platforms.push(c.cell.platform);
       rows.set(key, row);
@@ -101,6 +109,13 @@ export function formatPlan(
       out.push(`    ${describePlatforms(row.platforms)}`);
       out.push(`      options:   ${row.options.join(', ') || "(FFmpeg's built-ins only)"}`);
       out.push(`      libraries: ${row.recipes.join(', ') || '(none)'}`);
+      if (row.linkages) {
+        out.push(
+          `      linking:   ${Object.entries(row.linkages)
+            .map(([name, mode]) => `${name} ${mode}`)
+            .join(', ')}`,
+        );
+      }
       const pinned = Object.entries(row.pins).map(([lib, ver]) => `${lib} ${ver}`);
       if (pinned.length) {
         out.push(`      pinned:    ${pinned.join(', ')}`);
@@ -122,6 +137,7 @@ export interface PlanJson {
     options: string[];
     libraries: string[];
     pinned: Record<string, string>;
+    linkages?: Record<string, Linkage>;
     versions?: Record<string, string>;
   }[];
 }
@@ -143,6 +159,7 @@ export function planJson(
       options: c.options,
       libraries: c.recipes,
       pinned: c.pins,
+      ...(c.linkages ? { linkages: c.linkages } : {}),
       ...(locked
         ? {
             versions: Object.fromEntries(

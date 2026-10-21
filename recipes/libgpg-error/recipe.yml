@@ -6,11 +6,19 @@ versions:
   listing: https://gnupg.org/ftp/gcrypt/libgpg-error/
   files: '^libgpg-error-(\d+\.\d+)\.tar\.bz2$'
 platforms: [linux-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      vars: { static-arg: --disable-static, shared-arg: --enable-shared }
+      runtime: ['lib/libgpg-error.so*']
 build:
   system: autotools
+  vars: { static-arg: --enable-static, shared-arg: --disable-shared }
   args:
-    - --disable-shared
-    - --enable-static
+    - '{shared-arg}'
+    - '{static-arg}'
     - --with-pic
     - --disable-nls
     - --disable-languages

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { androidApiLevel, flag, name, oneOrMany, text, version } from './common.ts';
+import { androidApiLevel, flag, linkage, name, oneOrMany, text, version } from './common.ts';
 
 // configure's licence lists: gpl (EXTERNAL_LIBRARY_GPL_LIST), version3, gplv3 (needs both: gpl and version3) and nonfree
 const FFMPEG_LICENSE_CLASSES = ['gpl', 'version3', 'gplv3', 'nonfree'] as const;
@@ -509,9 +509,32 @@ const recipeBuild = z
     error: 'build.system: none needs at least one step',
   });
 
+const runtimeFiles = z.array(
+  platformValue(
+    text.refine((g) => !g.startsWith('/') && !g.split('/').includes('..'), {
+      error: 'expected a path inside the deps folder, like lib/libvulkan.so*',
+    }),
+    "expected a path inside the deps folder, like lib/libvulkan.so*, or one limited to platforms like `'lib/libvulkan*.dylib': { platforms: [osx-*] }`",
+  ),
+);
+const linkMode = z.strictObject({
+  vars: vars.default({}),
+  runtime: runtimeFiles.optional(),
+  platforms: platforms.optional(),
+});
+
 /** recipes/<name>/recipe.yml: facts about one library. Never a version. */
 export const recipeSchema = z.strictObject({
   name,
+  linkage: z
+    .strictObject({
+      default: linkage,
+      modes: z.strictObject({ static: linkMode.optional(), shared: linkMode.optional() }),
+    })
+    .refine((l) => l.modes[l.default] !== undefined, {
+      error: 'linkage.modes must declare its default linking mode',
+    })
+    .optional(),
   provides: name.optional(), // the FFmpeg option this library is for; checked against ffmpeg/<major>.yml
   license: text, // SPDX expression; checked against profile licenses in a later step
   // the licence texts the archives carry in THIRD-PARTY-NOTICES.txt; a build fails when one is missing
@@ -539,16 +562,7 @@ export const recipeSchema = z.strictObject({
   notes: z.record(z.string(), text).optional(),
   // globs under DEPS_DIR that ship next to FFmpeg's libraries; relative and inside it; `{ <glob>: { platforms: [...] } }`
   // for one only some platforms ship
-  runtime: z
-    .array(
-      platformValue(
-        text.refine((g) => !g.startsWith('/') && !g.split('/').includes('..'), {
-          error: 'expected a path inside the deps folder, like lib/libvulkan.so*',
-        }),
-        "expected a path inside the deps folder, like lib/libvulkan.so*, or one limited to platforms like `'lib/libvulkan*.dylib': { platforms: [osx-*] }`",
-      ),
-    )
-    .optional(),
+  runtime: runtimeFiles.optional(),
   build: recipeBuild,
   platforms,
 });

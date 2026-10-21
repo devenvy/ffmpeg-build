@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { androidApiLevel, name, text } from './common.ts';
+import { androidApiLevel, libraryLinks, name, text } from './common.ts';
 import { LICENSES } from './profile.ts';
 import { ENV_NAME, RESERVED_TEST_ENV } from '../commands/test-env.ts';
 import { COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
@@ -38,6 +38,7 @@ const SOURCE_OFFER = 'expected who to ask for the source, like an email address'
 
 // ffmpeg: on a base is the series its targets build unless they say their own (one base for `ffmpeg: latest`)
 const base = z.strictObject({
+  link: libraryLinks.optional(),
   ffmpeg: text.optional(),
   with: names,
   without: names,
@@ -46,6 +47,7 @@ const base = z.strictObject({
 });
 
 const target = z.strictObject({
+  link: libraryLinks.optional(),
   platform: text,
   license: z.enum(LICENSES, { error: `expected one of ${LICENSES.join(', ')}` }),
   ffmpeg: text.optional(), // else its last base's that has one

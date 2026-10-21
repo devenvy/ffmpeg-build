@@ -1,5 +1,12 @@
 # Targets: ffmpeg-build.yml
 
+Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
+keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
+change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and
+libgpg-error offer static and bundled shared modes on Linux x64, with static as their default. Shared libraries
+are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
+linking overrides until a mode has been verified for them.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg

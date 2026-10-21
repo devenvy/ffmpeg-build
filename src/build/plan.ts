@@ -11,6 +11,7 @@ import { componentFlags } from '../component-lists.ts';
 import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
 import { COMPONENT_KINDS, type Components } from '../ffmpeg-components.ts';
 import { allowedBy } from '../licenses.ts';
+import { linkagePlan, linkedRecipe } from '../linkage.ts';
 import { packageVersion } from '../paths.ts';
 import { availability, type CellPlan } from '../resolve.ts';
 import { releaseVersion } from '../targets.ts';
@@ -22,6 +23,7 @@ import { parseYaml } from '../yaml.ts';
 
 import type { LockedProfile, SourcePin } from '../lockfile.ts';
 import type { Profile } from '../profile.ts';
+import type { Linkage } from '../schema/common.ts';
 import type { LicenseFile, Recipe, Submodules } from '../schema/engine.ts';
 import type { License } from '../schema/profile.ts';
 
@@ -259,6 +261,7 @@ export function cacheKeys(
   toolchain: string,
   pinOf: (recipe: string) => SourcePin | undefined = () => undefined,
   androidApi?: number,
+  linkages: Readonly<Record<string, Linkage>> = {},
 ): Map<string, string> {
   const ids = new Map<string, { key: string; asDependency: string }>();
   const inBuild = new Set(recipes);
@@ -278,6 +281,7 @@ export function cacheKeys(
     const pin = pinOf(recipe);
     const fact = {
       recipe,
+      ...(linkages[recipe] ? { linkage: linkages[recipe] } : {}),
       version: versionOf(recipe),
       platform,
       toolchain,
@@ -341,6 +345,7 @@ export interface BuildPlan {
   sourcesArchive: string; // the release's sources archive
   libraries: {
     name: string;
+    linkage?: Linkage;
     version: string;
     license: string;
     key: string;
@@ -714,6 +719,10 @@ export function makeBuildPlan(args: {
   const pinOf = (lib: string): SourcePin | undefined =>
     locked.libraries[lib] === versionOf(lib) ? locked.pins?.libraries[lib] : undefined;
   const platform = cell.cell.platform;
+  const linking = linkagePlan(data, cell.recipes, platform, profile.link);
+  if (linking.errors.length) {
+    throw new Error(linking.errors.join('; '));
+  }
   // check refuses an android-api: older than the build's options and libraries support; this is its guard
   const tooOld = androidApiProblems(data, cell, profile.androidApi);
   if (tooOld.length) {
@@ -727,7 +736,16 @@ export function makeBuildPlan(args: {
     throw new Error(rustProblem);
   }
   const api = isAndroid(platform) ? androidApiFor(profile.androidApi) : undefined;
-  const keys = cacheKeys(data, cell.recipes, versionOf, platform, args.imageId, pinOf, api);
+  const keys = cacheKeys(
+    data,
+    cell.recipes,
+    versionOf,
+    platform,
+    args.imageId,
+    pinOf,
+    api,
+    linking.modes,
+  );
   const version = cell.cell.version;
   const license = cell.cell.license;
   const setup = setupOf(data, platform);
@@ -766,9 +784,10 @@ export function makeBuildPlan(args: {
     sourcesArchive,
     libraries: cell.recipes.map((lib) => {
       const key = keys.get(lib)!;
-      const r = data.recipes.get(lib)!;
+      const r = linkedRecipe(data.recipes.get(lib)!, linking.modes[lib]);
       return {
         name: lib,
+        ...(linking.modes[lib] ? { linkage: linking.modes[lib] } : {}),
         version: versionOf(lib),
         license: r.license,
         key,
@@ -779,7 +798,9 @@ export function makeBuildPlan(args: {
       };
     }),
     runtime: unique(
-      cell.recipes.flatMap((r) => valuesOn(data.recipes.get(r)!, 'runtime', platform)),
+      cell.recipes.flatMap((r) =>
+        valuesOn(linkedRecipe(data.recipes.get(r)!, linking.modes[r]), 'runtime', platform),
+      ),
     ),
     ships: Object.entries(data.platforms.get(platform)?.ships ?? {}).map(([file, s]) => ({
       file,

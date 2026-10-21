@@ -61,6 +61,20 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "link": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "static",
+                "shared"
+              ]
+            }
+          },
           "ffmpeg": {
             "type": [
               "string",
@@ -464,6 +478,20 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "link": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "static",
+                "shared"
+              ]
+            }
+          },
           "platform": {
             "type": [
               "string",

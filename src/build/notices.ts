@@ -142,6 +142,9 @@ export function writeNotices(
       result += `Commit: ${record.commit}\n`;
     }
     result += `Source: ${record.file} (sha256 ${record.sha256})\n\n`;
+    if (library.linkage) {
+      result += `Linkage: ${library.linkage}\n\n`;
+    }
     for (const file of library.licenseFiles) {
       const path = join(context.depsDir, 'share', 'ffmpeg-build', 'legal', library.name, file.path);
       result += text(
