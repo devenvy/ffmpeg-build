@@ -275,9 +275,8 @@ describe("THIRD-PARTY-NOTICES.txt's effective licence", () => {
     expect(lgplv2).toContain(
       'Governing license text: COPYING.LGPLv2.1 (plus COPYING.GPLv2, which it extends)',
     );
-    expect(lgplv2).toContain(
-      'This build has no TLS: no TLS library LGPLv2.1 allows is available for linux-x64.',
-    );
+    // libtls is available for LGPLv2.1 now; the shipped profile still does not select a TLS provider here.
+    expect(lgplv2).toContain('This build has no TLS library.');
   });
 
   it('says a nonfree build may not be redistributed, and what makes it nonfree', () => {

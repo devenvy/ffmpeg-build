@@ -22,6 +22,11 @@ The opt-in `decklink` option needs Blackmagic Desktop Video installed on the mac
 hardware. The build includes only the SDK's headers and dispatch code; the driver and Desktop Video runtime remain
 system dependencies. It is available in nonfree builds on Linux x64, Windows x64 and macOS. On Linux and macOS it
 also builds static libklvanc for VANC output; Windows builds omit that extension.
+`gcrypt` and `libtls` are opt-in static alternatives on Linux x64. `gcrypt` uses libgcrypt and libgpg-error for
+encrypted RTMP; omit `gmp` when testing it because FFmpeg prefers GMP when both are enabled. `libtls` selects
+LibreSSL instead of another TLS provider. Its original OpenSSL licence permits the LGPL and nonfree profiles;
+FFmpeg rejects it in GPL profiles without nonfree. Certificate verification uses the system's CA bundle; pass
+`-ca_file /path/to/ca-bundle.pem` when it is not at `/etc/ssl/cert.pem`. The libraries do not ship a CA bundle.
 
 `ffmpeg-build doctor` (`--target`/`--platform` to narrow it, `--json` for scripts) says how each target builds and is
 tested on this machine, checks what that needs, and prints the install command for what's missing (exit 1 then). It lists each requirement

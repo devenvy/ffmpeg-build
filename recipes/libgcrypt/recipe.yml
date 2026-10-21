@@ -1,0 +1,23 @@
+name: libgcrypt
+provides: gcrypt
+license: LGPL-2.1-or-later
+license-files: [COPYING.LIB, LICENSES, { recipe: BUILD-NOTICE.txt }]
+needs: [libgpg-error]
+# The static fallback in FFmpeg's configure does not add libgpg-error itself.
+configure: [--enable-gcrypt, '--extra-libs=-lgpg-error']
+source: { url: 'https://gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-{version}.tar.bz2' }
+versions:
+  listing: https://gnupg.org/ftp/gcrypt/libgcrypt/
+  files: '^libgcrypt-(1\.12\.\d+)\.tar\.bz2$'
+platforms: [linux-x64]
+build:
+  system: autotools
+  # The bundled jitter RNG exposes generic SHA3 symbols that collide with LibreSSL in a combined static link.
+  env:
+    CFLAGS: '+= -Dsha3_256_init=_gcry_jent_sha3_256_init -Dsha3_update=_gcry_jent_sha3_update -Dsha3_final=_gcry_jent_sha3_final -Dsha3_tester=_gcry_jent_sha3_tester'
+  args:
+    - --disable-shared
+    - --enable-static
+    - --with-pic
+    - --disable-doc
+    - '--with-libgpg-error-prefix={deps}'

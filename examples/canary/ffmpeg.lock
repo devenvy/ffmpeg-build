@@ -55,7 +55,9 @@ libraries:
   libdvdread: { version: 7.1.1, sha256: a0d47876548bec806774bbf8dbf20bb19ba139464383156b32eb8e59915b90a9 }
   libexpat: { version: 2.9.0, commit: a76b1174c1ea52abb639a4c69d52b630a8a106a2 }
   libffi: { version: 3.8.0, sha256: 7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4 }
+  libgcrypt: { version: 1.12.4, sha256: d77f68f48879510e79a2f65977ccc68981781ea0923e5bdffac2a193ea3d660e }
   libgme: { version: 0.6.5, commit: 9e23d10f9fd2a6a2f33b10912dd8dc7153258995 }
+  libgpg-error: { version: 1.61, sha256: 7a85413f2bc354f4f8aa832b718af122e48965e9e0eb9012ee659c13c6385c93 }
   libgsm: { version: 1.0.24, sha256: a3c40c6471928383f4abfcb2e8f24012a1f562be2f17b8d672145d5986681a92 }
   libiconv: { version: 1.19, sha256: 88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6 }
   libiec61883: { version: 1.2.0, sha256: d1e02c7e276fac37313a2f8c1c33d7a9e19282ff16f32e72435428ff5121f09e }
@@ -72,6 +74,7 @@ libraries:
   libpng: { version: 1.6.59, commit: cd952f49f95bb27154ae77dbb103032d95f6e580 }
   libqrencode: { version: 4.1.1, commit: 715e29fd4cd71b6e452ae0f4e36d917b43122ce8 }
   libraw1394: { version: 2.1.2, sha256: 03ccc69761d22c7deb1127fc301010dd13e70e44bb7134b8ff0d07590259a55e }
+  libressl: { version: 4.3.3, sha256: ff97c432457f349e6ba3d416ab903bc7468f1436f0f32efe5fff808de292c7b8 }
   librist: { version: 0.2.20, commit: 4f45ef8f78983892d52ccd52d9f675435b23738f }
   librsvg: { version: 2.63.3, commit: 230d2c9ee3e6d552a981374e8a3c1e2c28604768 }
   librtmp: { version: 2.6, commit: 138fdb258d9fc26f1843fd1b891180416c9dc575 }
