@@ -1,7 +1,7 @@
 name: mpeghdec
 provides: mpeghdec
 license: FDK-MPEG-H
-license-files: [LICENSE.txt]
+license-files: [LICENSE.txt, { recipe: BUILD-NOTICE.txt }]
 configure: [--enable-libmpeghdec]
 source: { git: https://github.com/Fraunhofer-IIS/mpeghdec.git, ref: 'r{version}' }
 # r4.0.1 isolates the internal symbols shared with static fdk-aac.
@@ -22,6 +22,9 @@ build:
         libs-private: '-lm {cxx-runtime}'
   vars: { cxx-runtime: -lstdc++ }
   platforms:
+    linux-armhf:
+      # Upstream's generated prefix header misses this C++ symbol on 32-bit ARM (long differs from x64).
+      env: { CXXFLAGS: '+= -Dschur_div=_mpeghdec_schur_div' }
     'osx-*,ios-*,maccatalyst-*':
       vars: { cxx-runtime: -lc++ }
     win-arm64:

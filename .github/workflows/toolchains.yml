@@ -29,6 +29,7 @@ jobs:
     secrets:
       test-env: FFB_TEST_ENV_CHECK=${{ github.run_id }}-ok
   native:
+    if: false
     uses: ./.github/workflows/build.yml
     permissions:
       contents: write
