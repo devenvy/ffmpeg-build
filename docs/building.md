@@ -35,6 +35,10 @@ LibreSSL instead of another TLS provider. Its original OpenSSL licence permits t
 FFmpeg rejects it in GPL profiles without nonfree. Certificate verification uses the system's CA bundle; pass
 `-ca_file /path/to/ca-bundle.pem` when it is not at `/etc/ssl/cert.pem`. The libraries do not ship a CA bundle.
 
+`openvino` builds a static CPU-only OpenVINO runtime on Linux x64. Models must be in OpenVINO IR format
+(`.xml` plus a `.bin` file when the model has weights). GPU/NPU devices and the other model frontends are disabled.
+Its sequential CPU backend needs no separately installed OpenVINO, TBB or OpenMP libraries.
+
 `onnxruntime` selects static CPU inference on Linux x64 with FFmpeg 9. It accepts ONNX models through FFmpeg's
 DNN filters; it does not include GPU execution providers, training or a Python runtime. ONNX Runtime and its
 transitive source commits are pinned together in the recipe. Apache-2.0 dependencies require a version 3 or

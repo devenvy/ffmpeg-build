@@ -118,6 +118,7 @@ libraries:
   openh264: { version: 2.6.0, commit: 652bdb7719f30b52b08e506645a7322ff1b2cc6f }
   openjpeg: { version: 2.5.4, commit: 6c4a29b00211eb0430fa0e5e890f1ce5c80f409f }
   openssl: { version: 3.5.9, commit: 45e844fa2a14ec92d146bd8f5778ac130b6625fb }
+  openvino: { version: 2026.4.1, commit: e213a14725769a6a2bf86fc86650aa78a9c05d3e }
   opus: { version: 1.6.1, commit: 22244de5a79bd1d6d623c32e72bf1954b56235be }
   pango: { version: 1.56.4, commit: 5f589a7e0e61dca3f976da172cf55743ace77a38 }
   parse-yapp: { version: 1.21, sha256: 3810e998308fba2e0f4f26043035032b027ce51ce5c8a52a8b8e340ca65f13e5 }
