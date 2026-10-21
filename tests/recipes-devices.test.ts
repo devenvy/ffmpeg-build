@@ -128,7 +128,25 @@ describe('pulseaudio', () => {
     const h = fake(platform);
     const meson = join(h.src, 'meson.build');
     put(meson, "cdata.set('ENABLE_NLS', 1)\n");
+    const common = join(h.src, 'src', 'meson.build');
+    const client = join(h.src, 'src', 'pulse', 'meson.build');
+    put(common, "libpulsecommon = shared_library('pulsecommon-' + pa_version_major_minor,\n");
+    put(
+      client,
+      "libpulse = shared_library('pulse',\nlibpulse_simple = shared_library('pulse-simple',\nlibpulse_mainloop_glib = shared_library('pulse-mainloop-glib',\n",
+    );
+    const pc = pcPath(h, 'libpulse');
+    h.onRun = (call) => {
+      if (call.command === 'meson' && call.args[0] === 'install') {
+        put(pc, `Name: libpulse\nLibs.private: -L\${libdir}/pulseaudio -lpulsecommon-1.2\n`);
+      }
+      return undefined;
+    };
     await build(h, 'pulseaudio');
+    expect(h.read(common)).toContain("libpulsecommon = library('pulsecommon-'");
+    expect(h.read(client)).not.toContain('shared_library(');
+    expect(h.read(pc)).toContain('-lpulsecommon-1.2 -lm -ldl -lrt');
+    expect(h.read(pc)).toContain('Requires.private: sndfile');
     // no translations, so no <libintl.h> (musl has none)
     expect(h.read(meson)).toBe('\n');
     expect(commands(h)).toEqual(
@@ -136,7 +154,7 @@ describe('pulseaudio', () => {
         [
           'meson setup _build .',
           `--prefix=${h.deps}`,
-          '--libdir=lib --buildtype=release --sysconfdir=/etc --localedir=/usr/share/locale',
+          '--libdir=lib --buildtype=release --default-library=static -Db_staticpic=true --sysconfdir=/etc --localedir=/usr/share/locale',
           ...h.context.toolchain.mesonArgs,
           '-Dauto_features=disabled -Ddaemon=false -Dclient=true -Ddoxygen=false -Dman=false -Dtests=false',
           '-Dbashcompletiondir=no -Dzshcompletiondir=no',
@@ -150,7 +168,7 @@ describe('pulseaudio', () => {
     expect(recipe('pulseaudio').license).toBe('LGPL-2.1-or-later');
     expect(recipe('pulseaudio').needs).toEqual([{ name: 'libsndfile' }]);
     expect(platformsOf('pulseaudio')).toEqual(LINUX);
-    expect(recipe('pulseaudio').runtime).toEqual([
+    expect(recipe('pulseaudio').linkage!.modes.shared!.runtime).toEqual([
       { value: 'lib/libpulse.so*' },
       { value: 'lib/pulseaudio/libpulsecommon-*.so' },
     ]);
@@ -183,13 +201,34 @@ describe('jack2', () => {
     const h = fake(platform);
     const context = join(h.src, 'waflib', 'Context.py');
     put(context, 'import os, re, imp, sys\n\tmodule = imp.new_module(WSCRIPT_FILE)\n');
+    const common = join(h.src, 'common', 'wscript');
+    put(common, "clientlib = bld(features=['c', 'cxx', 'cxxshlib', 'cshlib'])\n");
+    const pc = pcPath(h, 'jack');
+    h.onRun = (call) => {
+      if (call.args.includes('install')) {
+        put(pc, 'Name: jack\nLibs: -ljack\n');
+      }
+      return undefined;
+    };
     await build(h, 'jack2');
+    expect(h.read(common)).toContain("features=['c', 'cxx', 'cxxstlib', 'cstlib']");
+    expect(h.read(pc)).toContain(
+      platform.startsWith('linux-musl-')
+        ? '-l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a'
+        : '-l:libstdc++.a -shared-libgcc -lgcc_s',
+    );
+    expect(h.read(pc)).toContain('--exclude-libs,libjack.a:');
     // Python 3.12 has no imp
     expect(h.read(context)).toBe(
       'import os, re, sys, types\n\tmodule = types.ModuleType(WSCRIPT_FILE)\n',
     );
     const cross = platform === 'linux-armhf' ? 'arm-linux-gnueabihf-' : '';
-    const musl = muslLdflags(platform, ' -static-libstdc++ -static-libgcc');
+    const privateRuntime = platform.startsWith('linux-musl-')
+      ? '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
+      : '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a';
+    const musl = platform.startsWith('linux-musl-')
+      ? muslLdflags(platform, ` ${privateRuntime}`)
+      : `LDFLAGS= ${privateRuntime}`;
     expect(commands(h)).toEqual([
       withEnv(
         [
@@ -209,7 +248,7 @@ describe('jack2', () => {
   it('ships libjack (LGPL-2.1-or-later) on Linux', () => {
     expect(recipe('jack2').license).toBe('LGPL-2.1-or-later');
     expect(platformsOf('jack2')).toEqual(LINUX);
-    expect(recipe('jack2').runtime).toEqual([{ value: 'lib/libjack.so*' }]);
+    expect(recipe('jack2').linkage!.modes.shared!.runtime).toEqual([{ value: 'lib/libjack.so*' }]);
   });
 });
 

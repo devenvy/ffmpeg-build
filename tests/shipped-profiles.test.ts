@@ -2041,14 +2041,14 @@ describe('audio device libraries', () => {
       recipe: 'pulseaudio',
       recipes: () => ['libsndfile', 'pulseaudio'],
       flags: ['--enable-libpulse'],
-      runtime: () => ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so'],
+      runtime: () => [],
     },
     jack: {
       platforms: linuxAll,
       recipe: 'jack2',
       recipes: () => ['jack2'],
       flags: ['--enable-libjack'],
-      runtime: () => ['lib/libjack.so*'],
+      runtime: () => [],
     },
     // static, on the selected ALSA library
     sndio: {

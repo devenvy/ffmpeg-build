@@ -8,22 +8,48 @@ configure: [--enable-libjack]
 source: { git: https://github.com/jackaudio/jack2.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: [linux-*]
-# shipped beside FFmpeg (libjack.so.0), not linked statically: a client library has to speak its server's protocol, and
-# PipeWire's JACK replaces it with its own libjack.so.0 (pw-jack sets LD_LIBRARY_PATH, which comes before FFmpeg's
-# RUNPATH)
-runtime: ['lib/libjack.so*']
+# Static clients speak JACK2's protocol. Select shared for PipeWire's pw-jack replacement through LD_LIBRARY_PATH.
+linkage:
+  default: static
+  modes:
+    static: { runtime: [] }
+    shared:
+      vars:
+        client-cxx-feature: cxxshlib
+        client-c-feature: cshlib
+        static-mode: ''
+      runtime: ['lib/libjack.so*']
 build:
   # JACK2 (waf), for FFmpeg's jack input device: none of the optional backends or codecs (ALSA, FireWire, IIO,
   # PortAudio, CELT, Opus, libsamplerate, systemd, Berkeley DB, Doxygen); a client never starts a server itself
   # (--autostart=none: libjack would run the build's jackd). waf builds jackd and the tools too; only libjack ships.
   system: none
-  vars: { cc: gcc, cxx: g++ }
+  vars:
+    cc: gcc
+    cxx: g++
+    client-cxx-feature: cxxstlib
+    client-c-feature: cstlib
+    static-mode: 'yes'
+    # glibc thread cancellation must share its system unwinder, including inside FFmpeg's shared libraries.
+    runtime-link-flags: '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a'
+    unwind-libs: '-shared-libgcc -lgcc_s'
+    hidden-archives: 'libjack.a:libstdc++.a:libgcc.a'
+  env:
+    LDFLAGS: '+= {runtime-link-flags}'
   platforms:
     'linux-armhf': { vars: { cc: arm-linux-gnueabihf-gcc, cxx: arm-linux-gnueabihf-g++ } }
     # shipped on musl: it asks for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml), and
     # takes its C++ and GCC runtimes in statically, as every musl build does
     'linux-musl-*':
-      { env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608 -static-libstdc++ -static-libgcc' } }
+      {
+        vars:
+          {
+            runtime-link-flags: '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a',
+            unwind-libs: '-l:libgcc.a -l:libgcc_eh.a',
+            hidden-archives: 'libjack.a:libstdc++.a:libgcc.a:libgcc_eh.a',
+          },
+        env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608 {runtime-link-flags}' },
+      }
   steps:
     # its waf (2.0.12) imports imp, which Python 3.12 removed: types.ModuleType is what imp.new_module made
     - replace-in-file:
@@ -33,6 +59,10 @@ build:
           to: 'import os, re, sys, types',
         }
     - replace-in-file: { path: waflib/Context.py, from: 'imp.new_module(', to: 'types.ModuleType(' }
+    - replace-in-file:
+        path: common/wscript
+        from: "clientlib = bld(features=['c', 'cxx', 'cxxshlib', 'cshlib'])"
+        to: "clientlib = bld(features=['c', 'cxx', '{client-cxx-feature}', '{client-c-feature}'])"
     - run:
         - python3
         - ./waf
@@ -54,3 +84,8 @@ build:
       env: { CC: '{cc}', CXX: '{cxx}' }
     - [python3, ./waf, build, '-j{jobs}']
     - [python3, ./waf, install]
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/jack.pc'
+        libs-private:
+          add: '-l:libstdc++.a {unwind-libs} -lm -pthread -ldl -lrt -Wl,--exclude-libs,{hidden-archives}'
+      when: { set: '{static-mode}' }
