@@ -19,6 +19,7 @@ import { keptPath } from './cache.ts';
 import { keptFiles, type SourceRecord } from './fetch.ts';
 import { checkNotices, writeNotices } from './notices.ts';
 import { run, searchOutput, step } from './run.ts';
+import { systemCheckEnv, writeRuntimeDependencies } from './runtime-dependencies.ts';
 
 import type { BuildContext } from './library.ts';
 
@@ -369,8 +370,12 @@ async function checkPlatform(context: BuildContext, runDir: string): Promise<voi
     if (p.startsWith('linux-musl-')) {
       await checkMuslRuntime(context, runDir);
     }
-    await run(prefix[0]!, [...prefix.slice(1), '-hide_banner', '-version'], { env: context.env });
-    await run(prefix[0]!, [...prefix.slice(1), '-hide_banner', '-buildconf'], { env: context.env });
+    await run(prefix[0]!, [...prefix.slice(1), '-hide_banner', '-version'], {
+      env: systemCheckEnv(context),
+    });
+    await run(prefix[0]!, [...prefix.slice(1), '-hide_banner', '-buildconf'], {
+      env: systemCheckEnv(context),
+    });
     return;
   }
   if (p.startsWith('win-')) {
@@ -657,6 +662,7 @@ export async function stageBuild(
   checkNotices(join(devDir, 'THIRD-PARTY-NOTICES.txt'), context);
   step(`checking ${plan.name}`);
   await checkPlatform(context, runDir);
+  await writeRuntimeDependencies(context, runDir, devDir);
   const symbolsDir =
     shipsSymbols(plan.platform) && plan.setup !== 'fake'
       ? join(context.work, 'stage', 'symbols')
