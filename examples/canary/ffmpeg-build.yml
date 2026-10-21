@@ -160,6 +160,11 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-nvidia-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    with: [cuda-nvcc]
   linux-x64-nonfree:
     platform: linux-x64
     license: nonfree

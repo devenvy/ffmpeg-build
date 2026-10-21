@@ -65,4 +65,5 @@ licenses:
   FDK-AAC: [nonfree]
   FDK-MPEG-H: [nonfree]
   LicenseRef-DeckLink-SDK: [nonfree]
+  LicenseRef-NVIDIA-CUDA: [nonfree]
   proprietary: [nonfree]
