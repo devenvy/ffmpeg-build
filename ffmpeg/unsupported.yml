@@ -104,8 +104,3 @@ options:
       reason: deprecated-upstream,
       note: "PocketSphinx (the asr filter): FFmpeg's filter is written against the pre-5.0 API (cmd_ln_parse_r, <pocketsphinx/pocketsphinx.h>, on SphinxBase), which PocketSphinx 5.0 (2022) removed; only the unmaintained 5prealpha snapshot (2015) and the archived SphinxBase have it",
     }
-  libsmbclient:
-    {
-      reason: shared-only,
-      note: "Samba's libsmbclient (the smb protocol; GPL-3.0-or-later): Samba builds it only as a shared library over a tree of its own private shared libraries (talloc, tevent, tdb, its bundled Heimdal, ...), with its waf build and cross-answers, so it can't link into FFmpeg statically as every library here does; shipping Samba's shared library tree beside FFmpeg's would be a separate packaging and runtime model",
-    }

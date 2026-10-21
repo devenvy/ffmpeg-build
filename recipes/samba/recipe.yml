@@ -1,0 +1,79 @@
+name: samba
+provides: smbclient
+license: GPL-3.0-or-later
+license-files:
+  - COPYING
+  - lib/talloc/LICENSE
+  - lib/tdb/LICENSE
+  - lib/tevent/LICENSE
+  - lib/ldb/LICENSE
+  - third_party/heimdal/LICENSE
+  - third_party/heimdal/lib/hcrypto/libtommath/LICENSE
+  - third_party/popt/COPYING
+  - third_party/quic/COPYING
+  - FFB-NGTCP2-NOTICES.txt
+  - { recipe: BUILD-NOTICE.txt }
+needs: [flex, gnutls, parse-yapp, zlib]
+configure:
+  - --enable-libsmbclient
+  - '--extra-ldflags=-L{deps}/samba/lib -Wl,-rpath-link,{deps}/samba/lib -Wl,-rpath-link,{deps}/samba/lib/private'
+source: { url: 'https://download.samba.org/pub/samba/stable/samba-{version}.tar.gz' }
+versions:
+  listing: https://download.samba.org/pub/samba/stable/
+  files: '^samba-(4\.25\.\d+)\.tar\.gz$'
+platforms: [linux-x64]
+linkage:
+  default: shared
+  modes:
+    shared: {}
+runtime: ['samba/lib/*.so*']
+build:
+  system: none
+  env:
+    PATH: '{deps}/bin:{PATH}'
+    PERL5LIB: '{deps}/share/perl5'
+    PYTHONHASHSEED: '1'
+    CFLAGS: '+= -I{deps}/include'
+    # Several Samba DSOs use static GnuTLS. Keep each copy's internal state local to its DSO.
+    LDFLAGS: '+= -L{deps}/lib -Wl,--exclude-libs,ALL'
+  steps:
+    - run:
+        - ./configure
+        - '--prefix={deps}/samba'
+        - '--libdir={deps}/samba/lib'
+        - --sysconfdir=/etc
+        - --disable-rpath
+        - --disable-rpath-install
+        - --disable-rpath-private-install
+        - --bundled-libraries=ALL
+        - '--with-static-modules=!vfs_snapper,ALL'
+        - --without-ad-dc
+        - --without-ldb-lmdb
+        - --without-ads
+        - --disable-python
+        - --without-ldap
+        - --without-json
+        - --without-pam
+        - --without-acl-support
+        - --disable-cups
+        - --disable-iprint
+        - --without-regedit
+        - --without-libarchive
+        - --without-systemd
+        - --without-quotas
+        - --disable-avahi
+        - --without-fam
+        - --without-syslog
+        - --without-utmp
+        - --without-winbind
+      env: { PKGCONFIG: 'pkg-config --static' }
+    - [python3, buildtools/bin/waf, build, --targets=smbclient, '-j{jobs}']
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'samba', 'install.py'), run_name='__main__')"
+    - pkg-config:
+        name: smbclient
+        description: Samba SMB client library
+        version: '{version}'
+        libs: '-L{deps}/samba/lib -lsmbclient'

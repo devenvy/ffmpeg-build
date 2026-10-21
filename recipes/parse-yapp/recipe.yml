@@ -1,0 +1,15 @@
+name: parse-yapp
+license: Artistic-1.0-Perl
+license-files: [lib/Parse/Yapp.pm, { recipe: Artistic.txt }]
+source:
+  url: 'https://cpan.metacpan.org/authors/id/W/WB/WBRASWELL/Parse-Yapp-{version}.tar.gz'
+versions:
+  listing: https://cpan.metacpan.org/authors/id/W/WB/WBRASWELL/
+  files: '^Parse-Yapp-(\d+\.\d+)\.tar\.gz$'
+platforms: [linux-x64]
+build:
+  system: none
+  steps:
+    - copy: { from: lib/Parse, to: '{deps}/share/perl5/Parse', recursive: true }
+    - copy: { from: yapp, to: '{deps}/bin/yapp' }
+    - [chmod, '+x', '{deps}/bin/yapp']

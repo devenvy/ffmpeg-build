@@ -12,6 +12,13 @@ release publishes it beside the build's archives.
 
 ## What you need
 
+`smbclient` is opt-in on Linux x64 in GPLv3 and nonfree builds. It builds Samba's client libraries from source
+and ships the required shared libraries beside FFmpeg. Keep those libraries together; a system Samba installation
+is not needed. This option is shared-only, rather than a static build. Username/password SMB3 reads, seeks and
+writes are tested with mandatory signing and encryption. AD-domain integration is disabled. Its internal static
+GnuTLS dependency does not select FFmpeg's TLS provider. The canary runtime test needs Docker and network access
+to install an isolated test server; it exposes no host ports.
+
 `cuda-nvcc` is an opt-in, nonfree option for Linux x64. It installs NVIDIA's unchanged CUDA vendor
 packages into the dependency folder; those recorded downloads are vendor artifacts rather than open-source code.
 The compiler and its support files are build tools, not part of FFmpeg's runtime archive.
