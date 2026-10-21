@@ -11,16 +11,25 @@ source:
   }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libvpx.so*']
 build:
   # libvpx: VP8 / VP9 video encoder + decoder (BSD-3-Clause), the WebM reference codec, static. Ported from
   # devenvy/ffmpeg scripts/deps/libvpx.sh. Its own configure: the platform names the --target, and cross toolchains
   # reach it through CROSS (configure, make and make install all see it).
   system: none
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
   steps:
     - - ./configure
       - '--prefix={deps}'
-      - --disable-shared
-      - --enable-static
+      - '{shared-arg}'
+      - '{static-arg}'
       - --enable-vp8
       - --enable-vp9
       - --enable-vp9-highbitdepth

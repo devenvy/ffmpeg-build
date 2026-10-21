@@ -12,10 +12,20 @@ source:
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Not android-* / ios-* / maccatalyst-*: upstream drops it there (image-only codec, not needed for mobile decode).
 platforms: [linux-*, osx-*, win-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: -DBUILD_SHARED_LIBS=ON }
+      runtime: ['lib/libwebp*.so*', 'lib/libsharpyuv.so*']
 build:
   system: cmake
+  vars: { shared-library-arg: [] }
   args:
     [
+      '{shared-library-arg}',
       -DWEBP_BUILD_CWEBP=OFF,
       -DWEBP_BUILD_DWEBP=OFF,
       -DWEBP_BUILD_GIF2WEBP=OFF,

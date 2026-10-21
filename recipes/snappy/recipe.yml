@@ -13,13 +13,31 @@ configure:
 source: { git: https://github.com/google/snappy, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-library-arg: -DBUILD_SHARED_LIBS=ON
+        runtime-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
+      runtime: ['lib/libsnappy.so*']
 build:
   # Snappy: Google's fast compressor (BSD-3-Clause), static, for FFmpeg's HAP encoder (the decoder has FFmpeg's own
   # Snappy decompressor). The library alone: no tests or benchmarks (which would want GoogleTest and Benchmark). Its
   # CMakeLists makes every warning an error under Clang, which a newer Clang than upstream's CI turns into a failed
   # build: left out.
   system: cmake
-  args: [-DSNAPPY_BUILD_TESTS=OFF, -DSNAPPY_BUILD_BENCHMARKS=OFF, -DSNAPPY_INSTALL=ON]
+  vars: { shared-library-arg: [], runtime-link-arg: [] }
+  args:
+    [
+      '{shared-library-arg}',
+      '{runtime-link-arg}',
+      -DSNAPPY_BUILD_TESTS=OFF,
+      -DSNAPPY_BUILD_BENCHMARKS=OFF,
+      -DSNAPPY_INSTALL=ON,
+    ]
   before:
     - replace-in-file:
         { path: CMakeLists.txt, from: 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")', to: '' }

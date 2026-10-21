@@ -6,9 +6,18 @@ configure: [--enable-libopenjpeg]
 source: { git: https://github.com/uclouvain/openjpeg.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: -DBUILD_SHARED_LIBS=ON, shared-mode: 'yes' }
+      runtime: ['lib/libopenjp2.so*']
 build:
   system: cmake
-  args: [-DBUILD_CODEC=OFF, -DBUILD_TESTING=OFF]
+  vars: { shared-library-arg: [], shared-mode: '' }
+  args: ['{shared-library-arg}', -DBUILD_CODEC=OFF, -DBUILD_TESTING=OFF]
   after:
     # OpenJPEG 2.5.x emits a malformed Libs.private in libopenjp2.pc — its CMake prepends -l to an
     # already-complete thread flag, giving "-l-lpthread" (glibc, thread lib = -lpthread) or
@@ -23,3 +32,13 @@ build:
           regex: true,
           optional: true,
         }
+    # pkgconf --static also adds Cflags.private for a shared consumer. OPJ_STATIC
+    # declares those imported functions hidden on ELF, so their DSO cannot satisfy
+    # the link. Keep it for static builds and remove it only in shared mode.
+    - replace-in-file:
+        {
+          path: '{deps}/lib/pkgconfig/libopenjp2.pc',
+          from: 'Cflags.private: -DOPJ_STATIC',
+          to: 'Cflags.private:',
+        }
+      when: { set: '{shared-mode}' }

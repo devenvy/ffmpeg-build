@@ -345,8 +345,13 @@ options:
   aom: { needs: aom, min: 2.0.0, ships: { encoders: [libaom_av1] } }
   svtav1: { needs: svtav1, min: 0.9.0, ships: { encoders: [libsvtav1] } }
   rav1e: { needs: rav1e, min: 0.5.0, ships: { encoders: [librav1e] } }
-  vpx: { needs: libvpx, min: 1.4.0, ships: { encoders: [libvpx_vp8, libvpx_vp9] } }
-  webp: { needs: libwebp, min: 0.2.0, ships: { encoders: [libwebp] } }
+  vpx:
+    {
+      needs: libvpx,
+      min: 1.4.0,
+      ships: { encoders: [libvpx_vp8, libvpx_vp9], decoders: [libvpx_vp8, libvpx_vp9] },
+    }
+  webp: { needs: libwebp, min: 0.2.0, ships: { encoders: [libwebp, libwebp_anim] } }
   openjpeg: { needs: openjpeg, min: 2.1.0, ships: { encoders: [libopenjpeg] } }
   jxl: { needs: libjxl, min: 0.7.0, ships: { decoders: [libjxl] } }
   zimg: { needs: zimg, min: 2.7.0, ships: { filters: [zscale] } }
