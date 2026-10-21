@@ -108,7 +108,10 @@ describe('twolame', () => {
 describe('shine', () => {
   it.each(platformsOf('shine'))('%s', async (platform) => {
     const h = fake(platform);
+    const pkgConfig = join(h.src, 'shine.pc.in');
+    put(pkgConfig, `Libs: -L\${libdir} -lm -lshine\n`);
     await build(h, 'shine');
+    expect(h.read(pkgConfig)).toBe(`Libs: -L\${libdir} -lshine\nLibs.private: -lm\n`);
     expect(commands(h)).toEqual(
       [
         'autoreconf -fi',

@@ -5,7 +5,16 @@ license-files: [COPYING]
 source: { git: https://github.com/xiph/ogg, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libogg.so*']
 build:
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]
   before: [[./autogen.sh]]
