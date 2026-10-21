@@ -521,6 +521,7 @@ const linkMode = z.strictObject({
   vars: vars.default({}),
   runtime: runtimeFiles.optional(),
   platforms: platforms.optional(),
+  packages: z.record(text, z.array(text)).default({}),
 });
 
 /** recipes/<name>/recipe.yml: facts about one library. Never a version. */
@@ -529,7 +530,11 @@ export const recipeSchema = z.strictObject({
   linkage: z
     .strictObject({
       default: linkage,
-      modes: z.strictObject({ static: linkMode.optional(), shared: linkMode.optional() }),
+      modes: z.strictObject({
+        static: linkMode.optional(),
+        shared: linkMode.optional(),
+        'system-shared': linkMode.optional(),
+      }),
     })
     .refine((l) => l.modes[l.default] !== undefined, {
       error: 'linkage.modes must declare its default linking mode',

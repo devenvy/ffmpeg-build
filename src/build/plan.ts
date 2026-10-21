@@ -355,6 +355,12 @@ export interface BuildPlan {
     build: Recipe['build'];
   }[];
   runtime: string[]; // globs under DEPS_DIR that ship next to FFmpeg's libraries (e.g. lib/libvulkan.so*)
+  systemLibraries?: {
+    name: string;
+    version: string;
+    runtime: string[];
+    packages: Record<string, string[]>;
+  }[];
   ships: { file: string; license: string; notice: string }[]; // platform files the archives carry, with their notice's path in the toolchain
   patches: PlannedPatchSet[];
   // THIRD-PARTY-NOTICES.txt: the governing COPYING texts of FFmpeg to include, and the sections the plan can write
@@ -798,10 +804,28 @@ export function makeBuildPlan(args: {
       };
     }),
     runtime: unique(
-      cell.recipes.flatMap((r) =>
-        valuesOn(linkedRecipe(data.recipes.get(r)!, linking.modes[r]), 'runtime', platform),
-      ),
+      cell.recipes
+        .filter((r) => linking.modes[r] !== 'system-shared')
+        .flatMap((r) =>
+          valuesOn(linkedRecipe(data.recipes.get(r)!, linking.modes[r]), 'runtime', platform),
+        ),
     ),
+    ...(Object.values(linking.modes).includes('system-shared')
+      ? {
+          systemLibraries: cell.recipes
+            .filter((r) => linking.modes[r] === 'system-shared')
+            .map((lib) => ({
+              name: lib,
+              version: versionOf(lib),
+              runtime: valuesOn(
+                linkedRecipe(data.recipes.get(lib)!, 'system-shared'),
+                'runtime',
+                platform,
+              ),
+              packages: data.recipes.get(lib)!.linkage!.modes['system-shared']!.packages,
+            })),
+        }
+      : {}),
     ships: Object.entries(data.platforms.get(platform)?.ships ?? {}).map(([file, s]) => ({
       file,
       license: s.license,

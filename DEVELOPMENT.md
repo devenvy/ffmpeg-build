@@ -76,6 +76,12 @@ The selected mode affects the library cache, its consumers, release identity, pl
 Dependencies retain their own modes. Verify full builds, dependency closure, relocation and real runtime use
 before declaring a selectable mode. Recipes without this declaration retain their existing behavior.
 
+A verified `system-shared` mode builds the same kind of shared library but omits its `runtime:` files from the
+archive. Give that mode the actual runtime globs and optional `packages: { debian: [...], fedora: [...] }`
+suggestions. Staging inspects the resulting ELF requirements and writes `RUNTIME-DEPENDENCIES.json`; package
+suggestions are advisory. Verify the archive against distribution-installed libraries separately from the build's
+own dependency folder before exposing this mode on a platform.
+
 `source:` is `git:` (with `ref:`, an optional `mirror:`, and `submodules:`) or `url:` (a tarball, with `mirrors:`).
 `version-group: <name>` gives recipes released together one version in the lock: `lock` and `update` pick the newest
 version every member of the group has and allows (the Vulkan SDK's `vulkan-headers`, `vulkan-loader` and
