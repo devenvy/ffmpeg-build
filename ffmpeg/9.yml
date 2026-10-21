@@ -18,6 +18,7 @@ auto-components:
   - cuda-nvcc
   - decklink
   - smbclient
+  - torch
   - openvino
   - onnxruntime
   - fdk-aac
@@ -144,6 +145,8 @@ options:
   smbclient: { needs: samba, ffmpeg-license: gplv3, ships: { protocols: [libsmbclient] } }
   libtls: { needs: libressl, ships: { protocols: [tls, https] } }
   gcrypt: { needs: libgcrypt, ships: { protocols: [rtmpe, rtmpte] } }
+  torch:
+    { needs: torch, ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] } }
   openvino:
     { needs: openvino, ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] } }
   fdk-aac:
