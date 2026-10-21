@@ -2034,7 +2034,7 @@ describe('audio device libraries', () => {
       recipe: 'alsa-lib',
       recipes: () => ['alsa-lib'],
       flags: ['--enable-alsa'],
-      runtime: () => ['lib/libasound.so*'],
+      runtime: () => [],
     },
     pulse: {
       platforms: linuxAll,
@@ -2050,22 +2050,22 @@ describe('audio device libraries', () => {
       flags: ['--enable-libjack'],
       runtime: () => ['lib/libjack.so*'],
     },
-    // static, on ALSA's shared library
+    // static, on the selected ALSA library
     sndio: {
       platforms: linuxAll,
       recipe: 'sndio',
       recipes: () => ['alsa-lib', 'sndio'],
       flags: ['--enable-sndio'],
-      runtime: () => ['lib/libasound.so*'],
+      runtime: () => [],
     },
-    // static; on Linux with ALSA's headers (its ALSA backend loads libasound.so.2 at run time); not linux-armhf,
+    // static; on Linux linked to the selected ALSA library; not linux-armhf,
     // whose CMake is older than OpenAL Soft's CMakeLists.txt needs
     openal: {
       platforms: PLATFORMS.filter((p) => /^(linux|win|osx)-/.test(p) && p !== 'linux-armhf'),
       recipe: 'openal-soft',
       recipes: (p) => (p.startsWith('linux-') ? ['alsa-lib', 'openal-soft'] : ['openal-soft']),
       flags: ['--enable-openal'],
-      runtime: (p) => (p.startsWith('linux-') ? ['lib/libasound.so*'] : []),
+      runtime: () => [],
     },
   };
   const OPTIONS = Object.keys(where);

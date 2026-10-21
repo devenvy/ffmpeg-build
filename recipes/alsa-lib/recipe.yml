@@ -10,13 +10,17 @@ versions:
     files: '^alsa-lib-(\d+\.\d+\.\d+(?:\.\d+)?)\.tar\.bz2$',
   }
 platforms: [linux-*]
-# shipped beside FFmpeg (as libasound.so.2, the system's soname and symbol versions), not linked statically: ALSA's
-# default device on a desktop goes through plugins the system's alsa-plugins or PipeWire install
-# (libasound_module_pcm_pulse.so, ..._pipewire.so), which need libasound.so.2 themselves. They find this one already
-# loaded; a static copy in FFmpeg would have them load the system's beside it, a second ALSA under one device.
-runtime: ['lib/libasound.so*']
+# Static mode uses builtin plugins and direct devices. External desktop plugins require shared mode so they
+# share one libasound instance with FFmpeg, rather than loading a second system ALSA into the process.
+linkage:
+  default: static
+  modes:
+    static: { runtime: [] }
+    shared:
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static, libdl-arg: [] }
+      runtime: ['lib/libasound.so*']
 build:
-  # alsa-lib: the ALSA library (LGPL-2.1-or-later), shared, for FFmpeg's alsa input and output devices. It reads the
+  # alsa-lib: the ALSA library (LGPL-2.1-or-later), for FFmpeg's alsa input and output devices. It reads the
   # system's configuration (/usr/share/alsa: alsa.conf, the cards, UCM and the plugins' conf.d), and loads the
   # system's plugins: never the build's. Only the library, its headers and alsa.pc are installed. No Python mixer
   # modules, no topology library.
@@ -27,7 +31,13 @@ build:
   # (ALSA_PLUGIN_DIR; $ALSA_PLUGIN_DIR overrides it). Here that is the list of all three, and alsa-lib takes the first
   # that has the plugin.
   system: autotools
-  vars: { plugindirs: '/usr/lib64/alsa-lib:/usr/lib/alsa-lib' }
+  vars:
+    plugindirs: '/usr/lib64/alsa-lib:/usr/lib/alsa-lib'
+    shared-arg: --disable-shared
+    static-arg: --enable-static
+    libdl-arg: --without-libdl
+  # The toolchain's -fPIC permits static ALSA inside a shared consumer. Do not define the PIC preprocessor macro:
+  # ALSA uses that macro to select dynamic instead of builtin plugin registration.
   platforms:
     'linux-x64':
       {
@@ -63,8 +73,9 @@ build:
       { vars: { plugindirs: '/usr/lib/arm-linux-gnueabihf/alsa-lib:/usr/lib/alsa-lib' } }
   args:
     [
-      --enable-shared,
-      --disable-static,
+      '{shared-arg}',
+      '{static-arg}',
+      '{libdl-arg}',
       --disable-python,
       --disable-topology,
       --disable-aload,
@@ -72,6 +83,23 @@ build:
       '--with-plugindir={plugindirs}',
     ]
   before:
+    - replace-in-file:
+        path: src/dlmisc.c
+        from: |
+          #ifndef PIC
+          	if (name == NULL)
+          		return &snd_dlsym_start;
+          #else
+        to: |
+          #ifndef PIC
+          	if (name == NULL)
+          		return &snd_dlsym_start;
+          #ifndef HAVE_LIBDL
+          	if (errbuf && errbuflen)
+          		snprintf(errbuf, errbuflen, "External plugins are disabled in this static ALSA build; use shared ALSA for PulseAudio/PipeWire plugins");
+          	return NULL;
+          #endif
+          #else
     # ALSA_PLUGIN_DIR as a list: the first folder that has the plugin (or the last, for dlopen's error)
     - replace-in-file:
         path: src/dlmisc.c

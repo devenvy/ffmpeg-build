@@ -60,7 +60,7 @@ const muslLdflags = (platform: string, extra = '') =>
 const withEnv = (line: string, ...env: string[]) =>
   env.some(Boolean) ? `${line} [${env.filter(Boolean).join(' ')}]` : line;
 
-// ALSA, PulseAudio and JACK: shared client libraries, shipped beside FFmpeg under the system's sonames
+// ALSA defaults to static builtin plugins; PulseAudio and JACK retain shared client libraries.
 describe('alsa-lib', () => {
   // the distributions' plugin folders for the platform, Debian's multiarch one first
   const plugindirs: Record<string, string> = {
@@ -72,10 +72,12 @@ describe('alsa-lib', () => {
   };
   it.each(platformsOf('alsa-lib'))('%s', async (platform) => {
     const h = fake(platform);
+    expect(h.base['CFLAGS']).toContain('-fPIC');
     const dlmisc = join(h.src, 'src', 'dlmisc.c');
     put(
       dlmisc,
-      '\tsnprintf(path, path_len, "%s/%s",\n\t\t snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR, name);\n',
+      '\tsnprintf(path, path_len, "%s/%s",\n\t\t snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR, name);\n' +
+        '#ifndef PIC\n\tif (name == NULL)\n\t\treturn &snd_dlsym_start;\n#else\n',
     );
     const topology = pcPath(h, 'alsa-topology');
     h.onRun = (call) => {
@@ -89,8 +91,9 @@ describe('alsa-lib', () => {
     expect(commands(h)).toEqual(
       [
         configureLine(h, [
-          '--enable-shared',
-          '--disable-static',
+          '--disable-shared',
+          '--enable-static',
+          '--without-libdl',
           '--disable-python',
           '--disable-topology',
           '--disable-aload',
@@ -109,11 +112,14 @@ describe('alsa-lib', () => {
     expect(patched).toContain("end = strchr(dir, ':');");
     expect(patched).toContain('if (access(path, F_OK) == 0)');
     expect(patched).not.toContain('snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR');
+    expect(patched).toContain('External plugins are disabled in this static ALSA build');
   });
-  it('is LGPL-2.1-or-later, on Linux, shipped as libasound.so.2', () => {
+  it('is LGPL-2.1-or-later, on Linux, with an opt-in shared runtime', () => {
     expect(recipe('alsa-lib').license).toBe('LGPL-2.1-or-later');
     expect(platformsOf('alsa-lib')).toEqual(LINUX);
-    expect(recipe('alsa-lib').runtime).toEqual([{ value: 'lib/libasound.so*' }]);
+    expect(recipe('alsa-lib').linkage!.modes.shared!.runtime).toEqual([
+      { value: 'lib/libasound.so*' },
+    ]);
   });
 });
 
@@ -275,10 +281,13 @@ describe('openal-soft', () => {
         '-DALSOFT_BACKEND_PORTAUDIO=OFF',
         '-DALSOFT_BACKEND_SDL2=OFF',
         '-DALSOFT_BACKEND_SDL3=OFF',
-        ...(platform.startsWith('linux-') ? ['-DALSOFT_REQUIRE_ALSA=ON'] : []),
+        ...(platform.startsWith('linux-')
+          ? ['-DALSOFT_REQUIRE_ALSA=ON', '-DALSOFT_DLOPEN=OFF']
+          : []),
       ]),
     );
     expect(h.read(pc)).toContain(`Libs.private: -lm ${cxxRuntime(platform)}`);
+    expect(h.read(pc).includes('Requires.private: alsa')).toBe(platform.startsWith('linux-'));
     // a lambda for the member pointer newer libc++ can't deduce in views::transform
     expect(h.read(alc)).toBe(
       '| std::views::transform([](auto &cluster) -> auto& { return *cluster; })\n',
