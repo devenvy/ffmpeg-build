@@ -11,6 +11,15 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+ARIB caption libraries (`aribb24`, `libaribcaption`), Teletext (`zvbi`) and DeckLink ancillary data (`libklvanc`)
+offer static and bundled shared choices on Linux x64, with static defaults. The libaribcaption DSO uses the full
+source version in its engine-defined SONAME; this makes no distro-package compatibility promise. Its public C
+and C++ APIs are preserved, while embedded font libraries and C++ runtime symbols remain private. Maintained
+checks decode authored captions through FFmpeg and exercise native SDK text/rendering and ancillary roundtrips.
+DeckLink hardware I/O still needs the recipient's Desktop Video driver and hardware. The combined canaries use
+the existing nonfree classification because this group contains LGPLv3 and GPLv2-only code plus DeckLink's SDK;
+individual options retain their existing license choices.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the

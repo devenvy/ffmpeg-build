@@ -8,6 +8,17 @@ needs: [{ freetype: { platforms: [linux-*, android-*] } }, { fontconfig: { platf
 source: { git: https://github.com/xqq/libaribcaption, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-arg: -DARIBCC_SHARED_LIBRARY=ON
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-public-api.map'
+      runtime: ['lib/libaribcaption.so*']
 build:
   # libaribcaption: ARIB STD-B24 caption decoding and rendering (MIT), static, for FFmpeg's libaribcaption decoder
   # (found through libaribcaption.pc, 1.1.1 or later). C++. With its renderer, so the decoder's sub_type=bitmap works
@@ -17,8 +28,33 @@ build:
   # 1.1.2 asks for CMake 3.28, a bare version bump (1.1.1 asked for 3.11, and nothing newer is used); linux-armhf's
   # image (Debian 12) has 3.25: back to 1.1.1's.
   system: cmake
-  args: [-DARIBCC_BUILD_TESTS=OFF, -DARIBCC_SHARED_LIBRARY=OFF]
+  vars: { library-arg: -DARIBCC_SHARED_LIBRARY=OFF, shared-link-arg: [], shared-mode: '' }
+  args: [-DARIBCC_BUILD_TESTS=OFF, '{library-arg}', '{shared-link-arg}']
   before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libaribcaption', 'exports.map'), sys.argv[1])"
+        - '{src}/ffb-public-api.map'
+      when: { set: '{shared-mode}' }
+    # Upstream does not version the DSO; use a full source-version name without
+    # promising compatibility with distro packages or future releases.
+    - replace-in-file:
+        path: CMakeLists.txt
+        from: 'add_library(aribcaption::aribcaption ALIAS aribcaption)'
+        to: |
+          add_library(aribcaption::aribcaption ALIAS aribcaption)
+          set_target_properties(aribcaption PROPERTIES VERSION {version} SOVERSION {version})
+          # FindFreetype/FindFontconfig omit transitive archives from imported targets.
+          # Resolve the complete selected prefix closure when embedding static fonts.
+          execute_process(COMMAND pkg-config --static --libs freetype2 fontconfig
+            RESULT_VARIABLE FFB_FONT_RESULT OUTPUT_VARIABLE FFB_FONT_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+          if(NOT FFB_FONT_RESULT EQUAL 0)
+            message(FATAL_ERROR "Unable to resolve font dependency closure")
+          endif()
+          separate_arguments(FFB_FONT_LIBS UNIX_COMMAND "${FFB_FONT_LIBS}")
+          target_link_libraries(aribcaption PRIVATE ${FFB_FONT_LIBS})
+      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: CMakeLists.txt,
@@ -26,6 +62,17 @@ build:
           to: cmake_minimum_required(VERSION 3.11),
         }
   platforms:
+    linux-x64:
+      after:
+        - run:
+            - python3
+            - -c
+            - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libaribcaption', 'check-public-api.py'), run_name='__main__')"
+            - '{deps}'
+            - '{src}/ffb-sdk'
+            - '{CC|gcc}'
+            - '{CXX|g++}'
+          when: { set: '{shared-mode}' }
     # Android's renderer uses FreeType, which its .pc doesn't name (Linux's comes through Fontconfig's): without it
     # FFmpeg's shared libavcodec was left with FreeType's symbols unresolved, and failed to load on the device
     'android-*':

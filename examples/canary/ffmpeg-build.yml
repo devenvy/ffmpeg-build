@@ -160,6 +160,19 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-caption-static-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [aribb24, aribcaption, zvbi, decklink]
+    tests: [tests/caption-linkage.sh]
+  linux-x64-caption-shared-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [aribb24, aribcaption, zvbi, decklink]
+    link: { aribb24: shared, libaribcaption: shared, zvbi: shared, libklvanc: shared }
+    tests: [tests/caption-linkage.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3

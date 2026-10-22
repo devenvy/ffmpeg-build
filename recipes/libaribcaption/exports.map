@@ -1,0 +1,11 @@
+{
+  global:
+    aribcc_*;
+    extern "C++" {
+      aribcaption::*;
+      "typeinfo for aribcaption::*";
+      "typeinfo name for aribcaption::*";
+      "vtable for aribcaption::*";
+    };
+  local: *;
+};
