@@ -160,6 +160,26 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-transports-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    tests: [tests/network-extra.sh]
+  linux-x64-transports-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+    tests: [tests/network-extra.sh]
+  linux-x64-transports-clear-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+    tests: [tests/network-clear.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3

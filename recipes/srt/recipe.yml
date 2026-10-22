@@ -7,6 +7,22 @@ uses: [mbedtls] # encryption, where the license allows mbedTLS
 source: { git: https://github.com/Haivision/srt, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [-DENABLE_SHARED=ON, -DENABLE_STATIC=OFF]
+        shared-args:
+          - -DCMAKE_CXX_VISIBILITY_PRESET=hidden
+          - -DCMAKE_C_VISIBILITY_PRESET=hidden
+          - -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libgcc.a:libmbedtls.a:libmbedx509.a:libmbedcrypto.a:libeverest.a:libp256m.a -Wl,--version-script={src}/ffb-compiler-private.map'
+        shared-mode: 'yes'
+        encryption-artifact: libsrt*.so*
+      runtime: ['lib/libsrt.so*']
 build:
   # libsrt: Secure Reliable Transport (MPL-2.0), static. Ported from devenvy/ffmpeg scripts/deps/libsrt.sh.
   # Built and linked STATICALLY (ENABLE_STATIC=ON, ENABLE_SHARED=OFF) like every other dependency here; MPL-2.0 is
@@ -23,8 +39,12 @@ build:
   # enclib compiles against nettle's removed legacy AES API (struct aes_ctx / aes_encrypt, gone since nettle 3.4), so
   # the gpl-2 cells ship SRT without crypto.
   system: cmake
-  args: [-DENABLE_APPS=OFF, -DENABLE_SHARED=OFF, -DENABLE_STATIC=ON, '{encryption}', '{find-root}']
+  args: [-DENABLE_APPS=OFF, '{library-args}', '{shared-args}', '{encryption}', '{find-root}']
   vars:
+    library-args: [-DENABLE_SHARED=OFF, -DENABLE_STATIC=ON]
+    shared-args: []
+    shared-mode: ''
+    encryption-artifact: libsrt*.a
     enclib: 'off'
     encryption: [-DENABLE_ENCRYPTION=OFF]
     find-root: []
@@ -34,15 +54,29 @@ build:
     # -lmbedcrypto to resolve.
     'win-*': { vars: { mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto -lbcrypt } }
   before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'srt', 'compiler-private.map'), sys.argv[1])"
+        - '{src}/ffb-compiler-private.map'
+      when: { set: '{shared-mode}' }
     - vars: { enclib: mbedtls, encryption: [-DENABLE_ENCRYPTION=ON, -DUSE_ENCLIB=mbedtls] }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     # On the Android NDK toolchain, find_library only searches CMAKE_FIND_ROOT_PATH (pointed at the
     # NDK sysroot), so SRT's find_package(MbedTLS) can't see our mbedTLS in the deps folder. Add it to
     # the root path -- the NDK toolchain appends its own sysroot, so both are searched. (Other platforms set
     # CMAKE_FIND_ROOT_PATH to the deps folder in their toolchain file already; only the NDK's overrides it.)
     - vars: { find-root: ['-DCMAKE_FIND_ROOT_PATH={deps}'] }
-      when: { platforms: ['android-*'], exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { platforms: ['android-*'], exists: '{deps}/lib/libmbedcrypto.*' }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'srt', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-public-api'
+        - '{CXX|g++}'
+      when: { set: '{shared-mode}' }
     # -DENABLE_ENCRYPTION=ON is a REQUEST. If find_package(MbedTLS) resolves to nothing usable
     # the crypto layer can end up out of the archive while the build still succeeds and the srt://
     # protocol still works -- unencrypted. FFmpeg's -passphrase/-pbkeylen options are NO evidence
@@ -52,18 +86,18 @@ build:
     # looked for rather than named: the exact filename is SRT's to choose.
     - check:
         {
-          exists: '{deps}/lib/libsrt*.a',
-          message: 'libsrt built but no libsrt*.a found under {deps}/lib - cannot verify that encryption was compiled in.',
+          exists: '{deps}/lib/{encryption-artifact}',
+          message: 'libsrt built but no {encryption-artifact} found under {deps}/lib - cannot verify that encryption was compiled in.',
         }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     - check:
-        file: '{deps}/lib/libsrt*.a'
+        file: '{deps}/lib/{encryption-artifact}'
         contains: haicrypt
         ignore-case: true
         message: >-
           libsrt was configured with ENABLE_ENCRYPTION=ON and USE_ENCLIB={enclib}, but its HaiCrypt layer is not in
           the archive - srt:// would transport in the clear. Most likely {enclib} was not found at configure time.
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     # srt.pc lists mbedTLS as ABSOLUTE .a paths in Libs.private, which FFmpeg's configure classifies as input objects and
     # places BEFORE -lsrt, so libsrt's cryspr-mbedtls.o refs are already discarded -> undefined. Upstream re-added
     # "-lmbedtls -lmbedx509 -lmbedcrypto" at the END of FFmpeg's link (EXTRA_LIBS, from mbedtls.sh); a recipe can't touch
@@ -72,17 +106,17 @@ build:
     - replace-in-file:
         {
           path: '{deps}/lib/pkgconfig/srt.pc',
-          from: '[^\s]*/libmbed(tls|x509|crypto)\.a',
+          from: '[^\s]*/libmbed(tls|x509|crypto)\.(a|so(\.[0-9]+)*)(?=\s|$)',
           to: '',
           regex: true,
         }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     - edit-pkg-config:
         {
           path: '{deps}/lib/pkgconfig/srt.pc',
           libs-private: { prepend: '{mbedtls-libs}', missing: skip },
         }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     # srt.pc over-captures the compiler's implicit link line into Libs.private (-lgcc_s -lgcc -lc ...). Upstream's
     # 07_build_ffmpeg strips -lgcc_s from every .pc on win-* and linux-musl-*: on mingw it pulls the SHARED unwinder
     # (libgcc_s_seh-1.dll) and collides with -static-libgcc's libgcc_eh ("multiple definition of _Unwind_Resume"); on musl

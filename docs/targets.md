@@ -342,6 +342,15 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 
 ## Rules
 
+SRT, librist, ZeroMQ and RabbitMQ-C offer static and bundled shared modes on
+Linux x64, keyed by `srt`, `librist`, `libzmq` and `rabbitmq-c`. Static remains
+the default. SRT's installed C++ SDK remains available while its private C++
+runtime stays inside the library; ZeroMQ retains its installed C API. The
+common system unwinder remains shared for thread cancellation. SRT and librist
+use the selected pinned mbedTLS where the target's license permits it;
+other targets retain clear transport. RabbitMQ-C retains its existing plain
+AMQP support. The canary tests use isolated local peers and a disposable broker.
+
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.
 - **Licenses are checked, never guessed.** An option whose library a target's license doesn't allow is an error that

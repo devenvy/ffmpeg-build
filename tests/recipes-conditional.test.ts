@@ -76,6 +76,23 @@ function seedWhisper(h: Harness, platform: string, loader: boolean, backend: str
 }
 
 describe('srt', () => {
+  it.each(['.so', '.so.16'])(
+    'keeps encryption with shared mbedTLS %s and removes absolute link inputs',
+    async (suffix) => {
+      const h = fake('linux-x64');
+      put(join(h.deps, 'lib', `libmbedcrypto${suffix}`));
+      put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
+      writeFileSync(
+        pcPath(h, 'srt'),
+        `Libs: -lsrt\nLibs.private: ${h.deps}/lib/libmbedtls${suffix} ${h.deps}/lib/libmbedcrypto${suffix} ${h.deps}/lib/libmbedx509${suffix}\n`,
+      );
+      await build(h, 'srt');
+      expect(commands(h).join('\n')).toContain('-DENABLE_ENCRYPTION=ON -DUSE_ENCLIB=mbedtls');
+      const pc = h.read(pcPath(h, 'srt'));
+      expect(pc).toContain('-lmbedtls -lmbedx509 -lmbedcrypto');
+      expect(pc).not.toContain(h.deps);
+    },
+  );
   // SRT_ENCLIB=mbedtls when deps/lib/libmbedcrypto.a exists, else off; cmake_build SRT_ARGS (+ the encryption arguments,
   // + -DCMAKE_FIND_ROOT_PATH on android with mbedtls); then with mbedtls: a libsrt*.a holding "haicrypt", the .a paths
   // dropped and "Libs.private: <mbed libs>" prepended (-lbcrypt on win-*); win-*|linux-musl-*: -lgcc_s stripped;
@@ -155,6 +172,22 @@ describe('srt', () => {
 });
 
 describe('librist', () => {
+  it.each(['.so', '.so.16'])(
+    'keeps pinned crypto with shared mbedTLS %s and removes absolute link inputs',
+    async (suffix) => {
+      const h = fake('linux-x64');
+      put(join(h.deps, 'lib', `libmbedcrypto${suffix}`));
+      writeFileSync(
+        pcPath(h, 'librist'),
+        `Libs: -lrist\nLibs.private: ${h.deps}/lib/libmbedcrypto${suffix}\n`,
+      );
+      await build(h, 'librist');
+      expect(commands(h).join('\n')).toContain('-Duse_mbedtls=true');
+      const pc = h.read(pcPath(h, 'librist'));
+      expect(pc).toContain('-lmbedtls -lmbedx509 -lmbedcrypto');
+      expect(pc).not.toContain(h.deps);
+    },
+  );
   // RIST_CRYPTO=mbedtls when deps/lib/libmbedcrypto.a exists; meson setup _build --prefix --libdir=lib
   // --default-library=static --buildtype=release ${MESON_CROSS_ARGS} RIST_ARGS (base, crypto, win-*: mingw pthreads);
   // meson compile; with mbedtls no _build/**/libmbedcrypto.a; meson install; with mbedtls: the .a paths dropped and

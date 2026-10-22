@@ -6,15 +6,30 @@ configure: [--enable-librabbitmq]
 source: { git: https://github.com/alanxz/rabbitmq-c, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [-DBUILD_SHARED_LIBS=ON, -DBUILD_STATIC_LIBS=OFF, -DINSTALL_STATIC_LIBS=OFF]
+        shared-args: ['-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs']
+        static-mode: ''
+      runtime: ['lib/librabbitmq.so*']
 build:
   # rabbitmq-c: an AMQP 0-9-1 client (MIT), static, for FFmpeg's amqp protocol (libamqp; found through librabbitmq.pc,
   # 0.7.1 or later). Without SSL: FFmpeg's protocol opens plain TCP sockets only (amqp_tcp_socket_new). The library
   # alone: no tools, examples, docs or tests.
   system: cmake
+  vars:
+    library-args: [-DBUILD_STATIC_LIBS=ON, -DINSTALL_STATIC_LIBS=ON]
+    shared-args: []
+    static-mode: 'yes'
   args:
     [
-      -DBUILD_STATIC_LIBS=ON,
-      -DINSTALL_STATIC_LIBS=ON,
+      '{library-args}',
+      '{shared-args}',
       -DENABLE_SSL_SUPPORT=OFF,
       -DBUILD_EXAMPLES=OFF,
       -DBUILD_TOOLS=OFF,
@@ -26,3 +41,4 @@ build:
     # target carries but librabbitmq.pc doesn't
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/librabbitmq.pc', cflags: { add: -DAMQP_STATIC } }
+      when: { set: '{static-mode}' }
