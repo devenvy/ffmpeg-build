@@ -21,7 +21,11 @@ const TIMEOUT = 120000;
 const MAX_OUTPUT = 4194304;
 const run = (program, args, input) => {
   const result = spawnSync(program, args, { input, timeout: TIMEOUT, maxBuffer: MAX_OUTPUT });
-  assert.equal(result.status, 0, result.error?.message ?? result.stderr?.toString());
+  assert.equal(
+    result.status,
+    0,
+    `${program} ${args.join(' ')}: signal=${result.signal}; ${result.error?.message ?? ''}\n${result.stderr?.toString()}`,
+  );
   return result.stdout;
 };
 const ff = (args, input) => run(ffmpeg, [...FLAGS, ...args], input);
@@ -49,6 +53,7 @@ try {
     ['libxavs2', 'libdavs2', 'avs2', ['-speed_level', '0', '-bf', '0']],
   ]) {
     const encoded = join(work, `authored.${format}`);
+    console.log(`Testing ${encoder}/${decoder}`);
     ff(
       [
         '-f',
