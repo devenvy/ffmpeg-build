@@ -1,5 +1,14 @@
 # Targets: ffmpeg-build.yml
 
+Rav1e defaults to static linking and offers a bundled shared mode on Linux x64.
+It uses cargo-c's native versioned C library and preserves all 37 public C API
+functions. Its private Rust implementation remains hidden; the existing static
+archive isolation is retained. Rav1e and librsvg can be selected independently:
+the verification matrix decodes an owned SVG and encodes it to AV1 in the same
+FFmpeg process, including both shared libraries and each mixed Rust combination.
+Additional authored frames check decoder reconstruction and complete encoder
+draining through natural EOF. Other platforms retain their static defaults.
+
 On Linux x64, Cairo defaults to static and accepts `shared` when both GLib and
 Fontconfig are also shared. Cairo's GObject SDK uses the common GType registry;
 its font SDK retains Fontconfig objects backed by that library's cache registry.

@@ -160,6 +160,19 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-rav1e-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [rav1e, dav1d, rsvg]
+    link: { rav1e: shared }
+    tests: [tests/rav1e-linkage.sh]
+  linux-x64-rav1e-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [rav1e, dav1d, rsvg]
+    tests: [tests/rav1e-linkage.sh]
   linux-x64-pango-rsvg-shared-9-lgplv3:
     platform: linux-x64
     license: lgplv3
