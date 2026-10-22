@@ -1,0 +1,12 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  lilv: { version: 0.28.0, commit: 2feec6a15d3300db3ac0337bafb863308a03cab6 }
+  lv2: { version: 1.18.10, commit: 0bcde338db1c63bbc503b4d1f6d7b55ed43154af }
+  serd: { version: 0.32.10, commit: 849b9ecd8d6c87da79f14e2630daa084002d7555 }
+  sord: { version: 0.16.22, commit: 5ab719fdae9b6db1204974f749dc64e62d2029af }
+  sratom: { version: 0.6.22, commit: 68bd465f0de009d58ae39e89eb029c728e74751f }
+  zix: { version: 0.8.2, commit: 96163e9e071548df1bc2fb3b373c573246e9c5f7 }
