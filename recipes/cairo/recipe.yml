@@ -20,6 +20,22 @@ source:
 # even minor versions are releases
 versions: { git-tags: '^(1\.\d*[02468]\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { glib: [shared], fontconfig: [shared] }
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [
+            --default-library=shared,
+            '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libfreetype.a:libpixman-1.a:libpng16.a:libpng.a:libz.a',
+          ]
+      runtime:
+        ['lib/libcairo.so*', 'lib/libcairo-gobject.so*', 'lib/libcairo-script-interpreter.so*']
 build:
   # cairo: 2D vector graphics (LGPL-2.1-only OR MPL-1.1), static, for FFmpeg's drawvg filter (found through cairo.pc)
   # and under Pango and librsvg (FFmpeg's SVG decoder). A deps folder holds one cairo, so it is built as librsvg
@@ -28,8 +44,18 @@ build:
   # there needs cairo's Fontconfig support), FreeType on iOS and Mac Catalyst, DirectWrite on Windows, Quartz (Core
   # Text) on macOS. No X11/XCB, tests or BFD symbol lookup.
   system: meson
+  vars: { shared-mode: '', shared-args: [] }
+  before:
+    # Optional preload development tools embed build paths and are not the rendering SDK.
+    # Upstream has no dedicated option; retain the core, GObject and interpreter targets.
+    - replace-in-file:
+        path: util/meson.build
+        from: "if conf.get('CAIRO_HAS_TRACE', 0) == 1\n"
+        to: "if false # ffmpeg-build: omit optional preload instrumentation\n"
+      when: { set: '{shared-mode}' }
   args:
     [
+      '{shared-args}',
       -Dtests=disabled,
       -Dxlib=disabled,
       -Dxcb=disabled,
@@ -72,3 +98,12 @@ build:
         args: [-Dfreetype=enabled, -Dfontconfig=disabled, -Dquartz=disabled, -Ddwrite=disabled],
       }
     'maccatalyst-*': *freetype
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'cairo', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
