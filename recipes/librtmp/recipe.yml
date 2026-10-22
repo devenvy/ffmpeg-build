@@ -11,6 +11,19 @@ uses: [gnutls]
 source: { git: https://git.ffmpeg.org/rtmpdump.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared: yes
+        shared-mode: yes
+        library-targets: [librtmp.a, librtmp.so.1, librtmp.pc]
+        install-targets: [install_base, install_so]
+        shared-link-arg: 'XLDFLAGS=-L{deps}/lib {LDFLAGS|} -Wl,--exclude-libs,libgnutls.a:libhogweed.a:libnettle.a:libgmp.a:libtasn1.a:libz.a -Wl,-z,defs'
+      runtime: ['lib/librtmp.so*']
 build:
   # librtmp (rtmpdump's library), static, for FFmpeg's librtmp protocols (found through librtmp.pc). With it on, they
   # replace FFmpeg's own rtmp, rtmpe, rtmps, rtmpt and rtmpte under the same names (configure turns FFmpeg's off).
@@ -18,13 +31,53 @@ build:
   # compiler, archiver and flags on the command line (as libgsm's and bzip2's), static only, and installed without
   # the man page. SYS picks the system libraries its .pc names (Winsock on Windows).
   system: none
-  vars: { tools: '', crypto: '', sys: posix }
+  vars:
+    tools: ''
+    crypto: ''
+    sys: posix
+    shared: no
+    shared-mode: ''
+    library-targets: [librtmp.a, librtmp.pc]
+    install-targets: [install_base]
+    shared-link-arg: []
+    crypto-link-arg: []
   platforms:
     'win-*': { vars: { sys: mingw } }
     'osx-*': { vars: { sys: darwin } }
     'ios-*': { vars: { sys: darwin } }
     'maccatalyst-*': { vars: { sys: darwin } }
   steps:
+    # GnuTLS can report internal TLS 1.3 progress without a socket error. librtmp expects POSIX read results.
+    # Retry that progress, preserve actual transport timeouts, and never count negative TLS errors as bytes.
+    - write-file:
+        path: librtmp/ffb_tls_read.h
+        text: |
+          #include <errno.h>
+          extern int RTMP_ctrlC;
+          static int ffb_gnutls_read(gnutls_session_t session, void *buffer, size_t size)
+          {
+            ssize_t result;
+            int transport_error;
+            do {
+              errno = 0;
+              result = gnutls_record_recv(session, buffer, size);
+              transport_error = errno;
+            } while (!RTMP_ctrlC &&
+                     (result == GNUTLS_E_INTERRUPTED ||
+                      (result == GNUTLS_E_AGAIN && transport_error == 0)));
+            if (result < 0) {
+              errno = result == GNUTLS_E_AGAIN ? EAGAIN :
+                      result == GNUTLS_E_INTERRUPTED ? EINTR : EIO;
+              return -1;
+            }
+            return (int)result;
+          }
+      when: { platforms: [linux-x64] }
+    - replace-in-file:
+        path: librtmp/rtmp_sys.h
+        from: "#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)"
+        to: "#include \"ffb_tls_read.h\"\n#define TLS_read(s,b,l)\tffb_gnutls_read(s,b,l)"
+      when: { platforms: [linux-x64] }
     # Nettle 4 dropped the length argument of its digest functions, which librtmp's GnuTLS code passes: one macro gives
     # it to Nettle 3 and leaves it out for 4
     - write-file:
@@ -74,8 +127,25 @@ build:
         }
     - vars: { tools: '{host}-' }
       when: { set: '{host}' }
+    - find:
+        var: gnutls-library
+        glob: ['{deps}/lib/libgnutls.a', '{deps}/lib/libgnutls.so*']
     - vars: { crypto: GNUTLS }
-      when: { exists: '{deps}/lib/libgnutls.a' }
+      when: { set: '{gnutls-library}' }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'librtmp', 'crypto-link-flags.py'), run_name='__main__')"
+        - '{src}/_ffb-rtmp-crypto.txt'
+      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/gnutls.pc' }
+    - read:
+        file: '{src}/_ffb-rtmp-crypto.txt'
+        pattern: '^(.+)$'
+        var: crypto-libs
+        message: 'GnuTLS did not provide a static dependency closure for shared librtmp'
+      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/gnutls.pc' }
+    - vars: { crypto-link-arg: 'LIB_GNUTLS={crypto-libs}' }
+      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/gnutls.pc' }
     - vars:
         make-args:
           [
@@ -83,10 +153,12 @@ build:
             'AR={AR|{tools}ar}',
             'SYS={sys}',
             'CRYPTO={crypto}',
-            SHARED=no,
+            'SHARED={shared}',
             'prefix={deps}',
             'XCFLAGS=-fPIC {CFLAGS|} -I{deps}/include',
+            '{shared-link-arg}',
+            '{crypto-link-arg}',
           ]
-    - [make, -C, librtmp, '-j{jobs}', librtmp.a, librtmp.pc, '{make-args}']
-    - [make, -C, librtmp, install_base, '{make-args}']
+    - [make, -C, librtmp, '-j{jobs}', '{library-targets}', '{make-args}']
+    - [make, -C, librtmp, '{install-targets}', '{make-args}']
     - remove: { path: '{deps}/man', recursive: true }

@@ -5,10 +5,15 @@ keyed by recipe name. Unspecified libraries keep their existing defaults; select
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and
 libgpg-error, zlib, xz (liblzma), aom, dav1d, soxr, libbs2b, libogg, libvorbis, opus, speex,
 libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg, snappy, freetype,
-libpng, fribidi, harfbuzz, fontconfig, libass and libexpat offer static and bundled shared modes on Linux x64,
+libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, libssh and librtmp offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
+
+For SFTP and RTMP, `link: { libssh: shared, librtmp: shared }` bundles the selected client libraries.
+Their cryptographic dependencies keep their own linking modes. Linux x64 librtmp normalizes GnuTLS retry
+and error results so TLS 1.3 post-handshake messages do not break RTMPS or bypass socket read timeouts.
+The maintained checks use local SSH, RTMP and TLS servers; they do not require remote service credentials.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
