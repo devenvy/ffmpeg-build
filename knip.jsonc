@@ -5,6 +5,6 @@
   "entry": ["src/build/worker.ts", "scripts/*.ts"],
   "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
   // system tools some tests, the Apple checks and the MSYS2 check (cygpath) call when the machine has them;
-  // g++ compiles the Linux-only regression for private Torch archive symbols and COMDAT groups
-  "ignoreBinaries": ["arch", "lipo", "mkfifo", "jq", "cygpath", "^g\\+\\+$"],
+  // g++ checks private Torch archives; cc checks the GnuTLS socket-read adapter
+  "ignoreBinaries": ["arch", "lipo", "mkfifo", "jq", "cygpath", "^g\\+\\+$", "cc"],
 }

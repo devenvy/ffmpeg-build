@@ -6,16 +6,38 @@ configure: [--enable-libzmq]
 source: { git: https://github.com/zeromq/libzmq, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [-DBUILD_SHARED=ON, -DBUILD_STATIC=OFF]
+        shared-args:
+          - -DCMAKE_CXX_VISIBILITY_PRESET=hidden
+          - -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,--version-script={src}/ffb-public-api.map'
+        shared-mode: 'yes'
+      runtime: ['lib/libzmq.so*']
 build:
   # ZeroMQ (MPL-2.0 since 4.3.5), static, for FFmpeg's zmq protocol and its zmq/azmq filters (which take filter
   # commands over a socket); found through libzmq.pc, 4.2.1 or later. C++. The library alone: no tests, perf tools,
   # docs or CPack. No draft API (a git checkout turns it on), no CURVE (libsodium), no WebSocket/TLS transport (a draft)
   # and no libbsd: the transports FFmpeg uses (tcp, ipc, inproc) need none of them.
   system: cmake
+  vars: { library-args: [-DBUILD_SHARED=OFF, -DBUILD_STATIC=ON], shared-args: [], shared-mode: '' }
+  before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libzmq', 'exports.map'), sys.argv[1])"
+        - '{src}/ffb-public-api.map'
+      when: { set: '{shared-mode}' }
   args:
     [
-      -DBUILD_SHARED=OFF,
-      -DBUILD_STATIC=ON,
+      '{library-args}',
+      '{shared-args}',
       -DBUILD_TESTS=OFF,
       -DWITH_PERF_TOOL=OFF,
       -DWITH_DOCS=OFF,
@@ -60,6 +82,14 @@ build:
               to: "#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\n#endif\nconst uint64_t nsecs_per_usec = 1000;\n",
             }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libzmq', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-public-api'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
     # libzmq.pc names libstdc++ whatever the platform's C++ runtime is
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/libzmq.pc', libs-private: { remove: -lstdc++ } }

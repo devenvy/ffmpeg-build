@@ -285,7 +285,13 @@ describe('librtmp', () => {
       '#include <nettle/hmac.h>\n#define HMAC_finish(ctx, dig, dlen)\tdlen = SHA256_DIGEST_LENGTH; hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)\n';
     put(src('hashswf.c'), hmac);
     put(src('handshake.h'), hmac);
+    put(src('rtmp_sys.h'), '#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n');
     await build(h, 'librtmp');
+    expect(h.read(src('rtmp_sys.h'))).toBe(
+      platform === 'linux-x64'
+        ? '#include "ffb_tls_read.h"\n#define TLS_read(s,b,l)\tffb_gnutls_read(s,b,l)\n'
+        : '#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n',
+    );
     // Nettle 4's digest functions take no length: a macro gives it to Nettle 3 only
     expect(h.read(src('nettle_compat.h'))).toBe(
       '#include <nettle/version.h>\n#if NETTLE_VERSION_MAJOR >= 4\n#define NETTLE_LENGTH_ARG(n)\n#else\n' +

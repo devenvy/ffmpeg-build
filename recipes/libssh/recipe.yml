@@ -15,12 +15,23 @@ versions: { git-tags: '^libssh-(\d+\.\d+\.\d+)$', repo: https://git.libssh.org/p
 # not Windows: libssh needs a thread-safe mbedTLS (its pthread or its application-installed locks), which mbedTLS is
 # only where the C library has pthreads (the mbedtls recipe says why)
 platforms: [linux-*, android-*, osx-*, ios-*, maccatalyst-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: -DBUILD_SHARED_LIBS=ON
+        crypto-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-pthread -Wl,--exclude-libs,libmbedcrypto.a -Wl,-z,defs'
+      runtime: ['lib/libssh.so*']
 build:
   # libssh: the SSH library, static, for FFmpeg's sftp protocol (libssh; found through libssh.pc, 0.6.0 or later). The
   # client alone: no server, GSSAPI, zlib compression, libnacl (libssh's own curve25519 remains), pcap, examples,
   # benchmarks or tests. Its client configuration files are the system's (/etc/ssh/ssh_config), and ~/.ssh is the
   # user's.
   system: cmake
+  vars: { shared-arg: [], crypto-link-arg: [] }
   args:
     [
       -DWITH_MBEDTLS=ON,
@@ -36,6 +47,8 @@ build:
       -DUNIT_TESTING=OFF,
       -DCLIENT_TESTING=OFF,
       -DSERVER_TESTING=OFF,
+      '{shared-arg}',
+      '{crypto-link-arg}',
     ]
   platforms:
     # the NDK's toolchain file points CMake's find root at its sysroot alone, so libssh's FindMbedTLS can't see the deps
