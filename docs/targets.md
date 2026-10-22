@@ -1,5 +1,14 @@
 # Targets: ffmpeg-build.yml
 
+DVD reading and navigation offer independent Linux x64 static and bundled shared choices:
+`link: { libdvdread: shared, libdvdnav: shared }`. Static remains the default. Shared archives
+include the native `libdvdread.so.8` and `libdvdnav.so.4` SDK/runtime libraries; either may be
+selected separately. Both retain GPL-2.0-or-later licensing and opt-in `with: [dvdread, dvdnav]`.
+Owned unencrypted ISO/folder tests cover full title reads, IFO metadata, navigation cache ownership,
+chapter timing and FFmpeg playback to EOF. No decryption libraries or keys are bundled;
+encrypted discs require separately installed system libdvdcss, loaded at runtime by upstream.
+Physical drives, CSS and protected regions are not covered by these image tests.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and

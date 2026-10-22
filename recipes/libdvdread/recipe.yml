@@ -12,13 +12,35 @@ source:
 versions:
   { listing: 'https://download.videolan.org/pub/videolan/libdvdread/', files: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args: [--default-library=shared]
+        shared-ldflags: '-Wl,-z,defs'
+      runtime: ['lib/libdvdread.so*']
 build:
   # libdvdread: DVD-Video reading (GPL-2.0-or-later; FFmpeg's class gpl), static, for FFmpeg's dvdvideo demuxer (with
   # libdvdnav; found through dvdread.pc, 6.1.1 or later): a VIDEO_TS folder, a mounted disc or an .iso image. Not
   # linked to libdvdcss: a CSS-encrypted disc needs the system's libdvdcss, which it loads at run time when there is
   # one. No docs.
   system: meson
-  args: [-Denable_docs=false, -Dlibdvdcss=disabled]
+  vars: { shared-mode: '', shared-args: [], shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: [-Denable_docs=false, -Dlibdvdcss=disabled, '{shared-args}']
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libdvdread', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
   platforms:
     # its public dvd_filesystem.h types off64_t for glibc, MSVC and the BSDs; musl (1.2.4 on) declares off64_t only
     # when _LARGEFILE64_SOURCE comes before its first header, which libdvdnav's sources don't do (its off_t is 64-bit
