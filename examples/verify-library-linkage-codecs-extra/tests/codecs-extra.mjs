@@ -21,9 +21,9 @@ const TIMEOUT = 120000;
 const MAX_OUTPUT = 4194304;
 const run = (program, args, input) => {
   const result = spawnSync(program, args, { input, timeout: TIMEOUT, maxBuffer: MAX_OUTPUT });
-  assert.equal(
-    result.status,
-    0,
+  assert.deepEqual(
+    { status: result.status, signal: result.signal },
+    { status: 0, signal: null },
     `${program} ${args.join(' ')}: signal=${result.signal}; ${result.error?.message ?? ''}\n${result.stderr?.toString()}`,
   );
   return result.stdout;
