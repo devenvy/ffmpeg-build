@@ -1,5 +1,23 @@
 # Targets: ffmpeg-build.yml
 
+On Linux x64, Cairo defaults to static and accepts `shared` when both GLib and
+Fontconfig are also shared. Cairo's GObject SDK uses the common GType registry;
+its font SDK retains Fontconfig objects backed by that library's cache registry.
+These ownership requirements are checked during planning. FreeType remains an
+independent choice: SDK tests pass external faces through Fontconfig and Cairo,
+use borrowed faces, and verify tracked allocators and final destruction.
+
+Shared Cairo bundles its core, GObject and script-interpreter libraries. It keeps
+PNG, PDF, PostScript and SVG output. Optional preload development instrumentation
+(cairo-trace/FDR) is excluded by a shared-only source adaptation because upstream
+has no dedicated disabling option; it is separate from the rendering SDK.
+
+Six FFmpeg 8/9 static/shared/mixed targets check exact drawvg pixels. Native SDK
+checks also cover boxed-surface lifetime, PNG and script pixels, vector document
+streams, and a real mapped Fontconfig cache with retained patterns passed into
+Cairo after releasing explicit cache/configuration handles. The font is authored
+test data; no system font or physical display is required.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and
