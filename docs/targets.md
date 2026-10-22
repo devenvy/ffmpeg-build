@@ -34,6 +34,12 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
+Little CMS, GSM, Game_Music_Emu and Flite also offer static and bundled shared modes on Linux x64.
+Use their recipe names in `link`: `lcms2`, `libgsm`, `libgme` and `flite`. Static remains the default.
+Flite bundles its core, language, lexicon and six native voice libraries; it does not require an audio server.
+The GSM shared library is linked from the upstream PIC archive with the conventional `libgsm.so.1` name;
+upstream itself supplies only a static archive. Game_Music_Emu keeps its default LGPL emulator and disables VGZ.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg

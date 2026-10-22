@@ -8,6 +8,16 @@ configure: [--enable-libgme]
 source: { git: https://github.com/libgme/game-music-emu, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [-DGME_BUILD_SHARED=ON, -DGME_BUILD_STATIC=OFF]
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs'
+      runtime: ['lib/libgme.so*']
 build:
   # Game_Music_Emu: video game music emulation (NSF, SPC, GBS, VGM, ...; LGPL-2.1-or-later), static, for FFmpeg's
   # libgme demuxer (found through libgme.pc). C++. The library alone: no player, demo or tests, and without its
@@ -15,10 +25,13 @@ build:
   # the compiler's whole implicit link line (libgcc_s, absolute paths on some toolchains): it becomes this platform's
   # C++ runtime and libm.
   system: cmake
+  vars:
+    library-args: [-DGME_BUILD_SHARED=OFF, -DGME_BUILD_STATIC=ON]
+    shared-link-arg: []
   args:
     [
-      -DGME_BUILD_SHARED=OFF,
-      -DGME_BUILD_STATIC=ON,
+      '{library-args}',
+      '{shared-link-arg}',
       -DGME_BUILD_EXAMPLES=OFF,
       -DGME_BUILD_TESTING=OFF,
       -DGME_ENABLE_UBSAN=OFF,

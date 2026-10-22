@@ -350,3 +350,16 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     base: [common, win, lgplv3]
+  linux-x64-media-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [lcms2, gsm, gme, flite, zlib]
+    tests: [tests/media-linkage.sh]
+  linux-x64-media-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [lcms2, gsm, gme, flite, zlib]
+    link: { lcms2: shared, libgsm: shared, libgme: shared, flite: shared }
+    tests: [tests/media-linkage.sh]

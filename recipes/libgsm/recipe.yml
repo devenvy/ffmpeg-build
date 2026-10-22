@@ -11,6 +11,14 @@ source:
   mirrors: ['https://deb.debian.org/debian/pool/main/libg/libgsm/libgsm_{version}.orig.tar.gz']
 versions: { listing: 'https://www.quut.com/gsm/', files: '^gsm-(\d+\.\d+\.\d+)\.tar\.gz$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-mode: 'yes' }
+      runtime: ['lib/libgsm.so*']
 build:
   # libgsm: GSM 06.10 full-rate speech codec (TU-Berlin-2.0), static. Ported from devenvy/ffmpeg scripts/deps/libgsm.sh.
   # FFmpeg finds it via `check_lib libgsm gsm.h gsm_create -lgsm` (no pkg-config), with gsm.h in {deps}/include.
@@ -36,7 +44,7 @@ build:
   # (gsm-1.0.22.tar.gz extracts to gsm-1.0-pl22/). The engine strips the top folder, so the
   # source is already here.
   system: none
-  vars: { tools: '' }
+  vars: { tools: '', shared-mode: '' }
   steps:
     - vars: { tools: '{host}-' }
       when: { set: '{host}' }
@@ -51,3 +59,24 @@ build:
       ]
     - copy: { from: lib/libgsm.a, into: '{deps}/lib', preserve: true }
     - copy: { from: inc/gsm.h, into: '{deps}/include', preserve: true }
+    # Upstream has no DSO target. Keep its complete PIC archive and WAV49 flags;
+    # SONAME 1 follows the established libgsm ABI convention.
+    - run:
+        [
+          '{CC|{tools}gcc}',
+          -shared,
+          '-Wl,-soname,libgsm.so.1',
+          '-Wl,-z,defs',
+          '-Wl,--whole-archive',
+          lib/libgsm.a,
+          '-Wl,--no-whole-archive',
+          -o,
+          'lib/libgsm.so.{version}',
+        ]
+      when: { set: '{shared-mode}' }
+    - copy: { from: 'lib/libgsm.so.{version}', into: '{deps}/lib', preserve: true }
+      when: { set: '{shared-mode}' }
+    - run: [ln, -s, 'libgsm.so.{version}', '{deps}/lib/libgsm.so.1']
+      when: { set: '{shared-mode}' }
+    - run: [ln, -s, libgsm.so.1, '{deps}/lib/libgsm.so']
+      when: { set: '{shared-mode}' }
