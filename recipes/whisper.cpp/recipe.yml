@@ -179,13 +179,19 @@ build:
         - *spirv-headers
         - find:
             var: shim
-            glob: ['{deps}/lib/libvulkan-1.a', '{deps}/lib/libvulkan.a']
+            glob:
+              ['{deps}/lib/libvulkan-1.a', '{deps}/lib/libvulkan.a', '{deps}/lib/libvulkan-1.dll.a']
             required: '{platform} whisper needs the Vulkan shim, but it is not in {deps}/lib.'
           when: { set: '{vulkan}' }
         - find:
             {
               var: shim-name,
-              glob: ['{deps}/lib/libvulkan-1.a', '{deps}/lib/libvulkan.a'],
+              glob:
+                [
+                  '{deps}/lib/libvulkan-1.a',
+                  '{deps}/lib/libvulkan.a',
+                  '{deps}/lib/libvulkan-1.dll.a',
+                ],
               basename: true,
             }
           when: { set: '{vulkan}' }

@@ -8,11 +8,21 @@ versions: { git-tags: '^(\d+\.\d+)$' }
 # where the C library has no gettext: everywhere but glibc (musl's libintl is gettext's own, which the Alpine images
 # haven't got)
 platforms: [linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-musl-x64]
+      vars: { shared-mode: 'yes', library-args: [--default-library=shared] }
+      runtime: ['lib/libintl.so*']
 build:
   # proxy-libintl: gettext's API as stubs (no translations: messages stay English), static, for GLib. Its header
   # declares the functions dllimport on Windows unless G_INTL_STATIC_COMPILATION is defined, which only its own
   # subproject build passes on: the installed header declares the static library's plain symbols.
   system: meson
+  vars: { shared-mode: '', library-args: [] }
+  args: ['{library-args}']
   after:
     - replace-in-file:
         {
@@ -20,3 +30,11 @@ build:
           from: '#if defined(_WIN32) && !defined(G_INTL_STATIC_COMPILATION)',
           to: '#if 0 /* static: ffmpeg-build */',
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'proxy-libintl', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|cc}'
+      when: { set: '{shared-mode}' }

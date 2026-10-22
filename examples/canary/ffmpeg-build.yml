@@ -374,6 +374,43 @@ targets:
     with: [opencl, lcevc-dec]
     tests: [tests/compute-linkage.sh]
     link: { lcevcdec: shared }
+  linux-musl-x64-proxy-shared-lgplv2:
+    platform: linux-musl-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [cairo]
+    link: { proxy-libintl: shared }
+    tests: [tests/proxy-libintl-linkage.sh]
+  linux-musl-x64-proxy-static-lgplv2:
+    platform: linux-musl-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [cairo]
+    tests: [tests/proxy-libintl-linkage.sh]
+  osx-arm64-iconv-shared-lgplv2:
+    platform: osx-arm64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [iconv]
+    link: { libiconv: shared }
+    tests: [tests/iconv-linkage.sh]
+  osx-arm64-iconv-static-lgplv2:
+    platform: osx-arm64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [iconv]
+    tests: [tests/iconv-linkage.sh]
+  android-x64-cpu-shared-lgplv3:
+    platform: android-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tesseract]
+    link: { cpu-features: shared }
+  android-x64-cpu-static-lgplv3:
+    platform: android-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tesseract]
   linux-x64-x11-static-9-lgplv2:
     platform: linux-x64
     license: lgplv2
@@ -1235,3 +1272,16 @@ targets:
         pulseaudio: shared,
       }
     tests: [tests/media-batch-linkage.sh]
+  win-x64-vulkan-shim-static-lgplv3:
+    platform: win-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper]
+    tests: [tests/vulkan-shim-linkage.sh]
+  win-x64-vulkan-shim-shared-lgplv3:
+    platform: win-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper]
+    link: { vulkan-shim: shared }
+    tests: [tests/vulkan-shim-linkage.sh]
