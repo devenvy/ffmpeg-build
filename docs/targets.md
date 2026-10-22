@@ -28,6 +28,11 @@ PulseAudio's client defaults to static linking. It still connects to the recipie
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
 `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
 
+Rubber Band, Chromaprint, XEVE and XEVD offer bundled shared libraries on Linux x64 and retain static defaults.
+Rubber Band keeps its builtin FFT and resampler; Chromaprint keeps its compiled-in KissFFT backend. Their shared
+libraries include private C++ runtimes while retaining the common system unwinder. XEVE and XEVD are C libraries;
+their encoder and decoder linking modes can be selected independently.
+
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
 replacement or when a swappable client library is needed. Neither mode starts a server automatically.
