@@ -76,6 +76,16 @@ The selected mode affects the library cache, its consumers, release identity, pl
 Dependencies retain their own modes. Verify full builds, dependency closure, relocation and real runtime use
 before declaring a selectable mode. Recipes without this declaration retain their existing behavior.
 
+A mode may require a dependency to use a compatible library owner, for example
+`requires-link: { libxcb: [shared] }` under `linkage.modes.shared`. Use this for APIs
+that pass opaque handles or depend on one implementation's global state. Each key
+must name a direct `needs` dependency and each accepted mode must be declared by
+that provider. Requirements can form a chain through the dependency graph. They
+are checked against the complete resolved selection before building: incompatible
+choices produce an error, while dependencies keep their defaults until the target
+explicitly selects another mode. Verify the accepted combinations; matching source
+versions alone do not make separate hidden implementations safe.
+
 `linkage.defaults: { linux-x64: static }` can override a recipe's fallback `default:` on verified platform
 patterns. When patterns overlap, the last matching entry wins, as with `build.platforms:`; an explicit target or
 base `link:` choice wins over recipe defaults. Every default must name a declared mode supported on that platform.

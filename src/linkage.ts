@@ -77,6 +77,17 @@ export function linkagePlan(
       }
     }
   }
+  for (const [name, mode] of Object.entries(modes)) {
+    const requirements = data.recipes.get(name)!.linkage!.modes[mode]!['requires-link'] ?? {};
+    for (const [provider, allowed] of Object.entries(requirements)) {
+      const selected = modes[provider];
+      if (!selected || !allowed.includes(selected)) {
+        errors.push(
+          `link: ${name} ${mode} requires ${provider} linking as ${allowed.join(' or ')} (selected ${selected ?? 'absent'})`,
+        );
+      }
+    }
+  }
   return { modes, errors };
 }
 

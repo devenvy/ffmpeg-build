@@ -13,10 +13,23 @@ versions:
     files: '^libxcb-(\d+\.\d+\.\d+)\.tar\.xz$',
   }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-ldflags: '-Wl,-z,defs,--exclude-libs,libXau.a'
+      runtime: ['lib/libxcb*.so*']
 build:
   # libxcb: the X protocol's C binding (X11 licence), static, with its extensions (FFmpeg's x11grab takes shm, shape
   # and xfixes; libX11 sits on it too). It speaks the protocol over the X server's socket: nothing of the system's
   # X11 libraries is needed at run time, only a display ($DISPLAY, and $XAUTHORITY's cookie through libXau). No
   # XDMCP authorization, no docs.
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic, --disable-devel-docs, --without-doxygen]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic, --disable-devel-docs, --without-doxygen]

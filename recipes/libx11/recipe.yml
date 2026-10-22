@@ -11,16 +11,28 @@ versions:
     files: '^libX11-(\d+\.\d+\.\d+)\.tar\.xz$',
   }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { libxcb: [shared] }
+      vars:
+        { shared-arg: --enable-shared, static-arg: --disable-static, shared-ldflags: '-Wl,-z,defs' }
+      runtime: ['lib/libX11*.so*']
 build:
   # libX11: Xlib (MIT and X11 licences), static, on libxcb, for FFmpeg's xlib option (the xv output device, with
   # libXext and libXv). Its data (locales, XErrorDB, XKeysymDB) is the system's: --datadir=/usr/share is compiled in,
   # and only the libraries, headers and .pc files are installed. Locale support built in (no loadable modules), no
   # specs or docs.
   system: autotools
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
     [
-      --disable-shared,
-      --enable-static,
+      '{shared-arg}',
+      '{static-arg}',
       --with-pic,
       --datadir=/usr/share,
       --disable-loadable-i18n,

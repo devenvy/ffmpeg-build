@@ -300,8 +300,9 @@ options:
     }
   # The VDPAU hwaccels (NVIDIA's legacy Unix video decode API): the headers alone. Without libvdpau's library FFmpeg
   # has no vdpau_x11, so it can't create a VDPAU device itself: an application passes its own (AVVDPAUDeviceContext).
-  # Not even with xlib: libvdpau loads the system's driver (libvdpau_<driver>.so), which links the system's libX11
-  # and libxcb, and would be handed the X connection of the build's static ones.
+  # A system VDPAU driver cannot safely receive a connection from a hidden static X11/XCB copy. The explicit
+  # shared X11/XCB closure removes that ownership concern, but the wrapper library and real vendor-device
+  # creation still need separate verification; this recipe remains headers-only.
   vdpau: { needs: libvdpau, platforms: [linux-*], ships: { hwaccels: [vdpau] } }
   # Rockchip's video blocks (rockchip_mpp, with libdrm), on Rockchip's ARM SoCs
   rkmpp:

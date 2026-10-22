@@ -370,6 +370,9 @@ function crossCheck(
     checkPatterns(`${label}: linkage.defaults`, Object.keys(recipe.linkage?.defaults ?? {}));
     for (const [mode, choice] of Object.entries(recipe.linkage?.modes ?? {})) {
       checkPatterns(`${label}: linkage.modes.${mode}`, choice.platforms);
+      for (const error of linkRequirementErrors(recipe, choice['requires-link'] ?? {}, recipes)) {
+        errors.push(`${label}: linkage.modes.${mode}.requires-link: ${error}`);
+      }
       for (const entry of choice.configure ?? []) {
         checkPatterns(`${label}: linkage.modes.${mode}.configure`, entry.platforms);
       }
@@ -642,6 +645,26 @@ export function linkageFlagsOf(
   };
   roots.forEach(visit);
   return [...new Set(flags)];
+}
+
+/** Recipe linking constraints name direct dependencies and modes those providers declare. */
+function linkRequirementErrors(
+  recipe: Recipe,
+  requirements: Record<string, readonly string[]>,
+  recipes: ReadonlyMap<string, Recipe>,
+): string[] {
+  const errors: string[] = [];
+  for (const [provider, allowed] of Object.entries(requirements)) {
+    if (!recipe.needs.some((dependency) => dependency.name === provider)) {
+      errors.push(`${provider} is not a direct needs dependency`);
+    }
+    for (const mode of allowed) {
+      if (!Object.hasOwn(recipes.get(provider)?.linkage?.modes ?? {}, mode)) {
+        errors.push(`${provider} does not declare ${mode} linking`);
+      }
+    }
+  }
+  return errors;
 }
 
 /** The libraries `roots` need, dependencies first: every `needs` that applies on `platform` (all when none given). */

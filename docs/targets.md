@@ -12,6 +12,23 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
+Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
+for a common shared X connection owner; `libxau` may be selected independently.
+Shared X11 requires shared XCB, shared Xext requires shared X11, and shared Xv
+requires shared Xext. Incompatible combinations fail during planning. Static
+upper libraries may consume shared lower libraries. XCB ships its complete core
+and 24-extension runtime; X11 includes X11-xcb. Existing license gates are unchanged.
+Xlib still uses the recipient's `/usr/share/X11` locale/error/keysym data and has
+no loadable internationalization modules. Authenticated Xvfb tests cover capture,
+cursor, outline and authorization paths; its lack of XVideo adaptors limits xv
+verification to display opening and a clean unavailable-adaptor error.
+
+VDPAU remains headers-only. A common shared X11/XCB owner removes the earlier
+connection-ownership obstacle, but a real libvdpau wrapper and vendor-device
+creation still require separate verification. Selecting shared X11 alone does
+not enable FFmpeg's VDPAU device creation.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
