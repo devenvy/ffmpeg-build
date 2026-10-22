@@ -10,6 +10,7 @@ import { z } from 'zod';
 import {
   alwaysBuilt,
   type EngineData,
+  linkageFlagsOf,
   type OptionInfo,
   optionRecipe,
   optionsOf,
@@ -290,10 +291,11 @@ function flagsOf(data: EngineData, o: OptionInfo): string[] | undefined {
   }
   const flags = where.flatMap((p) => {
     const lib = optionRecipe(o, p);
-    return (
-      o.configure ??
-      (lib ? valuesOn(data.recipes.get(lib)!, 'configure', p) : [`--enable-${o.name}`])
-    );
+    return [
+      ...(o.configure ??
+        (lib ? valuesOn(data.recipes.get(lib)!, 'configure', p) : [`--enable-${o.name}`])),
+      ...(lib ? linkageFlagsOf(data, [lib], p) : []),
+    ];
   });
   return [...new Set(flags)];
 }

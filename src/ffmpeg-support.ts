@@ -4,7 +4,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { type EngineData, knownMajors, optionsOf, valuesOn } from './engine-data.ts';
+import {
+  type EngineData,
+  knownMajors,
+  linkageFlagsOf,
+  optionsOf,
+  valuesOn,
+} from './engine-data.ts';
 import {
   componentsFilePath,
   type ComponentsRead,
@@ -82,6 +88,13 @@ function configureNames(data: EngineData, major: string): Map<string, string> {
     if (!o.configure && recipe) {
       flags = lib ? valuesOn(lib, 'configure') : [];
     }
+    flags = [
+      ...flags,
+      ...linkageFlagsOf(
+        data,
+        o.libraries.map((library) => library.name),
+      ),
+    ];
     for (const f of flags) {
       // configure takes --enable-libfdk-aac for libfdk_aac
       const m = /^--enable-([a-z0-9_-]+)$/.exec(f);

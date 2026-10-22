@@ -76,6 +76,14 @@ The selected mode affects the library cache, its consumers, release identity, pl
 Dependencies retain their own modes. Verify full builds, dependency closure, relocation and real runtime use
 before declaring a selectable mode. Recipes without this declaration retain their existing behavior.
 
+`linkage.defaults: { linux-x64: static }` can override a recipe's fallback `default:` on verified platform
+patterns. When patterns overlap, the last matching entry wins, as with `build.platforms:`; an explicit target or
+base `link:` choice wins over recipe defaults. Every default must name a declared mode supported on that platform.
+A mode's optional `configure:` adds FFmpeg flags using the same platform-limited syntax as recipe `configure:`.
+These additions apply even when the library is a dependency only, and do not replace an option's own flags.
+Configure checks, caches, plans and release identity use the resolved choice. Keep shared defaults on platforms
+whose static mode has not yet passed a full build and runtime verification.
+
 A verified `system-shared` mode builds the same kind of shared library but omits its `runtime:` files from the
 archive. Give that mode the actual runtime globs and optional `packages: { debian: [...], fedora: [...] }`
 suggestions. Staging inspects the resulting ELF requirements and writes `RUNTIME-DEPENDENCIES.json`; package
