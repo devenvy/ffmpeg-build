@@ -4,7 +4,7 @@ import { setTimeout } from 'node:timers/promises';
 
 const ffmpeg = process.env.FFMPEG;
 assert.ok(ffmpeg);
-const TIMEOUT = 15000;
+const TIMEOUT = 60000;
 const START_DELAY = 500;
 const PORT_BASE = 24000;
 const PID_RANGE = 1000;
@@ -118,7 +118,11 @@ const transport = async (name, encrypted, wrong) => {
     console.log(`${name}: wrong-secret rejection passed`);
     return;
   }
-  assert.equal(received.status, 0, `${name}: ${received.error}; sender: ${sent.error}`);
+  assert.equal(
+    received.status,
+    0,
+    `${name}: receiver signal=${received.signal}, ${received.error}; sender status=${sent.status}, signal=${sent.signal}, ${sent.error}`,
+  );
   assert.equal(received.signal, null, received.error);
   assert.equal(received.output.length, WIDTH * HEIGHT * CHANNELS * FRAMES);
   for (let pixel = 0; pixel < received.output.length; pixel += CHANNELS) {

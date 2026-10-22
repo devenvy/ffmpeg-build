@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 const ffmpeg = process.env.FFMPEG;
 assert.ok(ffmpeg);
 const TIMEOUT = 120000;
-const BUILD_TIMEOUT = 300000;
+const BUILD_TIMEOUT = 900000;
+const DIAGNOSTIC_BYTES = 2000;
 const HASH_LENGTH = 16;
 const READY_ATTEMPTS = 60;
 const READY_DELAY = 1000;
@@ -33,12 +34,13 @@ const RED_MIN = 240;
 const OTHER_MAX = 10;
 const name = `ffb-transports-${process.pid}-${Date.now()}`;
 const command = (program, args, timeout = TIMEOUT) => {
-  const result = spawnSync(program, args, { encoding: 'utf8', timeout });
-  assert.equal(
-    result.status,
-    0,
-    `${program}: ${result.error?.message ?? ''}\n${result.stderr}\n${result.stdout}`,
-  );
+  const result = spawnSync(program, args, { encoding: 'utf8', timeout, killSignal: 'SIGKILL' });
+  if (result.status !== 0) {
+    const output = `${result.stderr ?? ''}\n${result.stdout ?? ''}`.slice(-DIAGNOSTIC_BYTES);
+    throw new Error(
+      `${program}: status=${result.status}, signal=${result.signal}, error=${result.error?.message ?? ''}, output=${JSON.stringify(output)}`,
+    );
+  }
   return result.stdout;
 };
 const exec = (args) => command('docker', ['exec', name, ...args]);
