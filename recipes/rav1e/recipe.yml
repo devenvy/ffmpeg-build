@@ -10,6 +10,14 @@ configure: [--enable-librav1e]
 source: { git: https://github.com/xiph/rav1e, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-mode: 'yes', shared-args: [--library-type=cdylib] }
+      runtime: ['lib/librav1e.so*']
 build:
   # rav1e: the Xiph AV1 encoder, in Rust (BSD-2-Clause), static, for FFmpeg's librav1e encoder (found through
   # rav1e.pc, 0.5.0 or later, whose Libs.private names what Rust's standard library needs from the system). cargo-c
@@ -20,6 +28,7 @@ build:
   # installs the same Rust into the build's own folder first, with the target's standard library, and cargo-c 0.10.26
   # from crates.io (--locked).
   system: none
+  vars: { shared-mode: '', shared-args: [] }
   # the crates cargo cinstall compiles in (rav1e with its default features and cargo-c's capi), fetched and checked
   # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. av-metrics and profiling publish no
   # licence file in their crates: the standard text of their licence (MIT, or MIT among their choices). Its C API is
@@ -49,11 +58,22 @@ build:
           --release,
           --locked,
           --library-type=staticlib,
+          '{shared-args}',
           '--target={target}',
           '--prefix={deps}',
           '--libdir={deps}/lib',
           '--includedir={deps}/include',
         ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'rav1e', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+        - '{version}'
+      when: { set: '{shared-mode}' }
   platforms:
     linux-x64: { vars: { target: x86_64-unknown-linux-gnu } }
     linux-arm64: { vars: { target: aarch64-unknown-linux-gnu } }
