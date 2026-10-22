@@ -362,7 +362,13 @@ describe('xavs2', () => {
   it.each(platformsOf('xavs2'))('%s', async (platform) => {
     const h = fake(platform);
     put(join(h.src, 'version.sh'), '    VER_R=`git rev-list --count origin/master`\n');
-    put(join(h.src, 'build', 'linux', 'configure'), '    elif !(strings | grep -q EGIB) ; then\n');
+    put(
+      join(h.src, 'build', 'linux', 'configure'),
+      '    elif !(strings | grep -q EGIB) ; then\n' +
+        "if cc_check '' -mpreferred-stack-boundary=5 ; then\n" +
+        '        CFLAGS="$CFLAGS -mpreferred-stack-boundary=5"\n' +
+        '        stack_alignment=32\n',
+    );
     await build(h, 'xavs2');
     expect(commands(h)).toEqual([
       [
@@ -379,6 +385,10 @@ describe('xavs2', () => {
       'build/linux$ make install-lib-static',
     ]);
     expect(h.read(join(h.src, 'version.sh'))).toBe('    VER_R=0\n');
+    const configure = h.read(join(h.src, 'build', 'linux', 'configure'));
+    expect(configure).toContain(
+      platform === 'linux-x64' ? 'stack_alignment=16' : 'stack_alignment=32',
+    );
   });
 });
 

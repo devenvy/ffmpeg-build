@@ -46,6 +46,14 @@ build:
     - replace-in-file:
         { path: version.sh, from: 'VER_R=`git rev-list --count origin/master`', to: VER_R=0 }
     - replace-in-file: { path: build/linux/configure, from: 'elif !(', to: 'elif false && !(' }
+    # SysV x86-64 guarantees 16-byte incoming stacks, including pthread workers.
+    # Claiming 32 suppresses realignment of ALIGN32 AVX2 locals and crashes when
+    # a valid caller arrives at 16 modulo 32. Keep compiler and NASM in agreement.
+    - replace-in-file:
+        path: build/linux/configure
+        from: "if cc_check '' -mpreferred-stack-boundary=5 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=5\"\n        stack_alignment=32"
+        to: "if cc_check '' -mpreferred-stack-boundary=4 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=4\"\n        stack_alignment=16"
+      when: { platforms: [linux-x64] }
     - run:
         [
           ./configure,
@@ -61,3 +69,12 @@ build:
       cwd: build/linux
     - run: [make, '{install-target}']
       cwd: build/linux
+    # Exercise the actual AVX2 predictor through an external pthread caller at
+    # both valid stack alignments. Shared libraries are covered by real encodes.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'xavs2', 'check-stack-abi.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-stack-abi'
+      when: { platforms: [linux-x64], exists: '{deps}/lib/libxavs2.a' }
