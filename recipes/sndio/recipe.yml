@@ -7,27 +7,51 @@ needs: [alsa-lib]
 source: { url: 'https://sndio.org/sndio-{version}.tar.gz' }
 versions: { listing: 'https://sndio.org/', files: '^sndio-(\d+\.\d+\.\d+)\.tar\.gz$' }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: --enable-dynamic
+        library-file: 'libsndio/libsndio.so*'
+        shared-ldflags: 'LDFLAGS=-L{deps}/lib -pthread -Wl,-z,defs,--exclude-libs,libasound.a,--version-script={src}/ffb-public-api.map'
+        shared-mode: 'yes'
+      runtime: ['lib/libsndio.so*']
 build:
   # sndio: OpenBSD's audio library (ISC), static, for FFmpeg's sndio input and output devices: through a sndiod server
   # when one runs, else straight to ALSA (rsnd/ devices) through alsa-lib. libsndio alone (no sndiod, aucat or the
   # tools). Its own configure (not autoconf: no --host) takes the compiler as CC=, and its sndio.pc names no private
   # libraries: ALSA's, and librt and libm, are added.
   system: none
-  vars: { cc: gcc, ar: ar }
+  vars:
+    cc: gcc
+    ar: ar
+    library-arg: --enable-static
+    library-file: libsndio/libsndio.a
+    shared-ldflags: []
+    shared-mode: ''
   platforms:
     'linux-armhf': { vars: { cc: arm-linux-gnueabihf-gcc, ar: arm-linux-gnueabihf-ar } }
   steps:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'sndio', 'make-exports.py'), run_name='__main__')"
+      when: { set: '{shared-mode}' }
     - - ./configure
       - '--prefix={deps}'
-      - --enable-static
+      - '{library-arg}'
       - --enable-alsa
       - --without-libbsd
       - 'CC={cc}'
       - 'AR={ar}'
       - 'CFLAGS=-O2 -fPIC -I{deps}/include'
+      - '{shared-ldflags}'
     - [make, '-j{jobs}', -C, libsndio]
     - copy: { from: libsndio/sndio.h, into: '{deps}/include' }
-    - copy: { from: libsndio/libsndio.a, into: '{deps}/lib' }
+    - copy: { from: '{library-file}', into: '{deps}/lib' }
     - copy: { from: libsndio/sndio.pc, into: '{deps}/lib/pkgconfig' }
     - edit-pkg-config:
         {
@@ -35,3 +59,11 @@ build:
           requires-private: { set: alsa },
           libs-private: { add: -lrt -lm },
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'sndio', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

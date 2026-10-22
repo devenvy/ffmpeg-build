@@ -13,15 +13,32 @@ versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 # where its capture reaches the system's audio and is checked: Linux, Windows and macOS. Not linux-armhf: its CMake
 # (Debian's 3.25) lacks the BUILD_LOCAL_INTERFACE (3.26) OpenAL Soft's CMakeLists.txt links its {fmt} with.
 platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-type: -DLIBTYPE=SHARED
+        shared-args:
+          [
+            -DALSOFT_STATIC_STDCXX=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs,--exclude-libs,libasound.a',
+          ]
+        shared-mode: 'yes'
+      runtime: ['lib/libopenal.so*']
 build:
   # OpenAL Soft, static, for FFmpeg's openal input device (capture). No utilities, examples, tests, sample
   # configuration, HRTF data or presets, and no C++20 modules. Backends: linked ALSA (and OSS) on Linux;
   # WASAPI, DirectSound and WinMM on Windows; Core Audio on macOS. A C++ library: its .pc gets the
   # C++ runtime a static link needs.
   system: cmake
+  vars: { library-type: -DLIBTYPE=STATIC, shared-args: [], shared-mode: '' }
   args:
     [
-      -DLIBTYPE=STATIC,
+      '{library-type}',
+      '{shared-args}',
       -DALSOFT_UTILS=OFF,
       -DALSOFT_EXAMPLES=OFF,
       -DALSOFT_TESTS=OFF,
@@ -66,3 +83,11 @@ build:
   after:
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/openal.pc', libs-private: { append: '{cxx-runtime}' } }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openal-soft', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
