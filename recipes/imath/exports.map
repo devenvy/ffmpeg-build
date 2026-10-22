@@ -1,0 +1,14 @@
+{
+  global:
+    imath_*;
+    _Zls*Imath*;
+    _Zrs*Imath*;
+    _Z9printBits*;
+    _ZTI*Imath*;
+    _ZTS*Imath*;
+    _ZTV*Imath*;
+    extern "C++" {
+      Imath_*::*;
+    };
+  local: *;
+};
