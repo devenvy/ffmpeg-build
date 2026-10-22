@@ -561,9 +561,10 @@ describe('lcevcdec', () => {
     expect(existsSync(join(h.deps, 'licenses'))).toBe(false);
     // Android's surfaces: libandroid and libnativewindow
     const android = platform.startsWith('android-') ? ' -landroid -lnativewindow' : '';
+    const threads = platform.startsWith('linux-') ? String.raw`Libs\.private: -pthread\n` : '';
     expect(h.read(pcPath(h, 'lcevc_dec'))).toMatch(
       new RegExp(
-        String.raw`^Libs: -L"\$\{libdir\}" -llcevc_dec_api -llcevc_dec_common -l\S+ -lm${android}\n$`,
+        String.raw`^Libs: -L"\$\{libdir\}" -llcevc_dec_api -llcevc_dec_common -l\S+ -lm${android}\n${threads}$`,
       ),
     );
   });

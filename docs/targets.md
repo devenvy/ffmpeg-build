@@ -27,6 +27,59 @@ streams, and a real mapped Fontconfig cache with retained patterns passed into
 Cairo after releasing explicit cache/configuration handles. The font is authored
 test data; no system font or physical display is required.
 
+On Linux x64, `libdrm`, `libva` and `libvpl` accept independent bundled `shared`
+selections and retain static defaults. Shared VA includes both its core and DRM
+libraries; oneVPL bundles its dispatcher. Neither mode supplies a hardware driver
+or a physical device. Provide compatible VA drivers and use `LIBVA_DRIVERS_PATH`
+when their directory differs from the build prefix. Distribution locations vary:
+Debian/Ubuntu commonly use `/usr/lib/x86_64-linux-gnu/dri` and Fedora
+`/usr/lib64/dri`. These are hints, not an ABI guarantee. oneVPL similarly needs a
+compatible implementation such as the recipient's Intel GPU runtime.
+
+The maintained checks cover invalid device descriptors and software output.
+Native SDK checks exercise DRM containers, VA utility/invalid-display contracts,
+and actual oneVPL loader dispatch through an upstream source-built test runtime.
+They do not claim physical GPU encoding or decoding. CMake SDK consumers of
+shared oneVPL must select its native `VPL_SHARED=ON` option.
+
+On Linux x64, `shaderc` and `libplacebo` accept independent bundled `shared`
+selections, with static defaults. Shaderc keeps its compiler dependencies embedded;
+libplacebo receives the caller's Vulkan dispatch function and does not link another
+loader. Either a static or shared caller loader is supported. The selected modes
+do not embed a GPU driver: an installed compatible Vulkan ICD remains necessary.
+
+FFmpeg 8 can also list `shaderc` directly for its Vulkan filters. FFmpeg 9 removed
+that option and uses the host `glslc` compiler; shaderc remains libplacebo's runtime
+compiler dependency. Its static pkg-config metadata includes both its C++ runtime
+and math dependency so FFmpeg 8's direct configure probe can link independently.
+
+Maintained lavapipe tests compare uploaded/rendered/downloaded frame pixels across
+the static/shared combinations. Native SDK checks cover actual SPIR-V compilation,
+include callbacks, cloned options, C++ wrappers and libplacebo public data. The
+external `examples/canary/tests/vulkan-import.c` probe imports a caller-owned
+device, destroys the wrapper, then submits and completes work on the original
+device. This lifecycle was checked against all seven locally built archives,
+including both caller loader modes; it does not claim physical GPU coverage.
+
+On Linux x64, `opencl-icd-loader` and `lcevcdec` retain static defaults and offer
+independent bundled `shared` modes. OpenCL stages its native versioned loader;
+LCEVC stages both its API and CPU pipeline libraries, with private convenience
+libraries and C++ runtime embedded. Existing library license gates are unchanged.
+
+An OpenCL loader still needs a compatible vendor ICD. CPU-only FFmpeg operations
+can run without one; OpenCL device creation reports that no platform is available.
+The maintained runtime uses distro PoCL as a test-only CPU ICD and compares four
+OpenCL-transposed frames byte for byte with the CPU transpose. External SDK checks
+execute an owned integer kernel, validate events and build diagnostics, and release
+every object. Shared mode retains upstream loader-managed dispatch and symbol
+versions; it does not substitute a system loader or bundle a GPU driver.
+
+LCEVC's native SDK tests pass four nonconstant I420 frames through the CPU pipeline
+without enhancement data, checking timestamps, plane strides, output bytes and
+picture ownership. FFmpeg's maintained filter test likewise checks complete EOF
+and exact passthrough pixels. This verifies CPU passthrough, not enhancement-stream
+decoding or GPU acceleration. Linux static SDK metadata includes pthread support.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and

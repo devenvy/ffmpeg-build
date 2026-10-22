@@ -16,6 +16,16 @@ source: { git: https://github.com/google/shaderc, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+(?:\.\d+)?)$' }
 # Where libplacebo builds (upstream: BUILD_LIBPLACEBO = BUILD_VULKAN, minus ios-sim-arm64).
 platforms: [linux-*, win-*, osx-*, ios-arm64, maccatalyst-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a -Wl,--version-script={src}/ffb-public-api.map'
+      runtime: ['lib/libshaderc_shared.so*']
 build:
   # shaderc: Google's GLSL/HLSL -> SPIR-V compiler (Apache-2.0), static library. Ported from devenvy/ffmpeg
   # scripts/deps/shaderc.sh.
@@ -23,7 +33,13 @@ build:
   # (and, on FFmpeg 8.x only, FFmpeg itself through --enable-libshaderc -- see the end). shaderc vendors glslang +
   # SPIRV-Tools + SPIRV-Headers via its own utils/git-sync-deps (pinned by shaderc itself, not the ledger).
   system: none
+  vars: { shared-mode: '', shared-link-arg: [] }
   steps:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'shaderc', 'exports.map'), 'ffb-public-api.map')"
+      when: { set: '{shared-mode}' }
     # Fetch shaderc's pinned third-party sources (glslang / SPIRV-Tools / SPIRV-Headers /
     # abseil / re2 / ...), verified at their pinned revisions and retried on a partial sync --
     # git-sync-deps alone can exit 0 with a clone missing.
@@ -43,6 +59,7 @@ build:
       - -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
       - -DSPIRV_SKIP_EXECUTABLES=ON
       - -DENABLE_GLSLANG_BINARIES=OFF
+      - '{shared-link-arg}'
       - '{cmake-cross-args}'
     - [cmake, --build, _build, --target, install, -j, '{jobs}']
     # We link statically. Point the default shaderc.pc at the self-contained static archive
@@ -51,20 +68,31 @@ build:
     # libshaderc_shared.so at runtime.
     - replace-in-file:
         { path: '{deps}/lib/pkgconfig/shaderc.pc', from: -lshaderc_shared, to: -lshaderc_combined }
+      when: { unset: '{shared-mode}' }
     - remove: { path: '{deps}/lib/libshaderc_shared.*' } # .so/.dylib/.dll across platforms
+      when: { unset: '{shared-mode}' }
     # libshaderc_combined is C++, but shaderc.pc declares no C++ runtime. Upstream got it onto FFmpeg's link through
     # libplacebo's EXTRA_LIBS (global, so it also reached FFmpeg 8.x's --enable-libshaderc probe); a recipe never
     # touches FFmpeg's flags, so the runtime goes into shaderc.pc's Libs.private, as libplacebo does with its own .pc.
     - edit-pkg-config:
         {
           path: '{deps}/lib/pkgconfig/shaderc.pc',
-          libs-private: { append: '{cxx-runtime}', missing: after-libs },
+          libs-private: { append: '{cxx-runtime} -lm', missing: after-libs },
         }
     # shaderc's install also drops its glslc CLI into {deps}/bin -- built for the TARGET
     # arch on cross builds, so it shadows the host glslc (in the toolchain image) that shader steps
     # must run. We only need libshaderc for libplacebo, so remove it. (recursive: on macOS/iOS
     # glslc installs as a glslc.app bundle directory, not a plain file.)
     - remove: { path: '{deps}/bin/glslc*', recursive: true }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'shaderc', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+        - '{CXX|g++}'
+      when: { set: '{shared-mode}' }
   # FFmpeg 8.x needs --enable-libshaderc for its Vulkan FILTERS; 9.x does not. (In this engine the flag is
   # recipe.yml's configure:, and only ffmpeg/8.yml has the shaderc option.)
   # The two lines obtain SPIR-V compilation differently and the difference is silent:

@@ -6,10 +6,22 @@ configure: [--enable-libdrm]
 source: { git: https://gitlab.freedesktop.org/mesa/drm.git, ref: 'libdrm-{version}' }
 versions: { git-tags: '^libdrm-(\d+\.\d+\.\d+)$' }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        { library-arg: --default-library=shared, shared-mode: 'yes', shared-ldflags: '-Wl,-z,defs' }
+      runtime: ['lib/libdrm.so*']
 build:
   system: meson
+  vars: { library-arg: [], shared-mode: '', shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
     [
+      '{library-arg}',
       -Dtests=false,
       -Dman-pages=disabled,
       -Dvalgrind=disabled,
@@ -26,3 +38,12 @@ build:
       -Dexynos=disabled,
       -Dtegra=disabled,
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libdrm', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

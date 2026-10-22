@@ -10,6 +10,17 @@ version-group: opencl-sdk
 # Linux and Windows, where each GPU vendor's driver installs an OpenCL ICD. macOS has OpenCL of its own (a system
 # framework FFmpeg links by itself): the opencl option is built in there (ffmpeg/<major>.yml).
 platforms: [linux-*, win-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [-DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=ON, '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs']
+      runtime: ['lib/libOpenCL.so*']
 build:
   # Khronos OpenCL ICD loader (Apache-2.0), static, for FFmpeg's opencl (the OpenCL filters and hwcontext). Linked into
   # libavutil, it finds the vendors' drivers at run time (the registry on Windows, /etc/OpenCL/vendors on Linux) as the
@@ -17,18 +28,17 @@ build:
   # simply has no platforms. FFmpeg's libraries export only their own symbols, so the loader's can't clash with a
   # system libOpenCL. Neither the layer-info tool nor the tests are built.
   #
-  # Static on purpose, against Khronos's general advice (its CMakeLists.txt prefers the shared loader, so vendors and
-  # users can update it, and allows static only "in some controlled environments", which an archive anyone unpacks
-  # isn't). Linked to the shared loader, FFmpeg imports it at load time: an OpenCL build would refuse to start at all,
-  # even for CPU-only work, on a machine without a GPU driver's libOpenCL.so.1 or OpenCL.dll, and turning opencl on
-  # must not take that away. Shipping the shared loader beside FFmpeg instead (as vulkan-loader is on Linux) would
-  # shadow the system's anyway (the program's folder, $ORIGIN, is searched first), so gains nothing over this. Using a
-  # newer system loader would need FFmpeg to load OpenCL at run time (dlopen/LoadLibrary), which it doesn't.
+  # Static remains the default, embedding the loader while still discovering installed vendor ICDs at runtime.
+  # Linux x64 may instead bundle the native versioned shared loader and its managed-dispatch behavior. That loader
+  # is shipped beside FFmpeg, so software-only use does not acquire a dependency on a system libOpenCL installation.
+  # Both choices need a compatible vendor or CPU ICD to execute OpenCL work; neither bundles a GPU driver.
   # Its OpenCL.pc carries most of what a static link needs (-ldl and threads; cfgmgr32 and runtimeobject on Windows);
   # on Windows it also calls ole32's StringFromGUID2, which the .pc leaves out.
   system: cmake
+  vars: { shared-mode: '', shared-args: [] }
   args:
     [
+      '{shared-args}',
       '-DOPENCL_ICD_LOADER_HEADERS_DIR={deps}/include',
       -DENABLE_OPENCL_LAYERINFO=OFF,
       -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF,
@@ -42,3 +52,12 @@ build:
         - move: { from: '{deps}/lib/OpenCL.a', to: '{deps}/lib/libOpenCL.a' }
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/OpenCL.pc', libs-private: { add: -lole32 } }
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'opencl-icd-loader', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
