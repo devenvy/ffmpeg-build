@@ -1,0 +1,34 @@
+targets:
+  linux-x64-shared-zlib-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [mysofa, vidstab, lensfun]
+    tests: [tests/media-filters.sh]
+    link: { libmysofa: shared, vid.stab: shared, lensfun: shared, zlib: shared }
+  linux-x64-static-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [mysofa, vidstab, lensfun]
+    tests: [tests/media-filters.sh]
+  linux-x64-shared-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [mysofa, vidstab, lensfun]
+    tests: [tests/media-filters.sh]
+    link: { libmysofa: shared, vid.stab: shared, lensfun: shared }
+  linux-x64-static-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [mysofa, vidstab, lensfun]
+    tests: [tests/media-filters.sh]
+  linux-x64-shared-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [mysofa, vidstab, lensfun]
+    tests: [tests/media-filters.sh]
+    link: { libmysofa: shared, vid.stab: shared, lensfun: shared }
