@@ -7,21 +7,22 @@ configure: [--enable-libx264]
 source: { git: https://code.videolan.org/videolan/x264.git }
 versions: { git-branch: stable }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { link-args: [--enable-shared] }
+      runtime: ['lib/libx264.so*']
 build:
   # x264: H.264 / AVC software encoder (GPL-2.0-or-later), static; GPL builds only.
   # Ported from devenvy/ffmpeg scripts/deps/libx264.sh. Its own configure (not autotools): the cross arguments are the
   # platform's, below.
   system: none
+  vars: { link-args: [--enable-static, --disable-shared] }
   steps:
-    - [
-        ./configure,
-        '--prefix={deps}',
-        --enable-static,
-        --disable-shared,
-        --enable-pic,
-        --disable-cli,
-        '{args}',
-      ]
+    - [./configure, '--prefix={deps}', '{link-args}', --enable-pic, --disable-cli, '{args}']
     - [make, '-j{jobs}']
     - [make, install]
   platforms:

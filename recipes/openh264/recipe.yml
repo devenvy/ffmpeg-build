@@ -6,9 +6,20 @@ configure: [--enable-libopenh264]
 source: { git: https://github.com/cisco/openh264.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: --default-library=shared
+        runtime-link-arg: "-Dcpp_link_args=['-static-libstdc++','-shared-libgcc','-Wl,--exclude-libs,libstdc++.a:libgcc.a']"
+      runtime: ['lib/libopenh264.so*']
 build:
   system: meson
-  args: [-Dtests=disabled]
+  vars: { shared-arg: [], runtime-link-arg: [] }
+  args: [-Dtests=disabled, '{shared-arg}', '{runtime-link-arg}']
   after:
     # openh264's meson build doesn't reliably install a pkg-config file FFmpeg finds;
     # write one (FFmpeg's configure requires openh264 >= 1.3.0). pkg-config Version:
