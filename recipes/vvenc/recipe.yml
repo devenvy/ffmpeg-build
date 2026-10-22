@@ -14,13 +14,31 @@ source: { git: https://github.com/fraunhoferhhi/vvenc, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Not linux-armhf: its 32-bit ARM path forces NEON everywhere, and no packager builds it for 32-bit targets.
 platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: -DBUILD_SHARED_LIBS=ON
+        runtime-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a'
+      runtime: ['lib/libvvenc.so*']
 build:
   # Fraunhofer's VVenC: H.266 / VVC encoder (BSD-3-Clause-Clear), static, for FFmpeg's libvvenc encoder (found
   # through libvvenc.pc, 1.6.1 or later, whose Libs.private carries the C++ runtime). The library alone; link-time
   # optimisation off (a static archive of GCC's LTO objects is no use to FFmpeg's link) and warnings not errors (each
   # new compiler finds new ones).
   system: cmake
-  args: [-DVVENC_LIBRARY_ONLY=ON, -DVVENC_ENABLE_LINK_TIME_OPT=OFF, -DVVENC_ENABLE_WERROR=OFF]
+  vars: { shared-arg: [], runtime-link-arg: [] }
+  args:
+    [
+      -DVVENC_LIBRARY_ONLY=ON,
+      -DVVENC_ENABLE_LINK_TIME_OPT=OFF,
+      -DVVENC_ENABLE_WERROR=OFF,
+      '{shared-arg}',
+      '{runtime-link-arg}',
+    ]
   platforms:
     # Arm SVE is switched on whenever the compiler takes the flag, and its run-time check reads getauxval, which
     # Apple's and Windows' C libraries don't have: NEON only there

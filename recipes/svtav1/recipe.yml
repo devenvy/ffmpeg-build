@@ -20,9 +20,18 @@ versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Not linux-armhf (SVT-AV1 requires 64-bit), win-arm64 (x86-only asm), android-* / ios-* / maccatalyst-* (its
 # static-archive step fails cross-compiling); AV1 encode is covered by libaom there.
 platforms: [linux-x64, linux-arm64, linux-musl-x64, linux-musl-arm64, osx-*, win-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: -DBUILD_SHARED_LIBS=ON }
+      runtime: ['lib/libSvtAv1Enc.so*']
 build:
   system: cmake
-  args: [-DBUILD_APPS=OFF, -DBUILD_DEC=OFF, -DBUILD_TESTING=OFF]
+  vars: { shared-arg: [] }
+  args: [-DBUILD_APPS=OFF, -DBUILD_DEC=OFF, -DBUILD_TESTING=OFF, '{shared-arg}']
   platforms:
     win-x64:
       args:
