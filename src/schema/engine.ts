@@ -517,8 +517,15 @@ const runtimeFiles = z.array(
     "expected a path inside the deps folder, like lib/libvulkan.so*, or one limited to platforms like `'lib/libvulkan*.dylib': { platforms: [osx-*] }`",
   ),
 );
+const configureValues = z.array(
+  platformValue(
+    text,
+    "expected a configure flag, or one limited to platforms like `'--extra-libs=-framework IOKit': { platforms: [maccatalyst-*] }`",
+  ),
+);
 const linkMode = z.strictObject({
   vars: vars.default({}),
+  configure: configureValues.optional(),
   runtime: runtimeFiles.optional(),
   platforms: platforms.optional(),
   packages: z.record(text, z.array(text)).default({}),
@@ -530,6 +537,7 @@ export const recipeSchema = z.strictObject({
   linkage: z
     .strictObject({
       default: linkage,
+      defaults: z.record(text, linkage).optional(),
       modes: z.strictObject({
         static: linkMode.optional(),
         shared: linkMode.optional(),
@@ -539,6 +547,9 @@ export const recipeSchema = z.strictObject({
     .refine((l) => l.modes[l.default] !== undefined, {
       error: 'linkage.modes must declare its default linking mode',
     })
+    .refine((l) => Object.values(l.defaults ?? {}).every((mode) => l.modes[mode] !== undefined), {
+      error: 'linkage.defaults must name declared linking modes',
+    })
     .optional(),
   provides: name.optional(), // the FFmpeg option this library is for; checked against ffmpeg/<major>.yml
   license: text, // SPDX expression; checked against profile licenses in a later step
@@ -547,14 +558,7 @@ export const recipeSchema = z.strictObject({
     .array(licenseFile, { error: 'expected a list of licence files, like [COPYING]' })
     .min(1, { error: 'name at least one licence file' }),
   // FFmpeg's flags when this is its option's library; `{ <flag>: { platforms: [...] } }` for one some platforms need
-  configure: z
-    .array(
-      platformValue(
-        text,
-        "expected a configure flag, or one limited to platforms like `'--extra-libs=-framework IOKit': { platforms: [maccatalyst-*] }`",
-      ),
-    )
-    .default([]),
+  configure: configureValues.default([]),
   needs: z.array(dep).default([]),
   uses: z.array(dep).default([]), // optional pieces, built in where the build's license and platform allow
   group: name.optional(),

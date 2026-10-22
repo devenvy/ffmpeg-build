@@ -4,6 +4,49 @@ import type { EngineData } from './engine-data.ts';
 import type { Linkage } from './schema/common.ts';
 import type { Recipe } from './schema/engine.ts';
 
+/** Platform additions follow declaration order; an explicit target choice takes precedence over these defaults. */
+export function defaultLinkage(recipe: Recipe, platform: string): Linkage | undefined {
+  return (
+    Object.entries(recipe.linkage?.defaults ?? {})
+      .filter(([pattern]) => platformMatches(platform, [pattern]))
+      .at(-1)?.[1] ?? recipe.linkage?.default
+  );
+}
+
+/** Mode-only FFmpeg flags, including recipes present only as dependencies. */
+export function linkageConfigure(
+  recipe: Recipe,
+  mode: Linkage | undefined,
+  platform: string,
+): string[] {
+  const choice = mode && recipe.linkage?.modes[mode];
+  return configureForMode(choice, platform);
+}
+
+/** Every verified mode's possible flags, for configure coverage and licence-class audits. */
+export function allLinkageConfigure(recipe: Recipe, platform?: string): string[] {
+  return [
+    ...new Set(
+      Object.values(recipe.linkage?.modes ?? {}).flatMap((choice) =>
+        configureForMode(choice, platform),
+      ),
+    ),
+  ];
+}
+
+function configureForMode(
+  choice: NonNullable<Recipe['linkage']>['modes'][Linkage],
+  platform?: string,
+): string[] {
+  return choice && (!platform || !choice.platforms || platformMatches(platform, choice.platforms))
+    ? (choice.configure ?? [])
+        .filter(
+          (entry) => !platform || !entry.platforms || platformMatches(platform, entry.platforms),
+        )
+        .map((entry) => entry.value)
+    : [];
+}
+
 /** Only a recipe's declared and verified modes may be selected; dependencies keep their own defaults. */
 export function linkagePlan(
   data: EngineData,
@@ -25,7 +68,7 @@ export function linkagePlan(
   for (const name of recipes) {
     const recipe = data.recipes.get(name)!;
     if (recipe.linkage) {
-      const mode = overrides[name] ?? recipe.linkage.default;
+      const mode = overrides[name] ?? defaultLinkage(recipe, platform)!;
       const choice = recipe.linkage.modes[mode];
       if (!choice || (choice.platforms && !platformMatches(platform, choice.platforms))) {
         errors.push(`link: ${name} does not support ${mode} linking on ${platform}`);

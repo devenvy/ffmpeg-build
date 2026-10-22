@@ -11,7 +11,7 @@ import { componentFlags } from '../component-lists.ts';
 import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
 import { COMPONENT_KINDS, type Components } from '../ffmpeg-components.ts';
 import { allowedBy } from '../licenses.ts';
-import { linkagePlan, linkedRecipe } from '../linkage.ts';
+import { linkageConfigure, linkagePlan, linkedRecipe } from '../linkage.ts';
 import { packageVersion } from '../paths.ts';
 import { availability, type CellPlan } from '../resolve.ts';
 import { releaseVersion } from '../targets.ts';
@@ -127,6 +127,13 @@ function optionFlags(data: EngineData, plan: CellPlan): string[] {
   );
 }
 
+function modeFlags(data: EngineData, plan: CellPlan): string[] {
+  const modes = plan.linkages ?? linkagePlan(data, plan.recipes, plan.cell.platform).modes;
+  return plan.recipes.flatMap((name) =>
+    linkageConfigure(data.recipes.get(name)!, modes[name], plan.cell.platform),
+  );
+}
+
 /**
  * FFmpeg's configure flags for a cell. A target's components: come first (src/component-lists.ts: each kind it lists
  * turned off, then on for its names, what its options bring and what its patch sets add, `adds`), so the platform's,
@@ -156,12 +163,13 @@ export function configureFlags(
     ...(data.platforms.get(plan.cell.platform)?.configure ?? []),
     ...LICENSE_FLAGS[plan.cell.license],
     ...optionFlags(data, plan).map((flag) => flag.replaceAll('{deps}', depsDir)),
+    ...modeFlags(data, plan).map((flag) => flag.replaceAll('{deps}', depsDir)),
   ]);
 }
 
 /** `--enable-libx265` → `LIBX265`: what must read `CONFIG_LIBX265=yes` in ffbuild/config.mak after configure. */
 export function verifyNames(data: EngineData, plan: CellPlan): string[] {
-  return optionFlags(data, plan)
+  return unique([...optionFlags(data, plan), ...modeFlags(data, plan)])
     .filter((f) => f.startsWith('--enable-'))
     .map((f) => {
       // --enable-hwaccel=h264_mediacodec is CONFIG_H264_MEDIACODEC_HWACCEL; --enable-libx265 is CONFIG_LIBX265
@@ -729,6 +737,7 @@ export function makeBuildPlan(args: {
   if (linking.errors.length) {
     throw new Error(linking.errors.join('; '));
   }
+  const linkedCell = { ...cell, linkages: linking.modes };
   // check refuses an android-api: older than the build's options and libraries support; this is its guard
   const tooOld = androidApiProblems(data, cell, profile.androidApi);
   if (tooOld.length) {
@@ -866,7 +875,7 @@ export function makeBuildPlan(args: {
       configure: [
         ...configureFlags(
           data,
-          cell,
+          linkedCell,
           args.depsDir,
           Object.fromEntries(
             COMPONENT_KINDS.map((k) => [k, unique(patches.flatMap((p) => p.adds?.[k] ?? []))]),
@@ -874,7 +883,7 @@ export function makeBuildPlan(args: {
         ),
         ...patches.flatMap((p) => p.configure),
       ],
-      verify: verifyNames(data, cell),
+      verify: verifyNames(data, linkedCell),
     },
   };
 }
