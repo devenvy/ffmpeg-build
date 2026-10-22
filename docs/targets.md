@@ -11,6 +11,16 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+Blu-ray and UDF reading offer independent Linux x64 static and bundled shared
+choices: `link: { libbluray: shared, libudfread: shared }`. Static remains the
+default. The native `libbluray.so.4` and `libudfread.so.3` libraries retain their
+LGPL-2.1-or-later licensing. XML metadata support uses the selected libxml2 closure;
+embedded static XML/zlib/UDF dependencies stay private in the shared owner.
+Owned unencrypted folder/ISO tests cover actual reads, metadata, EOF and seeks,
+plus FFmpeg packet counts and decoded video/audio. AACS/BD+ libraries and keys
+are not bundled; upstream can load separately installed system decryption
+libraries. BD-J remains disabled. Physical drives and protected media are untested.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the

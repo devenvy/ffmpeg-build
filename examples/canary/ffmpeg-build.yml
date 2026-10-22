@@ -160,6 +160,46 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-bluray-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+  linux-x64-bluray-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libbluray: shared, libudfread: shared }
+  linux-x64-bluray-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+  linux-x64-bluray-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libbluray: shared, libudfread: shared }
+  linux-x64-bluray-shared-bluray-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libbluray: shared }
+  linux-x64-bluray-shared-udf-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libudfread: shared }
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3
