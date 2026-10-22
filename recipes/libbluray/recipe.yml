@@ -15,6 +15,17 @@ versions:
 # Linux, Windows, macOS and Android (folders and images there too); not iOS or Mac Catalyst, where its Apple code's
 # DiskArbitration framework (mounted-disc discovery) isn't there
 platforms: [linux-*, win-*, osx-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args: [--default-library=shared]
+        shared-ldflags: '-Wl,-z,defs,--exclude-libs,libudfread.a:libxml2.a:libz.a'
+      runtime: ['lib/libbluray.so*']
 build:
   # libbluray: Blu-ray disc reading (LGPL-2.1-or-later), static, for FFmpeg's bluray protocol (found through
   # libbluray.pc): a disc's BDMV folder, a mounted disc or an .iso image (through libudfread). With libxml2 for the
@@ -22,6 +33,8 @@ build:
   # Fontconfig: only BD-J draws text), tools, examples or docs. AACS and BD+ decryption libraries are loaded at run time
   # when the system has them (libaacs, libbdplus); none is part of the build.
   system: meson
+  vars: { shared-mode: '', shared-args: [], shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
     [
       -Denable_tools=false,
@@ -32,4 +45,14 @@ build:
       -Dfontconfig=disabled,
       -Dlibxml2=enabled,
       -Dembed_udfread=false,
+      '{shared-args}',
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libbluray', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

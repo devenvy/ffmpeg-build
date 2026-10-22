@@ -16,10 +16,42 @@ versions:
     files: '^libiec61883-(\d+\.\d+\.\d+)\.tar\.xz$',
   }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      # FFmpeg executes a trivial compiler probe with iec61883's extra-libs.
+      # Drop unused DSOs there; strong device references retain them later.
+      configure: ['--extra-ldflags=-Wl,--as-needed']
+      vars:
+        shared-mode: 'yes'
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-ldflags: '-Wl,-z,defs,--exclude-libs,libraw1394.a:libavc1394.a:librom1394.a'
+      runtime: ['lib/libiec61883.so*']
 build:
   # libiec61883: IEC 61883 streams over FireWire (DV and MPEG-2 TS from camcorders and set-top boxes;
   # LGPL-2.1-or-later), static, for FFmpeg's iec61883 input device. Its config.guess and config.sub (2008) know neither
   # 64-bit ARM nor musl: autoreconf brings the image's.
   system: autotools
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-ldflags: '',
+      shared-mode: '',
+    }
   bootstrap: autoreconf
-  args: [--disable-shared, --enable-static, --with-pic]
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libiec61883', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

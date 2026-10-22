@@ -97,6 +97,14 @@ without enhancement data, checking timestamps, plane strides, output bytes and
 picture ownership. FFmpeg's maintained filter test likewise checks complete EOF
 and exact passthrough pixels. This verifies CPU passthrough, not enhancement-stream
 decoding or GPU acceleration. Linux static SDK metadata includes pthread support.
+DVD reading and navigation offer independent Linux x64 static and bundled shared choices:
+`link: { libdvdread: shared, libdvdnav: shared }`. Static remains the default. Shared archives
+include the native `libdvdread.so.8` and `libdvdnav.so.4` SDK/runtime libraries; either may be
+selected separately. Both retain GPL-2.0-or-later licensing and opt-in `with: [dvdread, dvdnav]`.
+Owned unencrypted ISO/folder tests cover full title reads, IFO metadata, navigation cache ownership,
+chapter timing and FFmpeg playback to EOF. No decryption libraries or keys are bundled;
+encrypted discs require separately installed system libdvdcss, loaded at runtime by upstream.
+Physical drives, CSS and protected regions are not covered by these image tests.
 
 Android x64 offers a bundled shared `cpu-features` choice, retaining the static
 default. It bundles both native `libcpu_features.so` and `libndk_compat.so`;
@@ -170,6 +178,15 @@ For SFTP and RTMP, `link: { libssh: shared, librtmp: shared }` bundles the selec
 Their cryptographic dependencies keep their own linking modes. Linux x64 librtmp normalizes GnuTLS retry
 and error results so TLS 1.3 post-handshake messages do not break RTMPS or bypass socket read timeouts.
 The maintained checks use local SSH, RTMP and TLS servers; they do not require remote service credentials.
+Blu-ray and UDF reading offer independent Linux x64 static and bundled shared
+choices: `link: { libbluray: shared, libudfread: shared }`. Static remains the
+default. The native `libbluray.so.4` and `libudfread.so.3` libraries retain their
+LGPL-2.1-or-later licensing. XML metadata support uses the selected libxml2 closure;
+embedded static XML/zlib/UDF dependencies stay private in the shared owner.
+Owned unencrypted folder/ISO tests cover actual reads, metadata, EOF and seeks,
+plus FFmpeg packet counts and decoded video/audio. AACS/BD+ libraries and keys
+are not bundled; upstream can load separately installed system decryption
+libraries. BD-J remains disabled. Physical drives and protected media are untested.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
@@ -220,6 +237,16 @@ compatible modules explicitly through `GIO_MODULE_DIR` or `GIO_EXTRA_MODULES`, a
 `GI_TYPELIB_PATH` or the repository API. TLS modules, schemas and MIME databases are separate application or
 system resources. Built-in GIO streams, files and compression need no extra modules. Installed SDK checks cover
 GObject's generic libffi marshaller, callbacks, module loading and an authored GIRepository typelib.
+On Linux x64, `libraw1394`, `libavc1394`, `libiec61883` and `libdc1394` default to static linking and accept
+independent `shared` selections. The AV/C package includes both its AV/C and ROM libraries. Camera capture
+and bus streaming require the recipient's FireWire controller, Linux driver and device permissions. Maintained
+software checks exercise unbound handles, stream-object ownership, status/ROM decoding and exact pixel
+conversion; device listing and clean failures without a controller do not establish hardware capture support.
+On Linux x64, `libcdio` and `libcdio-paranoia` default to static linking and accept independent `shared`
+selections. Shared CDIO includes its ISO9660 and UDF libraries; shared paranoia includes the CDDA interface.
+The libraries can read compatible CUE/BIN audio images as well as supported drives. The maintained image
+check verifies exact stereo samples with an explicit output bound, and the SDK checks verified reads,
+seeking, filesystem contents and caller-owned handles without requiring an optical drive.
 
 Little CMS, GSM, Game_Music_Emu and Flite also offer static and bundled shared modes on Linux x64.
 Use their recipe names in `link`: `lcms2`, `libgsm`, `libgme` and `flite`. Static remains the default.
@@ -516,6 +543,21 @@ targets:
   releases of the targets using it due, and `bundle` refuses a build made with other patches than the folder has now.
 
 ## Tests
+
+Rockchip MPP retains static defaults and offers a bundled shared choice on Linux ARM64.
+Its native MPP and legacy VPU libraries ship together, preserving SONAME1 and their
+upstream VERSION0 filenames. SDK checks exercise frames, packets and imported
+caller-owned buffers without a device. Actual decoding and encoding require
+a supported Rockchip SoC and kernel driver.
+
+V4L libraries retain static defaults and offer a bundled shared choice on Linux x64
+through `link: { v4l-utils: shared }`. On Linux x64 both modes ship the independent
+`ov511-decomp` and `ov518-decomp` decoder programs beside the runtime; their GPL-2.0-only
+and BSD-2-Clause notices are included separately from the LGPL-linked libraries.
+Upstream's fork/pipe protocol remains intact. Owner-relative paths replace the
+build-machine paths, including when the library is embedded statically inside FFmpeg.
+Other platforms retain their existing static behavior. Software conversion fixtures
+exercise both helpers, but physical V4L camera capture remains untested.
 
 `tests:` lists scripts in the folder that `ffmpeg-build test` runs against the build, after its own smoke test, with
 `FFMPEG`, `FFPROBE` and `FFMPEG_DIR` set ([testing a build](building.md#testing-a-build); not for Android, iOS and

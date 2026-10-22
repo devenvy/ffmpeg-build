@@ -14,8 +14,30 @@ versions:
   }
 # where libbluray builds
 platforms: [linux-*, win-*, osx-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args: [--default-library=shared]
+        shared-ldflags: '-Wl,-z,defs'
+      runtime: ['lib/libudfread.so*']
 build:
   # libudfread: UDF file system reading (LGPL-2.1-or-later), static: how libbluray reads a disc image (.iso). Its own
   # recipe rather than libbluray's meson subproject, which would be fetched during the build.
   system: meson
-  args: [-Denable_examples=false]
+  vars: { shared-mode: '', shared-args: [], shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: [-Denable_examples=false, '{shared-args}']
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libudfread', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

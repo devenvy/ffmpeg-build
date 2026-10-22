@@ -1,0 +1,24 @@
+{
+  "authoringPackages": {
+    "dvdauthor": {
+      "version": "0.7.2-2",
+      "binarySha256": "966e559d77c09879d42e54301adca920e52d384213431c91a051f2b557fc64b2"
+    },
+    "genisoimage": {
+      "version": "9:1.1.11-3.4",
+      "binarySha256": "fd29f111c051f915d74fe3481fc12f3de1fc6ce09c1a6f7ff3e2dad60ffd177a"
+    }
+  },
+  "ffmpegVersion": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "tarSha256": "9d26c5522d48ac245ddb25529c48586138a1050e90418c6394ea7624158190ea",
+  "files": {
+    "dvd/VIDEO_TS/VIDEO_TS.BUP": "54d1e497e3d4d9d21bb706dc83fc63fde7ad0bef633b13fb5d72806010911c61",
+    "dvd/VIDEO_TS/VIDEO_TS.IFO": "54d1e497e3d4d9d21bb706dc83fc63fde7ad0bef633b13fb5d72806010911c61",
+    "dvd/VIDEO_TS/VTS_01_0.BUP": "915fe823440a64d53c4cb457b85707da19b258c0beebce1dc251b36b1889d7bd",
+    "dvd/VIDEO_TS/VTS_01_0.IFO": "915fe823440a64d53c4cb457b85707da19b258c0beebce1dc251b36b1889d7bd",
+    "dvd/VIDEO_TS/VTS_01_1.VOB": "4ac9c380d09e7b1075cde8d6627f24e9f62793dc67c93da31225011b22e1b88f",
+    "owned.iso": "302ae60d4bfe77d2a1e06f7765737d30db8b811768d2f6a950e7449d04d61c42"
+  },
+  "media": "Owned 3-second 720x576 PAL red video, 48kHz 1kHz mono sine, chapters at authored GOP boundaries; no copyrighted inputs or encryption.",
+  "note": "Volume creation timestamps can change on regeneration; retain and check the new file hashes."
+}

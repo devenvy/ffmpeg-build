@@ -1,0 +1,21 @@
+{
+  "tsmuxerSource": "https://github.com/justdan96/tsMuxer/tree/c6b1186209e42c877052e762c9185f3226ef8ea2",
+  "tsmuxerSourceArchiveSha256": "09e028daee4ec96f3299cb3218151e334ba5bf2eeb444dd1ae7a01ed3de95bb4",
+  "tsmuxerBinarySha256": "128f993057f145c3e5a7dd44b2f615960baf6f12741bcef436027a4a858e102a",
+  "ffmpegVersion": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "tarSha256": "87c31bf3e84679ba252fa0cb097d0828626b7ef0bf4c357faaf04568c7a37ce7",
+  "compression": "xz-preset9",
+  "files": {
+    "disc/BDMV/BACKUP/CLIPINF/00000.clpi": "33aa55d1a7cd609f94476d1e4799c4db6b74531460e4f624f303266fede30132",
+    "disc/BDMV/BACKUP/MovieObject.bdmv": "2e1f45c71e9115613102f885ebd17705f35f14f591c2c03d536c462b29158071",
+    "disc/BDMV/BACKUP/PLAYLIST/00000.mpls": "c2b4abfceeac60e5850bad6064e353683497d0f827191c190ce126fe3ef9e425",
+    "disc/BDMV/BACKUP/index.bdmv": "06d93a945547bc14fa70776f95369d15c7ea4dd3ad1107cfcac6f8ef52114ad4",
+    "disc/BDMV/CLIPINF/00000.clpi": "33aa55d1a7cd609f94476d1e4799c4db6b74531460e4f624f303266fede30132",
+    "disc/BDMV/MovieObject.bdmv": "2e1f45c71e9115613102f885ebd17705f35f14f591c2c03d536c462b29158071",
+    "disc/BDMV/PLAYLIST/00000.mpls": "c2b4abfceeac60e5850bad6064e353683497d0f827191c190ce126fe3ef9e425",
+    "disc/BDMV/STREAM/00000.m2ts": "70e2a462e2023f71d5d73807687e9da927022582b838e78127295f504907cc38",
+    "disc/BDMV/index.bdmv": "06d93a945547bc14fa70776f95369d15c7ea4dd3ad1107cfcac6f8ef52114ad4",
+    "owned.iso": "0a7d6a48d10eea795f29d3bf996b4dadf0aafeec100092cabb284131adc7a5be"
+  },
+  "media": "Owned 180-second 1280x720 blue MPEG-2 video and three authored chapters. Audio is a 48kHz750Hz mono AC-3 sine for three seconds followed by177seconds of silence. No copyrighted inputs or encryption. FFmpeg requires a playlist of at least180seconds even when selecting it explicitly."
+}

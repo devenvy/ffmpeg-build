@@ -10,6 +10,20 @@ source: { git: https://github.com/rockchip-linux/mpp, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 # Rockchip's SoCs are ARM: 64-bit and 32-bit Linux
 platforms: [linux-arm64, linux-armhf, linux-musl-arm64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-arm64]
+      vars:
+        static-mode: ''
+        shared-mode: 'yes'
+        shared-args:
+          [
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,--version-script={src}/ffb-private-cxx.map',
+          ]
+      runtime: ['lib/librockchip_mpp.so*', 'lib/librockchip_vpu.so*']
 build:
   # Rockchip Media Process Platform (rockchip_mpp), static, for FFmpeg's rkmpp (the H.264, HEVC, VP8 and VP9 decoders,
   # and since 8.1 the H.264 and HEVC encoders), which drive the SoC's video blocks through the
@@ -17,9 +31,22 @@ build:
   # Its CMake builds the shared and the static library either way (the static one merged into one object): the shared
   # ones (and the legacy VPU API's) are removed after the install, so FFmpeg links the static one. No tests.
   system: cmake
-  args: [-DBUILD_TEST=OFF]
+  vars: { static-mode: 'yes', shared-mode: '', shared-args: [] }
+  args: [-DBUILD_TEST=OFF, '{shared-args}']
+  before:
+    - write-file:
+        path: ffb-private-cxx.map
+        text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
+      when: { set: '{shared-mode}' }
   after:
     - remove: { path: '{deps}/lib/librockchip_*.so*' }
+      when: { set: '{static-mode}' }
     # the static library needs the C library's threads
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/rockchip_mpp.pc', libs-private: { add: -lpthread } }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'rockchip-mpp', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+      when: { set: '{shared-mode}' }
