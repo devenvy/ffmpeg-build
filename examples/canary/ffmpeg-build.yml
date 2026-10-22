@@ -160,6 +160,33 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-codecs-extra-static-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    tests: [tests/codecs-extra.sh]
+  linux-x64-codecs-extra-shared-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    link: { codec2: shared, kvazaar: shared, xavs2: shared, davs2: shared }
+    tests: [tests/codecs-extra.sh]
+  linux-x64-codecs-extra-shared-encoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    link: { xavs2: shared }
+    tests: [tests/codecs-extra.sh]
+  linux-x64-codecs-extra-shared-decoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    link: { davs2: shared }
+    tests: [tests/codecs-extra.sh]
   linux-x64-audio-shared-lgplv2:
     platform: linux-x64
     license: lgplv2

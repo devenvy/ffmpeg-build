@@ -28,6 +28,10 @@ PulseAudio's client defaults to static linking. It still connects to the recipie
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
 `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
 
+Codec2, Kvazaar, Xavs2 and Davs2 offer bundled shared libraries on Linux x64 while keeping static defaults.
+Xavs2 and Davs2 remain GPL build options, and their linking modes can be selected independently. Shared Davs2
+includes its private C++ runtime while retaining the common system unwinder.
+
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
 replacement or when a swappable client library is needed. Neither mode starts a server automatically.

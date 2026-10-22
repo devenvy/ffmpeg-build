@@ -7,6 +7,20 @@ source: { git: https://github.com/pkuvcl/davs2, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+)$' }
 platforms:
   [linux-x64, linux-musl-x64, win-x64, linux-arm64, linux-musl-arm64, android-arm64, android-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args:
+          - --enable-shared
+          - --disable-static
+          - '--extra-ldflags=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs'
+        library-target: lib-shared
+        install-target: install-lib-shared
+      runtime: ['lib/libdavs2.so*']
 build:
   # davs2: AVS2 (IEEE 1857.4) video decoder from Peking University (GPL-2.0-or-later), static, for FFmpeg's libdavs2
   # decoder; GPL builds only. Found through davs2.pc (1.6.0 or later). x264's configure, in build/linux; the library
@@ -18,7 +32,11 @@ build:
   #   when it can't find them; every platform here is little-endian (the default it keeps), so that failure is
   #   skipped.
   system: none
-  vars: { cross: [] }
+  vars:
+    cross: []
+    library-args: []
+    library-target: lib-static
+    install-target: install-lib-static
   # its configure compiles with $CC, the C++ compiler by default (g++), and passes it -std=gnu++11: where the
   # platform sets CC to a C compiler, the platform's C++ compiler instead (clang refuses C++ flags for C)
   env: { CC: '{CXX|g++}' }
@@ -44,11 +62,20 @@ build:
     - replace-in-file:
         { path: version.sh, from: 'VER_R=`git rev-list --count origin/master`', to: VER_R=0 }
     - replace-in-file: { path: build/linux/configure, from: 'elif !(', to: 'elif false && !(' }
-    - run: [./configure, '--prefix={deps}', --disable-cli, --enable-pic, '{cross}', '{args}']
+    - run:
+        [
+          ./configure,
+          '--prefix={deps}',
+          --disable-cli,
+          --enable-pic,
+          '{library-args}',
+          '{cross}',
+          '{args}',
+        ]
       cwd: build/linux
-    - run: [make, '-j{jobs}', lib-static]
+    - run: [make, '-j{jobs}', '{library-target}']
       cwd: build/linux
-    - run: [make, install-lib-static]
+    - run: [make, '{install-target}']
       cwd: build/linux
     - edit-pkg-config:
         {
