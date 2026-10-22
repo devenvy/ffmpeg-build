@@ -824,7 +824,7 @@ describe('shaderc', () => {
       'cmake --build _build --target install -j 4',
     ]);
     expect(h.read(pcPath(h, 'shaderc'))).toBe(
-      `Libs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread ${rt(platform)}\n`,
+      `Libs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread ${rt(platform)} -lm\n`,
     );
     expect(h.files(h.deps)).toEqual([
       'bin/spirv-as',

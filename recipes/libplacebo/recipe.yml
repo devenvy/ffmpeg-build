@@ -26,6 +26,17 @@ versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Upstream: BUILD_LIBPLACEBO = BUILD_VULKAN, minus the lean ios-sim-arm64 slice (FFmpeg's libplacebo filter needs
 # Vulkan, which Apple gets from MoltenVK).
 platforms: [linux-*, win-*, android-*, osx-*, ios-arm64, maccatalyst-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-arg: --default-library=shared
+        shared-link-arg: "-Dcpp_link_args=['-static-libstdc++', '-shared-libgcc', '-Wl,-z,defs', '-Wl,--version-script={src}/ffb-public-api.map']"
+      runtime: ['lib/libplacebo.so*']
 build:
   # libplacebo: GPU-accelerated video processing (HDR tone-mapping, high-quality scaling, colorspace conversion) built
   # on Vulkan (LGPL-2.1-or-later), static. Ported from devenvy/ffmpeg scripts/deps/libplacebo.sh.
@@ -36,7 +47,16 @@ build:
   # the Vulkan loader/proc-addr at runtime. Linking it needs a Vulkan import lib the
   # mingw/win deps don't provide (undefined vkGetInstanceProcAddr at FFmpeg link).
   system: meson
+  vars: { shared-mode: '', library-arg: [], shared-link-arg: [] }
+  before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libplacebo', 'exports.map'), 'ffb-public-api.map')"
+      when: { set: '{shared-mode}' }
   args:
+    - '{library-arg}'
+    - '{shared-link-arg}'
     - -Dvulkan=enabled
     - -Dshaderc=enabled
     - -Dglslang=disabled
@@ -56,3 +76,11 @@ build:
           path: '{deps}/lib/pkgconfig/libplacebo.pc',
           libs-private: { append: '{cxx-runtime}', missing: after-libs },
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libplacebo', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

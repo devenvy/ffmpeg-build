@@ -1,5 +1,24 @@
 # Targets: ffmpeg-build.yml
 
+On Linux x64, `shaderc` and `libplacebo` accept independent bundled `shared`
+selections, with static defaults. Shaderc keeps its compiler dependencies embedded;
+libplacebo receives the caller's Vulkan dispatch function and does not link another
+loader. Either a static or shared caller loader is supported. The selected modes
+do not embed a GPU driver: an installed compatible Vulkan ICD remains necessary.
+
+FFmpeg 8 can also list `shaderc` directly for its Vulkan filters. FFmpeg 9 removed
+that option and uses the host `glslc` compiler; shaderc remains libplacebo's runtime
+compiler dependency. Its static pkg-config metadata includes both its C++ runtime
+and math dependency so FFmpeg 8's direct configure probe can link independently.
+
+Maintained lavapipe tests compare uploaded/rendered/downloaded frame pixels across
+the static/shared combinations. Native SDK checks cover actual SPIR-V compilation,
+include callbacks, cloned options, C++ wrappers and libplacebo public data. The
+external `examples/canary/tests/vulkan-import.c` probe imports a caller-owned
+device, destroys the wrapper, then submits and completes work on the original
+device. This lifecycle was checked against all seven locally built archives,
+including both caller loader modes; it does not claim physical GPU coverage.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and
