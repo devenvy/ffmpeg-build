@@ -12,6 +12,16 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+Whisper offers `link: { whisper.cpp: shared }` on Linux x64 while retaining its
+static default. The complete native runtime includes Whisper, Parakeet, GGML,
+GGML base and CPU libraries, plus GGML Vulkan when that backend is selected.
+All belong to one coherent recipe mode; dynamic backend plugin loading remains
+disabled. The Vulkan loader keeps its own independent linking choice. Private
+C++ code and an embedded static Vulkan loader remain local to the owning library.
+Models are supplied separately. Tests cover real Whisper model inference on CPU
+and software Vulkan, GGML computation and GGUF metadata; no Parakeet inference
+claim is made by the invalid-model SDK check.
+
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
 for a common shared X connection owner; `libxau` may be selected independently.

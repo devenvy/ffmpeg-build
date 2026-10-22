@@ -26,6 +26,25 @@ platforms: [linux-*, osx-*, win-*, ios-*, maccatalyst-*, android-*]
 # Android: ggml links the NDK's libvulkan.so directly and calls its Vulkan 1.1 entry points, which the NDK's stubs export
 # from API 28 (Android 9): an android-api: below that can't link it
 android-api: 28
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-suffix: 'so*'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            -DGGML_BACKEND_DL=OFF,
+            -DCMAKE_C_VISIBILITY_PRESET=hidden,
+            -DCMAKE_CXX_VISIBILITY_PRESET=hidden,
+            -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a:libvulkan.a -Wl,--version-script={src}/ffb-private-cxx.map',
+          ]
+      runtime: ['lib/libwhisper.so*', 'lib/libparakeet.so*', 'lib/libggml*.so*']
 build:
   # whisper.cpp: on-device speech-to-text engine (MIT) behind FFmpeg's af_whisper filter, static, with a per-platform
   # GGML backend (Vulkan / Metal / CPU). Ported from devenvy/ffmpeg scripts/deps/whisper.sh.
@@ -39,7 +58,22 @@ build:
   # The standard cmake build (Release: without a build type a single-configuration generator leaves whisper/ggml with
   # NO optimisation flags; the prefix, lib dir, prefix path, BUILD_SHARED_LIBS=OFF and PIC upstream listed here).
   system: cmake
+  before:
+    # Preserve every annotated native API/bridge; localize only private standard
+    # library template instantiations that override the compiler's visibility.
+    - write-file:
+        path: '{src}/ffb-private-cxx.map'
+        text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
+      when: { set: '{shared-mode}' }
+    # FindVulkan's imported target omits dl when its library is our static loader.
+    # Keep the native backend dependency order and strict undefined-symbol check.
+    - replace-in-file:
+        path: ggml/src/ggml-vulkan/CMakeLists.txt
+        from: 'target_link_libraries(ggml-vulkan PRIVATE Vulkan::Vulkan)'
+        to: 'target_link_libraries(ggml-vulkan PRIVATE Vulkan::Vulkan ${CMAKE_DL_LIBS})'
+      when: { set: '{shared-mode}' }
   args:
+    - '{shared-args}'
     - -DGGML_NATIVE=OFF
     - -DGGML_OPENMP=OFF
     - -DWHISPER_BUILD_EXAMPLES=OFF
@@ -51,6 +85,9 @@ build:
     - '{backend-args}'
     - '{compat-flags}'
   vars:
+    shared-mode: ''
+    shared-args: []
+    library-suffix: a
     backend: cpu
     gpu: '' # set for a GPU backend, whose archive must then be installed
     vulkan: '' # set where Vulkan is available
@@ -295,13 +332,13 @@ build:
     # registry first, then all backends present, then libggml-base last (all depend on it).
     - vars: { ggml: -lggml }
     - vars: { ggml: '{ggml} -lggml-cpu' }
-      when: { exists: '{deps}/lib/libggml-cpu.a' }
+      when: { exists: '{deps}/lib/libggml-cpu.{library-suffix}' }
     - vars: { ggml: '{ggml} -lggml-metal' }
-      when: { exists: '{deps}/lib/libggml-metal.a' }
+      when: { exists: '{deps}/lib/libggml-metal.{library-suffix}' }
     - vars: { ggml: '{ggml} -lggml-vulkan' }
-      when: { exists: '{deps}/lib/libggml-vulkan.a' }
+      when: { exists: '{deps}/lib/libggml-vulkan.{library-suffix}' }
     - vars: { ggml: '{ggml} -lggml-blas' }
-      when: { exists: '{deps}/lib/libggml-blas.a' }
+      when: { exists: '{deps}/lib/libggml-blas.{library-suffix}' }
     - vars: { ggml: '{ggml} -lggml-base' }
     # Assembling from "whatever got installed" is right for the OPTIONAL backends (ggml auto-enables
     # BLAS on Apple, for instance) but it silently tolerates the REQUESTED one going missing. If
@@ -311,14 +348,14 @@ build:
     # archive of the backend asked for.
     - check:
         {
-          exists: '{deps}/lib/libggml-{backend}.a',
-          message: 'whisper requested the {backend} ggml backend on {platform}, but {deps}/lib/libggml-{backend}.a was not installed - ggml fell back to CPU silently.',
+          exists: '{deps}/lib/libggml-{backend}.{library-suffix}',
+          message: 'whisper requested the {backend} ggml backend on {platform}, but {deps}/lib/libggml-{backend}.{library-suffix} was not installed - ggml fell back to CPU silently.',
         }
       when: { set: '{gpu}' }
     - check:
         {
-          exists: '{deps}/lib/libggml-cpu.a',
-          message: 'libggml-cpu.a missing - whisper has no CPU fallback path on {platform}.',
+          exists: '{deps}/lib/libggml-cpu.{library-suffix}',
+          message: 'libggml-cpu.{library-suffix} missing - whisper has no CPU fallback path on {platform}.',
         }
     # whisper.cpp installs no pkg-config file; write one. Static link: Libs.private lists the ggml archives +
     # loader/toolchain in dependency order.
@@ -328,3 +365,12 @@ build:
         version: '{version}'
         libs: -lwhisper
         libs-private: '{ggml} {system-libs}'
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'whisper.cpp', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+        - '{backend}'
+      when: { set: '{shared-mode}' }

@@ -160,6 +160,60 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-whisper-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
+  linux-x64-whisper-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+  linux-x64-whisper-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
+  linux-x64-whisper-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+  linux-x64-whisper-shared-loader-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared, vulkan-loader: shared }
+  linux-x64-whisper-static-shared-loader-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { vulkan-loader: shared }
+  linux-x64-whisper-shared-cpu-9-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [whisper]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
+  linux-x64-whisper-shared-cpu-8-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '8'
+    with: [whisper]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
   linux-x64-x11-static-9-lgplv2:
     platform: linux-x64
     license: lgplv2
