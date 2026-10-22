@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { checkTarMembers, listTarGzMembers, UnsafeArchiveError } from '../untar.ts';
 import { keptFiles, sha256, type SourceRecord } from './fetch.ts';
 import { run } from './run.ts';
+import { supplementalSourceSchema } from './supplemental-sources.ts';
 
 import type { LicenseFile } from '../schema/engine.ts';
 
@@ -112,6 +113,7 @@ const recordSchema = z.strictObject({
     .optional(),
   cached: z.boolean().optional(),
   crates: z.array(crateSchema).optional(),
+  supplementalSources: z.array(supplementalSourceSchema).min(1).optional(),
   rust: z
     .strictObject({ version: z.string().min(1), texts: z.array(z.string().min(1)) })
     .optional(),
@@ -162,7 +164,7 @@ export async function restoreCache(
   name: string,
   runner: typeof run = run,
   pin: { sha256?: string | undefined; commit?: string | undefined } = {},
-  expect: { crates?: boolean } = {},
+  expect: { crates?: boolean; supplementalSources?: boolean } = {},
 ): Promise<SourceRecord | undefined> {
   if (!existsSync(cached)) {
     return undefined;
@@ -194,6 +196,9 @@ export async function restoreCache(
   }
   if (expect.crates && !record.crates) {
     return discard(cached, name, 'lists no Rust crates (an older engine built it)');
+  }
+  if (expect.supplementalSources && !record.supplementalSources) {
+    return discard(cached, name, 'lists no supplemental source inputs (an older engine built it)');
   }
   for (const { file, sha256: recorded } of keptFiles(record)) {
     const kept = keptPath(sources, file);

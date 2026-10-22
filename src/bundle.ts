@@ -3,11 +3,10 @@
 // It never uploads; the workflow does. It refuses anything that mustn't ship: a missing build, a component that
 // disappeared since the last release. A licence's iOS / Mac Catalyst
 // framework builds ship as its xcframework bundle (bundle --apple, src/bundle-apple.ts), one ios-<license> entry.
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 
-import { keptFiles } from './build/fetch.ts';
+import { keptFiles, sha256 } from './build/fetch.ts';
 import { buildModules } from './build/modules.ts';
 import { FetchError, ffmpegAtLeast, listReleases, parseTag, repoIsPrivate } from './fetch.ts';
 import {
@@ -32,6 +31,7 @@ import {
 import { type TarEntry, writeTarGz } from './tar-write.ts';
 import { artifactName, type Folder, shipsSymbols, symbolsName } from './targets.ts';
 
+import type { SupplementalSource } from './build/supplemental-sources.ts';
 import type { EngineData } from './engine-data.ts';
 import type { FolderLock } from './lockfile.ts';
 
@@ -47,6 +47,7 @@ interface SourceRecord {
   commit?: string;
   // a Rust library's crates (build/cargo.ts): crates.io ones are kept, as their .crate, with their sha256
   crates?: { name: string; version: string; file?: string; sha256?: string; linked: boolean }[];
+  supplementalSources?: SupplementalSource[];
 }
 interface SourcesJson {
   artifact: string;
@@ -61,8 +62,6 @@ const SHA_DIR_DIGITS = 12;
 /** Where the file name starts in a SHA256SUMS line: after 64 hex digits and two spaces. */
 const SUM_NAME_AT = 66;
 const JSON_INDENT = 2;
-
-const sha256 = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
 
 /** A licence's xcframework bundle: ffmpeg-<version>-ios-<license>.tar.gz, written by bundle --apple. */
 export const appleBundleName = (ffmpeg: string, license: string): string =>
@@ -380,6 +379,12 @@ function sourcesIndex(
             `| ${r.name}: crate ${c.name}${c.linked ? '' : ' (not linked)'} | ${c.version} | https://static.crates.io/crates/${c.name}/${c.name}-${c.version}.crate |  | ${archived.get(`${c.file}\0${c.sha256}`)!} | ${c.sha256} |`,
           );
         }
+      }
+      for (const input of r.supplementalSources ?? []) {
+        const cell = (value: string) => value.replace(/[\\|]/g, '\\$&').replace(/[\r\n]/g, ' ');
+        out.push(
+          `| ${r.name}: ${cell(input.repository)} (${input.kind}; ${cell(input.filename)}) | | ${cell(input.origin)} | | ${archived.get(`${input.file}\0${input.sha256}`)!} | ${input.sha256} |`,
+        );
       }
     }
     if (s.patches.length) {

@@ -131,6 +131,39 @@ beforeEach(async () => {
 afterEach(async () => gh.close());
 
 describe('ffmpeg-build bundle', () => {
+  it.each([
+    { repository: 'test-repository', expected: 'test-repository' },
+    { repository: 'test\\|repository\nnext', expected: String.raw`test\\\|repository next` },
+  ])(
+    'includes supplemental inputs and safely renders $repository provenance',
+    async ({ repository, expected }) => {
+      const content = 'verified supplemental source';
+      const digest = sha(Buffer.from(content));
+      const file = `supplemental/${digest}`;
+      const { dist, folder } = builtFolder(FOLDER, (name, sources, output) => {
+        mkdirSync(join(output, `${name}.sources`, 'supplemental'), { recursive: true });
+        writeFileSync(join(output, `${name}.sources`, file), content);
+        Object.assign(sources.libraries[0]!, {
+          supplementalSources: [
+            {
+              file,
+              sha256: digest,
+              origin: 'https://example.org/input.tar',
+              kind: 'source',
+              repository,
+              filename: 'input.tar',
+            },
+          ],
+        });
+      });
+      await bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot });
+      const entries = readTarGz(readFileSync(join(dist, 'ffmpeg-9.1.0-sources.tar.gz')));
+      expect(entries.some((entry) => entry.name.endsWith(`sources/${file}`))).toBe(true);
+      const index = entries.find((entry) => entry.name.endsWith('/SOURCES.md'))!;
+      expect(index.data.toString()).toContain(`${expected} (source; input.tar)`);
+      expect(index.data.toString()).toContain('https://example.org/input.tar');
+    },
+  );
   it('writes the manifest, the sources archive, SHA256SUMS, the notes, and what to upload', async () => {
     const { dist, folder } = builtFolder();
     const r = await bundle(folder, data, LOCK, {

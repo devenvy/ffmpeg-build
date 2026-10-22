@@ -363,6 +363,19 @@ Models must be compatible with the selected PyTorch version. The canary runs a
 locally authored parameterless ReLU model through both natural end of input and
 early output termination.
 
+### Supplemental source inputs
+
+A recipe that fetches build inputs outside its primary Git checkout declares
+`build.source-inventory`, a JSON file inside the source folder. Its version-1
+`files` list records each input's relative `path`, expected upstream `sha256`,
+`origin`, `repository`, original `filename`, and `kind` (`source`, `build-tool`,
+`binary-build-tool`, or `metadata`). The engine checks every file and preserves
+the inventory and verified bytes in the sources archive. Build tools remain
+labelled as tools. Recipe authors must include repository mappings, patches,
+and replay instructions as metadata, and verify an offline rebuild to establish
+that the inventory is complete. A calculated hash alone does not replace an
+upstream checksum pin.
+
 ## Comparing with published builds
 
 `scripts/compare-published*.sh` compare a build with a published devenvy/ffmpeg archive: files, configure flags,
