@@ -160,6 +160,19 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-media-filters-static-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [mysofa, vidstab, lensfun]
+    tests: [tests/media-filters.sh]
+  linux-x64-media-filters-shared-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [mysofa, vidstab, lensfun]
+    link: { libmysofa: shared, vid.stab: shared, lensfun: shared }
+    tests: [tests/media-filters.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3

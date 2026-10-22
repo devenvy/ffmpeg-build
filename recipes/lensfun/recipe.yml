@@ -11,6 +11,20 @@ source: { git: https://github.com/lensfun/lensfun }
 # it. Pinned to a reviewed commit by the lock, as for other untagged sources.
 versions: { git-branch: master }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-arg: -DBUILD_STATIC=OFF
+        shared-args:
+          - -DCMAKE_CXX_VISIBILITY_PRESET=hidden
+          - -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-public-api.map'
+      runtime: ['lib/liblensfun.so*']
 build:
   # Lensfun: lens correction (LGPL-3.0-or-later), static, for FFmpeg's lensfun filter (found through lensfun.pc);
   # FFmpeg's class version3, so v3 builds only. C++, on GLib. The library alone: no lenstool, Python module, helper
@@ -24,9 +38,11 @@ build:
   # - Its .pc names neither the C++ runtime a static link needs nor, on Windows, CONF_LENSFUN_STATIC, without which
   #   lensfun.h declares the API dllimport.
   system: cmake
+  vars: { library-arg: -DBUILD_STATIC=ON, shared-args: [], shared-mode: '' }
   args:
     [
-      -DBUILD_STATIC=ON,
+      '{library-arg}',
+      '{shared-args}',
       -DBUILD_TESTS=OFF,
       -DBUILD_LENSTOOL=OFF,
       -DBUILD_DOC=OFF,
@@ -39,6 +55,12 @@ build:
   # the deps folder, which has none and is a build folder (the staged-binary check refuses it): the usual system one,
   # where a system's lensfun-data package puts it (Windows' is relative to the library and stays).
   before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'lensfun', 'exports.map'), sys.argv[1])"
+        - '{src}/ffb-public-api.map'
+      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: include/lensfun/config.h.in.cmake,
@@ -46,6 +68,14 @@ build:
           to: '#define SYSTEM_DB_PATH "/usr/share/lensfun"',
         }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'lensfun', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CXX|g++}'
+      when: { set: '{shared-mode}' }
     - remove: { path: '{deps}/share/lensfun', recursive: true }
     - edit-pkg-config:
         {

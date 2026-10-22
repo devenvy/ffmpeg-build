@@ -11,6 +11,13 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+SOFA audio (`libmysofa`), stabilization (`vid.stab`) and lens correction (`lensfun`) offer independent static and
+bundled shared choices on Linux x64, with static defaults. The SOFA sample databases and Lensfun lens database
+remain excluded; callers provide those data files. Shared Lensfun preserves its C and C++ SDKs while keeping
+embedded GLib and C++ symbols private. Native SONAMEs are `libmysofa.so.1`, `libvidstab.so.1.2` and
+`liblensfun.so.2`. Maintained checks use authored HRTF impulses, lens calibration and translated video,
+checking actual samples, pixels, frame counts and stabilization rather than only filter listings.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
