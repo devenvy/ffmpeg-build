@@ -6,11 +6,16 @@ change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. 
 libgpg-error, zlib, xz (liblzma), aom, dav1d, soxr, libbs2b, libogg, libvorbis, opus, speex,
 libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg, snappy, freetype,
 libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, x264, openh264, xvidcore, x265, vvenc, svtav1,
-libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1 and gnutls
+libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls, openal-soft and sndio
 offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
+
+OpenAL Soft and sndio retain static defaults and independently accept bundled shared mode on Linux x64.
+Their ALSA implementation keeps its own selection: static ALSA uses builtin plugins, while shared ALSA can
+load the recipient's desktop plugins. Audio device access still requires the recipient's configured audio
+system. sndio can connect to an external sndiod server or use its direct `rsnd/` ALSA backend; no server is bundled.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
