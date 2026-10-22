@@ -381,7 +381,7 @@ function sourcesIndex(
         }
       }
       for (const input of r.supplementalSources ?? []) {
-        const cell = (value: string) => value.replace(/\|/g, '\\|').replace(/[\r\n]/g, ' ');
+        const cell = (value: string) => value.replace(/[\\|]/g, '\\$&').replace(/[\r\n]/g, ' ');
         out.push(
           `| ${r.name}: ${cell(input.repository)} (${input.kind}; ${cell(input.filename)}) | | ${cell(input.origin)} | | ${archived.get(`${input.file}\0${input.sha256}`)!} | ${input.sha256} |`,
         );
