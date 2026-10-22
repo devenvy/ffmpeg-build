@@ -18,6 +18,17 @@ source:
 versions: { git-tags: '^(2\.\d+\.(?:\d|[0-8]\d))$' }
 # where Pango builds: not on Apple (recipes/pango)
 platforms: [linux-*, win-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { glib: [shared], cairo: [shared], pango: [shared] }
+      vars:
+        shared-mode: 'yes'
+        shared-args: [--default-library=shared, '-Dc_link_args=-Wl,-z,defs']
+      runtime: ['lib/librsvg-2.so*']
 build:
   # librsvg: SVG rendering (Rust, with a C API), static, for FFmpeg's librsvg decoder (found through librsvg-2.0.pc),
   # on cairo, Pango, GLib, libxml2, FreeType and HarfBuzz. Its meson builds the Rust library with cargo-c for the
@@ -25,6 +36,16 @@ build:
   # (rav1e's). The library alone:
   # no rsvg-convert, gdk-pixbuf (or its loader), AVIF (dav1d), introspection, Vala, docs or tests.
   system: meson
+  vars: { shared-mode: '', shared-args: [] }
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'librsvg', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
   # the crates its meson has cargo cbuild compile in (librsvg-c, default features: no AVIF), fetched and checked
   # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. selectors (and, on win-x64,
   # winapi-x86_64-pc-windows-gnu, the import libraries winapi links) publish no licence file in their crates: the
@@ -38,6 +59,7 @@ build:
     exports: [rsvg_*]
   args:
     [
+      '{shared-args}',
       --wrap-mode=nofallback,
       -Dintrospection=disabled,
       -Dpixbuf=disabled,

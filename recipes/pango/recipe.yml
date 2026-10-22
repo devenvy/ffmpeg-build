@@ -20,13 +20,26 @@ versions: { git-tags: '^(1\.56\.\d+)$' }
 # Text, which the shared harfbuzz recipe isn't (changing it would change every shipped macOS build's libass); on iOS
 # and Mac Catalyst it links ApplicationServices, which they haven't got.
 platforms: [linux-*, win-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { glib: [shared], cairo: [shared], fontconfig: [shared], harfbuzz: [shared] }
+      vars:
+        shared-mode: 'yes'
+        shared-args: [--default-library=shared, '-Dc_link_args=-Wl,-z,defs -lm']
+      runtime: ['lib/libpango-1.0.so*', 'lib/libpangoft2-1.0.so*', 'lib/libpangocairo-1.0.so*']
 build:
   # Pango: text layout (LGPL-2.0-or-later), static, for librsvg's text. On cairo, with HarfBuzz and FriBidi, and the
   # platform's fonts: FreeType and Fontconfig (pangoft2) on Linux and Android, where Pango requires them; Windows'
   # and Windows' own (DirectWrite) there. No introspection, docs, tests, examples, libthai, Xft or sysprof.
   system: meson
+  vars: { shared-mode: '', shared-args: [] }
   args:
     [
+      '{shared-args}',
       --wrap-mode=nofallback,
       -Dintrospection=disabled,
       -Ddocumentation=false,
@@ -44,6 +57,15 @@ build:
   # Its Fontconfig font map calls FcFreeTypeQueryAll, declared in fontconfig/fcfreetype.h, which 1.56 doesn't include
   # (older Fontconfig headers brought it in by the way): included.
   before:
+    - write-file: { path: '{src}/ffb-public-api.map', text: '{ global: pango_*; local: *; };' }
+      when: { set: '{shared-mode}' }
+    # Restrict only the native libraries: configure-test executables must retain
+    # the external SDK symbols their dependency DSOs reference.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'pango', 'patch-shared.py'), run_name='__main__')"
+      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: pango/pangofc-fontmap.c,

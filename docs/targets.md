@@ -31,6 +31,16 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+Pango and librsvg offer bundled shared choices on Linux x64, retaining static defaults.
+Shared Pango requires shared GLib, Cairo, Fontconfig and HarfBuzz: the native Pango
+libraries exchange GObjects, cached font objects and HarfBuzz fonts across their
+library boundaries. A private static HarfBuzz copy per Pango library failed the
+font-destruction SDK test; one common shared copy passes. Shared librsvg requires
+shared Pango, Cairo and GLib. The planner rejects incompatible selections.
+FreeType remains independently selectable. Static upper libraries can consume
+shared lower libraries. The full native three-library Pango and librsvg SDKs are
+included; recipient fonts and Fontconfig configuration are still needed.
+
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
 for a common shared X connection owner; `libxau` may be selected independently.
