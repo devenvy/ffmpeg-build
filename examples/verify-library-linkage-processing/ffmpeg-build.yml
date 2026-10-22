@@ -1,0 +1,41 @@
+targets:
+  linux-x64-static-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+  linux-x64-shared-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+    link: { rubberband: shared, chromaprint: shared, xeve: shared, xevd: shared }
+  linux-x64-static-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+  linux-x64-shared-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+    link: { rubberband: shared, chromaprint: shared, xeve: shared, xevd: shared }
+  linux-x64-shared-encoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+    link: { xeve: shared }
+  linux-x64-shared-decoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+    link: { xevd: shared }
