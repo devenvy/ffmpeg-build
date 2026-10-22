@@ -20,6 +20,26 @@ platforms: all
 # Android: its iconv is the C library's, which bionic has from API 28 (Android 9): an android-api: below that can't
 # build it (meson finds no iconv)
 android-api: 28
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          - --default-library=shared
+          - '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libz.a:libffi.a:libpcre2-8.a:libpcre2-posix.a'
+      runtime:
+        [
+          'lib/libglib-2.0.so*',
+          'lib/libgobject-2.0.so*',
+          'lib/libgio-2.0.so*',
+          'lib/libgmodule-2.0.so*',
+          'lib/libgthread-2.0.so*',
+          'lib/libgirepository-2.0.so*',
+        ]
 build:
   # GLib, GObject and GIO (LGPL-2.1-or-later), static, for what builds on them here (lensfun, cairo-gobject). The
   # libraries alone: no tools' man pages, docs, tests, introspection, translations or system integrations (SELinux,
@@ -28,8 +48,10 @@ build:
   # C library has none. iconv is the C library's on Linux and Android (API 28), GNU libiconv on Apple (which the
   # engine builds there for FFmpeg's iconv too), and GLib's own on Windows.
   system: meson
+  vars: { shared-args: [], shared-mode: '' }
   args:
     [
+      '{shared-args}',
       --wrap-mode=nofallback,
       -Dtests=false,
       -Dinstalled_tests=false,
@@ -51,6 +73,43 @@ build:
   # (the staged-binary check refuses it; seen on Apple). The system's instead, where a system's GLib has them
   # (translations aren't built: nls is off). Windows finds them relative to the library and ignores both.
   before:
+    - replace-in-file:
+        path: meson.build
+        from: "glib_conf.set_quoted('GLIB_LOCALSTATEDIR', glib_localstatedir)"
+        to: "glib_conf.set_quoted('GLIB_LOCALSTATEDIR', '/var')"
+      when: { set: '{shared-mode}' }
+    # Introspection generation is disabled, but GLib still installs the public
+    # GIRepository library. Keep its fallback search paths off the build host;
+    # GI_TYPELIB_PATH and explicit repository search paths remain available.
+    - replace-in-file:
+        path: girepository/meson.build
+        from: '''-DGOBJECT_INTROSPECTION_LIBDIR="@0@"''.format(glib_libdir),'
+        to: '''-DGOBJECT_INTROSPECTION_LIBDIR="/ffmpeg-build/lib"'','
+      when: { set: '{shared-mode}' }
+    - replace-in-file:
+        path: girepository/meson.build
+        from: '''-DGOBJECT_INTROSPECTION_DATADIR="@0@"''.format(glib_datadir),'
+        to: '''-DGOBJECT_INTROSPECTION_DATADIR="/ffmpeg-build/share"'','
+      when: { set: '{shared-mode}' }
+    # Keep install paths inside the prefix, but do not load foreign GIO modules
+    # or retain a build-machine helper path in the bundled shared GIO library.
+    # Callers can explicitly provide GIO_MODULE_DIR/GIO_EXTRA_MODULES and the
+    # desktop-launch helper through GIO's own environment overrides.
+    - replace-in-file:
+        path: gio/meson.build
+        from: '''-DGIO_MODULE_DIR="@0@"''.format(glib_giomodulesdir),'
+        to: '''-DGIO_MODULE_DIR="/ffmpeg-build/gio-modules"'','
+      when: { set: '{shared-mode}' }
+    - replace-in-file:
+        path: gio/meson.build
+        from: '''-DGIO_LAUNCH_DESKTOP="@0@"''.format(glib_prefix / multiarch_libexecdir / ''gio-launch-desktop''),'
+        to: '''-DGIO_LAUNCH_DESKTOP="/ffmpeg-build/gio-launch-desktop"'','
+      when: { set: '{shared-mode}' }
+    - replace-in-file:
+        path: gio/meson.build
+        from: '''-DLOCALSTATEDIR="@0@"''.format(glib_localstatedir),'
+        to: '''-DLOCALSTATEDIR="/var"'','
+      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: meson.build,
@@ -84,3 +143,12 @@ build:
         - write-file:
             path: objc-cross.ini
             text: "[binaries]\nobjc = '{CC}'\n[built-in options]\nobjc_args = ['-target', '{MCAT_TARGET}', '-isysroot', '{MCAT_SYSROOT}', '-I{deps}/include']\nobjc_link_args = ['-target', '{MCAT_TARGET}', '-isysroot', '{MCAT_SYSROOT}', '-L{deps}/lib']\n"
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'glib', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

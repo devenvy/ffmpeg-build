@@ -7,16 +7,34 @@ source:
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$', repo: https://github.com/libffi/libffi }
 # only GLib (GObject's closures) builds against it
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static, shared-mode: 'yes' }
+      runtime: ['lib/libffi.so*']
 build:
   # libffi: calling C functions whose signature is known only at run time (MIT), static, for GObject's closures
   # (GLib). The library alone: no docs or multi-OS directory layout.
   system: autotools
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-mode: '' }
   args:
     [
-      --disable-shared,
-      --enable-static,
+      '{shared-arg}',
+      '{static-arg}',
       --with-pic,
       --disable-docs,
       --disable-multi-os-directory,
       '--libdir={deps}/lib',
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libffi', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

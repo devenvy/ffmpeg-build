@@ -35,6 +35,14 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
+On Linux x64, `glib`, `pcre2` and `libffi` default to static linking and accept independent `shared` selections.
+Shared GLib bundles all six installed libraries, including GObject, GIO and GIRepository; shared PCRE2 includes
+its POSIX wrapper. GLib's bundled GIO does not load distribution modules by default. Applications can supply
+compatible modules explicitly through `GIO_MODULE_DIR` or `GIO_EXTRA_MODULES`, and typelibs through
+`GI_TYPELIB_PATH` or the repository API. TLS modules, schemas and MIME databases are separate application or
+system resources. Built-in GIO streams, files and compression need no extra modules. Installed SDK checks cover
+GObject's generic libffi marshaller, callbacks, module loading and an authored GIRepository typelib.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg
