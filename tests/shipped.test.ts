@@ -406,7 +406,11 @@ describe('what a build must ship', () => {
     for (const major of engine.ffmpeg.keys()) {
       for (const platform of ['linux-x64', 'win-x64', 'android-arm64', 'osx-arm64']) {
         for (const option of optionsOf(engine, major).keys()) {
-          const plan = { cell: { major, platform, license: 'gplv3' }, options: [option] };
+          const plan = {
+            cell: { major, platform, license: 'gplv3' },
+            options: [option],
+            recipes: [],
+          };
           const flags = configureFlags(engine, plan as unknown as CellPlan).join(' ');
           expect(
             enabledOptions(engine, major, platform, flags).has(option),

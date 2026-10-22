@@ -7,6 +7,7 @@ import {
   parseComponentsFile,
 } from './ffmpeg-components.ts';
 import { allowedBy, type LicenseTable, licenseTableSchema, tableFrom } from './licenses.ts';
+import { allLinkageConfigure, defaultLinkage } from './linkage.ts';
 import {
   describePlatforms,
   expandPlatformPattern,
@@ -366,6 +367,20 @@ function crossCheck(
       }
     }
     checkPatterns(label, recipe.platforms);
+    checkPatterns(`${label}: linkage.defaults`, Object.keys(recipe.linkage?.defaults ?? {}));
+    for (const [mode, choice] of Object.entries(recipe.linkage?.modes ?? {})) {
+      checkPatterns(`${label}: linkage.modes.${mode}`, choice.platforms);
+      for (const entry of choice.configure ?? []) {
+        checkPatterns(`${label}: linkage.modes.${mode}.configure`, entry.platforms);
+      }
+    }
+    for (const platform of expandPlatforms(recipe.platforms)) {
+      const mode = defaultLinkage(recipe, platform);
+      const choice = mode && recipe.linkage?.modes[mode];
+      if (mode && choice?.platforms && !platformMatches(platform, choice.platforms)) {
+        errors.push(`${label}: default ${mode} linking is not supported on ${platform}`);
+      }
+    }
     if (licenses) {
       const verdict = allowedBy(recipe.license, licenses);
       if ('unknown' in verdict) {
@@ -597,6 +612,36 @@ export function valuesOn(
   return (recipe[key] ?? [])
     .filter((v) => !platform || !v.platforms || platformMatches(platform, v.platforms))
     .map((v) => v.value);
+}
+
+/** Possible mode flags from every reachable required or optional library, for configure capability audits. */
+export function linkageFlagsOf(
+  data: EngineData,
+  roots: readonly string[],
+  platform?: string,
+): string[] {
+  const seen = new Set<string>();
+  const flags: string[] = [];
+  const visit = (name: string) => {
+    const recipe = data.recipes.get(name);
+    if (
+      seen.has(name) ||
+      !recipe ||
+      (platform && !expandPlatforms(recipe.platforms).includes(platform))
+    ) {
+      return;
+    }
+    seen.add(name);
+    flags.push(...allLinkageConfigure(recipe, platform));
+    for (const dependency of [
+      ...depsOn(recipe, 'needs', platform),
+      ...depsOn(recipe, 'uses', platform),
+    ]) {
+      visit(dependency);
+    }
+  };
+  roots.forEach(visit);
+  return [...new Set(flags)];
 }
 
 /** The libraries `roots` need, dependencies first: every `needs` that applies on `platform` (all when none given). */
