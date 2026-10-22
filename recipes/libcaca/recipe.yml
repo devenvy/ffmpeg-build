@@ -3,23 +3,43 @@ provides: caca
 license: WTFPL
 license-files: [COPYING]
 configure: [--enable-libcaca]
-needs: [ncurses]
+needs: [ncurses, zlib]
 # released as 0.99 betas (0.99.beta20): the version here is the beta's number
 source:
   url: 'https://github.com/cacalabs/libcaca/releases/download/v0.99.beta{version}/libcaca-0.99.beta{version}.tar.bz2'
 versions: { git-tags: '^v0\.99\.beta(\d+)$', repo: https://github.com/cacalabs/libcaca }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-ldflags: '+= -L{deps}/lib -Wl,-z,defs,--exclude-libs,libncursesw.a:libz.a'
+      runtime: ['lib/libcaca.so*']
 build:
   # libcaca: colour ASCII art (WTFPL), static, for FFmpeg's caca output device: video drawn in a terminal, through
   # ncurses (or its raw and null drivers). No X11, OpenGL, S-Lang, Imlib2 or VGA drivers, no bindings, docs or tools.
   # Its configure looks for ncurses without pkg-config: it is shown the deps folder. Its caca.pc names no ncurses:
-  # added.
+  # added. Its public caca_file_* API detects gzip support unconditionally; zlib is declared in the graph so it
+  # uses the selected implementation rather than an incidental system library.
   system: autotools
-  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '+= -L{deps}/lib' }
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-ldflags: '+= -L{deps}/lib',
+      shared-mode: '',
+    }
+  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '{shared-ldflags}' }
   args:
     [
-      --disable-shared,
-      --enable-static,
+      '{shared-arg}',
+      '{static-arg}',
       --with-pic,
       --enable-ncurses,
       --disable-slang,
@@ -50,3 +70,11 @@ build:
           requires-private: { set: ncursesw },
           libs-private: { add: -lm },
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libcaca', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
