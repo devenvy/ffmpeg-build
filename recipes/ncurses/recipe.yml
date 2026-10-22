@@ -12,15 +12,39 @@ versions:
   }
 # where libcaca builds
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-arg: --with-shared
+        normal-arg: --without-normal
+        # Do not acquire an incidental system GPM mouse daemon dependency in the shared closure.
+        shared-args: [--without-gpm]
+        shared-ldflags: '-Wl,-z,defs'
+      runtime: ['lib/libncursesw.so*', 'lib/libpanelw.so*', 'lib/libmenuw.so*', 'lib/libformw.so*']
 build:
   # ncurses (wide-character), static: libcaca's terminal output, for FFmpeg's caca output device. The terminal
   # descriptions are the system's (its terminfo folders, compiled in); none is installed. The library and its .pc
   # alone: no programs, C++ or Ada bindings, tests or man pages.
   system: autotools
+  vars:
+    {
+      shared-arg: --without-shared,
+      normal-arg: --with-normal,
+      shared-args: [],
+      shared-ldflags: '',
+      shared-mode: '',
+    }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
     [
-      --without-shared,
-      --with-normal,
+      '{shared-arg}',
+      '{normal-arg}',
+      '{shared-args}',
       --with-pic,
       --enable-widec,
       --without-debug,
@@ -36,3 +60,12 @@ build:
       --with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo,
       --with-default-terminfo-dir=/usr/share/terminfo,
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'ncurses', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

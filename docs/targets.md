@@ -12,6 +12,17 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+Terminal libraries offer independent Linux x64 bundled shared choices:
+`link: { ncurses: shared, libcaca: shared }`, retaining static defaults. Ncurses
+includes the wide-character core, panel, menu and form libraries with native
+SONAME 6; libcaca uses native SONAME 0. The terminfo database remains the
+recipient's, using the existing search paths and `TERMINFO`/`TERMINFO_DIRS`
+overrides. No GPM mouse daemon is acquired by the shared ncurses recipe.
+Libcaca's compressed-file API uses the explicitly selected zlib dependency.
+Shared libcaca may embed private static ncurses; its public canvas/display APIs
+do not exchange curses handles. For curses interoperability, select both shared
+and coordinate terminal ownership. Existing license gates are unchanged.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
