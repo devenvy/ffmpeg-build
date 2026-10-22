@@ -957,6 +957,33 @@ targets:
     with: [gnutls, ssh, rtmp]
     link: { libssh: shared, librtmp: shared }
     tests: [tests/network-linkage.sh]
+  linux-x64-processing-static-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    tests: [tests/processing-linkage.sh]
+  linux-x64-processing-shared-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    link: { rubberband: shared, chromaprint: shared, xeve: shared, xevd: shared }
+    tests: [tests/processing-linkage.sh]
+  linux-x64-processing-shared-encoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    link: { xeve: shared }
+    tests: [tests/processing-linkage.sh]
+  linux-x64-processing-shared-decoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [rubberband, chromaprint, xeve, xevd]
+    link: { xevd: shared }
+    tests: [tests/processing-linkage.sh]
   linux-x64-audio-shared-lgplv2:
     platform: linux-x64
     license: lgplv2
@@ -1153,3 +1180,58 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     base: [common, win, lgplv3]
+  linux-x64-media-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [lcms2, gsm, gme, flite, zlib]
+    tests: [tests/media-linkage.sh]
+  linux-x64-media-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [lcms2, gsm, gme, flite, zlib]
+    link: { lcms2: shared, libgsm: shared, libgme: shared, flite: shared }
+    tests: [tests/media-linkage.sh]
+  linux-x64-tracker-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [modplug, openmpt, pulse]
+    tests: [tests/tracker-linkage.sh, tests/pulse-linkage.sh]
+  linux-x64-tracker-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [modplug, openmpt, pulse]
+    link: { libmodplug: shared, libopenmpt: shared, libsndfile: shared, pulseaudio: shared }
+    tests: [tests/tracker-linkage.sh, tests/pulse-linkage.sh]
+  linux-x64-media-batch-static-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with:
+      [rubberband, chromaprint, xeve, xevd, lcms2, gsm, gme, flite, zlib, modplug, openmpt, pulse]
+    tests: [tests/media-batch-linkage.sh]
+  linux-x64-media-batch-shared-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with:
+      [rubberband, chromaprint, xeve, xevd, lcms2, gsm, gme, flite, zlib, modplug, openmpt, pulse]
+    link:
+      {
+        rubberband: shared,
+        chromaprint: shared,
+        xeve: shared,
+        xevd: shared,
+        lcms2: shared,
+        libgsm: shared,
+        libgme: shared,
+        flite: shared,
+        libmodplug: shared,
+        libopenmpt: shared,
+        libsndfile: shared,
+        pulseaudio: shared,
+      }
+    tests: [tests/media-batch-linkage.sh]

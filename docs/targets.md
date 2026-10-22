@@ -163,6 +163,10 @@ Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header a
 OpenSSL's shared mode embeds its legacy provider in libcrypto, so an application can activate it without a
 separate provider-module directory. It does not activate legacy algorithms automatically. The shared mbedTLS
 mode bundles its TLS, X.509 and crypto libraries together and retains pthread support.
+Rubber Band, Chromaprint, XEVE and XEVD offer bundled shared libraries on Linux x64 and retain static defaults.
+Rubber Band keeps its builtin FFT and resampler; Chromaprint keeps its compiled-in KissFFT backend. Their shared
+libraries include private C++ runtimes while retaining the common system unwinder. XEVE and XEVD are C libraries;
+their encoder and decoder linking modes can be selected independently.
 
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
@@ -185,6 +189,17 @@ compatible modules explicitly through `GIO_MODULE_DIR` or `GIO_EXTRA_MODULES`, a
 `GI_TYPELIB_PATH` or the repository API. TLS modules, schemas and MIME databases are separate application or
 system resources. Built-in GIO streams, files and compression need no extra modules. Installed SDK checks cover
 GObject's generic libffi marshaller, callbacks, module loading and an authored GIRepository typelib.
+
+Little CMS, GSM, Game_Music_Emu and Flite also offer static and bundled shared modes on Linux x64.
+Use their recipe names in `link`: `lcms2`, `libgsm`, `libgme` and `flite`. Static remains the default.
+Flite bundles its core, language, lexicon and six native voice libraries; it does not require an audio server.
+The GSM shared library is linked from the upstream PIC archive with the conventional `libgsm.so.1` name;
+upstream itself supplies only a static archive. Game_Music_Emu keeps its default LGPL emulator and disables VGZ.
+
+ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Linux x64 through `libmodplug`,
+`libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
+and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
+recording and playback paths can omit those unused functions when the client is linked statically.
 
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases

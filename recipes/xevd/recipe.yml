@@ -8,6 +8,16 @@ source: { git: https://github.com/mpeg5/xevd, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # Not linux-armhf: its NEON code uses AArch64-only intrinsics.
 platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        static-mode: ''
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs'
+      runtime: ['lib/libxevd.so*']
 build:
   # XEVD: MPEG-5 EVC decoder, main profile (BSD-3-Clause), static, for FFmpeg's libxevd decoder (found through xevd.pc,
   # 0.4.1 or later). Its CMake always builds the shared library beside the static one, puts the static one in lib/xevd/
@@ -15,12 +25,14 @@ build:
   # to gcc-only warning flags. So: no -Werror, no command-line app, and after the install the static archive is
   # moved to lib/, the shared library (and Windows' DLL and import library) removed, and the .pc's extra -L dropped.
   system: cmake
-  args: [-DSET_PROF=MAIN]
+  vars: { static-mode: 'yes', shared-link-arg: [] }
+  args: [-DSET_PROF=MAIN, '{shared-link-arg}']
   before:
     - replace-in-file: { path: CMakeLists.txt, from: ' -Werror', to: '' }
     - replace-in-file: { path: CMakeLists.txt, from: 'add_subdirectory(app)', to: '' }
   after:
     - remove: { path: '{deps}/lib/libxevd.so*' }
+      when: { set: '{static-mode}' }
     - remove: { path: '{deps}/lib/libxevd*.dylib' }
     - remove: { path: '{deps}/lib/libxevd.dll.a' }
     - remove: { path: '{deps}/bin/libxevd.dll' }

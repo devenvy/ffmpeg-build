@@ -6,6 +6,17 @@ configure: [--enable-librubberband]
 source: { git: https://github.com/breakfastquay/rubberband, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-mode-arg: --default-library=shared
+        shared-link-arg: "-Dcpp_link_args=['-static-libstdc++', '-shared-libgcc', '-Wl,--exclude-libs,libstdc++.a:libgcc.a', '-Wl,-z,defs', '-Wl,--version-script={src}/ffb-rubberband.exports']"
+      runtime: ['lib/librubberband.so*']
 build:
   # Rubber Band: audio time-stretching and pitch-shifting (GPL-2.0-or-later), static, for FFmpeg's rubberband filter
   # (found through rubberband.pc, 1.8.1 or later); GPL builds only. C++. The library alone: no program, LADSPA/LV2/Vamp
@@ -14,8 +25,18 @@ build:
   # upstream picks. Its .pc names neither the C++ runtime nor libm, which a static link needs (FFmpeg's configure adds
   # -lstdc++ itself, which the platform's runtime stands beside).
   system: meson
+  vars: { library-mode-arg: [], shared-link-arg: [], shared-mode: '' }
+  before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'rubberband', 'exports.map'), sys.argv[1])"
+        - '{src}/ffb-rubberband.exports'
+      when: { set: '{shared-mode}' }
   args:
     [
+      '{library-mode-arg}',
+      '{shared-link-arg}',
       -Dresampler=builtin,
       -Djni=disabled,
       -Dladspa=disabled,
@@ -32,6 +53,15 @@ build:
     'ios-*': { args: [-Dfft=vdsp] }
     'maccatalyst-*': { args: [-Dfft=vdsp] }
   after:
+    # Exercise the public C++ interface as well as FFmpeg's C wrapper. The map
+    # must preserve custom loggers and containers crossing the shared boundary.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'rubberband', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-public-api'
+      when: { set: '{shared-mode}' }
     - edit-pkg-config:
         {
           path: '{deps}/lib/pkgconfig/rubberband.pc',

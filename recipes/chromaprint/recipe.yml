@@ -7,10 +7,35 @@ needs: [kissfft]
 source: { git: https://github.com/acoustid/chromaprint, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-args:
+          - -DBUILD_SHARED_LIBS=ON
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-chromaprint.exports'
+      runtime: ['lib/libchromaprint.so*']
 build:
   system: cmake
+  vars: { library-args: [], shared-mode: '' }
+  before:
+    # The public interface is C. Template instantiations from implementation
+    # objects must stay private as well as symbols from compiler archives.
+    - write-file:
+        path: ffb-chromaprint.exports
+        text: |
+          {
+            global: chromaprint_*;
+            local: *;
+          };
+      when: { set: '{shared-mode}' }
   args:
     [
+      '{library-args}',
       -DBUILD_TOOLS=OFF,
       -DBUILD_TESTS=OFF,
       -DFFT_LIB=kissfft,
@@ -35,3 +60,11 @@ build:
         path: '{deps}/lib/pkgconfig/libchromaprint.pc'
         libs-private: { append: '{cxx-runtime} -lm' }
         cflags: { add: -DCHROMAPRINT_NODLL, missing: skip }
+    # Compare exports with the pinned header rather than a fixed symbol list.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.environ['RECIPES'] + '/chromaprint/check-exports.py', run_name='__main__')"
+        - '{src}/src/chromaprint.h'
+        - '{deps}/lib'
+      when: { set: '{shared-mode}' }
