@@ -160,6 +160,19 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-jxl-static-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [jxl]
+    tests: [tests/jxl-linkage.sh]
+  linux-x64-jxl-shared-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [jxl]
+    link: { libjxl: shared, brotli: shared, highway: shared }
+    tests: [tests/jxl-linkage.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3

@@ -11,6 +11,13 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+JPEG XL (`libjxl`), Brotli and Highway offer independent static and bundled shared choices on Linux x64.
+All three default to static. Bundled JPEG XL includes its encoder/decoder, thread runner and CMS libraries;
+the decoder-only upstream library is not installed. The shared C++ libraries carry a private static C++ runtime
+and use the common system unwinder. Mixed choices preserve each dependency's selected mode. Maintained runtime
+checks cover lossless RGB, alpha and true 16-bit pixels, multiple frames and threads, bounded lossy error,
+and installed C/C++ SDKs, including Brotli compression/dictionaries and Highway vector dispatch.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
