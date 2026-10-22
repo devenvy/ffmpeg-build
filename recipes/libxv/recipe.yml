@@ -13,8 +13,20 @@ versions:
     files: '^libXv-(\d+\.\d+\.\d+)\.tar\.xz$',
   }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { libxext: [shared] }
+      vars:
+        { shared-arg: --enable-shared, static-arg: --disable-static, shared-ldflags: '-Wl,-z,defs' }
+      runtime: ['lib/libXv.so*']
 build:
   # libXv: the X Video extension (SMLNJ and HPND licences), static, on libXext and libX11: FFmpeg's xlib option
   # needs all three (xlib_x11, xlib_xext, xlib_xv) for its xv output device
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]

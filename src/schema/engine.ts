@@ -530,6 +530,7 @@ const linkMode = z.strictObject({
   runtime: runtimeFiles.optional(),
   platforms: platforms.optional(),
   packages: z.record(text, z.array(text)).default({}),
+  'requires-link': z.record(name, z.array(linkage).min(1)).optional(),
 });
 
 /** recipes/<name>/recipe.yml: facts about one library. Never a version. */

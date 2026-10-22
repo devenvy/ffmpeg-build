@@ -12,8 +12,20 @@ versions:
   }
 # where libX11 builds
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { libx11: [shared] }
+      vars:
+        { shared-arg: --enable-shared, static-arg: --disable-static, shared-ldflags: '-Wl,-z,defs' }
+      runtime: ['lib/libXext.so*']
 build:
   # libXext: Xlib's common extensions (MIT-SHM, which FFmpeg's xv output device uses), static. No specs.
   system: autotools
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
-    [--disable-shared, --enable-static, --with-pic, --disable-specs, --without-xmlto, --without-fop]
+    ['{shared-arg}', '{static-arg}', --with-pic, --disable-specs, --without-xmlto, --without-fop]
