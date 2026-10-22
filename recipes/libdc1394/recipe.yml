@@ -13,14 +13,44 @@ versions:
   }
 # Linux (its FireWire stack): macOS 26 removed FireWire, and its Windows driver (CMU's 1394camera) is a separate SDK
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      # FFmpeg executes a trivial compiler probe with iec61883's extra-libs.
+      # Drop unused DSOs there; strong device references retain them later.
+      configure: ['--extra-ldflags=-Wl,--as-needed']
+      vars:
+        shared-mode: 'yes'
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-ldflags: '+= -L{deps}/lib -Wl,-z,defs,--exclude-libs,libraw1394.a:libavc1394.a:librom1394.a'
+      runtime: ['lib/libdc1394.so*']
 build:
   # libdc1394: IIDC (DCAM) FireWire camera control and capture (LGPL-2.1-or-later), static, for FFmpeg's libdc1394
   # input device. Through Linux's firewire-core (juju) and libraw1394; no USB cameras (libusb), no examples. Its
   # configure looks for libraw1394 without pkg-config: it is shown the deps folder. Its .pc names no private
   # libraries: libraw1394's and libm are added.
   system: autotools
-  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '+= -L{deps}/lib' }
-  args: [--disable-shared, --enable-static, --with-pic, --disable-examples, --disable-sdltest]
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-ldflags: '+= -L{deps}/lib',
+      shared-mode: '',
+    }
+  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '{shared-ldflags}' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic, --disable-examples, --disable-sdltest]
+  before:
+    # The platform's -lraw1394 precedes the convenience archives. Repeat it at
+    # the dependency tail so a strict shared link can embed static raw1394.
+    - replace-in-file:
+        path: dc1394/Makefile.in
+        from: "\t$(USB_LIBADD) \\\n\tvendor/libdc1394-vendor.la"
+        to: "\t$(USB_LIBADD) \\\n\tvendor/libdc1394-vendor.la -lraw1394 -lm"
+      when: { set: '{shared-mode}' }
   after:
     - edit-pkg-config:
         {
@@ -28,3 +58,11 @@ build:
           requires-private: { set: libraw1394 },
           libs-private: { add: -lm },
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libdc1394', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

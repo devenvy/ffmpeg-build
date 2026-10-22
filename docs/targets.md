@@ -35,6 +35,12 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
+On Linux x64, `libraw1394`, `libavc1394`, `libiec61883` and `libdc1394` default to static linking and accept
+independent `shared` selections. The AV/C package includes both its AV/C and ROM libraries. Camera capture
+and bus streaming require the recipient's FireWire controller, Linux driver and device permissions. Maintained
+software checks exercise unbound handles, stream-object ownership, status/ROM decoding and exact pixel
+conversion; device listing and clean failures without a controller do not establish hardware capture support.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg
