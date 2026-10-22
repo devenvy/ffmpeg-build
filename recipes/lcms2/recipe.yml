@@ -6,6 +6,25 @@ configure: [--enable-lcms2]
 source: { git: https://github.com/mm2/Little-CMS, ref: 'lcms{version}' }
 versions: { git-tags: '^lcms(\d+\.\d+(?:\.\d+)?)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-mode-arg: --default-library=shared
+        versioned-arg: -Dversionedlibs=true
+      runtime: ['lib/liblcms2.so*']
 build:
   system: meson
-  args: [-Djpeg=disabled, -Dtiff=disabled, -Dtests=disabled, -Dutils=false, -Dversionedlibs=false]
+  vars: { library-mode-arg: [], versioned-arg: -Dversionedlibs=false }
+  args:
+    [
+      '{library-mode-arg}',
+      -Djpeg=disabled,
+      -Dtiff=disabled,
+      -Dtests=disabled,
+      -Dutils=false,
+      '{versioned-arg}',
+    ]
