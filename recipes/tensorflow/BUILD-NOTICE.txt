@@ -1,0 +1,23 @@
+2026-10-21: devenvy/ffmpeg-build builds TensorFlow's CPU graph/session C API
+statically from source. GPU, NCCL, Python runtime distribution and dynamically
+loaded kernel modules are disabled. No pretrained model is shipped.
+
+The recipe pins Bazel, all fetched repository inputs and its nested LLVM source.
+Binary build tools are labelled separately from runtime libraries. A clean build
+from engine-captured inputs is tested with both networking and Bazel repository
+downloads disabled. Source input records distinguish recipe-generated replay
+metadata from upstream checksum pins.
+
+The static closure is collected from Bazel CcInfo. Always-linked kernel archives
+are folded with the pinned LLVM linker so their registrations survive FFmpeg's
+static link. Runtime notices follow the actual C API owner closure, including
+header-only dependencies. BoringSSL's original OpenSSL/SSLeay terms remain in
+the aggregate; the recipe therefore uses the existing LGPLv3/nonfree gate.
+
+Private Protobuf, oneDNN and Xbyak symbols and COMDAT groups are consistently
+renamed throughout the closure, preserving the public C API. This keeps other
+selected ML backends from binding to TensorFlow's incompatible internal copies.
+
+DUCC's FFT subset selects its BSD alternative; zstd and Highway select BSD;
+JsonCpp selects MIT. Their full source notices and the applicable per-file
+notices are preserved. Tool-input notices do not change the binary licence gate.

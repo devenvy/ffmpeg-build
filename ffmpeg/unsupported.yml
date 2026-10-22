@@ -35,9 +35,6 @@ options:
 
   # g. Nonfree (nonfree builds only)
 
-  # h. Large ML backends
-  libtensorflow: { reason: pending, issue: 21, batch: h, note: 'tensorflow (dnn filters)' }
-
   # not planned
   libnpp:
     {

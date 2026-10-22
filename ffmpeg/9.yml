@@ -19,6 +19,7 @@ auto-components:
   - decklink
   - smbclient
   - torch
+  - tensorflow
   - openvino
   - onnxruntime
   - fdk-aac
@@ -147,6 +148,11 @@ options:
   gcrypt: { needs: libgcrypt, ships: { protocols: [rtmpe, rtmpte] } }
   torch:
     { needs: torch, ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] } }
+  tensorflow:
+    {
+      needs: tensorflow,
+      ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] },
+    }
   openvino:
     { needs: openvino, ships: { filters: [dnn_processing, dnn_classify, dnn_detect, derain, sr] } }
   fdk-aac:
