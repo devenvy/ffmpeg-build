@@ -19,6 +19,18 @@ source:
     - 'https://www.mirrorservice.org/sites/ftp.gnupg.org/gcrypt/gnutls/v{major}.{minor}/gnutls-{version}.tar.xz'
 versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://gitlab.com/gnutls/gnutls.git }
 platforms: [linux-*, android-*, maccatalyst-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        # GnuTLS builds its own public X.509 API in convenience archives; hide only dependency archives.
+        shared-link-arg: 'LDFLAGS={LDFLAGS|} -Wl,--exclude-libs,libgmp.a:libnettle.a:libhogweed.a:libtasn1.a -Wl,-z,defs'
+      runtime: ['lib/libgnutls.so*']
 build:
   # GnuTLS: TLS/https backend (LGPL-2.1-or-later), static. Ported from devenvy/ffmpeg scripts/deps/gnutls.sh.
   # Upstream's TLS for the v2 license series, replacing OpenSSL (Apache-2.0, which requires --enable-version3 and so
@@ -49,6 +61,7 @@ build:
   # FFmpeg only needs libgnutls + gnutls.pc + headers, all produced by lib/, so skip src
   # entirely. (Also faster; verified end-to-end that lib-only installs gnutls.pc + headers.)
   system: none
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-link-arg: [] }
   steps:
     - run:
         - ./configure
@@ -56,8 +69,8 @@ build:
         - '--libdir={deps}/lib'
         # the system priority file (<sysconfdir>/gnutls/config) is compiled in: the system's, never the deps folder
         - --sysconfdir=/etc
-        - --disable-shared
-        - --enable-static
+        - '{shared-arg}'
+        - '{static-arg}'
         - --with-included-unistring
         - --with-included-libtasn1=no
         - --without-p11-kit
@@ -73,6 +86,7 @@ build:
         - --without-brotli
         - --without-zstd
         - '--host={host?}'
+        - '{shared-link-arg}'
       env:
         { CFLAGS: '+= -std=gnu17', GMP_CFLAGS: '-I{deps}/include', GMP_LIBS: '-L{deps}/lib -lgmp' }
     - [make, -C, gl, '-j{jobs}']

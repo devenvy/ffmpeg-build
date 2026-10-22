@@ -9,9 +9,28 @@ versions:
   { listing: 'https://ftp.gnu.org/gnu/nettle/', files: '^nettle-(\d+\.\d+(?:\.\d+)?)\.tar\.gz$' }
 # only gnutls builds against it, and only where gnutls builds
 platforms: [linux-*, android-*, maccatalyst-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-link-arg: 'LDFLAGS=-L{deps}/lib {LDFLAGS|} -Wl,--exclude-libs,libgmp.a -Wl,-z,defs'
+      runtime: ['lib/libnettle.so*', 'lib/libhogweed.so*']
 build:
   system: autotools
-  args: ['--libdir={deps}/lib', --disable-shared, --enable-static, --disable-documentation]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-link-arg: [] }
+  args:
+    [
+      '--libdir={deps}/lib',
+      '{shared-arg}',
+      '{static-arg}',
+      --disable-documentation,
+      '{shared-link-arg}',
+    ]
   env:
     {
       CFLAGS: '{CFLAGS|} -std=gnu17',
