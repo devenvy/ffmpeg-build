@@ -160,6 +160,32 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-network-batch-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [gnutls, ssh, rtmp, srt, rist, zmq, rabbitmq]
+    link:
+      {
+        libssh: shared,
+        librtmp: shared,
+        srt: shared,
+        librist: shared,
+        libzmq: shared,
+        rabbitmq-c: shared,
+        mbedtls: shared,
+        gnutls: shared,
+        gmp: shared,
+        nettle: shared,
+        libtasn1: shared,
+      }
+    tests: [tests/network-batch-linkage.sh]
+  linux-x64-network-batch-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [gnutls, ssh, rtmp, srt, rist, zmq, rabbitmq]
+    tests: [tests/network-batch-linkage.sh]
   linux-x64-rav1e-shared-lgplv3:
     platform: linux-x64
     license: lgplv3
@@ -773,6 +799,26 @@ targets:
     with: [vulkan, placebo]
     tests: [tests/vulkan-graphics-linkage.sh]
     link: { libplacebo: shared }
+  linux-x64-transports-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    tests: [tests/network-extra.sh]
+  linux-x64-transports-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+    tests: [tests/network-extra.sh]
+  linux-x64-transports-clear-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+    tests: [tests/network-clear.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3
@@ -852,6 +898,65 @@ targets:
     with: [vulkan, placebo, whisper]
     link: { vulkan-loader: shared }
     tests: [tests/vulkan-linkage.sh]
+  linux-x64-mbedtls-shared-ssh-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [mbedtls, ssh]
+    link: { mbedtls: shared }
+    tests: [tests/tls-backends.sh, tests/mbedtls-ssh.sh]
+  linux-x64-openssl-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [openssl]
+    tests: [tests/tls-backends.sh]
+  linux-x64-openssl-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [openssl]
+    link: { openssl: shared }
+    tests: [tests/tls-backends.sh]
+  linux-x64-libressl-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [libtls]
+    tests: [tests/tls-backends.sh]
+  linux-x64-libressl-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [libtls]
+    link: { libressl: shared }
+    tests: [tests/tls-backends.sh]
+  linux-x64-mbedtls-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [mbedtls]
+    tests: [tests/tls-backends.sh]
+  linux-x64-mbedtls-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [mbedtls]
+    link: { mbedtls: shared }
+    tests: [tests/tls-backends.sh]
+  linux-x64-network-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [gnutls, ssh, rtmp]
+    tests: [tests/network-linkage.sh]
+  linux-x64-network-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [gnutls, ssh, rtmp]
+    link: { libssh: shared, librtmp: shared }
+    tests: [tests/network-linkage.sh]
   linux-x64-audio-shared-lgplv2:
     platform: linux-x64
     license: lgplv2

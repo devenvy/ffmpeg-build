@@ -7,6 +7,19 @@ uses: [mbedtls] # encryption, where the license allows mbedTLS
 source: { git: https://code.videolan.org/rist/librist.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: --default-library=shared
+        shared-args:
+          [
+            '-Dc_link_args=-Wl,-z,defs -Wl,--exclude-libs,libmbedtls.a:libmbedx509.a:libmbedcrypto.a:libeverest.a:libp256m.a',
+          ]
+      runtime: ['lib/librist.so*']
 build:
   # librist: Reliable Internet Stream Transport (BSD-2-Clause), static. Ported from devenvy/ffmpeg scripts/deps/librist.sh.
   # Enables FFmpeg's rist:// protocol. librist CANNOT use OpenSSL -- only mbedTLS or GnuTLS/nettle -- which is the
@@ -32,6 +45,8 @@ build:
   # missed, the cc.find_library('mbedcrypto') fallback missed too, and librist quietly compiled its own vendored copy.
   system: none
   vars:
+    library-arg: --default-library=static
+    shared-args: []
     crypto: none
     crypto-args: [-Duse_mbedtls=false, -Duse_gnutls=false]
     mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto
@@ -52,13 +67,14 @@ build:
           crypto: mbedtls,
           crypto-args: [-Duse_mbedtls=true, -Duse_gnutls=false, '-Dcmake_prefix_path={deps}'],
         }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     - - meson
       - setup
       - _build
       - '--prefix={deps}'
       - --libdir=lib
-      - --default-library=static
+      - '{library-arg}'
+      - '{shared-args}'
       - --buildtype=release
       - '{meson-cross-args}'
       - -Dbuilt_tools=false
@@ -85,7 +101,7 @@ build:
         message: >-
           librist fell back to its VENDORED mbedTLS. -Dbuiltin_mbedtls=false was set, so our pinned mbedTLS should have
           been found. The artifact would ship an unpinned crypto library that the lock does not track.
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     - [meson, install, -C, _build]
     # Upstream re-added "-lmbedtls -lmbedx509 -lmbedcrypto" at the END of FFmpeg's link (EXTRA_LIBS, from mbedtls.sh),
     # because librist's mbedTLS symbols were left unresolved otherwise. A recipe can't touch FFmpeg's link line, so the
@@ -98,12 +114,12 @@ build:
     - replace-in-file:
         {
           path: '{deps}/lib/pkgconfig/librist.pc',
-          from: '[^\s]*/lib(mbedtls|mbedx509|mbedcrypto|everest|p256m)\.a',
+          from: '[^\s]*/lib(mbedtls|mbedx509|mbedcrypto|everest|p256m)\.(a|so(\.[0-9]+)*)(?=\s|$)',
           to: '',
           regex: true,
           optional: true,
         }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/librist.pc', libs-private: { append: '{mbedtls-libs}' } }
-      when: { exists: '{deps}/lib/libmbedcrypto.a' }
+      when: { exists: '{deps}/lib/libmbedcrypto.*' }

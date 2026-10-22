@@ -87,7 +87,7 @@ libgpg-error, zlib, xz (liblzma), aom, dav1d, soxr, libbs2b, libogg, libvorbis, 
 libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg, snappy, freetype,
 libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, x264, openh264, xvidcore, x265, vvenc, svtav1,
 libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls, pixman, openal-soft, sndio,
-minizip-ng, yaml-cpp, pystring, imath, libvmaf and xavs
+minizip-ng, yaml-cpp, pystring, imath, libvmaf, xavs, libssh and librtmp
 offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
@@ -135,6 +135,10 @@ OpenAL Soft and sndio retain static defaults and independently accept bundled sh
 Their ALSA implementation keeps its own selection: static ALSA uses builtin plugins, while shared ALSA can
 load the recipient's desktop plugins. Audio device access still requires the recipient's configured audio
 system. sndio can connect to an external sndiod server or use its direct `rsnd/` ALSA backend; no server is bundled.
+For SFTP and RTMP, `link: { libssh: shared, librtmp: shared }` bundles the selected client libraries.
+Their cryptographic dependencies keep their own linking modes. Linux x64 librtmp normalizes GnuTLS retry
+and error results so TLS 1.3 post-handshake messages do not break RTMPS or bypass socket read timeouts.
+The maintained checks use local SSH, RTMP and TLS servers; they do not require remote service credentials.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
@@ -153,6 +157,12 @@ keep their own selected modes, so select `system-shared` for each dependency you
 PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
 `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
+
+OpenSSL, LibreSSL and mbedTLS default to static linking and offer bundled shared libraries on Linux x64.
+Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header and library names.
+OpenSSL's shared mode embeds its legacy provider in libcrypto, so an application can activate it without a
+separate provider-module directory. It does not activate legacy algorithms automatically. The shared mbedTLS
+mode bundles its TLS, X.509 and crypto libraries together and retains pthread support.
 
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
@@ -482,6 +492,15 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 [tests that need a secret](building.md#tests-that-need-a-secret).
 
 ## Rules
+
+SRT, librist, ZeroMQ and RabbitMQ-C offer static and bundled shared modes on
+Linux x64, keyed by `srt`, `librist`, `libzmq` and `rabbitmq-c`. Static remains
+the default. SRT's installed C++ SDK remains available while its private C++
+runtime stays inside the library; ZeroMQ retains its installed C API. The
+common system unwinder remains shared for thread cancellation. SRT and librist
+use the selected pinned mbedTLS where the target's license permits it;
+other targets retain clear transport. RabbitMQ-C retains its existing plain
+AMQP support. The canary tests use isolated local peers and a disposable broker.
 
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.

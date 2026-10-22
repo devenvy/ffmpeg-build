@@ -7,6 +7,15 @@ group: tls
 source: { git: https://github.com/openssl/openssl, ref: 'openssl-{version}' }
 versions: { git-tags: '^openssl-(3\.5\.\d+)$' }
 platforms: [linux-*, android-*, maccatalyst-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [shared, no-module]
+      runtime: ['lib/libssl.so*', 'lib/libcrypto.so*']
 build:
   # OpenSSL 3.x: TLS/https backend for FFmpeg (Apache-2.0), static. Ported from devenvy/ffmpeg scripts/deps/openssl.sh.
   # Built only where the OS gives FFmpeg no usable TLS: Linux and Android (and Mac Catalyst, see below). Windows uses
@@ -23,12 +32,16 @@ build:
   # into a staging folder and copied into the real deps folder, and its build-info header is generated first with a
   # plain compiler line. Nothing of this machine's folders reaches the library.
   system: none
+  # In shared mode no-module embeds the legacy provider in libcrypto. Consumers
+  # can activate it without a module directory tied to the build prefix.
+  vars:
+    library-args: [no-shared]
   steps:
     - remove: { path: '{src}/_stage', recursive: true }
     - [
         ./Configure,
         '{target}',
-        no-shared,
+        '{library-args}',
         no-apps,
         no-tests,
         no-docs,

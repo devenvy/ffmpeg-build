@@ -1,0 +1,19 @@
+{
+  local:
+    _ZSt*;
+    _ZNSt*;
+    _ZNKSt*;
+    _ZNVSt*;
+    _ZNOSt*;
+    _ZNSa*;
+    _ZNKSa*;
+    _ZNSs*;
+    _ZNKSs*;
+    _ZT[ISV]St*;
+    _ZT[ISV]NSt*;
+    _ZN9__gnu_cxx*;
+    _ZNK9__gnu_cxx*;
+    _ZT[ISV]N9__gnu_cxx*;
+    __cxa_*;
+    _Unwind_*;
+};

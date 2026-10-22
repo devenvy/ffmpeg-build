@@ -9,10 +9,24 @@ versions:
   listing: https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/
   files: '^libressl-(4\.3\.\d+)\.tar\.gz$'
 platforms: [linux-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        {
+          library-arg: -DBUILD_SHARED_LIBS=ON,
+          shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs',
+        }
+      runtime: ['lib/libtls.so*', 'lib/libssl.so*', 'lib/libcrypto.so*']
 build:
   system: cmake
+  vars: { library-arg: -DBUILD_SHARED_LIBS=OFF, shared-link-arg: [] }
   args:
-    - -DBUILD_SHARED_LIBS=OFF
+    - '{library-arg}'
+    - '{shared-link-arg}'
     - -DLIBRESSL_APPS=OFF
     - -DLIBRESSL_TESTS=OFF
     - -DENABLE_NC=OFF
