@@ -244,6 +244,20 @@ jobs:
           path: ~/.cache/ffmpeg-build
           key: ${{ matrix.cacheKey }}
           restore-keys: ffmpeg-build-libs-${{ matrix.platform }}-
+      - name: restore ML library artifacts from this verification run
+        if: matrix.platform == 'linux-x64'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ml-library-cache-*
+          path: ${{ runner.temp }}/ml-library-caches
+          merge-multiple: true
+      - name: unpack verified ML library caches and their exact source inputs
+        if: matrix.platform == 'linux-x64'
+        run: |
+          mkdir -p "${HOME}/.cache/ffmpeg-build"
+          for archive in "${RUNNER_TEMP}"/ml-library-caches/*-cache.tar; do
+            tar -xf "${archive}" -C "${HOME}/.cache/ffmpeg-build"
+          done
       # before the build: staging runs the x86_64 programs it made (without Rosetta it only names their architecture)
       - name: Rosetta (x86_64 builds run under it on Apple silicon)
         if: runner.os == 'macOS' && endsWith(matrix.platform, '-x64')

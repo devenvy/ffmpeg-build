@@ -15,9 +15,58 @@ on:
 permissions: {}
 
 jobs:
+  libraries:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe: [onnxruntime, openvino, tensorflow, torch]
+    defaults:
+      run:
+        shell: bash
+    env:
+      FFMPEG_BUILD_IMAGE_CACHE: gha
+      FFMPEG_BUILD_SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
+      FFMPEG_BUILD_SOURCE_REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: engine
+        run: corepack pnpm install --frozen-lockfile && npm link
+      - name: buildx with the Actions cache
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: expose the Actions cache to buildx
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: build one ML library without FFmpeg
+        working-directory: examples/verify-recipes-h4-tensorflow
+        env:
+          RECIPE: ${{ matrix.recipe }}
+        run: ffmpeg-build build --target linux-x64-ml-lgplv3 --only "${RECIPE}"
+      # The combined source build finished all four libraries but hit the hosted
+      # six-hour limit compiling FFmpeg. Artifacts avoid cache-quota eviction and
+      # preserve each library together with its exact recorded source inputs.
+      - name: package verified library cache and sources
+        env:
+          RECIPE: ${{ matrix.recipe }}
+        run: tar -C "${HOME}/.cache/ffmpeg-build" -cf "${RUNNER_TEMP}/${RECIPE}-cache.tar" libs sources
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ml-library-cache-${{ matrix.recipe }}
+          path: ${{ runner.temp }}/${{ matrix.recipe }}-cache.tar
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
   # contents: write although nothing is published: GitHub refuses to start a run whose called workflow has a job
   # (the skipped release job) asking for more than the caller grants
   build:
+    needs: [libraries]
     uses: ./.github/workflows/build.yml
     permissions:
       contents: write
