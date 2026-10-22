@@ -1,0 +1,4 @@
+{
+  global: vmaf_*;
+  local: *;
+};

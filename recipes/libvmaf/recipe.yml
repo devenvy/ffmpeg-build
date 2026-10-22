@@ -6,14 +6,39 @@ configure: [--enable-libvmaf]
 source: { git: https://github.com/Netflix/vmaf, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-arg: --default-library=shared
+        shared-link-arg: "-Dcpp_link_args=['-static-libstdc++', '-shared-libgcc', '-Wl,-z,defs', '-Wl,--exclude-libs,libstdc++.a:libsupc++.a', '-Wl,--version-script={src}/ffb-public-api.map']"
+      runtime: ['lib/libvmaf.so*']
 build:
   # libvmaf: Netflix VMAF perceptual video-quality metric (BSD-2-Clause-Patent), static. Ported from devenvy/ffmpeg
   # scripts/deps/libvmaf.sh. Enables FFmpeg's vmaf filter. The meson project lives in the libvmaf/ subdirectory of the
   # repo. Default prediction models are compiled into the library (no runtime model files).
   system: meson
+  vars: { shared-mode: '', library-arg: [], shared-link-arg: [] }
   source-dir: libvmaf
-  args: [-Denable_tests=false, -Denable_docs=false, -Dbuilt_in_models=true, -Denable_float=true]
+  args:
+    [
+      '{library-arg}',
+      '{shared-link-arg}',
+      -Denable_tests=false,
+      -Denable_docs=false,
+      -Dbuilt_in_models=true,
+      -Denable_float=true,
+    ]
   before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libvmaf', 'exports.map'), 'ffb-public-api.map')"
+      when: { set: '{shared-mode}' }
     # libvmaf bundles libsvm, whose src/svm.cpp defines a global
     #   template <class T> static inline void swap(T&, T&)
     # Because svm_node lives in the global namespace, ADL makes that a candidate alongside
@@ -57,3 +82,11 @@ build:
   after:
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/libvmaf.pc', libs-private: { append: '{cxx-runtime}' } }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libvmaf', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
