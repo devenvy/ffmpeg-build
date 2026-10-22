@@ -12,16 +12,21 @@ versions:
     files: '^pulseaudio-(\d+\.\d+)\.tar\.xz$',
   }
 platforms: [linux-*]
-# shipped beside FFmpeg: PulseAudio builds its client library only shared (libpulse.so.0, on its private
-# libpulsecommon-<version>.so), and it speaks PulseAudio's native protocol, which a PulseAudio server and PipeWire's
-# pipewire-pulse both serve
-runtime: ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so']
+# Both modes speak the native protocol served by PulseAudio and pipewire-pulse; server modules stay server-side.
+linkage:
+  default: static
+  modes:
+    static: { runtime: [] }
+    shared:
+      vars: { default-library: --default-library=shared }
+      runtime: ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so']
 build:
   # PulseAudio's client library (LGPL-2.1-or-later), for FFmpeg's pulse input and output devices: no server, no
   # optional dependencies (D-Bus, GLib, X11, systemd, ...), no docs, man pages or tests. Its libpulsecommon takes
   # libsndfile in statically. The system's client configuration (/etc/pulse/client.conf), not the build's; installed
   # are the libraries, headers and .pc files (meson's runtime and devel tags), not the configuration or completions.
   system: none
+  vars: { default-library: --default-library=static }
   platforms:
     # shipped on musl: they ask for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml)
     'linux-musl-*': { env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608' } }
@@ -29,6 +34,31 @@ build:
     # no translations (none are installed: the images have no gettext), so no <libintl.h>, which musl hasn't got:
     # its meson.build turns NLS on whatever it finds
     - replace-in-file: { path: meson.build, from: "cdata.set('ENABLE_NLS', 1)", to: '' }
+    # library() preserves shared mode and permits a PIC static client/private-common closure.
+    - replace-in-file:
+        {
+          path: src/meson.build,
+          from: "libpulsecommon = shared_library('pulsecommon-' + pa_version_major_minor,",
+          to: "libpulsecommon = library('pulsecommon-' + pa_version_major_minor,",
+        }
+    - replace-in-file:
+        {
+          path: src/pulse/meson.build,
+          from: "libpulse = shared_library('pulse',",
+          to: "libpulse = library('pulse',",
+        }
+    - replace-in-file:
+        {
+          path: src/pulse/meson.build,
+          from: "libpulse_simple = shared_library('pulse-simple',",
+          to: "libpulse_simple = library('pulse-simple',",
+        }
+    - replace-in-file:
+        {
+          path: src/pulse/meson.build,
+          from: "libpulse_mainloop_glib = shared_library('pulse-mainloop-glib',",
+          to: "libpulse_mainloop_glib = library('pulse-mainloop-glib',",
+        }
     - - meson
       - setup
       - _build
@@ -36,6 +66,8 @@ build:
       - '--prefix={deps}'
       - --libdir=lib
       - --buildtype=release
+      - '{default-library}'
+      - -Db_staticpic=true
       - --sysconfdir=/etc
       - --localedir=/usr/share/locale
       - '{meson-cross-args}'
@@ -49,3 +81,9 @@ build:
       - -Dzshcompletiondir=no
     - [meson, compile, -C, _build]
     - [meson, install, -C, _build, --tags, 'runtime,devel']
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libpulse.pc',
+          libs-private: { add: -lm -ldl -lrt },
+          requires-private: { add: sndfile },
+        }

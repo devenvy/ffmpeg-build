@@ -24,6 +24,16 @@ Package suggestions do not block builds or releases and are not a cross-distribu
 Static remains the default; `shared` continues to bundle the selected libraries beside FFmpeg. Dependencies
 keep their own selected modes, so select `system-shared` for each dependency you want the destination to supply.
 
+PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
+server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
+`libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
+
+JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
+replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
+replacement or when a swappable client library is needed. Neither mode starts a server automatically.
+On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
+can still be embedded statically. Musl builds retain their static compiler runtime.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg
