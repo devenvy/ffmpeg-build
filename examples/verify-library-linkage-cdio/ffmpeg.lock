@@ -1,0 +1,8 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  libcdio: { version: 2.4.0, sha256: 8e6a305f81e45a78b41ce696d34497cc208d97075469d7304c11a6d44bf006ac }
+  libcdio-paranoia: { version: 2.0.2, sha256: 186892539dedd661276014d71318c8c8f97ecb1250a86625256abd4defbf0d0c }
