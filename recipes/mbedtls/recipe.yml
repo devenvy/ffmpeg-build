@@ -7,6 +7,16 @@ source:
   }
 versions: { git-tags: '^v(3\.\d+\.\d+)$', repo: https://github.com/Mbed-TLS/mbedtls }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [-DUSE_SHARED_MBEDTLS_LIBRARY=ON, -DUSE_STATIC_MBEDTLS_LIBRARY=OFF]
+        shared-link-arg: [-DLINK_WITH_PTHREAD=ON, '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs']
+      runtime: ['lib/libmbedtls.so*', 'lib/libmbedx509.so*', 'lib/libmbedcrypto.so*']
 build:
   # mbedTLS: TLS and crypto (Apache-2.0 OR GPL-2.0-or-later), static: srt's and librist's encryption, libssh's crypto,
   # and FFmpeg's mbedtls TLS option. Thread-safe where the C library has pthreads (every platform but Windows):
@@ -15,13 +25,10 @@ build:
   # MBEDTLS_THREADING_ALT, whose locks fail until the application installs its own, and pthreads there would be
   # winpthreads on every mbedTLS link.
   system: cmake
-  args:
-    [
-      -DUSE_SHARED_MBEDTLS_LIBRARY=OFF,
-      -DUSE_STATIC_MBEDTLS_LIBRARY=ON,
-      -DENABLE_TESTING=OFF,
-      -DENABLE_PROGRAMS=OFF,
-    ]
+  vars:
+    library-args: [-DUSE_SHARED_MBEDTLS_LIBRARY=OFF, -DUSE_STATIC_MBEDTLS_LIBRARY=ON]
+    shared-link-arg: []
+  args: ['{library-args}', '{shared-link-arg}', -DENABLE_TESTING=OFF, -DENABLE_PROGRAMS=OFF]
   platforms:
     'linux-*': &threads
       before:

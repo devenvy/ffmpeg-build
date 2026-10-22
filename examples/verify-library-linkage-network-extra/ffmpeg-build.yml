@@ -1,0 +1,64 @@
+targets:
+  linux-x64-static-9-lgplv3:
+    tests: [tests/network-extra.sh]
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+  linux-x64-shared-9-lgplv3:
+    tests: [tests/network-extra.sh]
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+  linux-x64-static-8-lgplv3:
+    tests: [tests/network-extra.sh]
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [srt, rist, zmq, rabbitmq]
+  linux-x64-shared-8-lgplv3:
+    tests: [tests/network-extra.sh]
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+  linux-x64-static-clear-lgplv2:
+    tests: [tests/network-clear.sh]
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+  linux-x64-shared-clear-lgplv2:
+    tests: [tests/network-clear.sh]
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
+
+  linux-x64-shared-crypto-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq, mbedtls]
+    tests: [tests/network-extra.sh]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared, mbedtls: shared }
+
+  linux-x64-shared-crypto-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [srt, rist, zmq, rabbitmq, mbedtls]
+    tests: [tests/network-extra.sh]
+    link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared, mbedtls: shared }
+
+  linux-x64-static-crypto-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [srt, rist, zmq, rabbitmq, mbedtls]
+    tests: [tests/network-extra.sh]
+    link: { mbedtls: shared }
