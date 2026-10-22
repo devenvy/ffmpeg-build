@@ -4,7 +4,7 @@ export const text = z.string({ error: 'expected text' }).min(1, { error: 'must n
 export const name = z.string({ error: 'expected a name' }).regex(/^[a-z0-9][a-z0-9._+-]*$/, {
   error: 'expected a lowercase name like x265 or whisper.cpp',
 });
-export const linkage = z.enum(['static', 'shared']);
+export const linkage = z.enum(['static', 'shared', 'system-shared']);
 export type Linkage = z.output<typeof linkage>;
 export const libraryLinks = z.record(name, linkage);
 export const version = z

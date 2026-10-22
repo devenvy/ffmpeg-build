@@ -16,6 +16,14 @@ or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled
 system's plugins. Both modes read the recipient's ALSA configuration. Linux OpenAL links the selected ALSA
 library, so its backend follows the same choice. Direct hardware capture still requires an audio device.
 
+For a verified library, `link: { libgcrypt: system-shared }` builds a shared library but omits it from the
+runtime archive. The destination machine must supply compatible libraries. `RUNTIME-DEPENDENCIES.json` in the
+archive records the actual ELF library names and required symbol versions, plus best-effort package suggestions
+for distributions we have checked. The recorded source build version is not a minimum package version.
+Package suggestions do not block builds or releases and are not a cross-distribution compatibility guarantee.
+Static remains the default; `shared` continues to bundle the selected libraries beside FFmpeg. Dependencies
+keep their own selected modes, so select `system-shared` for each dependency you want the destination to supply.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg

@@ -13,6 +13,10 @@ linkage:
     shared:
       vars: { static-arg: --disable-static, shared-arg: --enable-shared }
       runtime: ['lib/libgpg-error.so*']
+    system-shared:
+      vars: { static-arg: --disable-static, shared-arg: --enable-shared }
+      runtime: ['lib/libgpg-error.so*']
+      packages: { debian: [libgpg-error0], ubuntu: [libgpg-error0], fedora: [libgpg-error] }
 build:
   system: autotools
   vars: { static-arg: --enable-static, shared-arg: --disable-shared }

@@ -240,6 +240,13 @@ targets:
     with: [zlib, lzma, aom, dav1d, soxr, bs2b]
     link: { zlib: shared, xz: shared, aom: shared, dav1d: shared, soxr: shared, libbs2b: shared }
     tests: [tests/core-linkage.sh]
+  linux-x64-crypto-system-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [gcrypt]
+    link: { libgcrypt: system-shared, libgpg-error: system-shared }
+    tests: [tests/system-shared.sh]
   linux-x64-nvidia-nonfree:
     platform: linux-x64
     license: nonfree
