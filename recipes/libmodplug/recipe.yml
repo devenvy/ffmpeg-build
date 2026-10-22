@@ -17,6 +17,17 @@ versions:
     files: '^(\d+\.\d+\.\d+\.\d+)$',
   }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [--enable-shared, --disable-static]
+        runtime-link-flags: '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-compiler-private.map'
+        shared-mode: 'yes'
+      runtime: ['lib/libmodplug.so*']
 build:
   # libmodplug: the ModPlug tracker module player (MOD, S3M, XM, IT, ...), static, for FFmpeg's libmodplug demuxer
   # (found through libmodplug.pc). C++ of 2017: its `register` variables are an error from C++17, the default of
@@ -26,9 +37,44 @@ build:
   # gives it.
   system: autotools
   bootstrap: autoreconf
-  args: [--disable-shared, --enable-static, --with-pic]
-  env: { CXXFLAGS: '+= -std=gnu++14' }
+  vars:
+    { library-args: [--disable-shared, --enable-static], runtime-link-flags: '', shared-mode: '' }
+  args: ['{library-args}', --with-pic]
+  env:
+    CXXFLAGS: '+= -std=gnu++14'
+    LDFLAGS: '+= {runtime-link-flags?}'
+  before:
+    # Keep the installed C++ SDK global while hiding instantiated std helpers.
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libmodplug', 'compiler-private.map'), sys.argv[1])"
+        - '{src}/ffb-compiler-private.map'
+      when: { set: '{shared-mode}' }
+    # Libtool uses -nostdlib and explicitly appends -lstdc++; the driver flag
+    # alone cannot make that dependency private. Keep the native C++ tag and
+    # public SDK, replacing only its compiler-discovered C++ runtime archive.
+    - replace-in-file:
+        path: configure
+        from: 'case " $postdeps_CXX " in'
+        to: |
+          ffb_postdeps_CXX=
+          for ffb_lib in $postdeps_CXX; do
+            case "$ffb_lib" in -lstdc++) ffb_lib='-l:libstdc++.a';; esac
+            ffb_postdeps_CXX="$ffb_postdeps_CXX $ffb_lib"
+          done
+          postdeps_CXX="$ffb_postdeps_CXX"
+          case " $postdeps_CXX " in
+      when: { set: '{shared-mode}' }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libmodplug', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-public-api'
+        - libmodplug
+      when: { set: '{shared-mode}' }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/libmodplug.pc', libs-private: { set: '{cxx-runtime} -lm' } }
   platforms:

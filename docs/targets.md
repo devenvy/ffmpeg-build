@@ -35,6 +35,11 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
+ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Linux x64 through `libmodplug`,
+`libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
+and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
+recording and playback paths can omit those unused functions when the client is linked statically.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg

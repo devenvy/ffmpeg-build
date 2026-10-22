@@ -371,3 +371,16 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     base: [common, win, lgplv3]
+  linux-x64-tracker-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [modplug, openmpt, pulse]
+    tests: [tests/tracker-linkage.sh, tests/pulse-linkage.sh]
+  linux-x64-tracker-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [modplug, openmpt, pulse]
+    link: { libmodplug: shared, libopenmpt: shared, libsndfile: shared, pulseaudio: shared }
+    tests: [tests/tracker-linkage.sh, tests/pulse-linkage.sh]

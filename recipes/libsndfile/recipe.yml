@@ -6,13 +6,25 @@ source:
 versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/libsndfile/libsndfile }
 # where PulseAudio's client library builds
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: -DBUILD_SHARED_LIBS=ON
+        shared-mode: 'yes'
+      runtime: ['lib/libsndfile.so*']
 build:
   # libsndfile: audio file reading and writing (LGPL-2.1-or-later), static (position-independent), linked into
   # PulseAudio's shared libpulsecommon, which needs it (for sample uploads; FFmpeg's pulse devices don't use them). Its
   # own formats only: no FLAC, Vorbis, Opus or MPEG libraries, no programs, examples or tests.
   system: cmake
+  vars: { library-arg: [], shared-mode: '' }
   args:
     [
+      '{library-arg}',
       -DENABLE_EXTERNAL_LIBS=OFF,
       -DENABLE_MPEG=OFF,
       -DBUILD_PROGRAMS=OFF,
@@ -21,3 +33,11 @@ build:
       -DENABLE_CPACK=OFF,
       -DENABLE_PACKAGE_CONFIG=OFF,
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libsndfile', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-public-api'
+      when: { set: '{shared-mode}' }
