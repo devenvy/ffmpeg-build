@@ -1,5 +1,24 @@
 # Targets: ffmpeg-build.yml
 
+On Linux x64, `opencl-icd-loader` and `lcevcdec` retain static defaults and offer
+independent bundled `shared` modes. OpenCL stages its native versioned loader;
+LCEVC stages both its API and CPU pipeline libraries, with private convenience
+libraries and C++ runtime embedded. Existing library license gates are unchanged.
+
+An OpenCL loader still needs a compatible vendor ICD. CPU-only FFmpeg operations
+can run without one; OpenCL device creation reports that no platform is available.
+The maintained runtime uses distro PoCL as a test-only CPU ICD and compares four
+OpenCL-transposed frames byte for byte with the CPU transpose. External SDK checks
+execute an owned integer kernel, validate events and build diagnostics, and release
+every object. Shared mode retains upstream loader-managed dispatch and symbol
+versions; it does not substitute a system loader or bundle a GPU driver.
+
+LCEVC's native SDK tests pass four nonconstant I420 frames through the CPU pipeline
+without enhancement data, checking timestamps, plane strides, output bytes and
+picture ownership. FFmpeg's maintained filter test likewise checks complete EOF
+and exact passthrough pixels. This verifies CPU passthrough, not enhancement-stream
+decoding or GPU acceleration. Linux static SDK metadata includes pthread support.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and
