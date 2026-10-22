@@ -18,7 +18,6 @@ jobs:
   # contents: write although nothing is published: GitHub refuses to start a run whose called workflow has a job
   # (the skipped release job) asking for more than the caller grants
   build:
-    if: false
     uses: ./.github/workflows/build.yml
     permissions:
       contents: write
@@ -38,51 +37,6 @@ jobs:
       folder: examples/native
       engine: source
       publish: never
-
-  diagnose-codecs:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '24'
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: dist-9.0.2.0-linux-x64-shared-9-gplv3
-          run-id: 39728065464
-          github-token: ${{ github.token }}
-          path: diagnostics-input
-      - name: Prepare exact failing binary and debugger
-        run: |
-          mkdir runtime
-          tar -xzf diagnostics-input/ffmpeg-9.0.2-linux-x64-shared-9-gplv3.tar.gz -C runtime
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends gdb
-          lscpu
-          sha256sum diagnostics-input/ffmpeg-9.0.2-linux-x64-shared-9-gplv3.tar.gz
-      - name: Full maintained runtime diagnostics
-        continue-on-error: true
-        env:
-          FFMPEG: ${{ github.workspace }}/runtime/ffmpeg
-        run: node examples/verify-library-linkage-codecs-extra/tests/codecs-extra.mjs
-      - name: Generate identical authored raw frames
-        run: runtime/ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i testsrc2=size=128x128:rate=8 -frames:v 8 -pix_fmt yuv420p -f rawvideo authored.yuv
-      - name: Kvazaar debugger
-        continue-on-error: true
-        run: |
-          cat authored.yuv | gdb --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' -ex 'info registers' --args runtime/ffmpeg -nostdin -hide_banner -loglevel error -f rawvideo -pixel_format yuv420p -video_size 128x128 -framerate 8 -i - -c:v libkvazaar -kvazaar-params preset=ultrafast,threads=2,owf=0,qp=22,gop=0 -f hevc authored.hevc
-      - name: Xavs2 debugger
-        continue-on-error: true
-        run: |
-          cat authored.yuv | gdb --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' -ex 'info registers' -ex 'x/12i $pc-16' -ex 'info proc mappings' -ex 'p $_siginfo' --args runtime/ffmpeg -nostdin -hide_banner -loglevel error -f rawvideo -pixel_format yuv420p -video_size 128x128 -framerate 8 -i - -c:v libxavs2 -speed_level 0 -bf 0 -f avs2 authored.avs2
-      - name: Davs2 debugger
-        continue-on-error: true
-        run: |
-          gdb --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' -ex 'info registers' -ex 'x/12i $pc-16' -ex 'info proc mappings' -ex 'p $_siginfo' --args runtime/ffmpeg -nostdin -hide_banner -loglevel error -c:v libdavs2 -i authored.avs2 -pix_fmt yuv420p -f rawvideo decoded.yuv
 
   # Dependabot's base image bumps merge once every toolchain built and tested on them. CI's own auto-merge leaves
   # them alone: its required check (result) doesn't include these builds, so it would merge an untested toolchain.

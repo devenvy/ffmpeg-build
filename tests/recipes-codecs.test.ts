@@ -330,7 +330,14 @@ describe('davs2', () => {
   it.each(platformsOf('davs2'))('%s', async (platform) => {
     const h = fake(platform);
     put(join(h.src, 'version.sh'), '    VER_R=`git rev-list --count origin/master`\n');
-    put(join(h.src, 'build', 'linux', 'configure'), '    elif !(strings | grep -q EGIB) ; then\n');
+    const stackProbe =
+      "if cc_check '' -mpreferred-stack-boundary=5 ; then\n" +
+      '        CFLAGS="$CFLAGS -mpreferred-stack-boundary=5"\n' +
+      '        stack_alignment=32\n';
+    put(
+      join(h.src, 'build', 'linux', 'configure'),
+      `    elif !(strings | grep -q EGIB) ; then\n${stackProbe}`,
+    );
     put(pcPath(h, 'davs2'), `Name: davs2\nLibs: -L\${libdir} -ldavs2\n`);
     await build(h, 'davs2');
     // its sources are C++: CC is the platform's C++ compiler
@@ -347,8 +354,12 @@ describe('davs2', () => {
       `build/linux$ make install-lib-static${cxx}`,
     ]);
     expect(h.read(join(h.src, 'version.sh'))).toBe('    VER_R=0\n');
+    const expectedStack =
+      platform === 'linux-x64'
+        ? stackProbe.replaceAll('boundary=5', 'boundary=4').replace('alignment=32', 'alignment=16')
+        : stackProbe;
     expect(h.read(join(h.src, 'build', 'linux', 'configure'))).toBe(
-      '    elif false && !(strings | grep -q EGIB) ; then\n',
+      `    elif false && !(strings | grep -q EGIB) ; then\n${expectedStack}`,
     );
     expect(h.read(pcPath(h, 'davs2'))).toMatch(/\nLibs\.private: -l\S+\n$/);
   });
