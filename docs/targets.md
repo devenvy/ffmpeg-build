@@ -10,6 +10,12 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
+plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
+or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
+system's plugins. Both modes read the recipient's ALSA configuration. Linux OpenAL links the selected ALSA
+library, so its backend follows the same choice. Direct hardware capture still requires an audio device.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg

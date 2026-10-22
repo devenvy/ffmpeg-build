@@ -192,6 +192,19 @@ targets:
         snappy: shared,
       }
     tests: [tests/leaf-linkage.sh]
+  linux-x64-alsa-static-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [alsa, sndio, openal]
+    tests: [tests/alsa-linkage.sh]
+  linux-x64-alsa-shared-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [alsa, sndio, openal]
+    link: { alsa-lib: shared }
+    tests: [tests/alsa-linkage.sh]
   linux-x64-smbclient-gplv3:
     platform: linux-x64
     license: gplv3

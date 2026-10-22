@@ -6,8 +6,7 @@ provides: openal
 license: LGPL-2.0-or-later AND BSD-3-Clause AND LicenseRef-pffft AND MIT
 license-files: [COPYING, BSD-3Clause, LICENSE-pffft, { recipe: fmt-LICENSE }]
 configure: [--enable-openal]
-# on Linux, ALSA's headers: its ALSA backend, which loads the system's libasound.so.2 at run time (the default
-# device, through ALSA's plugins, reaches PulseAudio and PipeWire too)
+# On Linux, link the selected ALSA recipe instead of silently loading the system's libasound.so.2.
 needs: [{ alsa-lib: { platforms: [linux-*] } }]
 source: { git: https://github.com/kcat/openal-soft.git, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
@@ -16,8 +15,8 @@ versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*]
 build:
   # OpenAL Soft, static, for FFmpeg's openal input device (capture). No utilities, examples, tests, sample
-  # configuration, HRTF data or presets, and no C++20 modules. Backends: ALSA (and OSS) on Linux, loaded at run time
-  # (ALSOFT_DLOPEN); WASAPI, DirectSound and WinMM on Windows; Core Audio on macOS. A C++ library: its .pc gets the
+  # configuration, HRTF data or presets, and no C++20 modules. Backends: linked ALSA (and OSS) on Linux;
+  # WASAPI, DirectSound and WinMM on Windows; Core Audio on macOS. A C++ library: its .pc gets the
   # C++ runtime a static link needs.
   system: cmake
   args:
@@ -42,7 +41,11 @@ build:
       -DALSOFT_BACKEND_SDL3=OFF,
     ]
   platforms:
-    'linux-*': { args: [-DALSOFT_REQUIRE_ALSA=ON] }
+    'linux-*':
+      args: [-DALSOFT_REQUIRE_ALSA=ON, -DALSOFT_DLOPEN=OFF]
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/openal.pc', requires-private: { add: alsa } }
     # its .pc leaves out the Windows libraries a static link needs: COM's (ole32), the known folders' (shell32, uuid)
     'win-*':
       after:
