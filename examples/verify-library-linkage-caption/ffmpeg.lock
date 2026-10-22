@@ -1,0 +1,16 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  aribb24: { version: 1.0.4, commit: a41b904d66ed991ace32a9827f629db3d438b47b }
+  decklink-headers: 27a47e3872c58a25418701aadab448b9e6bedcd3
+  fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
+  freetype: { version: 2.14.3, commit: 0a0221a1347e2f1e07c395263540026e9a0aa7c7 }
+  libaribcaption: { version: 1.1.2, commit: c64c23b8905ba514b87c9789269e9f66f949ffe0 }
+  libexpat: { version: 2.9.0, commit: a76b1174c1ea52abb639a4c69d52b630a8a106a2 }
+  libklvanc: { version: 1.7.0, commit: 0177f4a4f4a46d4a7760b6f297edd9ef29e59f7d }
+  libpng: { version: 1.6.59, commit: cd952f49f95bb27154ae77dbb103032d95f6e580 }
+  zlib: { version: 1.3.2, commit: da607da739fa6047df13e66a2af6b8bec7c2a498 }
+  zvbi: { version: 0.2.45, commit: d3a5ee9f2b047bf16cd1ee5ccf6ec05ee75409d0 }
