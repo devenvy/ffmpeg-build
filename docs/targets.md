@@ -12,6 +12,13 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+MPEG-H offers `link: { mpeghdec: shared }` on Linux x64, with static as its default.
+The shared library preserves both decoder and UI-manager SDKs and isolates its
+internal FDK symbols, including when FDK AAC is enabled in the same build.
+Upstream does not version its shared ABI, so the engine uses the conservative
+full-version `libmpeghdec.so.4.0.1` SONAME. No system-provider mode is offered.
+The existing nonfree license selection and advisory release warning still apply.
+
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
 for a common shared X connection owner; `libxau` may be selected independently.

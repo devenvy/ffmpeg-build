@@ -1,0 +1,4 @@
+{
+  global: mpeghdecoder_*; mpegh_UI_*;
+  local: *;
+};
