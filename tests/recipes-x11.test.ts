@@ -78,7 +78,7 @@ describe('the X11 and terminal libraries', () => {
     ]);
     expect(recipe('libxext').needs).toEqual([{ name: 'libx11' }]);
     expect(recipe('libxv').needs).toEqual([{ name: 'libxext' }]);
-    expect(recipe('libcaca').needs).toEqual([{ name: 'ncurses' }]);
+    expect(recipe('libcaca').needs).toEqual([{ name: 'ncurses' }, { name: 'zlib' }]);
   });
 });
 

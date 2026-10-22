@@ -2182,7 +2182,7 @@ describe('X11 and terminal device libraries', () => {
       recipes: [...xcb, 'libx11', 'libxext', 'libxv', 'xtrans'].sort(),
       flags: ['--enable-xlib'],
     },
-    caca: { recipes: ['libcaca', 'ncurses'], flags: ['--enable-libcaca'] },
+    caca: { recipes: ['libcaca', 'ncurses', 'zlib'], flags: ['--enable-libcaca'] },
   };
   const OPTIONS = Object.keys(where);
   const text = (platform: string, license: string, option: string) =>
