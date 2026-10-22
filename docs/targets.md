@@ -342,6 +342,14 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 
 ## Rules
 
+`link: { uavs3d: shared }` bundles the AVS3 decoder on Linux x64. Static remains
+the default. The shared library exposes the complete installed C SDK while
+keeping internal dispatch symbols private. Upstream does not version its
+SONAME, so the engine uses the full library version (`libuavs3d.so.1.2` for
+1.2), without claiming compatibility with distro packages. Static and shared
+canaries decode an authored eight-frame stream with one and two threads,
+requiring exact agreement with the encoder's reconstruction through EOF.
+
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.
 - **Licenses are checked, never guessed.** An option whose library a target's license doesn't allow is an error that

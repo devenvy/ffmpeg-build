@@ -160,6 +160,19 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-uavs3d-static-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [uavs3d]
+    tests: [tests/uavs3d-linkage.sh]
+  linux-x64-uavs3d-shared-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [uavs3d]
+    link: { uavs3d: shared }
+    tests: [tests/uavs3d-linkage.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3
