@@ -11,8 +11,38 @@ source:
 versions: { git-tags: '^pixman-(0\.\d*[02468]\.\d+)$' }
 # only cairo builds against it
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: --default-library=shared
+        shared-mode: 'yes'
+        shared-ldflags: '-Wl,-z,defs'
+      runtime: ['lib/libpixman-1.so*']
 build:
   # pixman: the pixel-manipulation library under cairo (MIT), static. The library alone: no tests, demos or GTK, no
   # libpng, no OpenMP; its SIMD where the platform has it, as it detects.
   system: meson
-  args: [-Dtests=disabled, -Ddemos=disabled, -Dgtk=disabled, -Dlibpng=disabled, -Dopenmp=disabled]
+  vars: { library-arg: [], shared-mode: '', shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args:
+    [
+      '{library-arg}',
+      -Dtests=disabled,
+      -Ddemos=disabled,
+      -Dgtk=disabled,
+      -Dlibpng=disabled,
+      -Dopenmp=disabled,
+    ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'pixman', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
