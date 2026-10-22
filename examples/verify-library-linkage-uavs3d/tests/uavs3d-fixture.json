@@ -1,0 +1,17 @@
+{
+  "width": 128,
+  "height": 128,
+  "frames": 8,
+  "pixelFormat": "yuv420p",
+  "encodedSha256": "a55a879e643e87619a7d6195cef1e352fda229e336117d3962f92e47cdf6ef00",
+  "decodedSha256": "073bf36b341d8207641b2f6ac56fa49d4b413542c832195867078de273ab3bf0",
+  "authoredSha256": "c35394ec1be441a694d24ac74e8adbf133747bf141b0420f0acdd3a5249c8ecc",
+  "encoder": {
+    "repository": "https://github.com/uavs3/uavs3e",
+    "version": "v1.3",
+    "commit": "ea40065982019a5b43f4ff61e37ba1fe7a7dbfe8",
+    "compiler": "/usr/bin/gcc in ffmpeg-build-linux-x64:7549db3e4e6f",
+    "bitDepth": 8
+  },
+  "formula": "For frame f and pixel x,y: Y=64+((floor(x/8)+floor(y/8)+4*f)%64); U=V=128. Eight 128x128 YUV420 frames at 8 fps."
+}
