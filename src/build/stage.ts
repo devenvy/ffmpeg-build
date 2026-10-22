@@ -97,7 +97,7 @@ function stagePc(install: string, dev: string, platform: string, depsDir: string
   }
 }
 
-async function stagePlatform(
+export async function stagePlatform(
   context: BuildContext,
   install: string,
   runDir: string,
@@ -139,6 +139,20 @@ async function stagePlatform(
     copyMatches(join(install, 'bin', '*.dll'), runDir);
     copyMatches(join(install, 'bin', 'ffmpeg.exe'), runDir);
     copyMatches(join(install, 'bin', 'ffprobe.exe'), runDir);
+    const owners = new Map(
+      readdirSync(runDir).map((name) => [name.toLowerCase(), join(runDir, name)]),
+    );
+    for (const glob of context.buildPlan.runtime) {
+      for (const source of files(join(context.depsDir, glob))) {
+        const name = basename(source).toLowerCase();
+        const previous = owners.get(name);
+        if (previous && previous !== source) {
+          throw new Error(`Windows runtime name collision: ${source} and ${previous}`);
+        }
+        owners.set(name, source);
+      }
+      copyMatches(join(context.depsDir, glob), runDir);
+    }
     copyContents(join(install, 'include'), join(devDir, 'include'));
     stagePc(install, devDir, platform, context.depsDir);
     mkdirSync(join(devDir, 'lib'), { recursive: true });
@@ -157,7 +171,7 @@ async function stagePlatform(
           '-D',
           basename(dll),
           '-l',
-          join(devDir, 'lib', `${stem.replace(/-[^-]+$/, '')}.lib`),
+          join(devDir, 'lib', `${stem.replace(/-[0-9]+$/, '')}.lib`),
         ],
         { env: context.env },
       );

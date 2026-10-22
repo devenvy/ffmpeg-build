@@ -17,6 +17,14 @@ versions:
 # (/usr/lib/libiconv.2.dylib, not part of libSystem), which only a recipe's flags could link, and a recipe has to build
 # something. glibc, musl and Android (API 28+) have it in libc: the iconv option is built in there (ffmpeg/<major>.yml).
 platforms: [win-*, osx-*, ios-*, maccatalyst-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [osx-arm64]
+      vars: { library-args: [--enable-shared, --disable-static], shared-mode: 'yes' }
+      runtime: ['lib/libiconv*.dylib']
 build:
   # GNU libiconv: character-set conversion (the library and its header are LGPL-2.1-or-later; the iconv program,
   # GPL-3.0, isn't built), static, for FFmpeg's iconv (subtitle character sets: -sub_charenc). A release tarball (a
@@ -27,13 +35,13 @@ build:
   # would install it builds everything first (the program, its gnulib, translations, the tests).
   # --disable-shared makes iconv.h declare the functions without dllimport on Windows.
   system: none
+  vars: { library-args: [--disable-shared, --enable-static], shared-mode: '' }
   steps:
     - [
         ./configure,
         '--prefix={deps}',
         '--libdir={deps}/lib',
-        --disable-shared,
-        --enable-static,
+        '{library-args}',
         --with-pic,
         --disable-nls,
         '--host={host?}',
@@ -42,3 +50,12 @@ build:
     - [make, -C, lib, '-j{jobs}']
     - [make, -C, lib, install-lib, 'libdir={deps}/lib']
     - copy: { from: include/iconv.h.inst, to: '{deps}/include/iconv.h' }
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libiconv', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|cc}'
+      when: { set: '{shared-mode}' }

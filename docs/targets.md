@@ -26,6 +26,24 @@ checks also cover boxed-surface lifetime, PNG and script pixels, vector document
 streams, and a real mapped Fontconfig cache with retained patterns passed into
 Cairo after releasing explicit cache/configuration handles. The font is authored
 test data; no system font or physical display is required.
+GNU libiconv offers a bundled shared mode on macOS arm64, with static as its
+default. Its library-only build excludes the GPL command-line program. Exact
+Latin-9 subtitle conversion and native GNU conversion/error/callback APIs are
+checked; this uses the bundled GNU library rather than Apple's system library.
+Other Apple platforms and Windows retain their existing static recipes.
+
+On musl Linux x64, proxy-libintl offers static and bundled shared modes, defaulting
+to static. It remains GLib's native English-message stub, without translation
+catalog loading. The shared library preserves its mutable text domain and public
+data; native tests also cover GLib's context/plural wrappers and rendered pixels.
+
+On Windows x64, `vulkan-shim` defaults to static linking. Selecting
+`link: { vulkan-shim: shared }` bundles `ffb-vulkan-shim.dll`, which Whisper's
+Vulkan backend imports instead of the system Vulkan loader. The DLL loads the
+optional driver on the first API call; FFmpeg still starts and CPU processing
+works without a Vulkan driver. GPU processing requires an installed Vulkan
+driver in either mode. Windows arm64 retains its static recipe.
+This library is not a replacement for arbitrary system gettext installations.
 
 On Linux x64, `libdrm`, `libva` and `libvpl` accept independent bundled `shared`
 selections and retain static defaults. Shared VA includes both its core and DRM
@@ -79,6 +97,19 @@ without enhancement data, checking timestamps, plane strides, output bytes and
 picture ownership. FFmpeg's maintained filter test likewise checks complete EOF
 and exact passthrough pixels. This verifies CPU passthrough, not enhancement-stream
 decoding or GPU acceleration. Linux static SDK metadata includes pthread support.
+
+Android x64 offers a bundled shared `cpu-features` choice, retaining the static
+default. It bundles both native `libcpu_features.so` and `libndk_compat.so`;
+Tesseract uses the latter's NDK compatibility API. Both follow Android's 16 KB
+page-alignment requirement. Upstream has no versioned shared ABI and warns that
+public feature bitfields depend on the compiler. Use headers built with the
+same pinned NDK rather than treating these libraries as interchangeable system
+packages. Android arm64 retains its existing static recipe.
+
+Verification runs exact build-compiler SDK helpers on an Android emulator in
+separate detection/setter processes, and uses an FFmpeg library consumer for
+owned OCR text, unchanged pixels and filter EOF. The temporary verification
+build carries those helpers; release packages do not contain test executables.
 
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not

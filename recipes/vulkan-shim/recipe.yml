@@ -7,6 +7,14 @@ license-files: [LICENSE, Vulkan-Headers/LICENSE.md]
 source: { git: https://github.com/BtbN/Vulkan-Shim-Loader, submodules: { depth: 1 } }
 versions: { git-branch: master }
 platforms: [win-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [win-x64]
+      vars: { shared-mode: 'yes', archive-glob: '_build/**/libvulkan-1.dll.a' }
+      runtime: [bin/ffb-vulkan-shim.dll]
 build:
   # Vulkan-Shim-Loader (MIT), static, in IMPERSONATE mode: the archive is named vulkan-1 (libvulkan-1.a) so it takes the
   # place an import library would. Ported from devenvy/ffmpeg scripts/deps/vulkan-shim.sh. Its generator reads the
@@ -14,7 +22,13 @@ build:
   # vulkan-headers recipe installs headers too. CMAKE_CXX_COMPILER is required (the cross arguments' toolchain file):
   # the submodule's own CMakeLists enables CXX.
   system: none
+  vars: { shared-mode: '', archive-glob: '_build/**/libvulkan-1.a' }
   steps:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vulkan-shim', 'prepare-shared.py'), run_name='__main__')"
+      when: { set: '{shared-mode}' }
     - [
         cmake,
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5,
@@ -27,14 +41,15 @@ build:
         '{cmake-cross-args}',
       ]
     - [cmake, --build, _build, '-j{jobs}']
-    # Installed by hand rather than `cmake --install`: what's needed is precisely the impersonating archive.
+    # Install the selected impersonating archive; shared mode also ships its distinct DLL.
     - find:
         {
           var: archive,
-          glob: ['_build/**/libvulkan-1.a', '_build/**/libvulkan.a'],
-          required: the Vulkan shim built no libvulkan-1.a / libvulkan.a,
+          glob: ['{archive-glob}'],
+          required: the Vulkan shim built no selected static or import archive,
         }
-    # If this were ever an import library, the hard vulkan-1.dll dependency would silently come back.
+    # Both modes must produce archives. The shared SDK check also verifies that
+    # its import archive names ffb-vulkan-shim.dll rather than the system driver.
     - check:
         {
           output: [file, -b, '{archive}'],
@@ -43,3 +58,14 @@ build:
           message: 'the Vulkan shim is not a static archive: {archive}',
         }
     - copy: { from: '{archive}', into: '{deps}/lib' }
+    - copy: { from: _build/ffb-vulkan-shim.dll, into: '{deps}/bin' }
+      when: { set: '{shared-mode}' }
+    - run: ['{STRIP|strip}', -S, '{deps}/bin/ffb-vulkan-shim.dll']
+      when: { set: '{shared-mode}' }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vulkan-shim', 'check-public-api.py'), run_name='__main__')"
+        - '{CC|cc}'
+        - '{deps}'
+      when: { set: '{shared-mode}' }

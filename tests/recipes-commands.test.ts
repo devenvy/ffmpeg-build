@@ -738,13 +738,13 @@ describe('vulkan-shim', () => {
   it('fails without the archive, or with an import library', async () => {
     const none = fake('win-x64');
     await expect(build(none, 'vulkan-shim')).rejects.toThrow(
-      'the Vulkan shim built no libvulkan-1.a / libvulkan.a',
+      'the Vulkan shim built no selected static or import archive',
     );
     const dll = fake('win-x64');
-    put(join(dll.src, '_build', 'libvulkan.a'), '');
+    put(join(dll.src, '_build', 'libvulkan-1.a'), '');
     dll.onRun = (call) => (call.command === 'file' ? 'PE32+ executable (DLL)\n' : undefined);
     await expect(build(dll, 'vulkan-shim')).rejects.toThrow(
-      'the Vulkan shim is not a static archive: _build/libvulkan.a',
+      'the Vulkan shim is not a static archive: _build/libvulkan-1.a',
     );
   });
 });
