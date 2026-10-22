@@ -165,6 +165,7 @@ describe('profiles/devenvy.yml', () => {
       '--enable-vaapi',
       '--enable-version3',
       '--enable-vulkan',
+      '--enable-vulkan-static',
       '--enable-whisper',
       '--enable-zlib',
       '--extra-cflags=-I/opt/ffmpeg-build/deps/include',
@@ -175,10 +176,19 @@ describe('profiles/devenvy.yml', () => {
     ]);
   });
 
-  it("builds exactly today's published linux-x64 lgplv3 options", () => {
+  it("builds today's published linux-x64 lgplv3 options with a static Vulkan loader", () => {
     expect([...verifyNames(data, linux('lgplv3'))].sort()).toEqual(
-      [...PUBLISHED_LGPLV3_LINUX_X64].sort(),
+      [...PUBLISHED_LGPLV3_LINUX_X64, 'VULKAN_STATIC'].sort(),
     );
+  });
+
+  it('restores the published configure and verify sets with the shared Vulkan override', () => {
+    const cell = linux('lgplv3');
+    const shared = { ...cell, linkages: { ...cell.linkages, 'vulkan-loader': 'shared' as const } };
+    expect(configureFlags(data, shared)).toEqual(
+      configureFlags(data, cell).filter((flag) => flag !== '--enable-vulkan-static'),
+    );
+    expect([...verifyNames(data, shared)].sort()).toEqual([...PUBLISHED_LGPLV3_LINUX_X64].sort());
   });
 
   it('gives each linux-x64 license the libraries it allows', () => {

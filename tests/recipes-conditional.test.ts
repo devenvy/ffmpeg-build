@@ -301,7 +301,11 @@ describe('whisper.cpp', () => {
     }
     return {
       backend: 'vulkan',
-      args: [...vk, `-DVulkan_INCLUDE_DIR=${d}/include`, `-DVulkan_LIBRARY=${d}/lib/libvulkan.so`],
+      args: [
+        ...vk,
+        `-DVulkan_INCLUDE_DIR=${d}/include`,
+        `-DVulkan_LIBRARY=${d}/lib/libvulkan.so.1`,
+      ],
       sys: '-lvulkan -lstdc++ -lm -lpthread',
     };
   }
@@ -356,6 +360,19 @@ describe('whisper.cpp', () => {
       },
     );
   }
+
+  it.each([false, true])(
+    'uses the static Vulkan loader and its libdl closure (shared present: %s)',
+    async (shared) => {
+      const h = fake('linux-x64');
+      seedWhisper(h, 'linux-x64', shared, 'vulkan');
+      put(join(h.deps, 'lib', 'libvulkan.a'));
+      await build(h, 'whisper.cpp');
+      expect(commands(h).join('\n')).toContain(`-DVulkan_LIBRARY=${h.deps}/lib/libvulkan.a`);
+      expect(commands(h).join('\n')).not.toContain(`-DVulkan_LIBRARY=${h.deps}/lib/libvulkan.so`);
+      expect(h.read(pcPath(h, 'whisper'))).toContain('-lvulkan -lstdc++ -lm -lpthread -ldl');
+    },
+  );
 
   it('fails when the requested GPU backend fell back to the CPU, or there is no CPU archive', async () => {
     const h = fake('android-arm64');

@@ -18,6 +18,14 @@ Package suggestions do not block builds or releases and are not a cross-distribu
 Static remains the default; `shared` continues to bundle the selected libraries beside FFmpeg. Dependencies
 keep their own selected modes, so select `system-shared` for each dependency you want the destination to supply.
 
+On Linux x64, `vulkan-loader` defaults to static linking. `link: { vulkan-loader: shared }` bundles the shared
+loader instead. Other loader platforms retain their shared default until their static mode is verified. Both
+modes require an installed Vulkan ICD driver; static linking embeds the loader, not the GPU driver. FFmpeg adds
+`--enable-vulkan-static` for the static mode. Whisper can use that loader without enabling FFmpeg's Vulkan
+components unless the target also lists `vulkan`. The maintained runtime check uses Mesa lavapipe and explicitly
+selects it for GGML, which normally excludes CPU Vulkan devices. This verifies API operation without claiming
+physical GPU coverage.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg
