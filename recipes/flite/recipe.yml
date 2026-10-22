@@ -12,6 +12,17 @@ configure: [--enable-libflite, --extra-libs=-lm]
 source: { git: https://github.com/festvox/flite, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: --enable-shared
+        library-files: 'build/*/lib/libflite*.so*'
+        shared-mode: 'yes'
+      runtime: ['lib/libflite*.so*']
 build:
   # Flite: CMU's small speech synthesizer, static, for FFmpeg's flite audio source (text to speech), with the US
   # English voices it ships (awb, kal, kal16, rms, slt, and the time voice), which FFmpeg links in whole. No audio
@@ -25,9 +36,13 @@ build:
   # - Its headers define snprintf as an MSVC workaround (an `__inline` function that GCC and clang never emit) on any
   #   _WIN32: not on mingw, which has snprintf.
   system: autotools
+  vars:
+    library-arg: --disable-shared
+    library-files: 'build/*/lib/libflite*.a'
+    shared-mode: ''
   # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
   env: { CFLAGS: '+= -O2' }
-  args: [--disable-shared, --with-pic, --with-audio=none, --disable-sockets]
+  args: ['{library-arg}', --with-pic, --with-audio=none, --disable-sockets]
   install-targets: []
   before:
     - replace-in-file:
@@ -53,4 +68,18 @@ build:
         }
   after:
     - copy: { from: 'include/*.h', into: '{deps}/include/flite' }
-    - copy: { from: 'build/*/lib/libflite*.a', into: '{deps}/lib' }
+    # Native targets supply every voice/language/core dependency and serialize
+    # their reused extraction folder. Convenience *.shared.a archives stay private.
+    - run: [make, -C, main, shared_libs]
+      env: { LDFLAGS: '+= -Wl,-z,defs' }
+      when: { set: '{shared-mode}' }
+    - copy: { from: '{library-files}', into: '{deps}/lib' }
+    # FFmpeg exposes five voices; also exercise the linked time voice through
+    # the installed shared C API and its native language/lexicon dependency chain.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'flite', 'check-time-voice.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-time-voice'
+      when: { set: '{shared-mode}' }

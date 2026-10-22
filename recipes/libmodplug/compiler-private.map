@@ -1,0 +1,16 @@
+{
+  local:
+    _ZSt*;
+    _ZNSt*;
+    _ZNKSt*;
+    _ZNVSt*;
+    _ZNOSt*;
+    _ZNSa*;
+    _ZNKSa*;
+    _ZNSs*;
+    _ZNKSs*;
+    _ZT[ISV]St*;
+    _ZT[ISV]NSt*;
+    __cxa_*;
+    _Unwind_*;
+};
