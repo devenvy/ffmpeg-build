@@ -14,9 +14,25 @@ source:
   }
 versions: { git-tags: '^VER-(\d+-\d+-\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-library-arg: '-DBUILD_SHARED_LIBS=ON'
+      runtime: ['lib/libfreetype*.so*']
 build:
+  vars: { shared-library-arg: [] }
   system: cmake
   # FreeType 2.15 builds an HVF (Apple Hierarchical Variable Font) driver whenever it finds the hvf headers and
   # library, which recent Apple SDKs have; a static libfreetype then needs symbols nothing links. Off, as before 2.15.
   args:
-    [-DFT_DISABLE_HARFBUZZ=ON, -DFT_DISABLE_BZIP2=ON, -DFT_DISABLE_BROTLI=ON, -DFT_DISABLE_HVF=ON]
+    [
+      '{shared-library-arg}',
+      -DFT_DISABLE_HARFBUZZ=ON,
+      -DFT_DISABLE_BZIP2=ON,
+      -DFT_DISABLE_BROTLI=ON,
+      -DFT_DISABLE_HVF=ON,
+    ]

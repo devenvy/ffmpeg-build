@@ -5,11 +5,22 @@ source: { git: https://github.com/libexpat/libexpat, ref: 'R_{version_}' }
 versions: { git-tags: '^R_(\d+_\d+_\d+)$' }
 # fontconfig (Linux and macOS) and OpenColorIO (Linux, Windows, Android) build against it
 platforms: [linux-*, osx-*, win-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-library-arg: '-DEXPAT_SHARED_LIBS=ON'
+      runtime: ['lib/libexpat*.so*']
 build:
+  vars: { shared-library-arg: [] }
   system: cmake
   source-dir: expat
   args:
     [
+      '{shared-library-arg}',
       -DEXPAT_BUILD_EXAMPLES=OFF,
       -DEXPAT_BUILD_TESTS=OFF,
       -DEXPAT_BUILD_TOOLS=OFF,

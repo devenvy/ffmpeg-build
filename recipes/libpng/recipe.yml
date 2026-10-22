@@ -5,6 +5,17 @@ needs: [zlib]
 source: { git: https://github.com/pnggroup/libpng, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        png-shared: '-DPNG_SHARED=ON'
+        png-static: '-DPNG_STATIC=OFF'
+      runtime: ['lib/libpng*.so*']
 build:
+  vars: { png-shared: -DPNG_SHARED=OFF, png-static: -DPNG_STATIC=ON }
   system: cmake
-  args: [-DPNG_SHARED=OFF, -DPNG_STATIC=ON, -DPNG_TESTS=OFF, -DPNG_TOOLS=OFF]
+  args: ['{png-shared}', '{png-static}', -DPNG_TESTS=OFF, -DPNG_TOOLS=OFF]
