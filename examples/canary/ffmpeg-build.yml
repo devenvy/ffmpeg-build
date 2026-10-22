@@ -160,6 +160,52 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-mbedtls-shared-ssh-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [mbedtls, ssh]
+    link: { mbedtls: shared }
+    tests: [tests/tls-backends.sh, tests/mbedtls-ssh.sh]
+  linux-x64-openssl-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [openssl]
+    tests: [tests/tls-backends.sh]
+  linux-x64-openssl-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [openssl]
+    link: { openssl: shared }
+    tests: [tests/tls-backends.sh]
+  linux-x64-libressl-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [libtls]
+    tests: [tests/tls-backends.sh]
+  linux-x64-libressl-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [libtls]
+    link: { libressl: shared }
+    tests: [tests/tls-backends.sh]
+  linux-x64-mbedtls-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [mbedtls]
+    tests: [tests/tls-backends.sh]
+  linux-x64-mbedtls-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [mbedtls]
+    link: { mbedtls: shared }
+    tests: [tests/tls-backends.sh]
   linux-x64-audio-shared-lgplv2:
     platform: linux-x64
     license: lgplv2

@@ -28,6 +28,12 @@ PulseAudio's client defaults to static linking. It still connects to the recipie
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
 `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
 
+OpenSSL, LibreSSL and mbedTLS default to static linking and offer bundled shared libraries on Linux x64.
+Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header and library names.
+OpenSSL's shared mode embeds its legacy provider in libcrypto, so an application can activate it without a
+separate provider-module directory. It does not activate legacy algorithms automatically. The shared mbedTLS
+mode bundles its TLS, X.509 and crypto libraries together and retains pthread support.
+
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
 replacement or when a swappable client library is needed. Neither mode starts a server automatically.
