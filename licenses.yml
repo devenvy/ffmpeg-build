@@ -3,6 +3,13 @@
 # A recipe's expression is read with OR (either licence's builds) and AND (only builds both allow), and a library
 # is allowed in a build only when it and everything it needs are.
 licenses:
+  NCSA: all
+  CC0-1.0: all
+  IJG: all
+  curl: all
+  # Ooura's published distribution permission and SQLite's public-domain dedication.
+  LicenseRef-Ooura-FFT: all
+  LicenseRef-SQLite-public-domain: all
   PSF-2.0: all
   MIT: all
   Artistic-1.0-Perl: all
