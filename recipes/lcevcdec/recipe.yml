@@ -10,6 +10,21 @@ source: { git: https://github.com/v-novaltd/LCEVCdec, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 # Not win-arm64: its build takes the x86 SIMD path there, and its Windows threads header misses errno.h.
 platforms: [linux-*, win-x64, osx-*, ios-*, maccatalyst-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            -DVN_SDK_STATIC_LIB_TYPE=STATIC,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a',
+          ]
+      runtime: ['lib/liblcevc_dec_api.so*', 'lib/liblcevc_dec_pipeline_cpu.so*']
 build:
   # V-Nova's LCEVC decoder SDK (liblcevc_dec), static, for FFmpeg's LCEVC enhancement (the lcevc filter and the
   # decoders' LCEVC side data; found through lcevc_dec.pc, 4.0.0 or later in 8.1 and 9). C++17. Its configure
@@ -20,8 +35,10 @@ build:
   # texts it installs anyway (a licenses/ folder in deps) are removed: THIRD-PARTY-NOTICES.txt carries the ones that
   # apply.
   system: cmake
+  vars: { shared-mode: '', shared-args: [] }
   args:
     [
+      '{shared-args}',
       -DVN_SDK_EXECUTABLES=OFF,
       -DVN_SDK_SAMPLE_SOURCE=OFF,
       -DVN_SDK_UNIT_TESTS=OFF,
@@ -64,5 +81,21 @@ build:
     - remove: { path: '{deps}/licenses', recursive: true }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/lcevc_dec.pc', libs: { remove: -lstdc++ -lc++ -lm } }
+      when: { unset: '{shared-mode}' }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/lcevc_dec.pc', libs: { append: '{cxx-runtime} -lm' } }
+      when: { unset: '{shared-mode}' }
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/lcevc_dec.pc',
+          libs-private: { add: -pthread, missing: after-libs },
+        }
+      when: { platforms: [linux-*] }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'lcevcdec', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

@@ -7,9 +7,32 @@ needs: [libdrm]
 source: { git: https://github.com/intel/libva, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        {
+          library-arg: --default-library=shared,
+          shared-mode: 'yes',
+          shared-ldflags: '-Wl,-z,defs,--exclude-libs,libdrm.a',
+        }
+      runtime: ['lib/libva.so*', 'lib/libva-drm.so*']
 build:
   system: meson
-  args: [-Dwith_x11=no, -Dwith_glx=no, -Dwith_wayland=no, -Dwith_win32=no, -Ddisable_drm=false]
+  vars: { library-arg: [], shared-mode: '', shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args:
+    [
+      '{library-arg}',
+      -Dwith_x11=no,
+      -Dwith_glx=no,
+      -Dwith_wayland=no,
+      -Dwith_win32=no,
+      -Ddisable_drm=false,
+    ]
   before:
     - replace-in-file: { path: va/meson.build, from: 'shared_library(', to: 'library(' }
   # Static libva dlopens the VA driver at runtime, so its consumers need -ldl; libva-drm
@@ -27,3 +50,11 @@ build:
           optional: true,
           libs-private: { set: -ldl, missing: after-libs },
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libva', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

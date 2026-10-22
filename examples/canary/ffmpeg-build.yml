@@ -245,6 +245,28 @@ targets:
         freetype: shared,
         harfbuzz: shared,
       }
+  linux-x64-graphics-batch-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl, vulkan, placebo, opencl, lcevc-dec]
+    link:
+      {
+        libdrm: shared,
+        libva: shared,
+        libvpl: shared,
+        shaderc: shared,
+        libplacebo: shared,
+        opencl-icd-loader: shared,
+        lcevcdec: shared,
+      }
+    tests: [tests/graphics-batch-linkage.sh]
+  linux-x64-graphics-batch-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl, vulkan, placebo, opencl, lcevc-dec]
+    tests: [tests/graphics-batch-linkage.sh]
   linux-x64-cairo-shared-9-lgplv3:
     platform: linux-x64
     license: lgplv3
@@ -285,6 +307,47 @@ targets:
     with: [cairo]
     tests: [tests/cairo-linkage.sh]
     link: { glib: shared, fontconfig: shared, freetype: shared }
+
+  linux-x64-compute-compute-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [opencl, lcevc-dec]
+    tests: [tests/compute-linkage.sh]
+    link: { opencl-icd-loader: shared, lcevcdec: shared }
+  linux-x64-compute-compute-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [opencl, lcevc-dec]
+    tests: [tests/compute-linkage.sh]
+  linux-x64-compute-compute-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [opencl, lcevc-dec]
+    tests: [tests/compute-linkage.sh]
+    link: { opencl-icd-loader: shared, lcevcdec: shared }
+  linux-x64-compute-compute-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [opencl, lcevc-dec]
+    tests: [tests/compute-linkage.sh]
+  linux-x64-compute-compute-shared-opencl-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [opencl, lcevc-dec]
+    tests: [tests/compute-linkage.sh]
+    link: { opencl-icd-loader: shared }
+  linux-x64-compute-compute-shared-lcevc-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [opencl, lcevc-dec]
+    tests: [tests/compute-linkage.sh]
+    link: { lcevcdec: shared }
   linux-x64-x11-static-9-lgplv2:
     platform: linux-x64
     license: lgplv2
@@ -614,6 +677,102 @@ targets:
     with: [vmaf, xavs]
     tests: [tests/vmaf-xavs-linkage.sh]
     link: { xavs: shared }
+
+  linux-x64-dispatchers-dispatchers-shared-9-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+    link: { libdrm: shared, libva: shared, libvpl: shared }
+  linux-x64-dispatchers-dispatchers-static-9-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+  linux-x64-dispatchers-dispatchers-shared-8-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '8'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+    link: { libdrm: shared, libva: shared, libvpl: shared }
+  linux-x64-dispatchers-dispatchers-static-8-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '8'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+  linux-x64-dispatchers-dispatchers-shared-drm-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+    link: { libdrm: shared }
+  linux-x64-dispatchers-dispatchers-shared-va-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+    link: { libva: shared }
+  linux-x64-dispatchers-dispatchers-shared-vpl-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [drm, vaapi, vpl]
+    tests: [tests/dispatchers-linkage.sh]
+    link: { libvpl: shared }
+
+  linux-x64-vulkan-graphics-vulkan-graphics-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [vulkan, placebo]
+    tests: [tests/vulkan-graphics-linkage.sh]
+    link: { shaderc: shared, libplacebo: shared, vulkan-loader: shared }
+  linux-x64-vulkan-graphics-vulkan-graphics-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [vulkan, placebo]
+    tests: [tests/vulkan-graphics-linkage.sh]
+  linux-x64-vulkan-graphics-vulkan-graphics-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [vulkan, placebo, shaderc]
+    tests: [tests/vulkan-graphics-linkage.sh]
+    link: { shaderc: shared, libplacebo: shared, vulkan-loader: shared }
+  linux-x64-vulkan-graphics-vulkan-graphics-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [vulkan, placebo, shaderc]
+    tests: [tests/vulkan-graphics-linkage.sh]
+  linux-x64-vulkan-graphics-vulkan-graphics-shared-graphics-static-loader-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [vulkan, placebo]
+    tests: [tests/vulkan-graphics-linkage.sh]
+    link: { shaderc: shared, libplacebo: shared }
+  linux-x64-vulkan-graphics-vulkan-graphics-shared-shaderc-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [vulkan, placebo, shaderc]
+    tests: [tests/vulkan-graphics-linkage.sh]
+    link: { shaderc: shared }
+  linux-x64-vulkan-graphics-vulkan-graphics-shared-placebo-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [vulkan, placebo]
+    tests: [tests/vulkan-graphics-linkage.sh]
+    link: { libplacebo: shared }
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3

@@ -781,7 +781,7 @@ describe('libvpl', () => {
     ]);
     const libs = platform.startsWith('win-') ? '-lole32 -lgdi32 -luuid -lstdc++' : '-lstdc++ -ldl';
     expect(h.read(pcPath(h, 'vpl'))).toBe(
-      `prefix=${h.deps}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\n\nName: libvpl\nDescription: Intel Video Processing Library (oneVPL)\nVersion: 2.16\nLibs: -L\${libdir} -lvpl ${libs}\nCflags: -I\${includedir} -I\${includedir}/vpl\n`,
+      `prefix=${h.deps}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\n\nName: libvpl\nDescription: Intel Video Processing Library (oneVPL)\nVersion: 1.2.3\nLibs: -L\${libdir} -lvpl ${libs}\nCflags: -I\${includedir} -I\${includedir}/vpl\n`,
     );
   });
 });
@@ -824,7 +824,7 @@ describe('shaderc', () => {
       'cmake --build _build --target install -j 4',
     ]);
     expect(h.read(pcPath(h, 'shaderc'))).toBe(
-      `Libs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread ${rt(platform)}\n`,
+      `Libs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread ${rt(platform)} -lm\n`,
     );
     expect(h.files(h.deps)).toEqual([
       'bin/spirv-as',

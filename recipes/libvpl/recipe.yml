@@ -7,6 +7,20 @@ source: { git: https://github.com/intel/libvpl, ref: 'v{version}' }
 # 2.x only: the repo still carries the old oneVPL tags (v2022.x, v2023.x), which would read as newer
 versions: { git-tags: '^v(2\.\d+\.\d+)$' }
 platforms: [linux-x64, linux-musl-x64, win-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: -DBUILD_SHARED_LIBS=ON
+        shared-mode: 'yes'
+        system-libs: -ldl
+        c-flags: -DCMAKE_C_FLAGS=-shared-libgcc -O2
+        cxx-flags: -DCMAKE_CXX_FLAGS=-shared-libgcc -static-libstdc++ -O2
+        shared-args: ['-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs']
+      runtime: ['lib/libvpl.so*']
 build:
   # libvpl (oneVPL): Intel Video Processing Library dispatcher (MIT) for Quick Sync Video (QSV) hardware transcode,
   # static. Ported from devenvy/ffmpeg scripts/deps/libvpl.sh.
@@ -28,10 +42,11 @@ build:
       - -DBUILD_TOOLS=OFF
       - -DBUILD_TOOLS_ONEVPL_EXPERIMENTAL=OFF
       - -DINSTALL_EXAMPLE_CODE=OFF
-      - -DBUILD_SHARED_LIBS=OFF
+      - '{library-arg}'
       - -DBUILD_TESTS=OFF
-      - -DCMAKE_C_FLAGS=-static-libgcc -O2
-      - -DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2
+      - '{c-flags}'
+      - '{cxx-flags}'
+      - '{shared-args}'
     - [cmake, --build, _build, '-j{jobs}']
     - [cmake, --install, _build]
     # Windows needs the COM/GDI system libs; Linux's dispatcher just needs libdl
@@ -40,9 +55,23 @@ build:
         file: vpl
         name: libvpl
         description: Intel Video Processing Library (oneVPL)
-        version: '2.16'
+        version: '{version}'
         libs: '-lvpl {system-libs}'
         cflags: '-I${includedir}/vpl'
-  vars: { system-libs: -lstdc++ -ldl }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libvpl', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
+  vars:
+    system-libs: -lstdc++ -ldl
+    library-arg: -DBUILD_SHARED_LIBS=OFF
+    shared-mode: ''
+    shared-args: []
+    c-flags: -DCMAKE_C_FLAGS=-static-libgcc -O2
+    cxx-flags: -DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2
   platforms:
     'win-*': { vars: { system-libs: -lole32 -lgdi32 -luuid -lstdc++ } }

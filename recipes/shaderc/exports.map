@@ -1,0 +1,4 @@
+{
+  global: shaderc_*;
+  local: *;
+};
