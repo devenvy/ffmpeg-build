@@ -1,0 +1,12 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  fdk-aac: { version: 3.0.0, commit: a68a51aa45d86a43c7b228e3d45624af09dcdd8d }
+  libqrencode: { version: 4.1.1, commit: 715e29fd4cd71b6e452ae0f4e36d917b43122ce8 }
+  mpeghdec: { version: 4.0.1, commit: 4448b69738da2fa5f2f2f2b0ce29eea32509e046 }
+  oapv: { version: 0.3.0.0, commit: 9f6fd2a7369db90acec67d99fc57724f1136fb84 }
+  quirc: { version: 1.2, commit: 542848dd6b9b0eaa9587bbf25b9bc67bd8a71fca }
+  svt-jpegxs: f4720203534d6f5ea90f828a58814af5597461d7

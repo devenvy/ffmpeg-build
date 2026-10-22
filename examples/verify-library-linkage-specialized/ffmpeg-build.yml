@@ -1,0 +1,38 @@
+bases:
+  common:
+    with: [fdk-aac, oapv, svtjpegxs, quirc, qrencode]
+  shared:
+    link: { fdk-aac: shared, oapv: shared, svt-jpegxs: shared, quirc: shared }
+targets:
+  linux-x64-static-9-nonfree:
+    tests: [tests/specialized-linkage.sh]
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    base: [common]
+  linux-x64-shared-9-nonfree:
+    tests: [tests/specialized-linkage.sh]
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    base: [common, shared]
+  linux-x64-static-8-nonfree:
+    tests: [tests/specialized-linkage.sh]
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    base: [common]
+  linux-x64-shared-8-nonfree:
+    tests: [tests/specialized-linkage.sh]
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    base: [common, shared]
+  linux-x64-fdk-mpegh-nonfree:
+    tests: [tests/specialized-linkage.sh]
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    base: [common]
+    with: [mpeghdec]
+    link: { fdk-aac: shared }
