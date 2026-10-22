@@ -47,6 +47,52 @@ describe('engine data', () => {
     expect(() => loadEngineData(packageRoot)).not.toThrow();
   });
 
+  it('rejects a linking requirement for a provider outside the dependency list', () => {
+    const errors = errorsOf({
+      'ffmpeg/9.yml': okFfmpeg,
+      'recipes/owner/recipe.yml': okRecipe(
+        'owner',
+        'linkage: { default: static, modes: { static: {}, shared: { requires-link: { provider: [shared] } } } }\n',
+      ),
+      'recipes/provider/recipe.yml': okRecipe(
+        'provider',
+        'linkage: { default: static, modes: { static: {}, shared: {} } }\n',
+      ),
+    });
+    expect(errors).toContain(
+      'recipes/owner/recipe.yml: linkage.modes.shared.requires-link: provider is not a direct needs dependency',
+    );
+  });
+
+  it('rejects a required linking mode the provider does not declare', () => {
+    const errors = errorsOf({
+      'ffmpeg/9.yml': okFfmpeg,
+      'recipes/owner/recipe.yml': okRecipe(
+        'owner',
+        'needs: [provider]\nlinkage: { default: static, modes: { static: {}, shared: { requires-link: { provider: [shared] } } } }\n',
+      ),
+      'recipes/provider/recipe.yml': okRecipe(
+        'provider',
+        'linkage: { default: static, modes: { static: {} } }\n',
+      ),
+    });
+    expect(errors).toContain(
+      'recipes/owner/recipe.yml: linkage.modes.shared.requires-link: provider does not declare shared linking',
+    );
+  });
+
+  it('rejects an empty list of acceptable provider modes', () => {
+    expect(
+      errorsOf({
+        'ffmpeg/9.yml': okFfmpeg,
+        'recipes/owner/recipe.yml': okRecipe(
+          'owner',
+          'linkage: { default: static, modes: { static: {}, shared: { requires-link: { provider: [] } } } }\n',
+        ),
+      }).join('\n'),
+    ).toMatch(/requires-link.*provider/);
+  });
+
   it("knows the CI runner that runs each platform's builds when its build runner can't", () => {
     const data = loadEngineData(packageRoot);
     const test = (p: string) => testRunnerOf(data, p);

@@ -10,9 +10,10 @@ platforms: [linux-*]
 build:
   # libvdpau's VDPAU API headers (MIT), header-only, for FFmpeg's vdpau (the VDPAU hwaccels). FFmpeg needs only
   # vdpau/vdpau.h: it reaches the driver through the function pointers of a VdpDevice. The library itself (and FFmpeg's
-  # vdpau_x11, which creates that device from an X11 display) needs libX11, which ffmpeg-build doesn't build: so an
-  # application hands FFmpeg its own VdpDevice (AVVDPAUDeviceContext, as mpv does), and `ffmpeg -hwaccel vdpau` can't
-  # make one.
+  # vdpau_x11, which creates that device from an X11 display) remains unbuilt. The opt-in shared X11/XCB closure
+  # removes the earlier hidden-connection ownership concern; the wrapper and vendor-device creation still need
+  # verification. An application hands FFmpeg its own VdpDevice (AVVDPAUDeviceContext, as mpv does), and
+  # `ffmpeg -hwaccel vdpau` cannot create one itself.
   system: none
   steps:
     - copy: { from: include/vdpau/vdpau.h, into: '{deps}/include/vdpau' }

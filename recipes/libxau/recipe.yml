@@ -12,7 +12,18 @@ versions:
   }
 # where libxcb builds
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        { shared-arg: --enable-shared, static-arg: --disable-static, shared-ldflags: '-Wl,-z,defs' }
+      runtime: ['lib/libXau.so*']
 build:
   # libXau: X authorization (the X server's cookie, from $XAUTHORITY), static, under libxcb
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-ldflags: '' }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]
