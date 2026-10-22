@@ -371,3 +371,19 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     base: [common, win, lgplv3]
+  linux-x64-core-system-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [zlib, lzma, vorbis, opus, speex, ass, freetype, fribidi, harfbuzz, fontconfig]
+    link:
+      {
+        zlib: system-shared,
+        xz: system-shared,
+        libogg: system-shared,
+        libvorbis: system-shared,
+        opus: system-shared,
+        speex: system-shared,
+        libexpat: system-shared,
+      }
+    tests: [tests/system-core.sh]

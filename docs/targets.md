@@ -25,6 +25,12 @@ Package suggestions do not block builds or releases and are not a cross-distribu
 Static remains the default; `shared` continues to bundle the selected libraries beside FFmpeg. Dependencies
 keep their own selected modes, so select `system-shared` for each dependency you want the destination to supply.
 
+Linux x64 also supports system providers for `zlib`, `xz`, `libogg`, `libvorbis`, `opus`, `speex` and `libexpat`.
+The package hints were checked on Debian 12, Ubuntu 24.04 and Fedora 44, with real codec, compression and font
+configuration runs against those distributions' libraries. Each library keeps its static default. A distribution's
+shared library can load its own dependencies; selecting bundled Ogg alongside system Vorbis does not change how
+the distribution built Vorbis. The receipt distinguishes the omitted reference build from the shipped binaries.
+
 PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
 `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.

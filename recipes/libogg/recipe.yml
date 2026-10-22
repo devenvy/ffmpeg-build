@@ -13,6 +13,11 @@ linkage:
       platforms: [linux-x64]
       vars: { shared-arg: --enable-shared, static-arg: --disable-static }
       runtime: ['lib/libogg.so*']
+    system-shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libogg.so*']
+      packages: { debian: [libogg0], ubuntu: [libogg0], fedora: [libogg] }
 build:
   system: autotools
   vars: { shared-arg: --disable-shared, static-arg: --enable-static }
