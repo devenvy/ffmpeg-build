@@ -16,6 +16,16 @@ configure:
 source: { git: https://github.com/TimothyGu/libilbc, ref: 'v{version}', submodules: true }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-library-arg: -DBUILD_SHARED_LIBS=ON
+        runtime-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a'
+      runtime: ['lib/libilbc.so*']
 build:
   # libilbc: WebRTC's Internet Low Bitrate Codec as a standalone library (BSD-3-Clause, with WebRTC's patent grant),
   # static, for FFmpeg's libilbc decoder and encoder. It compiles against abseil-cpp's headers (a submodule; nothing of
@@ -26,6 +36,8 @@ build:
   # - Its two test programs are built and installed with the library (and an iOS executable is an app bundle CMake
   #   wants a destination for): left out of the default build and the install. The docs it installs are removed.
   system: cmake
+  vars: { shared-library-arg: [], runtime-link-arg: [] }
+  args: ['{shared-library-arg}', '{runtime-link-arg}']
   before:
     - replace-in-file:
         {
