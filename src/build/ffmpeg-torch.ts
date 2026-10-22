@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const OLD_PROBE =
@@ -19,10 +19,15 @@ export function fixTorchBackend(dir: string, flags: readonly string[]): boolean 
     changed = true;
   }
   const backend = join(dir, 'libavfilter', 'dnn', 'dnn_backend_torch.cpp');
-  if (!existsSync(backend)) {
-    return changed;
+  let source: string;
+  try {
+    source = readFileSync(backend, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return changed;
+    }
+    throw error;
   }
-  const source = readFileSync(backend, 'utf8');
   let patched = source.replace(
     'c10::Device device = (*th_model->jit_model->parameters().begin()).device();',
     'c10::Device device(ctx->device ? ctx->device : "cpu");',
