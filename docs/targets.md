@@ -342,6 +342,15 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 
 ## Rules
 
+FDK-AAC, OpenAPV, SVT-JPEG-XS and Quirc offer static and bundled shared modes on
+Linux x64, keyed by `fdk-aac`, `oapv`, `svt-jpegxs` and `quirc`. Static remains
+the default. The shared FDK library preserves its complete installed C SDK while
+keeping internal DSP symbols private; it also works beside the independently
+prefixed MPEG-H decoder. OpenAPV retains the supported 0.x API. Quirc's bundled
+library uses an engine-defined full-version SONAME (`libquirc.so.1.2` for 1.2);
+this makes no compatibility promise about separately installed distro libraries.
+These choices use the same existing license checks as their static versions.
+
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.
 - **Licenses are checked, never guessed.** An option whose library a target's license doesn't allow is an error that

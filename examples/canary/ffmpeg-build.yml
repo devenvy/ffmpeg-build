@@ -160,6 +160,19 @@ bases:
         gmp,
       ]
 targets:
+  linux-x64-specialized-static-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [fdk-aac, oapv, svtjpegxs, quirc, qrencode]
+    tests: [tests/specialized-linkage.sh]
+  linux-x64-specialized-shared-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [fdk-aac, oapv, svtjpegxs, quirc, qrencode, mpeghdec]
+    link: { fdk-aac: shared, oapv: shared, svt-jpegxs: shared, quirc: shared }
+    tests: [tests/specialized-linkage.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3

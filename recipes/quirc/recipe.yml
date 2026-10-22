@@ -7,17 +7,33 @@ configure: [--enable-libquirc, --extra-libs=-lm]
 source: { git: https://github.com/dlbeer/quirc, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-type: SHARED
+        shared-properties: "\nset_target_properties(quirc PROPERTIES VERSION {version} SOVERSION {version})\ntarget_link_libraries(quirc PRIVATE m)"
+        shared-install: ' LIBRARY DESTINATION lib'
+        shared-link-arg: -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs
+      runtime: ['lib/libquirc.so*']
 build:
   # quirc: QR code recognition (ISC), static, for FFmpeg's quirc filter. Its own Makefile runs the host's ar and
   # ranlib and asks pkg-config for SDL and OpenCV (its demos): its four library sources are built with a CMakeLists
   # written here instead, which cross-compiles like any other.
   system: cmake
+  # Upstream emits .so.1.2 without a SONAME. Shared builds use the complete
+  # upstream release as the engine's conservative ABI name, not a stable major.
+  vars: { library-type: STATIC, shared-properties: '', shared-install: '', shared-link-arg: [] }
+  args: ['{shared-link-arg}']
   before:
     - write-file:
         path: CMakeLists.txt
         text: |
           cmake_minimum_required(VERSION 3.5)
           project(quirc C)
-          add_library(quirc STATIC lib/decode.c lib/identify.c lib/quirc.c lib/version_db.c)
-          install(TARGETS quirc ARCHIVE DESTINATION lib)
+          add_library(quirc {library-type} lib/decode.c lib/identify.c lib/quirc.c lib/version_db.c){shared-properties}
+          install(TARGETS quirc ARCHIVE DESTINATION lib{shared-install})
           install(FILES lib/quirc.h DESTINATION include)
