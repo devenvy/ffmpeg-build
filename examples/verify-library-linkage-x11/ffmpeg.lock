@@ -1,0 +1,14 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  libx11: { version: 1.8.14, sha256: bbc78c46217174655c2b32b138ad119f3ac15f50808b4d0b3a2677a4b1afc950 }
+  libxau: { version: 1.0.12, sha256: 74d0e4dfa3d39ad8939e99bda37f5967aba528211076828464d2777d477fc0fb }
+  libxcb: { version: 1.17.0, sha256: 599ebf9996710fea71622e6e184f3a8ad5b43d0e5fa8c4e407123c88a59a6d55 }
+  libxext: { version: 1.3.7, sha256: 6c643c7035cdacf67afd68f25d01b90ef889d546c9fcd7c0adf7c2cf91e3a32d }
+  libxv: { version: 1.0.13, sha256: 7d34910958e1c1f8d193d828fea1b7da192297280a35437af0692f003ba03755 }
+  xcb-proto: { version: 1.17.0, sha256: 2c1bacd2110f4799f74de6ebb714b94cf6f80fb112316b1219480fd22562148c }
+  xorgproto: { version: 2026.1, sha256: f9bfe4a9ed8c8ab9d2a3b0d49797f046052dadd06b7a8b45dbffaffb137e8290 }
+  xtrans: { version: 1.6.0, sha256: faafea166bf2451a173d9d593352940ec6404145c5d1da5c213423ce4d359e92 }

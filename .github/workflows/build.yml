@@ -290,6 +290,11 @@ jobs:
           # Docker Hub rate-limits anonymous pulls from shared runner addresses now and then: retry before giving up
           for i in 1 2 3 4; do docker pull --quiet "${BINFMT}" && break; [ "$i" = 4 ] && exit 1; sleep $((i * 30)); done
           docker run --privileged --rm "${BINFMT}" --install arm
+      - name: install software X11 verification tools
+        if: inputs.folder == 'examples/verify-library-linkage-x11' && matrix.platform == 'linux-x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth x11-utils x11-xserver-utils xdotool
       - name: test ${{ matrix.target }}
         if: inputs.tests != 'none' && !startsWith(matrix.platform, 'android-')
         working-directory: ${{ inputs.folder }}
