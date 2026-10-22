@@ -10,6 +10,10 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+Linux x64 also supports `link: { bzip2: shared, libxml2: shared }`. Static remains their default;
+zlib retains its own selected mode. bzip2 uses the stable 1.0 ABI, and libxml2's actual SONAME follows
+its reviewed release rather than assuming a historical system-library name. Both shared libraries are bundled.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
