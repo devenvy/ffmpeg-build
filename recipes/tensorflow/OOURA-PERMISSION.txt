@@ -1,0 +1,8 @@
+Ooura FFT distribution clarification, checked 2026-10-21:
+https://www.kurims.kyoto-u.ac.jp/~ooura/fft.html
+
+The author's published terms permit using, copying, modifying and distributing
+the software, including commercially, without a fee. They request a reference
+to the package when a modified version is distributed. The historical README
+files are preserved alongside this clarification; their original distribution
+wording should be read with the author's published permission.

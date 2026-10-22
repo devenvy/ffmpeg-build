@@ -376,6 +376,20 @@ and replay instructions as metadata, and verify an offline rebuild to establish
 that the inventory is complete. A calculated hash alone does not replace an
 upstream checksum pin.
 
+### TensorFlow CPU inference
+
+`with: [tensorflow]` enables the source-built static CPU graph/session C API on
+Linux x64. Its actual dependency closure selects LGPLv3 or nonfree builds under
+the existing licence rules. Python and GPU runtimes are build inputs or disabled
+features; they are not shipped as inference dependencies. No pretrained model ships.
+
+The pinned Bazel repositories, nested LLVM source, binary build tools and replay
+metadata are kept separately in the source inventory. The recipe documents offline
+reconstruction and preserves runtime notices separately from build-tool notices.
+Its private Protobuf, oneDNN and Xbyak symbols are isolated so TensorFlow, Torch,
+ONNX Runtime and OpenVINO can be selected together. The maintained canary uses an
+authored ReLU graph, natural EOF and repeated early output termination.
+
 ## Comparing with published builds
 
 `scripts/compare-published*.sh` compare a build with a published devenvy/ffmpeg archive: files, configure flags,

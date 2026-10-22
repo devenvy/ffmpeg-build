@@ -1,0 +1,610 @@
+{
+  "version": 1,
+  "tensorflow": "2.21.0",
+  "llvmCommit": "909041e4802c4b9a2223ca04099f35bf1dbbd460",
+  "files": [
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/34fd26c70a277a9fdd54cb5ecf389badedaf48047b269d1008fbc819b24e80bc/file",
+      "sha256": "34fd26c70a277a9fdd54cb5ecf389badedaf48047b269d1008fbc819b24e80bc",
+      "origin": "http://www.nasm.us/pub/nasm/releasebuilds/2.14.02/nasm-2.14.02.tar.bz2",
+      "repository": "nasm",
+      "filename": "nasm-2.14.02.tar.bz2",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/071f289dc961b43a3b7c8cbe8a305290a7c5d308ec4b2f586397749abdc88296/file",
+      "sha256": "071f289dc961b43a3b7c8cbe8a305290a7c5d308ec4b2f586397749abdc88296",
+      "origin": "https://github.com/oneapi-src/oneDNN/archive/refs/tags/v3.7.3.tar.gz",
+      "repository": "onednn",
+      "filename": "v3.7.3.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/077cf4bd0bd7eddaa6649a024285fff96e2662c5e6f2fb6ed5c5771f9de093f3/file",
+      "sha256": "077cf4bd0bd7eddaa6649a024285fff96e2662c5e6f2fb6ed5c5771f9de093f3",
+      "origin": "https://gitlab.mpcdf.mpg.de/mtr/ducc/-/archive/aa46a4c21e440b3d416c16eca3c96df19c74f316/ducc-aa46a4c21e440b3d416c16eca3c96df19c74f316.tar.gz",
+      "repository": "ducc",
+      "mirrors": [
+        "https://storage.googleapis.com/mirror.tensorflow.org/gitlab.mpcdf.mpg.de/mtr/ducc/-/archive/aa46a4c21e440b3d416c16eca3c96df19c74f316/ducc-aa46a4c21e440b3d416c16eca3c96df19c74f316.tar.gz"
+      ],
+      "filename": "ducc-aa46a4c21e440b3d416c16eca3c96df19c74f316.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/07b3c1ba2c1096878a85a31a5b9b3757427af963b1141ca904db2f9f4afe0bc2/file",
+      "sha256": "07b3c1ba2c1096878a85a31a5b9b3757427af963b1141ca904db2f9f4afe0bc2",
+      "origin": "https://github.com/google/highway/archive/refs/tags/1.3.0.tar.gz",
+      "repository": "com_google_highway",
+      "filename": "1.3.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/08c45dff8ede1b56a6e7d1e9fdaf113dd91ab28ddcbcf696229b683e5e9af45a/file",
+      "sha256": "08c45dff8ede1b56a6e7d1e9fdaf113dd91ab28ddcbcf696229b683e5e9af45a",
+      "origin": "https://github.com/google/skcms/archive/refs/tags/2025_09_16.tar.gz",
+      "repository": "skcms",
+      "filename": "2025_09_16.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759/file",
+      "sha256": "09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759",
+      "origin": "https://files.pythonhosted.org/packages/88/ef/eb23f262cca3c0c4eb7ab1933c3b1f03d021f2c48f54763065b6f0e321be/packaging-24.2-py3-none-any.whl",
+      "repository": "pypi__packaging",
+      "filename": "packaging-24.2-py3-none-any.whl",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/0e5c64a2599a6e26c6a03d6162242d231ecc0de219534c38cb4402171def21e8/file",
+      "sha256": "0e5c64a2599a6e26c6a03d6162242d231ecc0de219534c38cb4402171def21e8",
+      "origin": "https://github.com/bazelbuild/rules_proto/archive/refs/tags/7.0.2.tar.gz",
+      "repository": "rules_proto",
+      "filename": "7.0.2.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/12af50c45530f0a292d39a88d952637e43fb2d4ab1883c44ae729840f7273381/file",
+      "sha256": "12af50c45530f0a292d39a88d952637e43fb2d4ab1883c44ae729840f7273381",
+      "origin": "https://github.com/webmproject/libwebp/archive/v1.4.0.tar.gz",
+      "repository": "libwebp",
+      "filename": "v1.4.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/12cffc7274190ca1693a52ccd8303e719407e707c8557ddfb7eef81f208efaab/file",
+      "sha256": "12cffc7274190ca1693a52ccd8303e719407e707c8557ddfb7eef81f208efaab",
+      "origin": "https://storage.googleapis.com/ml-sysroot-testing/libtinfo/libtinfo.so.5",
+      "repository": "llvm-libtinfo",
+      "filename": "libtinfo.so.5",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/1492dfef8dd6c3036446ac3b340005d92ab92f7d48ee3271b5dac1d36945d3d9/file",
+      "sha256": "1492dfef8dd6c3036446ac3b340005d92ab92f7d48ee3271b5dac1d36945d3d9",
+      "origin": "https://github.com/libjxl/libjxl/archive/refs/tags/v0.11.1.tar.gz",
+      "repository": "jpegxl",
+      "filename": "v0.11.1.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/16e9fca53ed6bd4ff4ad76facc9b7b651a89db1689a2877d6fd7b82aa824e366/file",
+      "sha256": "16e9fca53ed6bd4ff4ad76facc9b7b651a89db1689a2877d6fd7b82aa824e366",
+      "origin": "https://github.com/bazelbuild/rules_go/releases/download/v0.34.0/rules_go-v0.34.0.zip",
+      "repository": "io_bazel_rules_go",
+      "filename": "rules_go-v0.34.0.zip",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/18392cf0736e1d62ecbb8d695c31496b6507859e8c75541d7ad0ba092dc52115/file",
+      "sha256": "18392cf0736e1d62ecbb8d695c31496b6507859e8c75541d7ad0ba092dc52115",
+      "origin": "https://github.com/google/farmhash/archive/0d859a811870d10f53a594927d0d0b97573ad06d.tar.gz",
+      "repository": "farmhash_archive",
+      "filename": "0d859a811870d10f53a594927d0d0b97573ad06d.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/1ae6fcf983cff3edab717636f91ad0efff2e5ba75607fdddddfd6ad0dbdfaf10/file",
+      "sha256": "1ae6fcf983cff3edab717636f91ad0efff2e5ba75607fdddddfd6ad0dbdfaf10",
+      "origin": "https://github.com/bazelbuild/apple_support/releases/download/1.24.5/apple_support.1.24.5.tar.gz",
+      "repository": "build_bazel_apple_support",
+      "filename": "apple_support.1.24.5.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/2146ff231d9aadd2b11f324c142582f89e3804775877735dc507b4dfd70c788b/file",
+      "sha256": "2146ff231d9aadd2b11f324c142582f89e3804775877735dc507b4dfd70c788b",
+      "origin": "https://developer.download.nvidia.com/compute/redist/nvshmem/3.1.7/source/nvshmem_src_3.1.7-1.txz",
+      "repository": "nvshmem",
+      "filename": "nvshmem_src_3.1.7-1.txz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/249d83abc5d50bf372c35c49d77f900bff022b2c21eb73aa8da1458b6ac401fc/file",
+      "sha256": "249d83abc5d50bf372c35c49d77f900bff022b2c21eb73aa8da1458b6ac401fc",
+      "origin": "https://github.com/googleapis/googleapis/archive/6b3fdcea8bc5398be4e7e9930c693f0ea09316a0.tar.gz",
+      "repository": "com_google_googleapis",
+      "filename": "6b3fdcea8bc5398be4e7e9930c693f0ea09316a0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/264537d90e58d2b09dddc50944baf3c38e7089151c8986715e2aaeaaf2b8118f/file",
+      "sha256": "264537d90e58d2b09dddc50944baf3c38e7089151c8986715e2aaeaaf2b8118f",
+      "origin": "https://curl.se/download/curl-8.11.0.tar.gz",
+      "repository": "curl",
+      "filename": "curl-8.11.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/294cdd859e57fcaf101d4301978c408c88683fbc46fbc1a3829da92afbea55fb/file",
+      "sha256": "294cdd859e57fcaf101d4301978c408c88683fbc46fbc1a3829da92afbea55fb",
+      "origin": "https://github.com/bazelbuild/bazel-toolchains/archive/8c717f8258cd5f6c7a45b97d974292755852b658.tar.gz",
+      "repository": "bazel_toolchains",
+      "filename": "8c717f8258cd5f6c7a45b97d974292755852b658.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/29742e87275809b5e598dc2f04d86960cc7a55b3067d97221c9abbc9926bff0f/file",
+      "sha256": "29742e87275809b5e598dc2f04d86960cc7a55b3067d97221c9abbc9926bff0f",
+      "origin": "https://github.com/bazelbuild/platforms/releases/download/0.0.11/platforms-0.0.11.tar.gz",
+      "repository": "platforms",
+      "filename": "platforms-0.0.11.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/3144e17a612dda145aa0e4acb3caa27a5dae4e26edced64bc351c43d5004af53/file",
+      "sha256": "3144e17a612dda145aa0e4acb3caa27a5dae4e26edced64bc351c43d5004af53",
+      "origin": "https://github.com/unicode-org/icu/archive/release-69-1.zip",
+      "repository": "icu",
+      "filename": "release-69-1.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/31da5562f44c5f15d63340a09a4fd62b48c45620cd302f77a6d9acf0077879bd/file",
+      "sha256": "31da5562f44c5f15d63340a09a4fd62b48c45620cd302f77a6d9acf0077879bd",
+      "origin": "https://pilotfiber.dl.sourceforge.net/project/giflib/giflib-5.2.1.tar.gz",
+      "repository": "gif",
+      "mirrors": [
+        "https://storage.googleapis.com/mirror.tensorflow.org/pilotfiber.dl.sourceforge.net/project/giflib/giflib-5.2.1.tar.gz"
+      ],
+      "filename": "giflib-5.2.1.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/451e08a4d78988c06fa3f9306ec813b836b1d076d0f055595444ba4ff22b867f/file",
+      "sha256": "451e08a4d78988c06fa3f9306ec813b836b1d076d0f055595444ba4ff22b867f",
+      "origin": "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.1/rules_pkg-0.7.1.tar.gz",
+      "repository": "rules_pkg",
+      "filename": "rules_pkg-0.7.1.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/4531deccb913639c30e5c7512a054d5d875698daeb75d8cf90f284375fe7c360/file",
+      "sha256": "4531deccb913639c30e5c7512a054d5d875698daeb75d8cf90f284375fe7c360",
+      "origin": "https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz",
+      "repository": "rules_license",
+      "filename": "rules_license-0.0.7.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/4b12149a041ddfb8306a8fd0e904e39d673552ce82e4296e96fac9cbf0780e59/file",
+      "sha256": "4b12149a041ddfb8306a8fd0e904e39d673552ce82e4296e96fac9cbf0780e59",
+      "origin": "https://github.com/bazelbuild/rules_cc/archive/refs/tags/0.1.0.tar.gz",
+      "repository": "rules_cc",
+      "filename": "0.1.0.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/4cb0a781ed980b03ad8c48beb57407aa67c4b908e45722954b9730379bc7f6d5/file",
+      "sha256": "4cb0a781ed980b03ad8c48beb57407aa67c4b908e45722954b9730379bc7f6d5",
+      "origin": "https://download.open-mpi.org/release/hwloc/v2.7/hwloc-2.7.1.tar.gz",
+      "repository": "hwloc",
+      "filename": "hwloc-2.7.1.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/4fd9922d464686820ffd8fcefa28ccffa147f7cdc6b6ac0d8b07fde565c65d66/file",
+      "sha256": "4fd9922d464686820ffd8fcefa28ccffa147f7cdc6b6ac0d8b07fde565c65d66",
+      "origin": "https://github.com/bazel-contrib/bazel_features/releases/download/v1.25.0/bazel_features-v1.25.0.tar.gz",
+      "repository": "bazel_features",
+      "filename": "bazel_features-v1.25.0.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/5449ed36d61269579dd9f4b0e532cd131840f285b389b3795ae8b4d717387dd8/file",
+      "sha256": "5449ed36d61269579dd9f4b0e532cd131840f285b389b3795ae8b4d717387dd8",
+      "origin": "https://github.com/bazelbuild/rules_java/releases/download/8.7.0/rules_java-8.7.0.tar.gz",
+      "repository": "rules_java",
+      "filename": "rules_java-8.7.0.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/54c1a357f71f611efdb4891ebd4bcbe4aeb6dfa7e473f14fd7ecad5062096616/file",
+      "sha256": "54c1a357f71f611efdb4891ebd4bcbe4aeb6dfa7e473f14fd7ecad5062096616",
+      "origin": "https://github.com/google-ml-infra/rules_ml_toolchain/archive/d8cb9c2c168cd64000eaa6eda0781a9615a26ffe.tar.gz",
+      "repository": "rules_ml_toolchain",
+      "filename": "d8cb9c2c168cd64000eaa6eda0781a9615a26ffe.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/54ec30358afcc9fb8aa74307db3046f5187f9fb89fb37064cdde906e062ebf36/file",
+      "sha256": "54ec30358afcc9fb8aa74307db3046f5187f9fb89fb37064cdde906e062ebf36",
+      "origin": "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz",
+      "repository": "llvm18_linux_x86_64",
+      "filename": "clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/552ca3d4d1af4beeb1907980f7096315aa24150d6baf5ac1e5ad90f04846c670/file",
+      "sha256": "552ca3d4d1af4beeb1907980f7096315aa24150d6baf5ac1e5ad90f04846c670",
+      "origin": "https://github.com/google/benchmark/archive/f7547e29ccaed7b64ef4f7495ecfff1c9f6f3d03.tar.gz",
+      "repository": "com_google_benchmark",
+      "filename": "f7547e29ccaed7b64ef4f7495ecfff1c9f6f3d03.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/583d7b975e506c076fc579d9139530596906b9195b203d42361417e9aad79b73/file",
+      "sha256": "583d7b975e506c076fc579d9139530596906b9195b203d42361417e9aad79b73",
+      "origin": "https://github.com/joe-kuo/sobol_data/archive/835a7d7b1ee3bc83e575e302a985c66ec4b65249.tar.gz",
+      "repository": "sobol_data",
+      "filename": "835a7d7b1ee3bc83e575e302a985c66ec4b65249.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/590ec559107fc7082e1a7d70e9c9bfb8624c79dabca0a05fe1bcba1d7a591ec8/file",
+      "sha256": "590ec559107fc7082e1a7d70e9c9bfb8624c79dabca0a05fe1bcba1d7a591ec8",
+      "origin": "https://github.com/google/riegeli/archive/a37c3dbdd5d2a15113d363c7a7c41c30453e482f.zip",
+      "repository": "riegeli",
+      "filename": "a37c3dbdd5d2a15113d363c7a7c41c30453e482f.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/59b9f6681b2aa395a07908d6875ce47eae8e2a5af496449b827bd0370947d355/file",
+      "sha256": "59b9f6681b2aa395a07908d6875ce47eae8e2a5af496449b827bd0370947d355",
+      "origin": "https://storage.googleapis.com/ml-sysroot-testing/xz_x86_64-5.8.1.tar.xz",
+      "repository": "xz-build-tool",
+      "filename": "xz_x86_64-5.8.1.tar.xz",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/5b00383d08dd71f28503736db0500b6fb4dda47489ff5fc6bed42557c07c6ba9/file",
+      "sha256": "5b00383d08dd71f28503736db0500b6fb4dda47489ff5fc6bed42557c07c6ba9",
+      "origin": "https://github.com/bazelbuild/rules_closure/archive/308b05b2419edb5c8ee0471b67a40403df940149.tar.gz",
+      "repository": "io_bazel_rules_closure",
+      "filename": "308b05b2419edb5c8ee0471b67a40403df940149.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/5e81d70f9534340f7ef8e63ec43bdd5971135e48183079be50ecb3f74b1fed66/file",
+      "sha256": "5e81d70f9534340f7ef8e63ec43bdd5971135e48183079be50ecb3f74b1fed66",
+      "origin": "https://github.com/tensorflow/runtime/archive/4ecc3a44a32c832b748328bed3f9a599f795ca8d.tar.gz",
+      "repository": "tf_runtime",
+      "filename": "4ecc3a44a32c832b748328bed3f9a599f795ca8d.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/5e8ee902c8906ddb7779fd36dc9979cb08b51fbebf7c0b1a9aeb78af382af590/file",
+      "sha256": "5e8ee902c8906ddb7779fd36dc9979cb08b51fbebf7c0b1a9aeb78af382af590",
+      "origin": "https://storage.googleapis.com/ml-sysroot-testing/libtinfo/copyright.txt",
+      "repository": "llvm-libtinfo-notice",
+      "filename": "copyright.txt",
+      "kind": "metadata"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/5f4dabc2ae21e1f537425d58a49cdca1c49ea11db0d6271e2a4b27e9697548eb/file",
+      "sha256": "5f4dabc2ae21e1f537425d58a49cdca1c49ea11db0d6271e2a4b27e9697548eb",
+      "origin": "https://github.com/petewarden/OouraFFT/archive/v1.0.tar.gz",
+      "repository": "fft2d",
+      "filename": "v1.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/6274687f6fc5783b589f56a2f1ed60de3ce1f99bc4e8f9edef3de43bdf7c6e74/file",
+      "sha256": "6274687f6fc5783b589f56a2f1ed60de3ce1f99bc4e8f9edef3de43bdf7c6e74",
+      "origin": "https://github.com/bazelbuild/rules_jvm_external/archive/4.3.zip",
+      "repository": "rules_jvm_external",
+      "filename": "4.3.zip",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/63d78840bf209af8da8f24e335d910f88387b892ca9187be571d481c071751bb/file",
+      "sha256": "63d78840bf209af8da8f24e335d910f88387b892ca9187be571d481c071751bb",
+      "origin": "https://github.com/astral-sh/python-build-standalone/releases/download/20250808/cpython-3.12.11+20250808-x86_64-unknown-linux-gnu-install_only.tar.gz",
+      "repository": "python_3_12_x86_64-unknown-linux-gnu",
+      "filename": "cpython-3.12.11+20250808-x86_64-unknown-linux-gnu-install_only.tar.gz",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/6e09bbc950ba60c3a7b30280210cd285af8d7d8ed5e0a6ed101c72aff22e8d88/file",
+      "sha256": "6e09bbc950ba60c3a7b30280210cd285af8d7d8ed5e0a6ed101c72aff22e8d88",
+      "origin": "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v6.31.1.zip",
+      "repository": "com_google_protobuf",
+      "filename": "v6.31.1.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/7897bc5d620580d9b7cd3539c44b59d78f3657d33663fe97a145e07b4ebd69a4/file",
+      "sha256": "7897bc5d620580d9b7cd3539c44b59d78f3657d33663fe97a145e07b4ebd69a4",
+      "origin": "https://github.com/facebook/zstd/archive/v1.5.7.zip",
+      "repository": "net_zstd",
+      "filename": "v1.5.7.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/7dc418717c8456473fac4ff2288b71057e3dcb72894524c734a4362cdb51fa8b/file",
+      "sha256": "7dc418717c8456473fac4ff2288b71057e3dcb72894524c734a4362cdb51fa8b",
+      "origin": "https://github.com/google/gemmlowp/archive/16e8662c34917be0065110bfcd9cc27d30f52fdf.zip",
+      "repository": "gemmlowp",
+      "filename": "16e8662c34917be0065110bfcd9cc27d30f52fdf.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/7ee7540b23ae04df961af24309a55484e7016106e979f83323536a1322cedf1b/file",
+      "sha256": "7ee7540b23ae04df961af24309a55484e7016106e979f83323536a1322cedf1b",
+      "origin": "https://github.com/google/snappy/archive/1.2.0.zip",
+      "repository": "snappy",
+      "filename": "1.2.0.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec/file",
+      "sha256": "816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec",
+      "origin": "https://github.com/google/brotli/archive/refs/tags/v1.2.0.tar.gz",
+      "repository": "org_brotli",
+      "filename": "v1.2.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/81ea28cf9e5bb032d356b0187409f30b1035f8ea5b530675ea248c8a6c0070aa/file",
+      "sha256": "81ea28cf9e5bb032d356b0187409f30b1035f8ea5b530675ea248c8a6c0070aa",
+      "origin": "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v2.35.0.tar.gz",
+      "repository": "google_cloud_cpp",
+      "filename": "v2.35.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/904b924d435eaea086515bc63235b192ea441bd8c9b198c507e85009e6e4c7f0/file",
+      "sha256": "904b924d435eaea086515bc63235b192ea441bd8c9b198c507e85009e6e4c7f0",
+      "origin": "https://dl.google.com/go/go1.22.5.linux-amd64.tar.gz",
+      "repository": "go-sdk-build-tool",
+      "filename": "go1.22.5.linux-amd64.tar.gz",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/9a06397f9dc4fe2237d126f964f1a3c942ce0036ba51976ea0d7fce0bc3e2fb7/file",
+      "sha256": "9a06397f9dc4fe2237d126f964f1a3c942ce0036ba51976ea0d7fce0bc3e2fb7",
+      "origin": "https://storage.googleapis.com/ml-sysroot-testing/x86_64/x86_64_ubuntu18_gcc8.4-0.2.1.tar.xz",
+      "repository": "sysroot_linux_x86_64_glibc_2_27",
+      "filename": "x86_64_ubuntu18_gcc8.4-0.2.1.tar.xz",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23/file",
+      "sha256": "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+      "origin": "https://zlib.net/fossils/zlib-1.3.1.tar.gz",
+      "repository": "zlib",
+      "filename": "zlib-1.3.1.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/9ad6d16cbc1df7cd55c8b55127c82a9bca5e9f287818de6dc87e04e73599d754/file",
+      "sha256": "9ad6d16cbc1df7cd55c8b55127c82a9bca5e9f287818de6dc87e04e73599d754",
+      "origin": "https://www.sqlite.org/2025/sqlite-amalgamation-3500300.zip",
+      "repository": "org_sqlite",
+      "filename": "sqlite-amalgamation-3500300.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/9dc53f851107eaf87b391136d13b815df97ec8f76dadb487b58b2fc45e624d2c/file",
+      "sha256": "9dc53f851107eaf87b391136d13b815df97ec8f76dadb487b58b2fc45e624d2c",
+      "origin": "https://github.com/google/boringssl/archive/c00d7ca810e93780bd0c8ee4eea28f4f2ea4bcdc.tar.gz",
+      "repository": "boringssl",
+      "filename": "c00d7ca810e93780bd0c8ee4eea28f4f2ea4bcdc.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/a71517b3815984c1a8174db1ebc58a17d4f5c23c06e377bbc4a5dfc85855a516/file",
+      "sha256": "a71517b3815984c1a8174db1ebc58a17d4f5c23c06e377bbc4a5dfc85855a516",
+      "origin": "https://gitlab.com/libeigen/eigen/-/archive/dcbaf2d608f306450f1e74949eb87e9a22a7ef4b/eigen-dcbaf2d608f306450f1e74949eb87e9a22a7ef4b.tar.gz",
+      "repository": "eigen_archive",
+      "filename": "eigen-dcbaf2d608f306450f1e74949eb87e9a22a7ef4b.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/a78b05c0d8427a90eb5b4eb08af25309770c8379592bb0b8a863373128e6143f/file",
+      "sha256": "a78b05c0d8427a90eb5b4eb08af25309770c8379592bb0b8a863373128e6143f",
+      "origin": "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.4.tar.gz",
+      "repository": "libjpeg_turbo",
+      "filename": "2.1.4.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/ab51e978326b87e06be7a12fc6496f3ff6586339043557dbbd31f622332a5d45/file",
+      "sha256": "ab51e978326b87e06be7a12fc6496f3ff6586339043557dbbd31f622332a5d45",
+      "origin": "https://github.com/bufbuild/protoc-gen-validate/archive/refs/tags/v1.2.1.zip",
+      "repository": "com_envoyproxy_protoc_gen_validate",
+      "filename": "v1.2.1.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/b4df908ec14868369021182ab191dbd1f40830c9b300650d5dc389e0b9266c8d/file",
+      "sha256": "b4df908ec14868369021182ab191dbd1f40830c9b300650d5dc389e0b9266c8d",
+      "origin": "https://github.com/bazelbuild/rules_apple/releases/download/3.5.1/rules_apple.3.5.1.tar.gz",
+      "repository": "build_bazel_rules_apple",
+      "filename": "rules_apple.3.5.1.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/bb01097c7c7a1407f8ad49a1a0b1960655cf823c26ad2782d0b7d15b323838e2/file",
+      "sha256": "bb01097c7c7a1407f8ad49a1a0b1960655cf823c26ad2782d0b7d15b323838e2",
+      "origin": "https://github.com/bazelbuild/rules_swift/releases/download/1.18.0/rules_swift.1.18.0.tar.gz",
+      "repository": "build_bazel_rules_swift",
+      "filename": "rules_swift.1.18.0.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f/file",
+      "sha256": "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
+      "origin": "https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+      "repository": "bazel_skylib",
+      "filename": "bazel-skylib-1.7.1.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/bc61ef94facc78e20a645726f64756e5e285a045037c7a61f65af2941f4c25e1/file",
+      "sha256": "bc61ef94facc78e20a645726f64756e5e285a045037c7a61f65af2941f4c25e1",
+      "origin": "https://github.com/bazelbuild/rules_shell/releases/download/v0.4.1/rules_shell-v0.4.1.tar.gz",
+      "repository": "rules_shell",
+      "filename": "rules_shell-v0.4.1.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/bcd0c5f46a49b85b384906daae41d277b3dc0ff27c7c752cc51e43048a58ec83/file",
+      "sha256": "bcd0c5f46a49b85b384906daae41d277b3dc0ff27c7c752cc51e43048a58ec83",
+      "origin": "https://github.com/bazelbuild/rules_foreign_cc/archive/0.7.1.tar.gz",
+      "repository": "rules_foreign_cc",
+      "filename": "0.7.1.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/c0e2b9931fbcce3bfbcd7999c3c114f404ac0f8b89775a5bbccbcaa501868e58/file",
+      "sha256": "c0e2b9931fbcce3bfbcd7999c3c114f404ac0f8b89775a5bbccbcaa501868e58",
+      "origin": "https://github.com/google/highwayhash/archive/c13d28517a4db259d738ea4886b1f00352a3cc33.tar.gz",
+      "repository": "highwayhash",
+      "filename": "c13d28517a4db259d738ea4886b1f00352a3cc33.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/cae680670bfa6e82703c03f2a3c995408cdcbf43616d7bdd198ef45d3c327731/file",
+      "sha256": "cae680670bfa6e82703c03f2a3c995408cdcbf43616d7bdd198ef45d3c327731",
+      "origin": "https://github.com/pybind/pybind11_bazel/archive/v2.13.6.tar.gz",
+      "repository": "pybind11_bazel",
+      "filename": "v2.13.6.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/cd06d15dd8bb59926e4d65f9003bfc20f9da4b2519985c27e190cddc8b7a7806/file",
+      "sha256": "cd06d15dd8bb59926e4d65f9003bfc20f9da4b2519985c27e190cddc8b7a7806",
+      "origin": "https://github.com/bazelbuild/rules_android/archive/v0.1.1.zip",
+      "repository": "build_bazel_rules_android",
+      "filename": "v0.1.1.zip",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/cd8b49614408b43bd45d90e3e98d69e24eea632ff42ac3bfb8bca68bc31e377f/file",
+      "sha256": "cd8b49614408b43bd45d90e3e98d69e24eea632ff42ac3bfb8bca68bc31e377f",
+      "origin": "https://github.com/envoyproxy/data-plane-api/archive/4de3c74cf21a9958c1cf26d8993c55c6e0d28b49.tar.gz",
+      "repository": "envoy_api",
+      "filename": "4de3c74cf21a9958c1cf26d8993c55c6e0d28b49.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/d1abe9da2003e6cbbd7619b0ced3e52047422f4f4ac6c66a9bef5d2e99fea837/file",
+      "sha256": "d1abe9da2003e6cbbd7619b0ced3e52047422f4f4ac6c66a9bef5d2e99fea837",
+      "origin": "https://github.com/abseil/abseil-cpp/archive/d38452e1ee03523a208362186fd42248ff2609f6.tar.gz",
+      "repository": "com_google_absl",
+      "filename": "d38452e1ee03523a208362186fd42248ff2609f6.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/d27bcd502a0843e463fc4eb7d3532d0d720ddd6af6e39942846f1aa769352625/file",
+      "sha256": "d27bcd502a0843e463fc4eb7d3532d0d720ddd6af6e39942846f1aa769352625",
+      "origin": "https://github.com/openxla/xprof/archive/c695e43eba127a74a67263775ab611bded7fba34.zip",
+      "repository": "org_xprof",
+      "mirrors": [
+        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/openxla/xprof/archive/c695e43eba127a74a67263775ab611bded7fba34.zip"
+      ],
+      "filename": "c695e43eba127a74a67263775ab611bded7fba34.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/d3be6744685d7a90adc16e3d5342ba9b28fc388422629a1bea146b3798229af6/file",
+      "sha256": "d3be6744685d7a90adc16e3d5342ba9b28fc388422629a1bea146b3798229af6",
+      "origin": "https://storage.googleapis.com/ml-sysroot-testing/tar_x86_64-1.35.tar.xz",
+      "repository": "tar-build-tool",
+      "filename": "tar_x86_64-1.35.tar.xz",
+      "kind": "binary-build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/d76bf7a60fd8b050444090dfa2837a4eaf9829e1165618ee35dceca5cbdf58d5/file",
+      "sha256": "d76bf7a60fd8b050444090dfa2837a4eaf9829e1165618ee35dceca5cbdf58d5",
+      "origin": "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.37.0/bazel-gazelle-v0.37.0.tar.gz",
+      "repository": "bazel_gazelle",
+      "filename": "bazel-gazelle-v0.37.0.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/dd6a2fa311ba8441bbefd2764c55b99136ff10f7ea42954be96006a2723d33fc/file",
+      "sha256": "dd6a2fa311ba8441bbefd2764c55b99136ff10f7ea42954be96006a2723d33fc",
+      "origin": "https://github.com/grpc/grpc/archive/refs/tags/v1.74.0.tar.gz",
+      "repository": "com_github_grpc_grpc",
+      "filename": "v1.74.0.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/ef516fb84824a597c4d5d0d6d330daedb18363b5a99eda87d027e6bdd9cba299/file",
+      "sha256": "ef516fb84824a597c4d5d0d6d330daedb18363b5a99eda87d027e6bdd9cba299",
+      "origin": "https://github.com/google/re2/archive/03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",
+      "repository": "com_googlesource_code_re2",
+      "filename": "03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/f253ca1a07262f8efde8328e4b2c68979e40ddfcfc001f70d1d5f612c7de2974/file",
+      "sha256": "f253ca1a07262f8efde8328e4b2c68979e40ddfcfc001f70d1d5f612c7de2974",
+      "origin": "https://github.com/google/googletest/archive/28e9d1f26771c6517c3b4be10254887673c940189.zip",
+      "repository": "com_google_googletest",
+      "filename": "28e9d1f26771c6517c3b4be10254887673c940189.zip",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2/file",
+      "sha256": "f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2",
+      "origin": "https://github.com/open-source-parsers/jsoncpp/archive/1.9.5.tar.gz",
+      "repository": "jsoncpp_git",
+      "filename": "1.9.5.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/f6e5880666661351e6cd084ac4178ddc4dabcde7e9a73722981c0d1500cf5937/file",
+      "sha256": "f6e5880666661351e6cd084ac4178ddc4dabcde7e9a73722981c0d1500cf5937",
+      "origin": "https://github.com/jax-ml/ml_dtypes/archive/00d98cd92ade342fef589c0470379abb27baebe9/ml_dtypes-00d98cd92ade342fef589c0470379abb27baebe9.tar.gz",
+      "repository": "ml_dtypes_py",
+      "filename": "ml_dtypes-00d98cd92ade342fef589c0470379abb27baebe9.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/fa7dd2c6b7d63b3585028dd8a90a6cf9db83c33b250959c2ee7b583a6c130e12/file",
+      "sha256": "fa7dd2c6b7d63b3585028dd8a90a6cf9db83c33b250959c2ee7b583a6c130e12",
+      "origin": "https://github.com/bazelbuild/rules_python/releases/download/1.6.0/rules_python-1.6.0.tar.gz",
+      "repository": "rules_python",
+      "filename": "rules_python-1.6.0.tar.gz",
+      "kind": "build-tool"
+    },
+    {
+      "path": ".ffb_inputs/repository-cache/content_addressable/sha256/fecc95b46cf05e8e3fc8a414750e0ba5aad00d89e9fdf175e94ff041caf1a03a/file",
+      "sha256": "fecc95b46cf05e8e3fc8a414750e0ba5aad00d89e9fdf175e94ff041caf1a03a",
+      "origin": "https://github.com/glennrp/libpng/archive/v1.6.43.tar.gz",
+      "repository": "png",
+      "filename": "v1.6.43.tar.gz",
+      "kind": "source"
+    },
+    {
+      "path": ".ffb_inputs/bazel-7.7.0",
+      "sha256": "fe7e799cbc9140f986b063e06800a3d4c790525075c877d00a7112669824acbf",
+      "origin": "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-linux-x86_64",
+      "repository": "bazel",
+      "filename": "bazel-7.7.0",
+      "kind": "binary-build-tool"
+    }
+  ],
+  "cacheIds": [
+    ".ffb_inputs/repository-cache/content_addressable/sha256/ab51e978326b87e06be7a12fc6496f3ff6586339043557dbbd31f622332a5d45/id-4b8442659992ce0d9d638391739380317640fbe9ff51403df9bbcbe0394f76a6",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/0e5c64a2599a6e26c6a03d6162242d231ecc0de219534c38cb4402171def21e8/id-5638dfb7cbc1e162c33fa9170d3fb45983c69c1f23dfae679854464afc8487e0",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/d76bf7a60fd8b050444090dfa2837a4eaf9829e1165618ee35dceca5cbdf58d5/id-a5669c11868950c566b55af2c9fa1fe386665d62ab112c718b50785dd5faba56",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/81ea28cf9e5bb032d356b0187409f30b1035f8ea5b530675ea248c8a6c0070aa/id-74187c1cc07ff29b8f2e46614586f796646b2279a458c0fc63dfffd65f982653",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/bcd0c5f46a49b85b384906daae41d277b3dc0ff27c7c752cc51e43048a58ec83/id-9d595d012f238189354fe7898fd461110791d77c4531324b3a56400cf80790b1",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/cd8b49614408b43bd45d90e3e98d69e24eea632ff42ac3bfb8bca68bc31e377f/id-95bd71f0d12ccd5ea8a6ed94b620142a96af3a5f14e6d6f1e1600f9e018da843",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/5449ed36d61269579dd9f4b0e532cd131840f285b389b3795ae8b4d717387dd8/id-b20328fd5001a8c3bfc5b3e7f8720721667eb262e6018323b08f76af170d00b2",
+    ".ffb_inputs/repository-cache/content_addressable/sha256/09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759/id-2d99aa71a4cd15ba8540455707395988d584c85526c077b3b1daf66713817467"
+  ]
+}
