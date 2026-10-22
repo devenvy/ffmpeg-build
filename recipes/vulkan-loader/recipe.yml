@@ -22,29 +22,53 @@ version-group: vulkan-sdk
 # Upstream's BUILD_VULKAN_LOADER: glibc and musl Linux, and macOS paired with MoltenVK (iOS and Mac Catalyst link
 # MoltenVK statically instead: see moltenvk).
 platforms: [linux-x64, linux-arm64, linux-musl-*, osx-*] # not linux-armhf: upstream uses the headers there
+linkage:
+  default: shared
+  defaults: { linux-x64: static }
+  modes:
+    static:
+      platforms: [linux-x64]
+      configure: [--enable-vulkan-static]
+      vars:
+        {
+          static-loader: yes,
+          loader-args: [-DCMAKE_POSITION_INDEPENDENT_CODE=ON, -DSYSCONFDIR=/etc],
+        }
+      runtime: []
+    shared: {}
 runtime:
   - 'lib/libvulkan.so*': { platforms: [linux-*] }
   - 'lib/libvulkan*.dylib': { platforms: [osx-*] }
 build:
-  # Vulkan-Loader: minimal SHARED Vulkan ICD loader (Apache-2.0), built with WSI disabled so it's libc-only and can
-  # be bundled in the artifact (recipe.yml runtime:). Ported from devenvy/ffmpeg scripts/deps/vulkan-loader.sh.
+  # Vulkan-Loader: minimal Vulkan ICD loader (Apache-2.0), built with WSI disabled. Linux x64 can embed a PIC
+  # static loader; other platforms retain the bundled shared loader until their static builds are verified.
   #
-  # On glibc Linux, whisper's ggml-vulkan HARD-LINKS the loader (FFmpeg itself only
-  # dlopens it -- vulkan.pc stays header-only). Rather than depend on the
-  # system libvulkan (which is built with X11/xcb WSI and would re-introduce an
-  # install requirement), build a minimal shared Vulkan-Loader with WSI disabled --
-  # its only dependency is libc -- so it can be bundled in the artifact. It still
-  # dlopens the system GPU ICD driver at runtime (GPU when present, CPU fallback).
+  # Whisper's ggml-vulkan links this loader directly. FFmpeg links it in static mode through vulkan-static,
+  # and resolves it at runtime in shared mode. Both modes still load the recipient's installed ICD driver:
+  # selecting a static loader does not embed a GPU driver. FFmpeg passes its owner proc-address callback when
+  # libplacebo imports a Vulkan device, so a second private loader does not dispatch foreign handles.
   #
   # The Vulkan-Headers CMake package its find_package needs is installed by the vulkan-headers recipe.
-  # Its own cmake line (not the standard one): shared, no prefix path, no cross arguments but on macOS.
+  # Its own cmake line (not the standard one): no prefix path, no cross arguments but on macOS.
   system: none
+  vars: { static-loader: '', loader-args: [] }
   platforms:
     # macOS: the toolchain's arguments (osx-x64 is cross-compiled on Apple silicon; both keep Homebrew's packages
     # out). And /etc as the configuration folder the loader searches: by default it compiles in the install prefix's
     # etc/, which is a folder of the build machine (the staged-binary check rejects its path) and of no user's.
     'osx-*': { args: ['{cmake-cross-args}', -DSYSCONFDIR=/etc] }
   steps:
+    # Upstream's Unix loader is unconditionally shared. Keep this exact edit confined to the static mode.
+    - replace-in-file:
+        path: loader/CMakeLists.txt
+        from: '        add_library(vulkan SHARED)'
+        to: '        add_library(vulkan STATIC)'
+      when: { set: '{static-loader}' }
+    - replace-in-file:
+        path: loader/CMakeLists.txt
+        from: target_link_libraries(vulkan PRIVATE loader_specific_options)
+        to: target_link_libraries(vulkan PRIVATE $<BUILD_INTERFACE:loader_specific_options>)
+      when: { set: '{static-loader}' }
     - - cmake
       - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       - -S
@@ -60,6 +84,11 @@ build:
       - -DBUILD_WSI_XCB_SUPPORT=OFF
       - -DBUILD_WSI_WAYLAND_SUPPORT=OFF
       - -DBUILD_WSI_DIRECTFB_SUPPORT=OFF
+      - '{loader-args}'
       - '{args}'
     - [cmake, --build, _build, -j, '{jobs}']
     - [cmake, --install, _build]
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/vulkan.pc'
+        libs-private: { add: '-ldl -lm -pthread' }
+      when: { set: '{static-loader}' }
