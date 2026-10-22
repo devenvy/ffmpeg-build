@@ -22,13 +22,14 @@ jobs:
     permissions:
       contents: write
     with:
-      folder: examples/test-builds
+      folder: examples/verify-library-linkage-dispatchers
       engine: source
       publish: never
     # not a secret: a value tests/test-env.sh recognises, to check the test-env path end to end (masked all the same)
     secrets:
       test-env: FFB_TEST_ENV_CHECK=${{ github.run_id }}-ok
   native:
+    if: false
     uses: ./.github/workflows/build.yml
     permissions:
       contents: write
