@@ -1,5 +1,20 @@
 # Targets: ffmpeg-build.yml
 
+On Linux x64, `libdrm`, `libva` and `libvpl` accept independent bundled `shared`
+selections and retain static defaults. Shared VA includes both its core and DRM
+libraries; oneVPL bundles its dispatcher. Neither mode supplies a hardware driver
+or a physical device. Provide compatible VA drivers and use `LIBVA_DRIVERS_PATH`
+when their directory differs from the build prefix. Distribution locations vary:
+Debian/Ubuntu commonly use `/usr/lib/x86_64-linux-gnu/dri` and Fedora
+`/usr/lib64/dri`. These are hints, not an ABI guarantee. oneVPL similarly needs a
+compatible implementation such as the recipient's Intel GPU runtime.
+
+The maintained checks cover invalid device descriptors and software output.
+Native SDK checks exercise DRM containers, VA utility/invalid-display contracts,
+and actual oneVPL loader dispatch through an upstream source-built test runtime.
+They do not claim physical GPU encoding or decoding. CMake SDK consumers of
+shared oneVPL must select its native `VPL_SHARED=ON` option.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and
