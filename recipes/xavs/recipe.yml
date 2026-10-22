@@ -11,18 +11,55 @@ source: { git: https://github.com/Distrotech/xavs }
 versions: { git-branch: trunk }
 # x86-64 Linux and Windows: an x264 fork of 2011 whose configure knows no other targets FFmpeg builds for
 platforms: [linux-x64, linux-musl-x64, win-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [--enable-shared, '--extra-ldflags=-Wl,-z,defs,--version-script={src}/ffb-public-api.map']
+        library-target: libxavs.so.1
+        library-file: libxavs.so.1
+      runtime: ['lib/libxavs.so*']
 build:
   # xavs: AVS (GB/T 20090.2, "AVS1") video encoder (GPL-2.0-or-later), static, for FFmpeg's libxavs encoder; GPL
   # builds only. FFmpeg finds it with `-lxavs` (no pkg-config). Its x264-era configure and Makefile: the archive
   # only (`make libxavs.a`), installed by hand with xavs.h. Plain C: its assembly is yasm's, which the images don't
   # have. On mingw its configure sends probe output to NUL, a file outside Windows: /dev/null instead.
   system: none
-  vars: { cross: [] }
+  vars:
+    {
+      cross: [],
+      shared-mode: '',
+      shared-args: [],
+      library-target: libxavs.a,
+      library-file: libxavs.a,
+    }
   platforms:
     win-x64: { vars: { cross: [--host=x86_64-w64-mingw32, '--cross-prefix={CROSS_PREFIX}-'] } }
   steps:
+    - replace-in-file: { path: Makefile, from: '-Wl,-soname,$(SOFLAGS)', to: '$(SOFLAGS)' }
+      when: { set: '{shared-mode}' }
+    - run:
+        - python3
+        - -c
+        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'xavs', 'exports.map'), 'ffb-public-api.map')"
+      when: { set: '{shared-mode}' }
     - replace-in-file: { path: configure, from: 'DEVNULL="NUL"', to: 'DEVNULL="/dev/null"' }
-    - [./configure, '--prefix={deps}', --disable-asm, --enable-pic, '{cross}']
-    - [make, '-j{jobs}', libxavs.a]
-    - copy: { from: libxavs.a, into: '{deps}/lib' }
+    - [./configure, '--prefix={deps}', --disable-asm, --enable-pic, '{cross}', '{shared-args}']
+    - [make, '-j{jobs}', '{library-target}']
+    - copy: { from: '{library-file}', into: '{deps}/lib' }
+    - run: [ln, -s, libxavs.so.1, '{deps}/lib/libxavs.so']
+      when: { set: '{shared-mode}' }
     - copy: { from: xavs.h, into: '{deps}/include' }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'xavs', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
