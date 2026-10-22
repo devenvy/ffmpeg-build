@@ -6,15 +6,35 @@ source:
 versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/libcdio/libcdio }
 # the systems with CD drives and a libcdio driver for them: Linux, Windows and macOS (Android and iOS have no drive)
 platforms: [linux-*, win-*, osx-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-ldflags: '-Wl,-z,defs,--exclude-libs,libcdio.a:libiso9660.a:libudf.a'
+      runtime: ['lib/libcdio.so*', 'lib/libiso9660.so*', 'lib/libudf.so*']
 build:
   # libcdio: CD-ROM access (GPL-3.0-or-later), static, under libcdio-paranoia for FFmpeg's libcdio audio CD input
   # device. The libraries alone (lib and include: no programs, docs, examples, C++ bindings or tests), without
   # Joliet (its iconv), CDDB or VCD info, none of which reading audio tracks needs.
   system: autotools
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-ldflags: '',
+      shared-mode: '',
+    }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
     [
-      --disable-shared,
-      --enable-static,
+      '{shared-arg}',
+      '{static-arg}',
       --with-pic,
       --disable-cxx,
       --disable-cpp-progs,
@@ -35,3 +55,11 @@ build:
   after:
     - [make, -C, include, install]
     - [make, install-pkgconfigDATA]
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libcdio', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

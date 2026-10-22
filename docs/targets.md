@@ -35,6 +35,12 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
+On Linux x64, `libcdio` and `libcdio-paranoia` default to static linking and accept independent `shared`
+selections. Shared CDIO includes its ISO9660 and UDF libraries; shared paranoia includes the CDDA interface.
+The libraries can read compatible CUE/BIN audio images as well as supported drives. The maintained image
+check verifies exact stereo samples with an explicit output bound, and the SDK checks verified reads,
+seeking, filesystem contents and caller-owned handles without requiring an optical drive.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg
