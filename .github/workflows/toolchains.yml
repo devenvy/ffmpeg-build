@@ -78,7 +78,7 @@ jobs:
       - name: Xavs2 debugger
         continue-on-error: true
         run: |
-          cat authored.yuv | gdb --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' -ex 'info registers' --args runtime/ffmpeg -nostdin -hide_banner -loglevel error -f rawvideo -pixel_format yuv420p -video_size 128x128 -framerate 8 -i - -c:v libxavs2 -speed_level 0 -bf 0 -f avs2 authored.avs2
+          cat authored.yuv | gdb --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' -ex 'info registers' -ex 'x/12i $pc-16' -ex 'info proc mappings' -ex 'p $_siginfo' --args runtime/ffmpeg -nostdin -hide_banner -loglevel error -f rawvideo -pixel_format yuv420p -video_size 128x128 -framerate 8 -i - -c:v libxavs2 -speed_level 0 -bf 0 -f avs2 authored.avs2
 
   # Dependabot's base image bumps merge once every toolchain built and tested on them. CI's own auto-merge leaves
   # them alone: its required check (result) doesn't include these builds, so it would merge an untested toolchain.
