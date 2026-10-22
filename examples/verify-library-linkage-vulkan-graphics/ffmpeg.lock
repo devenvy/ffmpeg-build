@@ -1,0 +1,12 @@
+# ffmpeg.lock - written only by `ffmpeg-build update` / `ffmpeg-build lock`. Do not edit.
+engine: 0.0.1
+ffmpeg:
+  "8": { version: 8.1.3, sha256: 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 }
+  "9": { version: 9.0.2, sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e }
+libraries:
+  lcms2: { version: 2.19.1, commit: 21c582a594fe5279f90c0b93437c398f93bf62b0 }
+  libplacebo: { version: 7.360.1, commit: cee9b076f2c63104ccfd497fa79c39a867293ec4 }
+  shaderc: { version: 2026.4, commit: b64fd42c4a2a9d501c47aca5d3571f7673a5e9cc }
+  spirv-headers: { version: 1.4.363.0, commit: 496543121ce6419f23d6fa5d7194ba66c36212d2 }
+  vulkan-headers: { version: 1.4.363.0, commit: 6802bb4733b63ed5efd3adb308a6c885ef180ea1 }
+  vulkan-loader: { version: 1.4.363.0, commit: fa218055ff4948b159f31d43f800c808a13d51df }
