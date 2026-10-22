@@ -1,0 +1,9 @@
+<lensdatabase version="2">
+  <mount><name>FFB Mount</name></mount>
+  <camera><maker>FFB</maker><model>Test Camera</model><mount>FFB Mount</mount><cropfactor>1</cropfactor></camera>
+  <lens>
+    <maker>FFB</maker><model>Test Lens</model><mount>FFB Mount</mount><cropfactor>1</cropfactor>
+    <type>rectilinear</type>
+    <calibration><distortion model="poly3" focal="35" k1="0.15"/></calibration>
+  </lens>
+</lensdatabase>
