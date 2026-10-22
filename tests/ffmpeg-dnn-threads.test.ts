@@ -27,16 +27,21 @@ const makeSource = () => {
   return { root, dir };
 };
 
-it('joins only created threads, resets ownership on join, and is idempotent', () => {
-  const { root, dir } = makeSource();
-  expect(fixDnnThreadLifecycle(root, ['--enable-libonnxruntime'])).toBe(true);
-  const source = readFileSync(join(dir, 'dnn_backend_common.c'), 'utf8');
-  expect(source.match(/if \(async_module->thread_started\)/g)).toHaveLength(2);
-  expect(source.match(/async_module->thread_started = 0;/g)).toHaveLength(2);
-  expect(source).toContain('async_module->thread_started = 1;\n#else');
-  expect(readFileSync(join(dir, 'dnn_backend_common.h'), 'utf8')).toContain('int thread_started;');
-  expect(fixDnnThreadLifecycle(root, ['--enable-libonnxruntime'])).toBe(false);
-});
+it.each(['--enable-libonnxruntime', '--enable-libtorch', '--enable-libtensorflow'])(
+  'joins only created threads for %s and is idempotent',
+  (flag) => {
+    const { root, dir } = makeSource();
+    expect(fixDnnThreadLifecycle(root, [flag])).toBe(true);
+    const source = readFileSync(join(dir, 'dnn_backend_common.c'), 'utf8');
+    expect(source.match(/if \(async_module->thread_started\)/g)).toHaveLength(2);
+    expect(source.match(/async_module->thread_started = 0;/g)).toHaveLength(2);
+    expect(source).toContain('async_module->thread_started = 1;\n#else');
+    expect(readFileSync(join(dir, 'dnn_backend_common.h'), 'utf8')).toContain(
+      'int thread_started;',
+    );
+    expect(fixDnnThreadLifecycle(root, [flag])).toBe(false);
+  },
+);
 
 it('does not alter builds without ONNX or an upstream implementation that already tracks threads', () => {
   const { root, dir } = makeSource();
