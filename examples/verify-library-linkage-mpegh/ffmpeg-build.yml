@@ -1,0 +1,27 @@
+targets:
+  linux-x64-shared-9-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [mpeghdec, fdk-aac]
+    tests: [../canary/tests/mpegh-linkage.sh]
+    link: { mpeghdec: shared }
+  linux-x64-static-9-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [mpeghdec, fdk-aac]
+    tests: [../canary/tests/mpegh-linkage.sh]
+  linux-x64-shared-8-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    with: [mpeghdec, fdk-aac]
+    tests: [../canary/tests/mpegh-linkage.sh]
+    link: { mpeghdec: shared }
+  linux-x64-static-8-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    with: [mpeghdec, fdk-aac]
+    tests: [../canary/tests/mpegh-linkage.sh]
