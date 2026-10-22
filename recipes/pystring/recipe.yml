@@ -5,6 +5,37 @@ source: { git: https://github.com/imageworks/pystring, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # only OpenColorIO builds against it, where it builds
 platforms: [linux-*, osx-*, win-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -Wl,-z,defs,--exclude-libs,libstdc++.a:libsupc++.a,--version-script={src}/ffb-public-api.map',
+          ]
+      runtime: ['lib/libpystring.so*']
 build:
   # pystring: Python's string methods for C++ (BSD-3-Clause), static, for OpenColorIO.
   system: cmake
+  vars: { shared-mode: '', shared-args: [] }
+  args: ['{shared-args}']
+  before:
+    - run:
+        - python3
+        - -c
+        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'pystring', 'exports.map'), 'ffb-public-api.map')"
+      when: { set: '{shared-mode}' }
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'pystring', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CXX|g++}'
+      when: { set: '{shared-mode}' }

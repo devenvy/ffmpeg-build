@@ -6,13 +6,26 @@ source: { git: https://github.com/zlib-ng/minizip-ng, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 # only OpenColorIO builds against it, where it builds
 platforms: [linux-*, osx-*, win-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [-DBUILD_SHARED_LIBS=ON, '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs,--exclude-libs,libz.a']
+      runtime: ['lib/libminizip-ng.so*']
 build:
   # minizip-ng: zip archives (Zlib), static, for OpenColorIO's .ocioz config archives. Deflate through zlib only, as
   # OpenColorIO's own build of it: no bzip2, LZMA, PPMd (4.2's bundled PPMd is a library of its own, which the .pc
   # doesn't name), zstd, encryption, signing, iconv, compatibility API or tests, and nothing fetched.
   system: cmake
+  vars: { shared-args: [], shared-mode: '' }
   args:
     [
+      '{shared-args}',
       -DMZ_OPENSSL=OFF,
       -DMZ_LIBBSD=OFF,
       -DMZ_BUILD_TESTS=OFF,
@@ -30,3 +43,12 @@ build:
       -DMZ_FETCH_LIBS=OFF,
       -DMZ_FORCE_FETCH_LIBS=OFF,
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'minizip-ng', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

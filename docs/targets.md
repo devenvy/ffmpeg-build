@@ -6,7 +6,8 @@ change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. 
 libgpg-error, zlib, xz (liblzma), aom, dav1d, soxr, libbs2b, libogg, libvorbis, opus, speex,
 libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg, snappy, freetype,
 libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, x264, openh264, xvidcore, x265, vvenc, svtav1,
-libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1 and gnutls
+libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls,
+minizip-ng, yaml-cpp, pystring and imath
 offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
