@@ -10,6 +10,14 @@ source: { url: 'https://downloads.xvid.com/downloads/xvidcore-{version}.tar.gz' 
 versions:
   { listing: 'https://downloads.xvid.com/downloads/', files: '^xvidcore-(\d+\.\d+\.\d+)\.tar\.gz$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { archive: libxvidcore.so.4.3, shared-library: yes }
+      runtime: ['lib/libxvidcore.so*']
 build:
   # Xvid: MPEG-4 Part 2 (ASP) encoder (GPL-2.0-or-later), static, for FFmpeg's libxvid encoder; GPL builds only.
   # FFmpeg finds it with `-lxvidcore` (no pkg-config). Its own configure and Makefile in build/generic, which build the
@@ -17,7 +25,7 @@ build:
   # installed by hand (the Makefile's install wants both). mingw names the archive xvidcore.a, which -lxvidcore
   # doesn't find: it is installed as libxvidcore.a.
   system: none
-  vars: { archive: libxvidcore.a }
+  vars: { archive: libxvidcore.a, shared-library: '' }
   platforms:
     'win-*': { vars: { archive: xvidcore.a } }
     # x86-64 assembly only where it links into position-independent code without text relocations
@@ -39,4 +47,11 @@ build:
     - run: [make, '-j{jobs}', '{archive}']
       cwd: build/generic
     - copy: { from: 'build/generic/=build/{archive}', to: '{deps}/lib/libxvidcore.a' }
+      when: { unset: '{shared-library}' }
+    - copy: { from: 'build/generic/=build/{archive}', into: '{deps}/lib' }
+      when: { set: '{shared-library}' }
+    - run: [ln, -sf, libxvidcore.so.4.3, '{deps}/lib/libxvidcore.so.4']
+      when: { set: '{shared-library}' }
+    - run: [ln, -sf, libxvidcore.so.4, '{deps}/lib/libxvidcore.so']
+      when: { set: '{shared-library}' }
     - copy: { from: src/xvid.h, into: '{deps}/include' }
