@@ -1,5 +1,25 @@
 # Targets: ffmpeg-build.yml
 
+On Linux x64, Leptonica and Tesseract retain static defaults and offer bundled
+`shared` selections. Shared Tesseract requires shared Leptonica: their full public
+SDK transfers PIX ownership across the boundary, while Leptonica's custom pixel
+allocator is held in library-global state. The planner rejects a private static
+Leptonica inside shared Tesseract. Static Tesseract can use shared Leptonica, and
+PNG/zlib dependencies keep their independently selected modes.
+
+Shared Leptonica preserves its annotated public functions and data; shared
+Tesseract preserves its C and C++ SDK, including renderer RTTI and virtual methods,
+with a private static C++ runtime and the common system unwinder. Linux static SDK
+metadata includes its thread dependency. Native SDK checks track custom pixel
+allocations through ownership transfer, thresholded-image retention and destruction.
+
+Language models are separate resources in either mode. Supply `datapath` or
+`TESSDATA_PREFIX`; the maintained checks download and verify a pinned Apache-2.0
+English model solely for testing. Six FFmpeg 8/9 combinations recognize an owned
+text image and reject missing language data. External SDK checks also recognize
+the text through C/C++ APIs and exercise iterators and a renderer subclass. No
+training tools or language model is added to release archives.
+
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
 change its dependencies' modes. `ffmpeg-build plan` shows the resolved choices. At present, libgcrypt and

@@ -1,0 +1,12 @@
+{
+  global:
+    Tess*;
+    _ZTIN9tesseract*;
+    _ZTSN9tesseract*;
+    _ZTVN9tesseract*;
+    _ZTTN9tesseract*;
+    _ZTh*N9tesseract*;
+    _ZTv*N9tesseract*;
+    extern "C++" { tesseract::*; };
+  local: *;
+};

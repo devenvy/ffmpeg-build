@@ -6,13 +6,36 @@ source: { git: https://github.com/DanBloomberg/leptonica, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 # only Tesseract builds against it
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            -DCMAKE_C_VISIBILITY_PRESET=hidden,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs,--exclude-libs,libpng16.a:libpng.a:libz.a',
+          ]
+      runtime: ['lib/libleptonica.so*']
 build:
   # Leptonica: image processing (BSD-2-Clause), static, under Tesseract. With zlib and PNG alone: FFmpeg hands
   # Tesseract decoded pixels, so its other image formats (JPEG, TIFF, GIF, WebP, JPEG 2000) would only add libraries.
   # No programs.
   system: cmake
+  vars: { shared-mode: '', shared-args: [] }
+  before:
+    - replace-in-file:
+        path: src/environ.h
+        from: "  #else  /* non-Windows specifics */\n    #define LEPT_DLL\n"
+        to: "  #else  /* non-Windows specifics */\n    #define LEPT_DLL __attribute__((visibility(\"default\")))\n"
+      when: { set: '{shared-mode}' }
   args:
     [
+      '{shared-args}',
       -DBUILD_PROG=OFF,
       -DSW_BUILD=OFF,
       -DENABLE_ZLIB=ON,
@@ -37,3 +60,12 @@ build:
             }
       after:
         - move: { from: '{deps}/lib/pkgconfig/lept_Release.pc', to: '{deps}/lib/pkgconfig/lept.pc' }
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'leptonica', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
