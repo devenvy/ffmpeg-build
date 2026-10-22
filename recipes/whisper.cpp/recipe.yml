@@ -126,8 +126,11 @@ build:
     # too (spirv-headers).
     linux-x64: &glibc
       before:
+        - find:
+            var: vulkan-loader-path
+            glob: ['{deps}/lib/libvulkan.a', '{deps}/lib/libvulkan.so*']
         - vars: { vulkan: 'yes' }
-          when: { exists: '{deps}/lib/libvulkan.so*' }
+          when: { set: '{vulkan-loader-path}' }
         - *vulkan-headers
         - *spirv-headers
         - vars:
@@ -140,10 +143,12 @@ build:
                 '-DVulkan_INCLUDE_DIR={deps}/include',
                 '-DSPIRV-Headers_DIR={spirv}',
                 '-DVulkan_INCLUDE_DIR={deps}/include',
-                '-DVulkan_LIBRARY={deps}/lib/libvulkan.so',
+                '-DVulkan_LIBRARY={vulkan-loader-path}',
               ]
             system-libs: -lvulkan -lstdc++ -lm -lpthread
           when: { set: '{vulkan}' }
+        - vars: { system-libs: -lvulkan -lstdc++ -lm -lpthread -ldl }
+          when: { exists: '{deps}/lib/libvulkan.a' }
     linux-arm64: *glibc
     # mingw ships no Windows Vulkan loader import-lib. We used to synthesize one from the
     # headers with dlltool, which worked but made vulkan-1.dll a HARD import of the

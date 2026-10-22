@@ -36,6 +36,14 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
+On Linux x64, `vulkan-loader` defaults to static linking. `link: { vulkan-loader: shared }` bundles the shared
+loader instead. Other loader platforms retain their shared default until their static mode is verified. Both
+modes require an installed Vulkan ICD driver; static linking embeds the loader, not the GPU driver. FFmpeg adds
+`--enable-vulkan-static` for the static mode. Whisper can use that loader without enabling FFmpeg's Vulkan
+components unless the target also lists `vulkan`. The maintained runtime check uses Mesa lavapipe and explicitly
+selects it for GGML, which normally excludes CPU Vulkan devices. This verifies API operation without claiming
+physical GPU coverage.
+
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
 left to right, then its own lists. Nothing is added by itself, not by an engine release and not by a new FFmpeg
