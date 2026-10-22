@@ -1,0 +1,41 @@
+targets:
+  linux-x64-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tesseract]
+    tests: [tests/ocr-linkage.sh]
+    link: { leptonica: shared, tesseract: shared }
+  linux-x64-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tesseract]
+    tests: [tests/ocr-linkage.sh]
+  linux-x64-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [tesseract]
+    tests: [tests/ocr-linkage.sh]
+    link: { leptonica: shared, tesseract: shared }
+  linux-x64-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [tesseract]
+    tests: [tests/ocr-linkage.sh]
+  linux-x64-shared-leptonica-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tesseract]
+    tests: [tests/ocr-linkage.sh]
+    link: { leptonica: shared }
+  linux-x64-shared-png-zlib-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tesseract]
+    tests: [tests/ocr-linkage.sh]
+    link: { leptonica: shared, tesseract: shared, libpng: shared, zlib: shared }
