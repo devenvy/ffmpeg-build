@@ -411,6 +411,32 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [tesseract]
+  linux-x64-mpegh-shared-9-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [mpeghdec, fdk-aac]
+    link: { mpeghdec: shared }
+    tests: [tests/mpegh-linkage.sh]
+  linux-x64-mpegh-static-9-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [mpeghdec, fdk-aac]
+    tests: [tests/mpegh-linkage.sh]
+  linux-x64-mpegh-shared-8-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    with: [mpeghdec, fdk-aac]
+    link: { mpeghdec: shared }
+    tests: [tests/mpegh-linkage.sh]
+  linux-x64-mpegh-static-8-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '8'
+    with: [mpeghdec, fdk-aac]
+    tests: [tests/mpegh-linkage.sh]
   linux-x64-x11-static-9-lgplv2:
     platform: linux-x64
     license: lgplv2
@@ -1040,6 +1066,32 @@ targets:
     with: [bluray]
     tests: [tests/bluray-linkage.sh]
     link: { libudfread: shared }
+  linux-x64-specialized-static-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [fdk-aac, oapv, svtjpegxs, quirc, qrencode]
+    tests: [tests/specialized-linkage.sh]
+  linux-x64-specialized-shared-nonfree:
+    platform: linux-x64
+    license: nonfree
+    ffmpeg: '9'
+    with: [fdk-aac, oapv, svtjpegxs, quirc, qrencode, mpeghdec]
+    link: { fdk-aac: shared, oapv: shared, svt-jpegxs: shared, quirc: shared }
+    tests: [tests/specialized-linkage.sh]
+  linux-x64-uavs3d-static-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [uavs3d]
+    tests: [tests/uavs3d-linkage.sh]
+  linux-x64-uavs3d-shared-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [uavs3d]
+    link: { uavs3d: shared }
+    tests: [tests/uavs3d-linkage.sh]
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3
@@ -1205,6 +1257,33 @@ targets:
     with: [rubberband, chromaprint, xeve, xevd]
     link: { xevd: shared }
     tests: [tests/processing-linkage.sh]
+  linux-x64-codecs-extra-static-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    tests: [tests/codecs-extra.sh]
+  linux-x64-codecs-extra-shared-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    link: { codec2: shared, kvazaar: shared, xavs2: shared, davs2: shared }
+    tests: [tests/codecs-extra.sh]
+  linux-x64-codecs-extra-shared-encoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    link: { xavs2: shared }
+    tests: [tests/codecs-extra.sh]
+  linux-x64-codecs-extra-shared-decoder-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [codec2, kvazaar, xavs2, davs2]
+    link: { davs2: shared }
+    tests: [tests/codecs-extra.sh]
   linux-x64-audio-shared-lgplv2:
     platform: linux-x64
     license: lgplv2

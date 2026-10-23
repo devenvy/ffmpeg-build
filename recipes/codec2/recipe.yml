@@ -9,6 +9,14 @@ configure: [--enable-libcodec2, --extra-libs=-lm]
 source: { git: https://github.com/drowe67/codec2, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { library-arg: -DBUILD_SHARED_LIBS=ON }
+      runtime: ['lib/libcodec2.so*']
 build:
   # Codec 2: low-bitrate speech codec (LGPL-2.1), static, for FFmpeg's libcodec2 decoder and encoder (found with
   # `-lcodec2`, header codec2/codec2.h). Only the codec2 target: the ~40 demo and test programs aren't built.
@@ -18,6 +26,7 @@ build:
   # on Apple silicon doesn't count as cross. So it is compiled here with the build machine's own cc first, and the
   # CMake given it as an imported program.
   system: none
+  vars: { library-arg: -DBUILD_SHARED_LIBS=OFF }
   steps:
     - run: [cc, -O2, -o, generate_codebook_host, src/generate_codebook.c, -lm]
       unset: [CC, CFLAGS, LDFLAGS, CPPFLAGS, SDKROOT]
@@ -41,7 +50,7 @@ build:
       - -DCMAKE_BUILD_TYPE=Release
       - '-DCMAKE_INSTALL_PREFIX={deps}'
       - -DCMAKE_INSTALL_LIBDIR=lib
-      - -DBUILD_SHARED_LIBS=OFF
+      - '{library-arg}'
       - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       - -DUNITTEST=OFF
       - -DLPCNET=OFF

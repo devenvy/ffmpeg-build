@@ -6,10 +6,19 @@ configure: [--enable-libkvazaar]
 source: { git: https://github.com/ultravideo/kvazaar.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { library-args: [--enable-shared, --disable-static] }
+      runtime: ['lib/libkvazaar.so*']
 build:
   system: autotools
   bootstrap: autogen
-  args: ['--libdir={deps}/lib', --disable-shared, --enable-static, --with-pic]
+  vars: { library-args: [--disable-shared, --enable-static] }
+  args: ['--libdir={deps}/lib', '{library-args}', --with-pic]
   make-targets: [-C, src, libkvazaar.la]
   install-targets: [-C, src, install-libLTLIBRARIES, install-includeHEADERS]
   # Install pkg-config, dropping -lrt from Libs.private: clock_gettime is in libc on

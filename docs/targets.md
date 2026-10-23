@@ -141,6 +141,12 @@ shared Pango, Cairo and GLib. The planner rejects incompatible selections.
 FreeType remains independently selectable. Static upper libraries can consume
 shared lower libraries. The full native three-library Pango and librsvg SDKs are
 included; recipient fonts and Fontconfig configuration are still needed.
+MPEG-H offers `link: { mpeghdec: shared }` on Linux x64, with static as its default.
+The shared library preserves both decoder and UI-manager SDKs and isolates its
+internal FDK symbols, including when FDK AAC is enabled in the same build.
+Upstream does not version its shared ABI, so the engine uses the conservative
+full-version `libmpeghdec.so.4.0.1` SONAME. No system-provider mode is offered.
+The existing nonfree license selection and advisory release warning still apply.
 
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
@@ -215,6 +221,9 @@ Rubber Band, Chromaprint, XEVE and XEVD offer bundled shared libraries on Linux 
 Rubber Band keeps its builtin FFT and resampler; Chromaprint keeps its compiled-in KissFFT backend. Their shared
 libraries include private C++ runtimes while retaining the common system unwinder. XEVE and XEVD are C libraries;
 their encoder and decoder linking modes can be selected independently.
+Codec2, Kvazaar, Xavs2 and Davs2 offer bundled shared libraries on Linux x64 while keeping static defaults.
+Xavs2 and Davs2 remain GPL build options, and their linking modes can be selected independently. Shared Davs2
+includes its private C++ runtime while retaining the common system unwinder.
 
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
@@ -589,6 +598,21 @@ common system unwinder remains shared for thread cancellation. SRT and librist
 use the selected pinned mbedTLS where the target's license permits it;
 other targets retain clear transport. RabbitMQ-C retains its existing plain
 AMQP support. The canary tests use isolated local peers and a disposable broker.
+FDK-AAC, OpenAPV, SVT-JPEG-XS and Quirc offer static and bundled shared modes on
+Linux x64, keyed by `fdk-aac`, `oapv`, `svt-jpegxs` and `quirc`. Static remains
+the default. The shared FDK library preserves its complete installed C SDK while
+keeping internal DSP symbols private; it also works beside the independently
+prefixed MPEG-H decoder. OpenAPV retains the supported 0.x API. Quirc's bundled
+library uses an engine-defined full-version SONAME (`libquirc.so.1.2` for 1.2);
+this makes no compatibility promise about separately installed distro libraries.
+These choices use the same existing license checks as their static versions.
+`link: { uavs3d: shared }` bundles the AVS3 decoder on Linux x64. Static remains
+the default. The shared library exposes the complete installed C SDK while
+keeping internal dispatch symbols private. Upstream does not version its
+SONAME, so the engine uses the full library version (`libuavs3d.so.1.2` for
+1.2), without claiming compatibility with distro packages. Static and shared
+canaries decode an authored eight-frame stream with one and two threads,
+requiring exact agreement with the encoder's reconstruction through EOF.
 
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.

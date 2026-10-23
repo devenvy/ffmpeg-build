@@ -7,8 +7,41 @@ source: { git: https://github.com/mstorsjo/fdk-aac.git, ref: 'v{version}' }
 # 3.x moved the AAC sources into cpp/. Its separate xHE library is not used by FFmpeg.
 versions: { git-tags: '^v(3\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-arg: -DBUILD_SHARED_LIBS=ON
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs -Wl,--version-script={src}/ffb-public-api.map'
+        shared-mode: 'yes'
+        static-mode: ''
+      runtime: ['lib/libfdk-aac.so*']
 build:
   system: none
+  vars:
+    {
+      library-arg: -DBUILD_SHARED_LIBS=OFF,
+      shared-link-arg: [],
+      shared-mode: '',
+      static-mode: 'yes',
+    }
+  before:
+    # CMake adds the C++ runtime for C++ objects even though this library uses
+    # no C++ runtime APIs. The strict shared link proves that it is unnecessary.
+    - replace-in-file:
+        path: CMakeLists.txt
+        from: 'set_target_properties(fdk-aac PROPERTIES'
+        to: "list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_LIBRARIES stdc++)\nset_target_properties(fdk-aac PROPERTIES"
+      when: { set: '{shared-mode}' }
+    - run:
+        - python3
+        - -c
+        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'fdk-aac', 'exports.map'), sys.argv[1])"
+        - '{src}/ffb-public-api.map'
+      when: { set: '{shared-mode}' }
   # Build and install only the standard AAC library, not the unrelated xHE encoder.
   steps:
     - - cmake
@@ -19,12 +52,16 @@ build:
       - -DCMAKE_BUILD_TYPE=Release
       - '-DCMAKE_INSTALL_PREFIX={deps}'
       - -DCMAKE_INSTALL_LIBDIR=lib
-      - -DBUILD_SHARED_LIBS=OFF
+      - '{library-arg}'
+      - '{shared-link-arg}'
       - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       - -DBUILD_PROGRAMS=OFF
       - '{cmake-cross-args}'
     - [cmake, --build, _build, --target, fdk-aac, '-j{jobs}']
     - copy: { from: _build/libfdk-aac.a, to: '{deps}/lib/libfdk-aac.a' }
+      when: { set: '{static-mode}' }
+    - copy: { from: '_build/libfdk-aac.so*', into: '{deps}/lib' }
+      when: { set: '{shared-mode}' }
     - copy: { from: _build/fdk-aac.pc, to: '{deps}/lib/pkgconfig/fdk-aac.pc' }
     # CMake's constant sin probe can succeed without libm on Android x64, but AAC also calls frexpf and ldexpf.
     - edit-pkg-config:
@@ -46,3 +83,11 @@ build:
           from: 'cpp/libAACdec/include/aacdecoder_lib.h',
           to: '{deps}/include/fdk-aac/aacdecoder_lib.h',
         }
+    # Preserve the auxiliary installed SDK as well as AAC, keeping DSP globals private.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'fdk-aac', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-public-api'
+      when: { set: '{shared-mode}' }
