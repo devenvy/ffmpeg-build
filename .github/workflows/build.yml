@@ -228,7 +228,7 @@ jobs:
         if: runner.os == 'Windows' && matrix.in == 'here'
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
         with:
-          msystem: ${{ matrix.platform == 'win-arm64' && 'CLANGARM64' || 'MINGW64' }}
+          msystem: ${{ matrix.platform == 'win-arm64' && 'CLANGARM64' || 'UCRT64' }}
           path-type: inherit # node and the engine npm installed
           update: true
           install: make git tar gzip curl autoconf automake libtool perl binutils vim python gperf xz diffutils

@@ -11,8 +11,8 @@
 #            platform-not-built: only for a platform the engine doesn't build (platforms.yml)
 #            deprecated-upstream: deprecated or removed by its makers or by FFmpeg (the note says where)
 #            alternative-built: another option does the same job; needs instead: (that option)
-#            shared-only: its library builds only as shared libraries (and their private ones), and every library
-#              here links into FFmpeg statically
+#            shared-only: its library needs a shared dependency chain that has not been integrated and verified;
+#              shared linking itself is supported (for example, Samba)
 #   note    what it is, and anything a contributor should know
 #   majors   optional: the FFmpeg majors the entry is for (default: every major that offers it)
 #
@@ -25,14 +25,6 @@ batches:
   g: Nonfree (nonfree builds only)
   h: Large ML backends (last; where they build reasonably)
 options:
-  # f. Devices: what is left of it has an issue of its own
-  metal:
-    {
-      reason: pending,
-      issue: 62,
-      note: "metal (yadif_videotoolbox's Metal shaders; built in on macOS): it builds, but the filter crashes as its thread exits on GitHub's macOS runners (an autorelease pool over-release); waits for a run on real hardware and, if it crashes there too, an upstream fix",
-    }
-
   # g. Nonfree (nonfree builds only)
 
   # not planned
