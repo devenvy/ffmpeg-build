@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { fetchSource, sourceRecord, type SourceRecord } from './fetch.ts';
 import { fixDnnThreadLifecycle } from './ffmpeg-dnn.ts';
+import { fixLv2FeatureTermination } from './ffmpeg-lv2.ts';
 import { fixMetalAutorelease } from './ffmpeg-metal.ts';
 import { fixTorchBackend } from './ffmpeg-torch.ts';
 import { run, step } from './run.ts';
@@ -97,6 +98,9 @@ export async function buildFfmpeg(
   }
   if (fixMetalAutorelease(dir, ffmpeg.configure)) {
     step('Metal: backported upstream autorelease-pool ownership fix');
+  }
+  if (fixLv2FeatureTermination(dir, ffmpeg.configure)) {
+    step('LV2: backported upstream feature-array NULL termination');
   }
   if (fixDnnThreadLifecycle(dir, ffmpeg.configure)) {
     step('DNN thread lifecycle corrected: only join threads after successful creation');
