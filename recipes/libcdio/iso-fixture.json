@@ -1,0 +1,9 @@
+{
+  "authoringPackage": "Debian bookworm genisoimage 9:1.1.11-3.4",
+  "authoringBinarySha256": "fd29f111c051f915d74fe3481fc12f3de1fc6ce09c1a6f7ff3e2dad60ffd177a",
+  "imageSha256": "b8f1c17286d3cba4f66cedf6b9b8fda6fda3d68f94cd74f4ec6f5beaab7df81c",
+  "payloadSha256": "4e441a3533bb2c10cd5649981d395744213e09a336746b5a3458fee4057205ec",
+  "imageBytes": 864256,
+  "payloadBytes": 4096,
+  "note": "All media/data authored for this test; volume creation timestamps are recorded by genisoimage. Regeneration preserves contents but may change image hash."
+}

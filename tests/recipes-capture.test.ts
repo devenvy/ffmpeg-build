@@ -83,15 +83,25 @@ describe('v4l-utils', () => {
     expect(h.read(meson)).toBe(
       "    dep_argp = cc.find_library('argp', required : false)\ndep_intl = dependency('intl', required : false)\n",
     );
-    expect(commands(h)).toEqual(
-      mesonLines(h, [
+    expect(commands(h)).toEqual([
+      ...(platform === 'linux-x64'
+        ? [
+            "python3 -c import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'v4l-utils', 'prepare-shared.py'), run_name='__main__')",
+          ]
+        : []),
+      ...mesonLines(h, [
         '-Dauto_features=disabled',
         '-Dv4l-utils=false',
         '-Dv4l-plugins=false',
         '-Dv4l-wrappers=false',
         '-Ddoxygen-doc=disabled',
       ]),
-    );
+      ...(platform === 'linux-x64'
+        ? [
+            `python3 -c import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'v4l-utils', 'check-public-api.py'), run_name='__main__') ${h.deps} gcc `,
+          ]
+        : []),
+    ]);
   });
 });
 

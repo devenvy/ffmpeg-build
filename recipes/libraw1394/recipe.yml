@@ -11,11 +11,34 @@ versions:
   }
 # FireWire on Linux (its firewire-core /dev/fw* devices)
 platforms: [linux-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      # FFmpeg executes a trivial compiler probe with iec61883's extra-libs.
+      # Drop unused DSOs there; strong device references retain them later.
+      configure: ['--extra-ldflags=-Wl,--as-needed']
+      vars:
+        shared-mode: 'yes'
+        shared-arg: --enable-shared
+        static-arg: --disable-static
+        shared-ldflags: '-Wl,-z,defs'
+      runtime: ['lib/libraw1394.so*']
 build:
   # libraw1394: raw IEEE 1394 (FireWire) access on Linux (LGPL-2.1-or-later), static, under libdc1394 and the
   # iec61883 libraries
   system: autotools
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-ldflags: '',
+      shared-mode: '',
+    }
+  env: { LDFLAGS: '+= {shared-ldflags?}' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]
   before:
     # its public raw1394.h types its API with the BSD u_intN_t, which musl's <sys/types.h> leaves out under FFmpeg's
     # -D_POSIX_C_SOURCE/-D_XOPEN_SOURCE: the same types as <stdint.h>'s uintN_t
@@ -27,3 +50,12 @@ build:
         }
     - replace-in-file:
         { path: src/raw1394.h, from: '\bu_int(8|16|32|64)_t\b', to: 'uint$1_t', regex: true }
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libraw1394', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

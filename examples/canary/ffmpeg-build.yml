@@ -856,6 +856,190 @@ targets:
     with: [srt, rist, zmq, rabbitmq]
     link: { srt: shared, librist: shared, libzmq: shared, rabbitmq-c: shared }
     tests: [tests/network-clear.sh]
+  linux-x64-firewire-static-9-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [dc1394, iec61883]
+    tests: [tests/firewire-linkage.sh]
+  linux-x64-firewire-shared-9-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [dc1394, iec61883]
+    tests: [tests/firewire-linkage.sh]
+    link: { libraw1394: shared, libavc1394: shared, libiec61883: shared, libdc1394: shared }
+  linux-x64-firewire-static-8-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '8'
+    with: [dc1394, iec61883]
+    tests: [tests/firewire-linkage.sh]
+  linux-x64-firewire-shared-8-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '8'
+    with: [dc1394, iec61883]
+    tests: [tests/firewire-linkage.sh]
+    link: { libraw1394: shared, libavc1394: shared, libiec61883: shared, libdc1394: shared }
+  linux-x64-firewire-shared-capture-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [dc1394, iec61883]
+    tests: [tests/firewire-linkage.sh]
+    link: { libiec61883: shared, libdc1394: shared }
+  linux-x64-firewire-shared-deps-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [dc1394, iec61883]
+    tests: [tests/firewire-linkage.sh]
+    link: { libraw1394: shared, libavc1394: shared }
+  linux-x64-firewire-shared-combined-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [dc1394, iec61883, alsa, pulse, jack, ass]
+    tests: [tests/firewire-linkage.sh]
+    link:
+      {
+        libraw1394: shared,
+        libavc1394: shared,
+        libiec61883: shared,
+        libdc1394: shared,
+        alsa-lib: shared,
+        pulseaudio: shared,
+        jack2: shared,
+        libass: shared,
+        freetype: shared,
+        harfbuzz: shared,
+        fribidi: shared,
+        fontconfig: shared,
+        libexpat: shared,
+        libpng: shared,
+        zlib: shared,
+      }
+  linux-x64-cdio-static-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [cdio]
+    tests: [tests/cdio-linkage.sh]
+  linux-x64-cdio-shared-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [cdio]
+    tests: [tests/cdio-linkage.sh]
+    link: { libcdio: shared, libcdio-paranoia: shared }
+  linux-x64-cdio-static-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [cdio]
+    tests: [tests/cdio-linkage.sh]
+  linux-x64-cdio-shared-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [cdio]
+    tests: [tests/cdio-linkage.sh]
+    link: { libcdio: shared, libcdio-paranoia: shared }
+  linux-x64-cdio-shared-paranoia-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [cdio]
+    tests: [tests/cdio-linkage.sh]
+    link: { libcdio-paranoia: shared }
+  linux-x64-cdio-shared-cdio-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [cdio]
+    tests: [tests/cdio-linkage.sh]
+    link: { libcdio: shared }
+  linux-x64-dvd-static-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [dvdread, dvdnav]
+    tests: [tests/dvd-linkage.sh]
+  linux-x64-dvd-shared-9-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [dvdread, dvdnav]
+    tests: [tests/dvd-linkage.sh]
+    link: { libdvdread: shared, libdvdnav: shared }
+  linux-x64-dvd-static-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [dvdread, dvdnav]
+    tests: [tests/dvd-linkage.sh]
+  linux-x64-dvd-shared-8-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '8'
+    with: [dvdread, dvdnav]
+    tests: [tests/dvd-linkage.sh]
+    link: { libdvdread: shared, libdvdnav: shared }
+  linux-x64-dvd-shared-nav-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [dvdread, dvdnav]
+    tests: [tests/dvd-linkage.sh]
+    link: { libdvdnav: shared }
+  linux-x64-dvd-shared-read-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [dvdread, dvdnav]
+    tests: [tests/dvd-linkage.sh]
+    link: { libdvdread: shared }
+  linux-x64-bluray-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+  linux-x64-bluray-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libbluray: shared, libudfread: shared }
+  linux-x64-bluray-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+  linux-x64-bluray-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libbluray: shared, libudfread: shared }
+  linux-x64-bluray-shared-bluray-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libbluray: shared }
+  linux-x64-bluray-shared-udf-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [bluray]
+    tests: [tests/bluray-linkage.sh]
+    link: { libudfread: shared }
   linux-x64-video-static-gplv3:
     platform: linux-x64
     license: gplv3
@@ -1217,6 +1401,45 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     base: [common, win, lgplv3]
+  linux-arm64-rockchip-static-lgplv3:
+    platform: linux-arm64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [rkmpp]
+    tests: [tests/rockchip-linkage.sh]
+  linux-arm64-rockchip-shared-lgplv3:
+    platform: linux-arm64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [rkmpp]
+    link: { rockchip-mpp: shared }
+    tests: [tests/rockchip-linkage.sh]
+  linux-x64-optical-capture-static-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [dc1394, iec61883, cdio, dvdread, dvdnav, bluray, v4l2]
+    tests: [tests/optical-capture-batch-linkage.sh]
+  linux-x64-optical-capture-shared-gplv3:
+    platform: linux-x64
+    license: gplv3
+    ffmpeg: '9'
+    with: [dc1394, iec61883, cdio, dvdread, dvdnav, bluray, v4l2]
+    link:
+      {
+        libraw1394: shared,
+        libavc1394: shared,
+        libiec61883: shared,
+        libdc1394: shared,
+        libcdio: shared,
+        libcdio-paranoia: shared,
+        libdvdread: shared,
+        libdvdnav: shared,
+        libbluray: shared,
+        libudfread: shared,
+        v4l-utils: shared,
+      }
+    tests: [tests/optical-capture-batch-linkage.sh]
   linux-x64-media-static-lgplv3:
     platform: linux-x64
     license: lgplv3
