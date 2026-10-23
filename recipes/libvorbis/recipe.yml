@@ -15,6 +15,16 @@ linkage:
       platforms: [linux-x64]
       vars: { shared-arg: --enable-shared, static-arg: --disable-static }
       runtime: ['lib/libvorbis.so*', 'lib/libvorbisenc.so*', 'lib/libvorbisfile.so*']
+    system-shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static }
+      runtime: ['lib/libvorbis.so*', 'lib/libvorbisenc.so*', 'lib/libvorbisfile.so*']
+      packages:
+        {
+          debian: [libvorbis0a, libvorbisenc2, libvorbisfile3],
+          ubuntu: [libvorbis0a, libvorbisenc2, libvorbisfile3],
+          fedora: [libvorbis],
+        }
 build:
   system: autotools
   vars: { shared-arg: --disable-shared, static-arg: --enable-static }

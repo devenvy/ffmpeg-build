@@ -188,6 +188,10 @@ plus FFmpeg packet counts and decoded video/audio. AACS/BD+ libraries and keys
 are not bundled; upstream can load separately installed system decryption
 libraries. BD-J remains disabled. Physical drives and protected media are untested.
 
+Linux x64 also supports `link: { bzip2: shared, libxml2: shared }`. Static remains their default;
+zlib retains its own selected mode. bzip2 uses the stable 1.0 ABI, and libxml2's actual SONAME follows
+its reviewed release rather than assuming a historical system-library name. Both shared libraries are bundled.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
@@ -201,6 +205,12 @@ for distributions we have checked. The recorded source build version is not a mi
 Package suggestions do not block builds or releases and are not a cross-distribution compatibility guarantee.
 Static remains the default; `shared` continues to bundle the selected libraries beside FFmpeg. Dependencies
 keep their own selected modes, so select `system-shared` for each dependency you want the destination to supply.
+
+Linux x64 also supports system providers for `zlib`, `xz`, `libogg`, `libvorbis`, `opus`, `speex` and `libexpat`.
+The package hints were checked on Debian 12, Ubuntu 24.04 and Fedora 44, with real codec, compression and font
+configuration runs against those distributions' libraries. Each library keeps its static default. A distribution's
+shared library can load its own dependencies; selecting bundled Ogg alongside system Vorbis does not change how
+the distribution built Vorbis. The receipt distinguishes the omitted reference build from the shipped binaries.
 
 PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles

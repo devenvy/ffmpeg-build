@@ -14,6 +14,11 @@ linkage:
       platforms: [linux-x64]
       vars: { library-mode: --shared }
       runtime: ['lib/libz.so*']
+    system-shared:
+      platforms: [linux-x64]
+      vars: { library-mode: --shared }
+      runtime: ['lib/libz.so*']
+      packages: { debian: [zlib1g], ubuntu: [zlib1g], fedora: [zlib-ng-compat] }
 build:
   # zlib, static. Ported from devenvy/ffmpeg scripts/deps/zlib.sh (its own configure script, not CMake). Cross builds
   # name the target with CHOST, so zlib's configure takes the target's path (mingw on Windows) rather than the build
