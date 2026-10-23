@@ -7,6 +7,22 @@ needs: [zlib]
 source: { git: https://github.com/hoene/libmysofa, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        static-arg: -DBUILD_STATIC_LIBS=OFF
+        math-arg: -DMATH:STRING=m
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs -Wl,--exclude-libs,libz.a',
+          ]
+      runtime: ['lib/libmysofa.so*']
 build:
   # libmysofa: reads AES69 SOFA files (head-related transfer functions; BSD-3-Clause), static, for FFmpeg's sofalizer
   # filter (found through libmysofa.pc). The SOFA file itself is the user's (sofalizer's sofa= option); the sample
@@ -17,15 +33,17 @@ build:
   # - Its .pc's Libs.private is filled in a subdirectory's scope and comes out empty: zlib and libm, which a static
   #   link needs, are written there.
   system: cmake
+  vars: { static-arg: -DBUILD_STATIC_LIBS=ON, math-arg: -DMATH=m, shared-args: [], shared-mode: '' }
   # - It looks for libm with find_library, which a cross toolchain file that searches only deps doesn't find
   #   (linux-armhf): named outright (Windows' build sets it empty itself).
   args:
     [
       -DBUILD_TESTS=OFF,
-      -DBUILD_STATIC_LIBS=ON,
+      '{static-arg}',
+      '{shared-args}',
       -DCODE_COVERAGE=OFF,
       -DADDRESS_SANITIZE=OFF,
-      -DMATH=m,
+      '{math-arg}',
     ]
   before:
     # (the property and its value are on two lines upstream: matched across them)
@@ -46,6 +64,14 @@ build:
           to: '#define CMAKE_INSTALL_PREFIX "/usr"',
         }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libmysofa', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }
     - remove: { path: '{deps}/share/libmysofa', recursive: true }
     - edit-pkg-config:
         {

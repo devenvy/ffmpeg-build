@@ -7,14 +7,29 @@ needs: [zix, serd, sord, sratom, lv2]
 source: { git: https://github.com/lv2/lilv, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          - --default-library=shared
+          - '-Ddefault_lv2_path=~/.lv2:/usr/local/lib/lv2:/usr/lib/lv2:/usr/lib64/lv2'
+          - '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libserd-0.a:libsord-0.a:libsratom-0.a:libzix-0.a'
+      runtime: ['lib/liblilv-0.so*']
 build:
   # Lilv: the LV2 plugin host library (ISC), static, for FFmpeg's lv2 filter (found through lilv-0.pc, with zix, serd,
   # sord, sratom and the LV2 headers). FFmpeg hosts the plugins; lilv finds them at run time on LV2_PATH (or the usual
   # folders) and loads them (dlopen, LoadLibrary on Windows), so they come from the system or the application, not
   # from this build. The library alone: no lv2info/lv2ls/lv2apply programs, Python or C++ bindings, docs or tests.
   system: meson
+  vars: { shared-args: [], shared-mode: '' }
   args:
     [
+      '{shared-args}',
       -Dtools=disabled,
       -Dbindings_py=disabled,
       -Dbindings_cpp=disabled,
@@ -22,3 +37,12 @@ build:
       -Dtests=disabled,
       -Ddynmanifest=disabled,
     ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'lilv', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

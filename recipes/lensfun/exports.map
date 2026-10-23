@@ -1,0 +1,11 @@
+{
+  global:
+    lf_*;
+    extern "C++" {
+      lf*::*;
+      "typeinfo for lf*";
+      "typeinfo name for lf*";
+      "vtable for lf*";
+    };
+  local: *;
+};

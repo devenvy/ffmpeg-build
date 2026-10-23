@@ -188,6 +188,13 @@ plus FFmpeg packet counts and decoded video/audio. AACS/BD+ libraries and keys
 are not bundled; upstream can load separately installed system decryption
 libraries. BD-J remains disabled. Physical drives and protected media are untested.
 
+SOFA audio (`libmysofa`), stabilization (`vid.stab`) and lens correction (`lensfun`) offer independent static and
+bundled shared choices on Linux x64, with static defaults. The SOFA sample databases and Lensfun lens database
+remain excluded; callers provide those data files. Shared Lensfun preserves its C and C++ SDKs while keeping
+embedded GLib and C++ symbols private. Native SONAMEs are `libmysofa.so.1`, `libvidstab.so.1.2` and
+`liblensfun.so.2`. Maintained checks use authored HRTF impulses, lens calibration and translated video,
+checking actual samples, pixels, frame counts and stabilization rather than only filter listings.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
@@ -258,6 +265,12 @@ ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Li
 `libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
 and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
 recording and playback paths can omit those unused functions when the client is linked statically.
+On Linux x64, the LV2 host libraries `lilv`, `serd`, `sord`, `sratom` and `zix` default to static linking and
+accept independent `shared` selections. LV2 plugins are loaded as separate modules in either mode. Supply
+compatible plugin bundles through `LV2_PATH` or the platform's usual LV2 folders. The maintained runtime check
+authors its own gain plugin and verifies sample values, complete output and separate instances; installed SDK
+checks also cover RDF parsing, typed atom serialization and indexed storage. LV2 itself supplies headers and
+specifications and has no runtime linking choice.
 
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
