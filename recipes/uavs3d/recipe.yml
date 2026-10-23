@@ -27,6 +27,11 @@ build:
   vars: { shared-mode: '', shared-args: [] }
   args: [-DCOMPILE_10BIT=1, '{shared-args}']
   before:
+    # Keep the native version diagnostic away from stdout media and application data.
+    - replace-in-file:
+        path: source/decoder/uavs3d.c
+        from: 'printf("libuavs3d(%2d): %s_%s, %s\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);'
+        to: 'fprintf(stderr, "libuavs3d(%2d): %s_%s, %s\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);'
     - run:
         - python3
         - -c

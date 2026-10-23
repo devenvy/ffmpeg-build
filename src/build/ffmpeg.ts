@@ -2,6 +2,8 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { fetchSource, sourceRecord, type SourceRecord } from './fetch.ts';
+import { fixCdioNaturalEof } from './ffmpeg-cdio.ts';
+import { fixDashStaticEof } from './ffmpeg-dash.ts';
 import { fixDnnThreadLifecycle } from './ffmpeg-dnn.ts';
 import { fixLv2FeatureTermination } from './ffmpeg-lv2.ts';
 import { fixMetalAutorelease } from './ffmpeg-metal.ts';
@@ -95,6 +97,12 @@ export async function buildFfmpeg(
   }
   if (fixLibtlsFallthrough(dir, ffmpeg.configure)) {
     step('libtls: removed invalid switch fallthrough attribute between error labels');
+  }
+  if (fixDashStaticEof(dir, ffmpeg.configure)) {
+    step('Keep static DASH representation EOF independent of stream selection');
+  }
+  if (fixCdioNaturalEof(dir, ffmpeg.configure)) {
+    step('Bound CDIO reads to audio sectors and handle natural EOF');
   }
   if (fixMetalAutorelease(dir, ffmpeg.configure)) {
     step('Metal: backported upstream autorelease-pool ownership fix');

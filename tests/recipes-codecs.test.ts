@@ -442,6 +442,10 @@ describe('uavs3d', () => {
     const cmake = join(h.src, 'source', 'CMakeLists.txt');
     put(cmake, 'if(CMAKE_USE_PTHREADS_INIT)\nif(CMAKE_USE_PTHREADS_INIT)\n');
     put(join(h.src, 'CMakeLists.txt'), `add_executable(uavs3dec \${DIR_SRC_TEST})\n`);
+    put(
+      join(h.src, 'source', 'decoder', 'uavs3d.c'),
+      'printf("libuavs3d(%2d): %s_%s, %s\\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);\n',
+    );
     await build(h, 'uavs3d');
     expect(commands(h)).toEqual(cmakeLines(h, ['-DCOMPILE_10BIT=1']));
     // its decoder program is left out of the build
