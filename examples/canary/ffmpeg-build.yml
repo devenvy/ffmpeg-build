@@ -537,6 +537,60 @@ targets:
     ffmpeg: '8'
     with: [mpeghdec, fdk-aac]
     tests: [tests/mpegh-linkage.sh]
+  linux-x64-whisper-shared-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
+  linux-x64-whisper-static-9-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+  linux-x64-whisper-shared-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
+  linux-x64-whisper-static-8-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '8'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+  linux-x64-whisper-shared-loader-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared, vulkan-loader: shared }
+  linux-x64-whisper-static-shared-loader-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [whisper, vulkan, placebo]
+    tests: [tests/whisper-linkage.sh]
+    link: { vulkan-loader: shared }
+  linux-x64-whisper-shared-cpu-9-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '9'
+    with: [whisper]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
+  linux-x64-whisper-shared-cpu-8-lgplv2:
+    platform: linux-x64
+    license: lgplv2
+    ffmpeg: '8'
+    with: [whisper]
+    tests: [tests/whisper-linkage.sh]
+    link: { whisper.cpp: shared }
   linux-x64-x11-static-9-lgplv2:
     platform: linux-x64
     license: lgplv2
@@ -1310,13 +1364,34 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [tensorflow]
-    tests: [tests/tensorflow.sh]
+    tests: [tests/tensorflow-linkage.sh]
   linux-x64-tensorflow-combined-lgplv3:
     platform: linux-x64
     license: lgplv3
     ffmpeg: '9'
-    with: [tensorflow, torch, onnxruntime, openvino]
-    tests: [tests/tensorflow.sh, tests/torch.sh, tests/onnxruntime.sh, tests/openvino.sh]
+    with: [tensorflow, torch, onnxruntime, openvino, whisper]
+    tests: [tests/ml-batch-linkage.sh]
+  linux-x64-ml-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tensorflow, torch, onnxruntime, openvino, whisper]
+    link:
+      {
+        tensorflow: shared,
+        torch: shared,
+        onnxruntime: shared,
+        openvino: shared,
+        whisper.cpp: shared,
+      }
+    tests: [tests/ml-batch-linkage.sh]
+  linux-x64-tensorflow-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [tensorflow]
+    link: { tensorflow: shared }
+    tests: [tests/tensorflow-linkage.sh]
   linux-x64-speech-static-lgplv3:
     platform: linux-x64
     license: lgplv3
@@ -1616,13 +1691,40 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [openvino]
-    tests: [tests/openvino.sh]
+    tests: [tests/openvino-linkage.sh]
+  linux-x64-openvino-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [openvino]
+    link: { openvino: shared }
+    tests: [tests/openvino-linkage.sh]
+  linux-x64-torch-static-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [torch]
+    tests: [tests/torch-linkage.sh]
+  linux-x64-torch-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [torch]
+    link: { torch: shared }
+    tests: [tests/torch-linkage.sh]
   linux-x64-onnxruntime-lgplv3:
     platform: linux-x64
     license: lgplv3
     ffmpeg: '9'
     with: [onnxruntime]
-    tests: [tests/onnxruntime.sh]
+    tests: [tests/onnxruntime-linkage.sh]
+  linux-x64-onnxruntime-shared-lgplv3:
+    platform: linux-x64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [onnxruntime]
+    link: { onnxruntime: shared }
+    tests: [tests/onnxruntime-linkage.sh]
   linux-x64-nonfree:
     platform: linux-x64
     license: nonfree

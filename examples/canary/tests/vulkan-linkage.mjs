@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -9,6 +9,7 @@ const ffmpeg = process.env.FFMPEG;
 assert.ok(ffmpeg);
 const TIMEOUT = 300000;
 const MAX_BUFFER = 8388608;
+const cpuOnly = process.env.FFB_WHISPER_CPU === '1';
 const WIDTH = 64;
 const HEIGHT = 64;
 const CHANNELS = 3;
@@ -77,9 +78,14 @@ const filters = run(['-filters']).stdout.toString();
 if (/\bwhisper\b/.test(filters)) {
   const work = mkdtempSync(join(tmpdir(), 'ffb-whisper-vulkan-'));
   try {
-    const response = await fetch(MODEL_URL, { signal: AbortSignal.timeout(TIMEOUT) });
-    assert.ok(response.ok, `Whisper test model download: ${response.status}`);
-    const model = Buffer.from(await response.arrayBuffer());
+    let model;
+    if (process.env.FFB_WHISPER_MODEL) {
+      model = readFileSync(process.env.FFB_WHISPER_MODEL);
+    } else {
+      const response = await fetch(MODEL_URL, { signal: AbortSignal.timeout(TIMEOUT) });
+      assert.ok(response.ok, `Whisper test model download: ${response.status}`);
+      model = Buffer.from(await response.arrayBuffer());
+    }
     assert.equal(model.length, MODEL_BYTES);
     assert.equal(createHash('sha256').update(model).digest('hex'), MODEL_SHA256);
     const path = join(work, 'ggml-tiny.en.bin');
@@ -97,7 +103,7 @@ if (/\bwhisper\b/.test(filters)) {
         ]
       : [];
     const audio = ['-f', 'lavfi', '-i', 'sine=frequency=997:sample_rate=16000:duration=3'];
-    const inference = `whisper=model=${path}:queue=3:use_gpu=1:language=en`;
+    const inference = `whisper=model=${path}:queue=3:use_gpu=${cpuOnly ? 0 : 1}:language=en`;
     const graph = hasVulkan
       ? [
           '-filter_complex',
@@ -110,12 +116,19 @@ if (/\bwhisper\b/.test(filters)) {
       : ['-af', inference];
     const result = run([...video, ...audio, ...graph, '-f', 'null', '-'], { LD_DEBUG: 'libs' });
     const debug = result.stderr.toString();
-    assert.match(debug, /using Vulkan0 backend/);
+    if (cpuOnly) {
+      assert.match(debug, /whisper_init_with_params_no_state: use gpu\s+= 0/);
+      assert.match(debug, /CPU total size/);
+      assert.match(debug, /backends\s+= 1/);
+      assert.doesNotMatch(debug, /using Vulkan0 backend/);
+    } else {
+      assert.match(debug, /using Vulkan0 backend/);
+    }
     assert.match(debug, /run transcription at 0 ms, 48000\/48000 samples/);
     assert.match(debug, /48000 samples/);
     loader(debug);
     console.log(
-      `Whisper Vulkan0 real-model inference and ${hasVulkan ? 'concurrent libplacebo' : 'Whisper-only component selection'} passed`,
+      `Whisper ${cpuOnly ? 'CPU' : 'Vulkan0'} real-model inference and ${hasVulkan ? 'concurrent libplacebo' : 'Whisper-only component selection'} passed`,
     );
   } finally {
     rmSync(work, { recursive: true, force: true });

@@ -29,10 +29,26 @@ source: { git: https://github.com/pytorch/pytorch.git, ref: 'v{version}' }
 # Update build.py's reviewed dependency inventory with the version.
 versions: { git-tags: '^v(2\.14\.1)$' }
 platforms: [linux-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { build-mode: shared }
+      runtime:
+        [
+          'lib/libtorch.so*',
+          'lib/libtorch_cpu.so*',
+          'lib/libc10.so*',
+          'lib/libtorch_global_deps.so*',
+        ]
 build:
   system: none
+  vars: { build-mode: static }
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'torch', 'build.py'), run_name='__main__')"
+        - '{build-mode}'

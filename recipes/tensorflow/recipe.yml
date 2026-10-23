@@ -5,6 +5,7 @@ license: >-
   AND MPL-2.0 AND (Apache-2.0 WITH LLVM-exception) AND NCSA AND CC0-1.0
   AND Unicode-DFS-2016 AND ICU AND IJG AND Zlib AND libpng-2.0 AND curl
   AND LicenseRef-Ooura-FFT AND LicenseRef-SQLite-public-domain
+  AND (GPL-3.0-or-later WITH GCC-exception-3.1)
 license-files:
   - LICENSE
   - _ffb-notices/runtime.txt
@@ -15,11 +16,21 @@ source: { git: https://github.com/tensorflow/tensorflow.git, ref: 'v{version}' }
 # Review inputs.json, the actual static owner closure and its notices together.
 versions: { git-tags: '^v(2\.21\.0)$' }
 platforms: [linux-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { build-mode: shared }
+      runtime: ['lib/libtensorflow.so*']
 build:
   system: none
+  vars: { build-mode: static }
   source-inventory: ffb-source-inputs.json
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'tensorflow', 'build.py'), run_name='__main__')"
+        - '{build-mode}'

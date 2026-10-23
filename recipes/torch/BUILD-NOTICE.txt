@@ -12,6 +12,13 @@ The static closure follows upstream's CMake consumer target, with its omitted
 ONNX serialization archives added. The Torch/Torch-CPU archives retain their
 whole-archive registration semantics. C++ is linked statically.
 
+2026-10-22: opt-in shared CPU builds retain the complete native Torch,
+Torch-CPU, c10 and global-dependencies DSO owner set and native versioned ABI.
+Upstream CAFFE2_LINK_LOCAL_PROTOBUF is enabled for shared builds, keeping
+Protobuf static/private with upstream visibility/header adaptations. Public
+c10/ATen/Torch C++ interfaces remain native; compiler standard-library
+instantiations are hidden with private static C++ and a common system unwinder.
+
 Torch's private Protobuf symbols and references take an ffb_torch_ prefix
 throughout its static closure, including local COMDAT group signatures, so
 they coexist with other DNN runtimes' own

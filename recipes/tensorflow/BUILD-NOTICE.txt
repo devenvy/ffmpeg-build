@@ -1,5 +1,5 @@
-2026-10-21: devenvy/ffmpeg-build builds TensorFlow's CPU graph/session C API
-statically from source. GPU, NCCL, Python runtime distribution and dynamically
+2026-10-22: devenvy/ffmpeg-build builds TensorFlow's CPU Graph and Eager C APIs
+from source, with static default and native shared mode. GPU, NCCL, Python runtime distribution and dynamically
 loaded kernel modules are disabled. No pretrained model is shipped.
 
 The recipe pins Bazel, all fetched repository inputs and its nested LLVM source.
@@ -14,10 +14,16 @@ static link. Runtime notices follow the actual C API owner closure, including
 header-only dependencies. BoringSSL's original OpenSSL/SSLeay terms remain in
 the aggregate; the recipe therefore uses the existing LGPLv3/nonfree gate.
 
-Private Protobuf, oneDNN and Xbyak symbols and COMDAT groups are consistently
-renamed throughout the closure, preserving the public C API. This keeps other
+In static mode, private Protobuf, oneDNN and Xbyak symbols and COMDAT groups are
+consistently renamed throughout the closure, preserving the public C API. This keeps other
 selected ML backends from binding to TensorFlow's incompatible internal copies.
+Shared mode preserves the upstream native export policy, including its public
+TF/TFE C++ compatibility bridges, in one monolithic Graph/Eager library.
 
 DUCC's FFT subset selects its BSD alternative; zstd and Highway select BSD;
 JsonCpp selects MIT. Their full source notices and the applicable per-file
 notices are preserved. Tool-input notices do not change the binary licence gate.
+
+Compiler runtime code uses GPL-3.0-or-later WITH GCC-exception-3.1. Pinned GCC
+8.4.0 upstream texts supplement the binary sysroot's missing package manifest
+and distributor notices; the original notice-coverage gap remains documented.

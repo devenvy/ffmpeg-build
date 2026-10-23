@@ -1,4 +1,4 @@
-"""Build the pinned CPU runtime and install its complete static link closure."""
+"""Build the pinned CPU runtime with its complete native static or shared SDK."""
 import concurrent.futures
 import os
 from pathlib import Path
@@ -9,6 +9,7 @@ import sys
 SRC = Path.cwd()
 DEPS = Path(os.environ['DEPS_DIR'])
 JOBS = os.environ['JOBS']
+SHARED = len(sys.argv) > 1 and sys.argv[1] == 'shared'
 if os.environ['VERSION'] != '1.31.0':
     raise SystemExit('Update the pinned ONNX Runtime dependency inventory before changing versions')
 
@@ -58,7 +59,9 @@ build = SRC / '_build'
 run(['cmake', '-S', SRC / 'cmake', '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
      '-DCMAKE_INSTALL_PREFIX=' + str(DEPS), '-DBUILD_SHARED_LIBS=OFF',
-     '-Donnxruntime_BUILD_SHARED_LIB=OFF', '-Donnxruntime_BUILD_UNIT_TESTS=OFF',
+     '-Donnxruntime_BUILD_SHARED_LIB=' + ('ON' if SHARED else 'OFF'),
+     '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc',
+     '-Donnxruntime_BUILD_UNIT_TESTS=OFF',
      '-Donnxruntime_BUILD_BENCHMARKS=OFF', '-Donnxruntime_ENABLE_TRAINING=OFF',
      '-Donnxruntime_ENABLE_PYTHON=OFF', '-Donnxruntime_USE_TELEMETRY=OFF',
      '-Donnxruntime_USE_CUDA=OFF', '-Donnxruntime_USE_XNNPACK=OFF',
@@ -72,16 +75,28 @@ inc = DEPS / 'include'
 lib = DEPS / 'lib'
 inc.mkdir(parents=True, exist_ok=True)
 lib.mkdir(parents=True, exist_ok=True)
-archives = []
-for archive in sorted(build.rglob('*.a')):
-    name = 'libffb_ort_' + '_'.join(archive.relative_to(build).parts)
-    target = lib / name
-    shutil.copy2(archive, target)
-    archives.append('-l:' + name)
-if not archives:
-    raise SystemExit('ONNX Runtime produced no static archives')
-# GNU ld rescans the circular static graph. C++ is static to preserve the image's libc baseline.
-(lib / 'libonnxruntime.a').write_text('GROUP (\n' + '\n'.join(archives) +
-                                      '\n-l:libstdc++.a -lm -ldl -lpthread\n)\n')
+if SHARED:
+    # Native target export maps retain the complete C function table and provider bridge.
+    # Keep dependency archives private; never install transitive tools or libraries.
+    runtime = list(build.glob('libonnxruntime.so*'))
+    provider = build / 'libonnxruntime_providers_shared.so'
+    if not runtime or not provider.exists():
+        raise SystemExit('ONNX Runtime did not produce its complete native shared SDK')
+    for library in [*runtime, provider]:
+        shutil.copy2(library, lib / library.name, follow_symlinks=False)
+else:
+    archives = []
+    for archive in sorted(build.rglob('*.a')):
+        name = 'libffb_ort_' + '_'.join(archive.relative_to(build).parts)
+        target = lib / name
+        shutil.copy2(archive, target)
+        archives.append('-l:' + name)
+    if not archives:
+        raise SystemExit('ONNX Runtime produced no static archives')
+    # GNU ld rescans the circular static graph. C++ is static to preserve the image's libc baseline.
+    (lib / 'libonnxruntime.a').write_text('GROUP (\n' + '\n'.join(archives) +
+                                          '\n-l:libstdc++.a -lm -ldl -lpthread\n)\n')
 for header in (SRC / 'include/onnxruntime/core/session').glob('*.h'):
     shutil.copy2(header, inc / header.name)
+if SHARED:
+    run([sys.executable, Path(os.environ['RECIPES']) / 'onnxruntime/check-public-api.py', str(DEPS)])

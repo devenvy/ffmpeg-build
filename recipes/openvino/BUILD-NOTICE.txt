@@ -8,3 +8,11 @@ The static dependency closure is obtained from OpenVINO's own CMake consumer
 target and bundled under private archive names with a relocatable GNU ld
 GROUP script. This preserves its plugin registry and circular references.
 The C++ runtime is also linked statically. Source code is unchanged.
+
+2026-10-22: the opt-in native shared CPU mode explicitly builds the C/C++
+runtime, dynamically loaded CPU plugin and IR frontend. Native plugins.xml
+generation is enabled and its relative registry ships beside the libraries.
+The C API header no longer requests static imports in that mode. C++ remains
+statically embedded with its native public ABI and the common system unwinder; public C++ owner interfaces
+between the root, frontend and plugin are retained. CPU threading remains
+sequential and the same other devices/frontends remain disabled.

@@ -10,7 +10,10 @@ import sys
 
 ALLOWED_FLAGS = {'-ldl', '-lm', '-lpthread', '-pthread', '-lrt'}
 
-def install(source, deps):
+def install(source, deps, shared=False):
+    if shared:
+        install_shared(source, deps)
+        return
     rows = json.loads((source / 'bazel-bin/ffb/c_api_static.ffb-link.json').read_text())
     archives = {}
     for row in rows:
@@ -75,7 +78,48 @@ def install(source, deps):
     inventory.parent.mkdir(parents=True, exist_ok=True)
     inventory.write_text(json.dumps(rows, indent=2) + '\n')
 
+def install_shared(source, deps):
+    inventory = source / 'bazel-bin/tensorflow/ffb/c_api_shared_inventory.ffb-link.json'
+    rows = json.loads(inventory.read_text())
+    if not rows or not any(row['libraries'] for row in rows):
+        raise SystemExit('Native TensorFlow shared closure inventory is empty')
+    subprocess.run([sys.executable, str(Path(__file__).with_name('native-link.py')), str(source)], check=True)
+    lib = deps / 'lib'
+    lib.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source / 'bazel-bin/tensorflow/libtensorflow.so.2.21.0', lib / 'libtensorflow.so.2.21.0')
+    (lib / 'libtensorflow.so.2').symlink_to('libtensorflow.so.2.21.0')
+    (lib / 'libtensorflow.so').symlink_to('libtensorflow.so.2')
+    external = source / ('bazel-' + source.name) / 'external'
+    roots = [source, external / 'xla', external / 'tsl']
+    probe = source / '_ffb-shared-c-api.c'
+    headers = ['tensorflow/c/c_api.h', 'tensorflow/c/c_api_experimental.h',
+               'tensorflow/c/eager/c_api.h', 'tensorflow/c/eager/c_api_experimental.h']
+    probe.write_text(''.join('#include <' + name + '>\n' for name in headers))
+    dependencies = source / '_ffb-shared-c-api.d'
+    subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + ['-MM', '-MF', str(dependencies),
+                   '-MT', 'c_api', *['-I' + str(root) for root in roots], str(probe)], check=True)
+    for word in shlex.split(dependencies.read_text().replace('\\\n', ' '))[1:]:
+        header = Path(word)
+        if header.suffix != '.h':
+            continue
+        for root in sorted(roots, key=lambda path: len(str(path)), reverse=True):
+            try:
+                relative = header.relative_to(root)
+            except ValueError:
+                continue
+            destination = deps / 'include' / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(header, destination)
+            break
+        else:
+            raise SystemExit('Review unexpected native TensorFlow C/eager header: ' + str(header))
+    destination = deps / 'share/ffmpeg-build/tensorflow-shared-closure.json'
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(json.dumps(rows, indent=2) + '\n')
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         raise SystemExit('Usage: export.py <install-prefix>')
-    install(Path(__file__).resolve().parent.parent, Path(sys.argv[1]).resolve())
+    source = Path(__file__).resolve().parent.parent
+    mode = source / '.ffb_inputs/build-mode.txt'
+    install(source, Path(sys.argv[1]).resolve(), mode.exists() and mode.read_text().strip() == 'shared')
