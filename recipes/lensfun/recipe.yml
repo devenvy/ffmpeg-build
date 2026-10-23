@@ -23,7 +23,7 @@ linkage:
         shared-args:
           - -DCMAKE_CXX_VISIBILITY_PRESET=hidden
           - -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
-          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-public-api.map'
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs,--exclude-libs,libglib-2.0.a:libpcre2-8.a'
       runtime: ['lib/liblensfun.so*']
 build:
   # Lensfun: lens correction (LGPL-3.0-or-later), static, for FFmpeg's lensfun filter (found through lensfun.pc);
@@ -55,12 +55,6 @@ build:
   # the deps folder, which has none and is a build folder (the staged-binary check refuses it): the usual system one,
   # where a system's lensfun-data package puts it (Windows' is relative to the library and stays).
   before:
-    - run:
-        - python3
-        - -c
-        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'lensfun', 'exports.map'), sys.argv[1])"
-        - '{src}/ffb-public-api.map'
-      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: include/lensfun/config.h.in.cmake,

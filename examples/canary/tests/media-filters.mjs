@@ -263,7 +263,11 @@ const elf = () => {
       assert.match(dynamic, /SONAME/u);
       assert.doesNotMatch(dynamic, /libstdc\+\+\.so/u);
       const symbols = command('nm', ['-D', '--defined-only', join(folder, soname)]).toString();
-      assert.doesNotMatch(symbols, /\b_Z(?:St|N[KOV]?St|T[ISV]N?St)/u, soname);
+      if (soname.startsWith('liblensfun')) {
+        assert.doesNotMatch(symbols, /\b(?:g_[a-z]|pcre2_)/u, soname);
+      } else {
+        assert.doesNotMatch(symbols, /\b_Z(?:St|N[KOV]?St|T[ISV]N?St)/u, soname);
+      }
     }
   }
 };

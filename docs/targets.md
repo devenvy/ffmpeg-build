@@ -191,7 +191,9 @@ libraries. BD-J remains disabled. Physical drives and protected media are untest
 SOFA audio (`libmysofa`), stabilization (`vid.stab`) and lens correction (`lensfun`) offer independent static and
 bundled shared choices on Linux x64, with static defaults. The SOFA sample databases and Lensfun lens database
 remain excluded; callers provide those data files. Shared Lensfun preserves its C and C++ SDKs while keeping
-embedded GLib and C++ symbols private. Native SONAMEs are `libmysofa.so.1`, `libvidstab.so.1.2` and
+embedded GLib symbols private. Its embedded C++ runtime retains the native public ABI and common system
+unwinder, so application replacement new/delete also owns allocations inside Lensfun. Maintained SDK checks
+verify this with both static and dynamic C++ callers. Native SONAMEs are `libmysofa.so.1`, `libvidstab.so.1.2` and
 `liblensfun.so.2`. Maintained checks use authored HRTF impulses, lens calibration and translated video,
 checking actual samples, pixels, frame counts and stabilization rather than only filter listings.
 
