@@ -32,3 +32,12 @@ subprocess.run([
 subprocess.run([str(program), str(fixture)], check=True, env={
     **os.environ, "LD_LIBRARY_PATH": str(deps / "lib")
 })
+for mode, flags in [('dynamic', []), ('static', ['-static-libstdc++', '-shared-libgcc'])]:
+    probe = str(program) + '-exception-' + mode
+    subprocess.run([*shlex.split(os.environ.get('CXX', 'g++')), '-std=c++17',
+                    str(source.with_name('public-exception.cpp')),
+                    '-I' + str(deps / 'include'), '-L' + str(deps / 'lib'), '-lopenmpt',
+                    *flags, '-o', probe], check=True)
+    subprocess.run([probe], timeout=30, check=True, env={
+        **os.environ, 'LD_LIBRARY_PATH': str(deps / 'lib'), 'LD_BIND_NOW': '1'
+    })

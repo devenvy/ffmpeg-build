@@ -19,7 +19,7 @@ linkage:
         shared-args:
           [
             -DBUILD_SHARED_LIBS=ON,
-            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a -Wl,--version-script={src}/ffb-public-api.map',
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs',
           ]
       runtime: ['lib/libtesseract.so*']
 build:
@@ -54,11 +54,6 @@ build:
   # and scrollview.h uses std::string without <string>, and simddetect.cpp getenv without <cstdlib>, which libc++
   # (llvm-mingw, win-arm64) doesn't bring in by the way.
   before:
-    - run:
-        - python3
-        - -c
-        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'tesseract', 'exports.map'), 'ffb-public-api.map')"
-      when: { set: '{shared-mode}' }
     - replace-in-file: { path: CMakeLists.txt, from: "check_leptonica_tiff_support()\n", to: '' }
     - replace-in-file:
         { path: CMakeLists.txt, from: set(LIB_Ws2_32 Ws2_32), to: set(LIB_Ws2_32 ws2_32) }

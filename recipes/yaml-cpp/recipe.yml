@@ -15,9 +15,7 @@ linkage:
         library-arg: -DYAML_BUILD_SHARED_LIBS=ON
         shared-mode: 'yes'
         shared-args:
-          [
-            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -Wl,-z,defs,--exclude-libs,libstdc++.a:libsupc++.a,--version-script={src}/ffb-public-api.map',
-          ]
+          ['-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs']
       runtime: ['lib/libyaml-cpp.so*']
 build:
   # yaml-cpp: a YAML parser and emitter for C++ (MIT), static, for OpenColorIO's config files. The library alone: no
@@ -32,12 +30,6 @@ build:
       -DYAML_CPP_BUILD_TOOLS=OFF,
       -DYAML_CPP_BUILD_CONTRIB=OFF,
     ]
-  before:
-    - run:
-        - python3
-        - -c
-        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'yaml-cpp', 'exports.map'), 'ffb-public-api.map')"
-      when: { set: '{shared-mode}' }
   after:
     - run:
         - python3

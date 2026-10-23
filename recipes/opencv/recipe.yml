@@ -19,7 +19,7 @@ linkage:
         shared-args:
           [
             -DBUILD_SHARED_LIBS=ON,
-            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs,--exclude-libs,ALL -Wl,--version-script={src}/ffb-private-cxx.map',
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs,--exclude-libs,libz.a',
           ]
       runtime: ['lib/libopencv_core.so*', 'lib/libopencv_imgproc.so*']
 build:
@@ -99,10 +99,6 @@ build:
   # - its data-file search (cv::utils::findDataFile, for samples and tests) records the build folder and install
   #   prefix: neither (it still searches OPENCV_DATA_PATH and the folder relative to the library).
   before:
-    - write-file:
-        path: '{src}/ffb-private-cxx.map'
-        text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
-      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: CMakeLists.txt,

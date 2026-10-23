@@ -217,7 +217,7 @@ and installed C/C++ SDKs, including Brotli compression/dictionaries and Highway 
 ARIB caption libraries (`aribb24`, `libaribcaption`), Teletext (`zvbi`) and DeckLink ancillary data (`libklvanc`)
 offer static and bundled shared choices on Linux x64, with static defaults. The libaribcaption DSO uses the full
 source version in its engine-defined SONAME; this makes no distro-package compatibility promise. Its public C
-and C++ APIs are preserved, while embedded font libraries and C++ runtime symbols remain private. Maintained
+and C++ APIs are preserved, including caller replacement allocators; embedded font libraries remain private. Maintained
 checks decode authored captions through FFmpeg and exercise native SDK text/rendering and ancillary roundtrips.
 DeckLink hardware I/O still needs the recipient's Desktop Video driver and hardware. The combined canaries use
 the existing nonfree classification because this group contains LGPLv3 and GPLv2-only code plus DeckLink's SDK;
@@ -225,8 +225,18 @@ individual options retain their existing license choices.
 OpenCV's shared choice bundles its native core and imgproc modules together. OpenColorIO preserves its full
 public C++ interface, including application-owned logging callbacks and virtual configuration proxies. Their
 dependency choices remain independent: owned configuration archives, LUTs and morphology pixels are checked
-with static and shared dependencies. Linux shared builds keep their C++ runtime private and use the common
-system exception unwinder. Other platforms retain their existing static recipes.
+with static and shared dependencies. Linux shared builds embed their C++ runtime while preserving its native
+public ABI and the common system exception unwinder. Hiding compiler exception state would corrupt caller
+exception counts; a partial private standard-library map also broke exit-time teardown. Private noncompiler
+archives remain hidden. Other platforms retain their existing static recipes.
+The same native C++ ABI boundary preserves caller-owned allocation in pystring, SRT, Rubber Band and
+Tesseract. Maintained SDK checks exercise replacement new/delete with both static and dynamic C++ callers;
+returned heap strings must belong to the caller's allocator. Tesseract's SDK also retains its independent
+Leptonica pixel-allocation ownership check.
+
+yaml-cpp, Imath and OpenMPT likewise preserve the native C++ runtime ABI in their Linux shared libraries.
+SDK checks throw through public parser, stream and module APIs into both static and dynamic C++ callers,
+checking typed catches, retained rethrows and exception counts during unwinding and after cleanup.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
@@ -252,8 +262,9 @@ OpenSSL's shared mode embeds its legacy provider in libcrypto, so an application
 separate provider-module directory. It does not activate legacy algorithms automatically. The shared mbedTLS
 mode bundles its TLS, X.509 and crypto libraries together and retains pthread support.
 Rubber Band, Chromaprint, XEVE and XEVD offer bundled shared libraries on Linux x64 and retain static defaults.
-Rubber Band keeps its builtin FFT and resampler; Chromaprint keeps its compiled-in KissFFT backend. Their shared
-libraries include private C++ runtimes while retaining the common system unwinder. XEVE and XEVD are C libraries;
+Rubber Band keeps its builtin FFT and resampler; Chromaprint keeps its compiled-in KissFFT backend. Both embed
+their C++ runtimes and retain the common system unwinder; Rubber Band preserves native public C++ ABI preemption.
+XEVE and XEVD are C libraries;
 their encoder and decoder linking modes can be selected independently.
 
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
@@ -623,8 +634,8 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 
 SRT, librist, ZeroMQ and RabbitMQ-C offer static and bundled shared modes on
 Linux x64, keyed by `srt`, `librist`, `libzmq` and `rabbitmq-c`. Static remains
-the default. SRT's installed C++ SDK remains available while its private C++
-runtime stays inside the library; ZeroMQ retains its installed C API. The
+the default. SRT's installed C++ SDK preserves native compiler ABI preemption
+while its C++ runtime is embedded in the library; ZeroMQ retains its installed C API. The
 common system unwinder remains shared for thread cancellation. SRT and librist
 use the selected pinned mbedTLS where the target's license permits it;
 other targets retain clear transport. RabbitMQ-C retains its existing plain

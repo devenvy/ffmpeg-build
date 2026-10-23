@@ -17,7 +17,7 @@ linkage:
       vars:
         shared-mode: 'yes'
         library-arg: -DARIBCC_SHARED_LIBRARY=ON
-        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-public-api.map'
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs,--exclude-libs,libfontconfig.a:libfreetype.a:libexpat.a:libpng16.a:libpng.a:libz.a'
       runtime: ['lib/libaribcaption.so*']
 build:
   # libaribcaption: ARIB STD-B24 caption decoding and rendering (MIT), static, for FFmpeg's libaribcaption decoder
@@ -31,12 +31,6 @@ build:
   vars: { library-arg: -DARIBCC_SHARED_LIBRARY=OFF, shared-link-arg: [], shared-mode: '' }
   args: [-DARIBCC_BUILD_TESTS=OFF, '{library-arg}', '{shared-link-arg}']
   before:
-    - run:
-        - python3
-        - -c
-        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libaribcaption', 'exports.map'), sys.argv[1])"
-        - '{src}/ffb-public-api.map'
-      when: { set: '{shared-mode}' }
     # Upstream does not version the DSO; use a full source-version name without
     # promising compatibility with distro packages or future releases.
     - replace-in-file:

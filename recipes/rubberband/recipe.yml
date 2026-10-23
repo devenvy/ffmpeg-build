@@ -15,7 +15,7 @@ linkage:
       vars:
         shared-mode: 'yes'
         library-mode-arg: --default-library=shared
-        shared-link-arg: "-Dcpp_link_args=['-static-libstdc++', '-shared-libgcc', '-Wl,--exclude-libs,libstdc++.a:libgcc.a', '-Wl,-z,defs', '-Wl,--version-script={src}/ffb-rubberband.exports']"
+        shared-link-arg: "-Dcpp_link_args=['-static-libstdc++', '-shared-libgcc', '-Wl,-z,defs']"
       runtime: ['lib/librubberband.so*']
 build:
   # Rubber Band: audio time-stretching and pitch-shifting (GPL-2.0-or-later), static, for FFmpeg's rubberband filter
@@ -26,13 +26,6 @@ build:
   # -lstdc++ itself, which the platform's runtime stands beside).
   system: meson
   vars: { library-mode-arg: [], shared-link-arg: [], shared-mode: '' }
-  before:
-    - run:
-        - python3
-        - -c
-        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'rubberband', 'exports.map'), sys.argv[1])"
-        - '{src}/ffb-rubberband.exports'
-      when: { set: '{shared-mode}' }
   args:
     [
       '{library-mode-arg}',
@@ -53,8 +46,8 @@ build:
     'ios-*': { args: [-Dfft=vdsp] }
     'maccatalyst-*': { args: [-Dfft=vdsp] }
   after:
-    # Exercise the public C++ interface as well as FFmpeg's C wrapper. The map
-    # must preserve custom loggers and containers crossing the shared boundary.
+    # Exercise the public C++ interface as well as FFmpeg's C wrapper, including
+    # custom loggers and containers crossing the shared boundary.
     - run:
         - python3
         - -c

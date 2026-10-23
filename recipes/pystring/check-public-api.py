@@ -18,5 +18,8 @@ dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
 assert '[libpystring.so.1]' in dynamic and 'libstdc++.so' not in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', library], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}
-assert names and not any(name.startswith(('_ZSt', '_ZNSt', '_ZNSa', '_ZNKSt', '__cxa_')) for name in names), names
-print('pystring: native public C++ ABI/ownership and private static runtime with common unwinder passed')
+assert 'libgcc_s.so.1' in dynamic, dynamic
+assert names and not any(name.startswith('_Unwind_') for name in names), names
+subprocess.run([sys.executable, str(Path(os.environ['RECIPES'], 'pystring', 'check-allocator.py')),
+                deps, output, compiler], check=True)
+print('pystring: native public C++ ABI, caller allocator ownership and common unwinder passed')

@@ -20,6 +20,15 @@ dynamic = subprocess.check_output(['readelf', '-d', str(library)], text=True)
 assert '[' + soname + ']' in dynamic and 'libstdc++.so' not in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', str(library)], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}
-private = sorted(name for name in names if name.startswith(('_ZSt', '_ZNSt', '_ZNKSt', 'inflate', 'deflate', 'crc32', 'adler32')))
+private = sorted(name for name in names if name.startswith(('inflate', 'deflate', 'crc32', 'adler32')))
 assert not private, private
-print('OpenColorIO: native versioned shared SDK, complete public C++ ownership and private dependency/compiler closure passed')
+# Shared dependencies may provide the common compiler ABI; the public callers
+# below verify actual state ownership rather than requiring duplicate definitions.
+assert 'libgcc_s.so.1' in dynamic, dynamic
+for mode, runtime_flags in [('dynamic', []), ('static', ['-static-libstdc++', '-shared-libgcc'])]:
+    probe = output + '-exception-' + mode
+    subprocess.run([*shlex.split(compiler), '-std=c++17',
+                    str(Path(os.environ['RECIPES'], 'opencolorio', 'public-exception.cpp')),
+                    *flags, *runtime_flags, '-o', probe], check=True, env=environment)
+    subprocess.run([probe], timeout=30, check=True, env=environment)
+print('OpenColorIO: native public C++ ownership, shared exception state and private dependency closure passed')

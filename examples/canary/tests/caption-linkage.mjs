@@ -103,7 +103,11 @@ try {
     assert.doesNotMatch(dynamic, /libstdc\+\+\.so/u, name);
     if (name.startsWith('libaribcaption')) {
       const exported = command('nm', ['-D', '--defined-only', library]);
-      assert.doesNotMatch(exported, /\b_Z(?:St|N[KOV]?St|T[ISV]N?St)/u, name);
+      assert.doesNotMatch(
+        exported,
+        /\b(?:FT_|Fc[A-Z]|XML_|png_|inflate|deflate|crc32|adler32)/u,
+        name,
+      );
       assert.match(exported, /aribcc_decoder_decode/u);
     }
     console.log(`${name}: SONAME and runtime closure checked`);

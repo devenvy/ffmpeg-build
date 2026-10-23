@@ -31,8 +31,10 @@ library = library_dir / 'libaribcaption.so.1.1.2'
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
 assert '[libaribcaption.so.1.1.2]' in dynamic, dynamic
 assert 'libstdc++.so' not in dynamic, dynamic
+assert 'libgcc_s.so.1' in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', '--demangle', library], text=True)
 for line in symbols.splitlines():
     symbol = line.split(maxsplit=2)[2]
-    assert symbol.startswith(('aribcc_', 'aribcaption::', 'typeinfo for aribcaption::', 'typeinfo name for aribcaption::', 'vtable for aribcaption::')), symbol
+    assert not symbol.startswith(('FT_', 'Fc', 'XML_', 'png_', 'inflate', 'deflate', 'crc32', 'adler32')), symbol
+subprocess.run([sys.executable, str(recipe / 'check-allocator.py'), deps, output, cxx], check=True)
 print('libaribcaption: installed SDK, versioned SONAME and runtime dependencies passed')

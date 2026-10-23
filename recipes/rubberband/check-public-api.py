@@ -18,3 +18,5 @@ subprocess.run([
 subprocess.run([str(program)], check=True, env={
     **os.environ, "LD_LIBRARY_PATH": str(deps / "lib")
 })
+subprocess.run([sys.executable, str(source.parent / 'check-allocator.py'), str(deps),
+                str(program), os.environ.get('CXX', 'g++')], check=True)

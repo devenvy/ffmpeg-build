@@ -24,7 +24,7 @@ linkage:
       platforms: [linux-x64]
       vars:
         library-args: [--enable-shared, --disable-static]
-        runtime-link-flags: '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs -Wl,--version-script={src}/ffb-compiler-private.map'
+        runtime-link-flags: '-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs'
         shared-mode: 'yes'
       runtime: ['lib/libopenmpt.so*']
 build:
@@ -64,13 +64,6 @@ build:
     # Vista or later
     win-x64: { env: { CPPFLAGS: '+= -D_WIN32_WINNT=0x0601' } }
   before:
-    # Keep the installed C++ SDK global while hiding instantiated std helpers.
-    - run:
-        - python3
-        - -c
-        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libopenmpt', 'compiler-private.map'), sys.argv[1])"
-        - '{src}/ffb-compiler-private.map'
-      when: { set: '{shared-mode}' }
     # Libtool uses -nostdlib and explicitly appends -lstdc++; the driver flag
     # alone cannot make that dependency private. Keep the native C++ tag and
     # public SDK, replacing only its compiler-discovered C++ runtime archive.

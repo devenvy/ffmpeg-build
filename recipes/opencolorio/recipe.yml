@@ -29,7 +29,7 @@ linkage:
             -DBUILD_SHARED_LIBS=ON,
             -DCMAKE_CXX_VISIBILITY_PRESET=hidden,
             -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON,
-            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs,--exclude-libs,ALL -Wl,--version-script={src}/ffb-private-cxx.map',
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs',
           ]
       runtime: ['lib/libOpenColorIO.so*']
 build:
@@ -42,9 +42,11 @@ build:
   system: cmake
   vars: { shared-mode: '', shared-args: [], soname-mode: 'OFF' }
   before:
-    - write-file:
-        path: '{src}/ffb-private-cxx.map'
-        text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
+    # Preserve the public C++ runtime/exception ABI; hide only reviewed private archives.
+    - replace-in-file:
+        path: src/OpenColorIO/CMakeLists.txt
+        from: '--exclude-libs,ALL'
+        to: '--exclude-libs,libexpat.a:libyaml-cpp.a:libpystring.a:libImath-3_2.a:libminizip-ng.a:libz.a'
       when: { set: '{shared-mode}' }
   args:
     [
