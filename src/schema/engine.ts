@@ -524,13 +524,19 @@ const configureValues = z.array(
     "expected a configure flag, or one limited to platforms like `'--extra-libs=-framework IOKit': { platforms: [maccatalyst-*] }`",
   ),
 );
+const linkRequirement = z.union([
+  z.array(linkage).min(1),
+  z.strictObject({ modes: z.array(linkage).min(1), platforms }),
+]);
+export type LinkRequirement = z.output<typeof linkRequirement>;
+
 const linkMode = z.strictObject({
   vars: vars.default({}),
   configure: configureValues.optional(),
   runtime: runtimeFiles.optional(),
   platforms: platforms.optional(),
   packages: z.record(text, z.array(text)).default({}),
-  'requires-link': z.record(name, z.array(linkage).min(1)).optional(),
+  'requires-link': z.record(name, linkRequirement).optional(),
 });
 
 /** recipes/<name>/recipe.yml: facts about one library. Never a version. */

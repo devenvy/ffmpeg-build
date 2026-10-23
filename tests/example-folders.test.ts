@@ -60,9 +60,13 @@ describe('examples/canary', () => {
     expect([...data.recipes.keys()].filter((r) => !built.has(r)).sort()).toEqual([]);
   });
 
-  it('builds MoltenVK as macOS ships it: the dylib and ICD manifest beside the Khronos loader', () => {
+  it('builds both macOS MoltenVK routes in explicit canaries', () => {
     const using = [...canary].filter(([, recipes]) => recipes.includes('moltenvk'));
-    expect(using.map(([name]) => name)).toEqual(['osx-arm64-lgplv3']);
+    expect(using.map(([name]) => name)).toEqual([
+      'osx-arm64-lgplv3',
+      'osx-arm64-moltenvk-static-lgplv3',
+      'osx-arm64-moltenvk-shared-lgplv3',
+    ]);
     expect(canary.get('osx-arm64-lgplv3')).toContain('vulkan-loader');
   });
 });

@@ -23,6 +23,7 @@ import {
   ffmpegDataSchema,
   type FfmpegLicenseClass,
   ffmpegSourceSchema,
+  type LinkRequirement,
   type PlatformEntry,
   platformsSchema,
   type Recipe,
@@ -650,11 +651,12 @@ export function linkageFlagsOf(
 /** Recipe linking constraints name direct dependencies and modes those providers declare. */
 function linkRequirementErrors(
   recipe: Recipe,
-  requirements: Record<string, readonly string[]>,
+  requirements: Record<string, LinkRequirement>,
   recipes: ReadonlyMap<string, Recipe>,
 ): string[] {
   const errors: string[] = [];
-  for (const [provider, allowed] of Object.entries(requirements)) {
+  for (const [provider, requirement] of Object.entries(requirements)) {
+    const allowed = Array.isArray(requirement) ? requirement : requirement.modes;
     if (!recipe.needs.some((dependency) => dependency.name === provider)) {
       errors.push(`${provider} is not a direct needs dependency`);
     }

@@ -644,6 +644,13 @@ build-machine paths, including when the library is embedded statically inside FF
 Other platforms retain their existing static behavior. Software conversion fixtures
 exercise both helpers, but physical V4L camera capture remains untested.
 
+On macOS arm64, Vulkan can link the native MoltenVK archive directly into FFmpeg,
+without a separate loader or ICD manifest. This is the static default. To bundle
+the Khronos loader and native MoltenVK driver instead, select
+`link: { vulkan-loader: shared, moltenvk: shared }`; both owners must use the
+same mode on macOS. Other Apple platforms retain their existing modes. Whisper
+continues to use its Metal and Accelerate backend on macOS.
+
 `tests:` lists scripts in the folder that `ffmpeg-build test` runs against the build, after its own smoke test, with
 `FFMPEG`, `FFPROBE` and `FFMPEG_DIR` set ([testing a build](building.md#testing-a-build); not for Android, iOS and
 Mac Catalyst builds, which have no programs). A script that needs a secret (a key to decrypt a sample, a token)

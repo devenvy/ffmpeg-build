@@ -22,7 +22,7 @@ it('selects a static Vulkan loader on Linux x64 and retains a shared override', 
   expect(linkedRecipe(recipe, 'shared').runtime?.length).toBeGreaterThan(0);
 });
 
-it.each(['linux-arm64', 'linux-musl-x64', 'osx-arm64'])(
+it.each(['linux-arm64', 'linux-musl-x64', 'osx-x64'])(
   '%s retains its existing shared loader until static builds are verified',
   (platform) => {
     expect(linkagePlan(data, ['vulkan-loader'], platform).modes['vulkan-loader']).toBe('shared');

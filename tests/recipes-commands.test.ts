@@ -605,6 +605,11 @@ describe('vulkan-loader', () => {
       ].join(' '),
       'cmake --build _build -j 4',
       'cmake --install _build',
+      ...(platform === 'osx-arm64'
+        ? [
+            `python3 -c import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vulkan-loader', 'check-moltenvk-api.py'), run_name='__main__') ${h.deps} /xcode/clang`,
+          ]
+        : []),
     ]);
   });
 });

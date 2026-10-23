@@ -24,18 +24,23 @@ version-group: vulkan-sdk
 platforms: [linux-x64, linux-arm64, linux-musl-*, osx-*] # not linux-armhf: upstream uses the headers there
 linkage:
   default: shared
-  defaults: { linux-x64: static }
+  defaults: { linux-x64: static, osx-arm64: static }
   modes:
     static:
-      platforms: [linux-x64]
-      configure: [--enable-vulkan-static]
+      platforms: [linux-x64, osx-arm64]
+      configure:
+        - --enable-vulkan-static
+        - '--extra-libs=-lc++ -framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics -framework IOSurface -framework IOKit -framework AppKit':
+            { platforms: [osx-arm64] }
+      requires-link: { moltenvk: { modes: [static], platforms: [osx-*] } }
       vars:
         {
           static-loader: yes,
           loader-args: [-DCMAKE_POSITION_INDEPENDENT_CODE=ON, -DSYSCONFDIR=/etc],
         }
       runtime: []
-    shared: {}
+    shared:
+      requires-link: { moltenvk: { modes: [shared], platforms: [osx-*] } }
 runtime:
   - 'lib/libvulkan.so*': { platforms: [linux-*] }
   - 'lib/libvulkan*.dylib': { platforms: [osx-*] }
@@ -51,44 +56,65 @@ build:
   # The Vulkan-Headers CMake package its find_package needs is installed by the vulkan-headers recipe.
   # Its own cmake line (not the standard one): no prefix path, no cross arguments but on macOS.
   system: none
-  vars: { static-loader: '', loader-args: [] }
+  vars: { static-loader: '', loader-args: [], direct-moltenvk: '' }
   platforms:
     # macOS: the toolchain's arguments (osx-x64 is cross-compiled on Apple silicon; both keep Homebrew's packages
     # out). And /etc as the configuration folder the loader searches: by default it compiles in the install prefix's
     # etc/, which is a folder of the build machine (the staged-binary check rejects its path) and of no user's.
     'osx-*': { args: ['{cmake-cross-args}', -DSYSCONFDIR=/etc] }
   steps:
+    # macOS has no native static Khronos loader. This mode routes directly to
+    # the dependency's native MoltenVK archive, without a loader or ICD payload.
+    - vars: { direct-moltenvk: yes }
+      when: { platforms: [osx-arm64], set: '{static-loader}' }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vulkan-loader', 'direct-moltenvk.py'), run_name='__main__')"
+        - '{deps}'
+      when: { set: '{direct-moltenvk}' }
     # Upstream's Unix loader is unconditionally shared. Keep this exact edit confined to the static mode.
     - replace-in-file:
         path: loader/CMakeLists.txt
         from: '        add_library(vulkan SHARED)'
         to: '        add_library(vulkan STATIC)'
-      when: { set: '{static-loader}' }
+      when: { platforms: [linux-x64], set: '{static-loader}' }
     - replace-in-file:
         path: loader/CMakeLists.txt
         from: target_link_libraries(vulkan PRIVATE loader_specific_options)
         to: target_link_libraries(vulkan PRIVATE $<BUILD_INTERFACE:loader_specific_options>)
-      when: { set: '{static-loader}' }
-    - - cmake
-      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-      - -S
-      - .
-      - -B
-      - _build
-      - '-DCMAKE_INSTALL_PREFIX={deps}'
-      - '-DVULKAN_HEADERS_INSTALL_DIR={deps}'
-      - -DCMAKE_INSTALL_LIBDIR=lib
-      - -DCMAKE_BUILD_TYPE=Release
-      - -DBUILD_TESTS=OFF
-      - -DBUILD_WSI_XLIB_SUPPORT=OFF
-      - -DBUILD_WSI_XCB_SUPPORT=OFF
-      - -DBUILD_WSI_WAYLAND_SUPPORT=OFF
-      - -DBUILD_WSI_DIRECTFB_SUPPORT=OFF
-      - '{loader-args}'
-      - '{args}'
-    - [cmake, --build, _build, -j, '{jobs}']
-    - [cmake, --install, _build]
+      when: { platforms: [linux-x64], set: '{static-loader}' }
+    - run:
+        - cmake
+        - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        - -S
+        - .
+        - -B
+        - _build
+        - '-DCMAKE_INSTALL_PREFIX={deps}'
+        - '-DVULKAN_HEADERS_INSTALL_DIR={deps}'
+        - -DCMAKE_INSTALL_LIBDIR=lib
+        - -DCMAKE_BUILD_TYPE=Release
+        - -DBUILD_TESTS=OFF
+        - -DBUILD_WSI_XLIB_SUPPORT=OFF
+        - -DBUILD_WSI_XCB_SUPPORT=OFF
+        - -DBUILD_WSI_WAYLAND_SUPPORT=OFF
+        - -DBUILD_WSI_DIRECTFB_SUPPORT=OFF
+        - '{loader-args}'
+        - '{args}'
+      when: { unset: '{direct-moltenvk}' }
+    - run: [cmake, --build, _build, -j, '{jobs}']
+      when: { unset: '{direct-moltenvk}' }
+    - run: [cmake, --install, _build]
+      when: { unset: '{direct-moltenvk}' }
     - edit-pkg-config:
         path: '{deps}/lib/pkgconfig/vulkan.pc'
         libs-private: { add: '-ldl -lm -pthread' }
-      when: { set: '{static-loader}' }
+      when: { platforms: [linux-x64], set: '{static-loader}' }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vulkan-loader', 'check-moltenvk-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{CC|cc}'
+      when: { platforms: [osx-arm64] }
