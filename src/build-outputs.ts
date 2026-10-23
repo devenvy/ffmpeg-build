@@ -54,6 +54,8 @@ export interface OutputSet {
 /** Test hooks: `afterStep` is called after each step of a swap; throwing from it stands for the process dying there. */
 export interface OutputHooks {
   afterStep?: (step: string) => void;
+  /** Injects journal replacement failures while retaining real artifact moves. */
+  renameJournal?: (from: string, to: string) => void;
 }
 
 interface Journal {
@@ -68,11 +70,34 @@ const swapFiles = (out: string, name: string, id: string) => ({
   staging: join(out, `.${name}.staging-${id}`),
 });
 
-function writeJournal(path: string, journal: Journal): void {
+const JOURNAL_ATTEMPTS = 8;
+const JOURNAL_RETRY_MS = 50;
+const JOURNAL_SHARING_ERRORS = new Set(['EACCES', 'EBUSY', 'EPERM']);
+const JOURNAL_PAUSE = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+
+function writeJournal(
+  path: string,
+  journal: Journal,
+  rename: (from: string, to: string) => void = renameSync,
+): void {
   const temp = `${path}.tmp`;
   rmSync(temp, { force: true });
   writeDurably(temp, `${JSON.stringify(journal)}\n`);
-  renameSync(temp, path);
+  // Windows scanners can briefly deny replacement of the closed journal. Keep
+  // its old bytes intact until the atomic rename succeeds; a permanent failure
+  // still reaches the existing whole-set rollback after at most 350 ms.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      rename(temp, path);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (attempt === JOURNAL_ATTEMPTS || !code || !JOURNAL_SHARING_ERRORS.has(code)) {
+        throw error;
+      }
+      Atomics.wait(JOURNAL_PAUSE, 0, 0, JOURNAL_RETRY_MS);
+    }
+  }
 }
 
 /**
@@ -236,12 +261,12 @@ export function beginOutputs(out: string, name: string, hooks: OutputHooks = {})
         committed: false,
       };
       try {
-        writeJournal(f.journal, journal);
+        writeJournal(f.journal, journal, hooks.renameJournal);
         step('journal');
         mkdirSync(f.previous);
         moveItems(out, f.previous, journal.old, (i) => step(`aside:${i}`));
         moveItems(staging, out, journal.new, (i) => step(`in:${i}`));
-        writeJournal(f.journal, { ...journal, committed: true });
+        writeJournal(f.journal, { ...journal, committed: true }, hooks.renameJournal);
         step('moved-in');
       } catch (e) {
         if (e instanceof Died) {
