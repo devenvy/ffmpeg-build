@@ -106,6 +106,7 @@ describe('native toolchains', () => {
       '--arch=x86_64',
       '--enable-libdav1d',
       '--extra-ldflags=-static',
+      '--extra-ldflags=-l:CRT_fp10.o',
     ]);
     // in the image, unchanged
     expect(
@@ -116,6 +117,23 @@ describe('native toolchains', () => {
       ),
     ).toEqual(flags);
   });
+
+  it.each(['clang', 'clang++'])(
+    'keeps native x64 Clang on its own floating-point runtime (%s)',
+    (cc) => {
+      const d = dirs();
+      const flags = beforeFfmpeg(
+        {
+          buildPlan: { platform: 'win-x64', setup: 'windows' },
+          depsDir: d.depsDir,
+          env: { FFB_IN: 'here', CC: cc },
+        },
+        d.work,
+        [],
+      );
+      expect(flags).toEqual(['--extra-ldflags=-static']);
+    },
+  );
 
   it("finds winpthreads' licence in the MSYS2 environment for the notices, and says where it looked when it can't", () => {
     const m = msys2();

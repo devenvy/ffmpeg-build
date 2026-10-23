@@ -706,6 +706,11 @@ export function beforeFfmpeg(
   // the image's -win32 compilers need no runtime DLL; the archives ship none
   if (nativeWindows) {
     out.push('--extra-ldflags=-static');
+    if (platform === 'win-x64' && context.env['CC'] === 'gcc') {
+      // MinGW 4b51967 moved FE_DFL_ENV into this native object in libmingw32;
+      // fesetenv in the later libmingwex archive needs it when linking a DLL.
+      out.push('--extra-ldflags=-l:CRT_fp10.o');
+    }
   }
   if (setup === 'android') {
     out.push(

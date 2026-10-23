@@ -262,6 +262,13 @@ build is only as reproducible as the machine: its library cache key holds the co
 rebuilds), and releases record it as a different toolchain from the Docker build. The Docker images stay the
 recommended way to make releases; `examples/native` is what CI builds natively (`toolchains.yml`).
 
+Native Windows CI uses MSYS2's UCRT64 environment for win-x64 and CLANGARM64 for win-arm64.
+[MSYS2 recommends UCRT64 and deprecated MINGW64 in March 2026](https://www.msys2.org/docs/environments/).
+UCRT is included in Windows 10 and Windows Server 2016 or later; older Windows versions need it installed.
+Build each native dependency in the same environment: MSVCRT and UCRT object files must not be mixed.
+Native win-x64 GCC builds link the installed `CRT_fp10.o` into FFmpeg's DLLs to supply MinGW's default
+floating-point environment definition; this uses the compiler's own CRT object.
+
 ### arm64 Linux on an x64 host
 
 linux-arm64 and linux-musl-arm64 build in arm64 images. On an x64 host Docker runs them under qemu (slowly; CI uses
