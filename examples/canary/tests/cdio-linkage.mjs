@@ -75,6 +75,39 @@ try {
     expected,
     'known little-endian authored stereo samples and channel order',
   );
+  const natural = (image) =>
+    command(ffmpeg, [
+      '-nostdin',
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-f',
+      'libcdio',
+      '-i',
+      image,
+      '-c:a',
+      'pcm_s16le',
+      '-f',
+      's16le',
+      'pipe:1',
+    ]);
+  assert.deepEqual(natural(cue), audio, 'all 750 sectors terminate at natural EOF');
+  const shortCue = join(work, 'short.cue');
+  writeFileSync(join(work, 'short.bin'), expected);
+  writeFileSync(shortCue, 'FILE "short.bin" BINARY\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n');
+  assert.deepEqual(natural(shortCue), expected, 'all 225 sectors terminate at natural EOF');
+  const tracks = join(work, 'tracks.cue');
+  writeFileSync(
+    tracks,
+    'FILE "authored.bin" BINARY\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    INDEX 01 00:05:00\n',
+  );
+  assert.deepEqual(natural(tracks), audio, 'contiguous audio tracks share a complete EOF bound');
+  const pregap = join(work, 'pregap.cue');
+  writeFileSync(
+    pregap,
+    'FILE "authored.bin" BINARY\n  TRACK 01 AUDIO\n    INDEX 00 00:00:00\n    INDEX 01 00:01:00\n',
+  );
+  assert.deepEqual(natural(pregap), audio, 'the first audio track retains its nonnegative pregap');
   const missing = spawnSync(
     ffmpeg,
     [
@@ -123,7 +156,7 @@ try {
     assert.doesNotMatch(dynamic, /libstdc\+\+\.so/u);
   }
   console.log(
-    'CDIO: bounded 225-sector read from an owned 750-sector image, exact stereo samples, missing image and all five native SDK DSOs passed; source EOF untested',
+    'CDIO: exact 225/750-sector natural EOF, contiguous audio tracks, initial pregap, missing image and all five native SDK DSOs passed',
   );
 } finally {
   rmSync(work, { recursive: true, force: true });

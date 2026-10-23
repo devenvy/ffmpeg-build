@@ -85,10 +85,9 @@ try {
     ]),
   );
   assert.deepEqual(probe.streams, [{ width: 16, height: 16, nb_read_frames: String(FRAMES) }]);
-  // Avoid the existing DASH probe/rewind duplication; decode every frame through EOF with an explicit stream map.
+  // Normal probing must preserve exactly one copy of every frame through EOF.
   const pixels = run(ffmpeg, [
     ...flags,
-    '-nofind_stream_info',
     '-i',
     manifest,
     '-map',

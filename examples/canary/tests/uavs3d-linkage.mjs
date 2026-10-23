@@ -20,7 +20,7 @@ const CHROMA_DIVISOR = 2;
 const PUBLIC_EXPORTS = 6;
 const FRAME_THREADS = 2;
 const FLAGS = ['-nostdin', '-hide_banner', '-loglevel', 'error'];
-const command = (program, args) => {
+const execute = (program, args) => {
   const result = spawnSync(program, args, { timeout: TIMEOUT, maxBuffer: MAX_OUTPUT });
   assert.equal(
     result.status,
@@ -28,15 +28,15 @@ const command = (program, args) => {
     `${program}: ${result.error?.message ?? result.stderr?.toString()}`,
   );
   assert.equal(result.signal, null);
-  return result.stdout;
+  return result;
 };
+const command = (program, args) => execute(program, args).stdout;
 try {
   const input = join(work, 'authored.avs3');
   writeFileSync(input, encoded);
   for (const threads of [1, FRAME_THREADS]) {
     const output = join(work, `decoded-${threads}.yuv`);
-    // Upstream prints its creation banner on stdout, so keep media in a file.
-    command(ffmpeg, [
+    const decode = [
       ...FLAGS,
       '-threads',
       String(threads),
@@ -54,8 +54,8 @@ try {
       fixture.pixelFormat,
       '-f',
       'rawvideo',
-      output,
-    ]);
+    ];
+    command(ffmpeg, [...decode, output]);
     const decoded = readFileSync(output);
     const frameBytes =
       fixture.width * fixture.height + (fixture.width * fixture.height) / CHROMA_DIVISOR;
@@ -69,8 +69,20 @@ try {
       fixture.decodedSha256,
       'Decoder pixels must match the encoder reconstruction exactly',
     );
+    const piped = execute(ffmpeg, [...decode, 'pipe:1']);
+    assert.equal(
+      piped.stdout.length,
+      decoded.length,
+      'stdout must contain only complete media frames',
+    );
+    assert.equal(
+      sha(piped.stdout),
+      fixture.decodedSha256,
+      'stdout pixels match file reconstruction',
+    );
+    assert.match(piped.stderr.toString(), /libuavs3d\(/u, 'creation diagnostics remain on stderr');
     console.log(
-      `AVS3 ${threads} threads: all ${fixture.frames} authored frames match reconstruction`,
+      `AVS3 ${threads} threads: all ${fixture.frames} authored frames match file and stdout reconstruction`,
     );
   }
   const invalid = join(work, 'invalid.avs3');
