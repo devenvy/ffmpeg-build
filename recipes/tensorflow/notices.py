@@ -28,7 +28,7 @@ RUNTIME = {
     'libwebp': ['COPYING'],
     'llvm-project': ['llvm/LICENSE.TXT', 'mlir/LICENSE.TXT', 'llvm/lib/Support/BLAKE3/LICENSE'],
     'ml_dtypes_py': ['LICENSE', 'LICENSE.eigen'],
-    'onednn': ['LICENSE'],
+    'onednn': ['LICENSE', 'THIRD-PARTY-PROGRAMS'],
     'org_brotli': ['LICENSE'],
     'org_xprof': ['LICENSE'],
     'png': ['LICENSE'],
