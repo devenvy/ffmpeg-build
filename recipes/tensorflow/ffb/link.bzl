@@ -22,6 +22,9 @@ def _impl(target, ctx):
                          "flags": item.user_link_flags})
     output = ctx.actions.declare_file(ctx.label.name + ".ffb-link.json")
     ctx.actions.write(output, json.encode(rows))
-    return [OutputGroupInfo(ffb_link = depset([output] + static_inputs))]
+    return [OutputGroupInfo(
+        ffb_link = depset([output] + static_inputs),
+        ffb_inventory = depset([output]),
+    )]
 
 link_inventory = aspect(implementation = _impl)

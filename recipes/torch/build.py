@@ -1,4 +1,4 @@
-"""Source-built static CPU TorchScript, with recorded generator dependencies."""
+"""Source-built CPU TorchScript, with recorded generator dependencies."""
 import os
 from pathlib import Path
 import shlex
@@ -8,6 +8,7 @@ import sys
 
 src = Path.cwd()
 deps = Path(os.environ['DEPS_DIR'])
+shared = len(sys.argv) > 1 and sys.argv[1] == 'shared'
 if os.environ['VERSION'] != '2.14.1':
     raise SystemExit('Review the Torch CPU dependency inventory before changing versions')
 
@@ -72,14 +73,49 @@ off = ['BUILD_SHARED_LIBS', 'BUILD_PYTHON', 'BUILD_TEST', 'BUILD_BINARY', 'USE_C
        'USE_NNPACK', 'USE_PYTORCH_QNNPACK', 'USE_XNNPACK', 'USE_FBGEMM',
        'USE_MKLDNN', 'USE_NUMPY', 'USE_ITT', 'USE_MIMALLOC', 'USE_MPI',
        'USE_TENSORPIPE', 'USE_KLEIDIAI']
+shared_args = []
+if shared:
+    off.remove('BUILD_SHARED_LIBS')
+    private_map = src / 'ffb-private-cxx.map'
+    # These explicitly public std overloads print native tensor-expression SDK objects.
+    bridges = ['_ZSt9to_stringB5cxx11RKN5torch3jit10tensorexpr6TensorE',
+               '_ZSt9to_stringB5cxx11RKSt10shared_ptrIN5torch3jit10tensorexpr4ExprEE',
+               '_ZSt9to_stringB5cxx11RKSt10shared_ptrIN5torch3jit10tensorexpr4StmtEE']
+    private_map.write_text('{ global: ' + '; '.join(bridges) + '; *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; *6google8protobuf*; };\n')
+    shared_args = ['-DBUILD_SHARED_LIBS=ON', '-DHAVE_SOVERSION=ON',
+                   '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--version-script=' + str(private_map)]
 run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
      '-DCMAKE_INSTALL_PREFIX=' + str(install), '-DBLAS=Eigen',
      '-DPython_EXECUTABLE=' + str(python), '-DINTERN_DISABLE_ONNX=OFF',
-     '-DCAFFE2_LINK_LOCAL_PROTOBUF=OFF', '-DBUILD_CUSTOM_PROTOBUF=ON'] +
-    ['-D' + name + '=OFF' for name in off], env=env)
+     '-DCAFFE2_LINK_LOCAL_PROTOBUF=' + ('ON' if shared else 'OFF'), '-DBUILD_CUSTOM_PROTOBUF=ON'] +
+    ['-D' + name + '=OFF' for name in off] + shared_args, env=env)
 run(['cmake', '--build', build, '--parallel', os.environ['JOBS']], env=env)
 run(['cmake', '--install', build], env=env)
+if shared:
+    # Preserve every native CPU DSO; fail if this reviewed inventory changes.
+    runtime = list((install / 'lib').glob('*.so*'))
+    components = {path.name.split('.so')[0] for path in runtime}
+    expected = {'libtorch', 'libtorch_cpu', 'libc10', 'libtorch_global_deps'}
+    if components != expected:
+        raise SystemExit('Review complete native Torch CPU runtime inventory: ' + repr(components))
+    lib = deps / 'lib'
+    lib.mkdir(parents=True, exist_ok=True)
+    for path in runtime:
+        shutil.copy2(path, lib / path.name, follow_symlinks=False)
+    shutil.copytree(install / 'include', deps / 'include', dirs_exist_ok=True)
+    pc = lib / 'pkgconfig'
+    pc.mkdir(exist_ok=True)
+    (pc / 'torch.pc').write_text('prefix=' + str(deps) + '''
+Name: torch
+Description: Native shared CPU TorchScript runtime
+Version: 2.14.1
+Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++20
+Libs: -L${prefix}/lib -ltorch -ltorch_cpu -lc10
+Libs.private: -l:libstdc++.a -lm -ldl -lpthread
+''')
+    run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps])
+    sys.exit(0)
 inventory = src / '_ffb_inventory'
 inventory.mkdir(exist_ok=True)
 (inventory / 'main.cpp').write_text('int main() { return 0; }\n')

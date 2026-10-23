@@ -5,3 +5,8 @@ features, and selects Eigen's MPL2-only headers. Its GNU ld GROUP file
 supplies the complete static archive closure, including RE2 (omitted from
 the upstream default static target). The original source archives and
 upstream patch files are retained with the build's sources.
+
+2026-10-22: the opt-in shared CPU mode builds the native versioned runtime
+and native provider bridge with upstream export maps. Dependencies remain
+static and private. The C++ runtime is private with a common system unwinder;
+the library-only installation preserves public C/C++ wrapper headers.

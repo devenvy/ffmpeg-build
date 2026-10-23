@@ -25,16 +25,51 @@ source:
 # The CPU-only dependency inventory is reviewed with each version.
 versions: { git-tags: '^(2026\.4\.1)$' }
 platforms: [linux-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        {
+          build-mode: shared,
+          static-define: '',
+          runtime-name: 'openvino_c -lopenvino',
+          shared-check: '1',
+        }
+      runtime:
+        [
+          'lib/libopenvino.so*',
+          'lib/libopenvino_c.so*',
+          'lib/libopenvino_ir_frontend.so*',
+          'lib/libopenvino_intel_cpu_plugin.so',
+          'lib/plugins.xml',
+        ]
 build:
   system: none
+  vars:
+    {
+      build-mode: static,
+      static-define: '-DOPENVINO_STATIC_LIBRARY',
+      runtime-name: openvino,
+      shared-check: '',
+    }
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'build.py'), run_name='__main__')"
+        - '{build-mode}'
     - pkg-config:
         name: openvino
         description: OpenVINO static CPU runtime with IR frontend
         version: '{version}'
-        cflags: '-I{deps}/include -DOPENVINO_STATIC_LIBRARY'
-        libs: '-L{deps}/lib -lopenvino'
+        cflags: '-I{deps}/include {static-define}'
+        libs: '-L{deps}/lib -l{runtime-name}'
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+      when: { set: '{shared-check}' }

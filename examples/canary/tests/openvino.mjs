@@ -13,11 +13,9 @@ const run = (filter) => {
       '-f',
       'lavfi',
       '-i',
-      'testsrc=size=2x2:rate=1',
+      'testsrc=size=2x2:rate=1:duration=3',
       '-vf',
       filter,
-      '-frames:v',
-      String(FRAME_COUNT),
       '-f',
       'framemd5',
       '-',
@@ -35,4 +33,4 @@ const actual = run(
 );
 assert.equal(actual.length, FRAME_COUNT);
 assert.deepEqual(actual, expected);
-console.log('Static OpenVINO CPU inference preserved all three RGB test frames');
+console.log('OpenVINO CPU inference preserved all three RGB test frames through natural EOF');

@@ -48,7 +48,7 @@ try {
       assert.deepEqual(actual, expected);
     }
   }
-  console.log('Static Torch CPU inference passed natural EOF and repeated early-cutoff cleanup');
+  console.log('Torch CPU inference passed natural EOF and repeated early-cutoff cleanup');
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

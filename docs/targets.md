@@ -1,5 +1,30 @@
 # Targets: ffmpeg-build.yml
 
+ONNX Runtime CPU inference offers static and bundled shared modes on Linux x64,
+with static as its default. Select `link: { onnxruntime: shared }` to ship the
+native runtime and provider bridge beside FFmpeg. Authored-model checks cover
+complete input EOF and combined inference with TensorFlow, Torch and OpenVINO.
+
+OpenVINO CPU inference offers static and bundled shared modes on Linux x64,
+with static as the default. Select `link: { openvino: shared }` to ship its
+native C and C++ runtimes, IR frontend, CPU plugin and relative plugin registry.
+The installed public APIs and native library ownership are retained. This mode
+includes the CPU implementation; GPU plugins require separate support.
+
+Torch CPU inference offers static and bundled shared modes on Linux x64,
+with static as the default. Select `link: { torch: shared }` to ship its four
+native Torch, Torch CPU, c10 and global-dependency libraries. Its installed
+C++ API preserves the native compiler exception ABI across library boundaries;
+private standard-library instantiations and Protobuf stay inside their owners.
+The system unwinder remains shared. SDK checks cover typed errors, callbacks,
+tensors and retained external-buffer ownership; cross-library exception tests
+also cover nested catches and retained rethrows.
+
+TensorFlow CPU inference offers static and bundled shared modes on Linux x64,
+with static as the default. Select `link: { tensorflow: shared }` to ship its
+native monolithic C runtime. The Graph and Eager APIs use the same native owner;
+the shared mode does not require a separate TensorFlow framework library.
+
 Rav1e defaults to static linking and offers a bundled shared mode on Linux x64.
 It uses cargo-c's native versioned C library and preserves all 37 public C API
 functions. Its private Rust implementation remains hidden; the existing static
@@ -36,6 +61,7 @@ On musl Linux x64, proxy-libintl offers static and bundled shared modes, default
 to static. It remains GLib's native English-message stub, without translation
 catalog loading. The shared library preserves its mutable text domain and public
 data; native tests also cover GLib's context/plural wrappers and rendered pixels.
+This library is not a replacement for arbitrary system gettext installations.
 
 On Windows x64, `vulkan-shim` defaults to static linking. Selecting
 `link: { vulkan-shim: shared }` bundles `ffb-vulkan-shim.dll`, which Whisper's
@@ -43,7 +69,6 @@ Vulkan backend imports instead of the system Vulkan loader. The DLL loads the
 optional driver on the first API call; FFmpeg still starts and CPU processing
 works without a Vulkan driver. GPU processing requires an installed Vulkan
 driver in either mode. Windows arm64 retains its static recipe.
-This library is not a replacement for arbitrary system gettext installations.
 
 On Linux x64, `libdrm`, `libva` and `libvpl` accept independent bundled `shared`
 selections and retain static defaults. Shared VA includes both its core and DRM
@@ -168,6 +193,15 @@ internal FDK symbols, including when FDK AAC is enabled in the same build.
 Upstream does not version its shared ABI, so the engine uses the conservative
 full-version `libmpeghdec.so.4.0.1` SONAME. No system-provider mode is offered.
 The existing nonfree license selection and advisory release warning still apply.
+Whisper offers `link: { whisper.cpp: shared }` on Linux x64 while retaining its
+static default. The complete native runtime includes Whisper, Parakeet, GGML,
+GGML base and CPU libraries, plus GGML Vulkan when that backend is selected.
+All belong to one coherent recipe mode; dynamic backend plugin loading remains
+disabled. The Vulkan loader keeps its own independent linking choice. Private
+C++ code and an embedded static Vulkan loader remain local to the owning library.
+Models are supplied separately. Tests cover real Whisper model inference on CPU
+and software Vulkan, GGML computation and GGUF metadata; no Parakeet inference
+claim is made by the invalid-model SDK check.
 
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`

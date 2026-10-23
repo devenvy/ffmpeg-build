@@ -26,10 +26,20 @@ source: { git: https://github.com/microsoft/onnxruntime.git, ref: 'v{version}' }
 # build.py records the matching transitive source commits. Update both together.
 versions: { git-tags: '^v(1\.31\.0)$' }
 platforms: [linux-x64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { build-mode: shared }
+      runtime: ['lib/libonnxruntime.so*', 'lib/libonnxruntime_providers_shared.so']
 build:
   system: none
+  vars: { build-mode: static }
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'onnxruntime', 'build.py'), run_name='__main__')"
+        - '{build-mode}'

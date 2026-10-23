@@ -48,9 +48,7 @@ try {
       assert.deepEqual(actual, expected);
     }
   }
-  console.log(
-    'Static TensorFlow CPU inference passed natural EOF and repeated early-cutoff cleanup',
-  );
+  console.log('TensorFlow CPU inference passed natural EOF and repeated early-cutoff cleanup');
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
