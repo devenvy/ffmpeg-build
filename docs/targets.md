@@ -294,6 +294,13 @@ Linux x64 also supports `link: { bzip2: shared, libxml2: shared }`. Static remai
 zlib retains its own selected mode. bzip2 uses the stable 1.0 ABI, and libxml2's actual SONAME follows
 its reviewed release rather than assuming a historical system-library name. Both shared libraries are bundled.
 
+On macOS, `with: [metal]` enables `yadif_videotoolbox` and the VideoToolbox framework it needs. Metal remains
+opt-in and uses the system frameworks; it adds no third-party runtime library. A build with Metal selected
+backports [FFmpeg's autorelease ownership fix](https://github.com/FFmpeg/FFmpeg/commit/7f2e5cdd7c3ad502141c918bac13e2a31b4829c0)
+for the affected 8.1.3/9.0.2 implementation, preventing a crash when its filter thread exits. Already-fixed
+sources are preserved; an unrecognized implementation requires review before building. This option is verified
+on macOS only; iOS and Mac Catalyst are not claimed.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the

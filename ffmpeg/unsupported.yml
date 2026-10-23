@@ -25,14 +25,6 @@ batches:
   g: Nonfree (nonfree builds only)
   h: Large ML backends (last; where they build reasonably)
 options:
-  # f. Devices: what is left of it has an issue of its own
-  metal:
-    {
-      reason: pending,
-      issue: 62,
-      note: "metal (yadif_videotoolbox's Metal shaders; built in on macOS): it builds, but the filter crashes as its thread exits on GitHub's macOS runners (an autorelease pool over-release); waits for a run on real hardware and, if it crashes there too, an upstream fix",
-    }
-
   # g. Nonfree (nonfree builds only)
 
   # not planned
