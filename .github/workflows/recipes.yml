@@ -99,7 +99,8 @@ jobs:
       matrix: ${{ fromJson(needs.changed.outputs.matrix) }}
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 240
+    # A cold batch containing the native ML libraries can exceed four hours.
+    timeout-minutes: 360
     env:
       FFMPEG_BUILD_IMAGE_CACHE: gha
     steps:
