@@ -1,0 +1,10 @@
+{
+  global:
+    uavs3d_create;
+    uavs3d_delete;
+    uavs3d_reset;
+    uavs3d_flush;
+    uavs3d_decode;
+    uavs3d_img_cpy_cvt;
+  local: *;
+};

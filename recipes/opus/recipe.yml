@@ -14,6 +14,11 @@ linkage:
       platforms: [linux-x64]
       vars: { shared-library-arg: '-DBUILD_SHARED_LIBS=ON' }
       runtime: ['lib/libopus.so*']
+    system-shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: '-DBUILD_SHARED_LIBS=ON' }
+      runtime: ['lib/libopus.so*']
+      packages: { debian: [libopus0], ubuntu: [libopus0], fedora: [opus] }
 build:
   system: cmake
   vars: { shared-library-arg: [] }

@@ -14,6 +14,12 @@ linkage:
       vars:
         shared-library-arg: '-DEXPAT_SHARED_LIBS=ON'
       runtime: ['lib/libexpat*.so*']
+    system-shared:
+      platforms: [linux-x64]
+      vars:
+        shared-library-arg: '-DEXPAT_SHARED_LIBS=ON'
+      runtime: ['lib/libexpat*.so*']
+      packages: { debian: [libexpat1], ubuntu: [libexpat1], fedora: [expat] }
 build:
   vars: { shared-library-arg: [] }
   system: cmake

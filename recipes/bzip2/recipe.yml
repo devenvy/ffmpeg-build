@@ -4,8 +4,17 @@ license: bzip2-1.0.6
 license-files: [LICENSE]
 configure: [--enable-bzlib]
 source: { git: https://sourceware.org/git/bzip2.git, ref: 'bzip2-{version}' }
-versions: { git-tags: '^bzip2-(\d+\.\d+\.\d+)$' }
+# These Makefile objects and the shared ABI belong to the stable 1.0 family; review a newer family explicitly.
+versions: { git-tags: '^bzip2-(1\.0\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-mode: yes }
+      runtime: ['lib/libbz2.so*']
 build:
   # libbz2: bzip2 compression (bzip2-1.0.6 licence), static, for FFmpeg's bzlib (bzip2-compressed Matroska tracks).
   # bzip2 1.0.x has its own Makefile, no configure (the CMake and Meson builds are on 1.1's unreleased branch), which
@@ -19,7 +28,7 @@ build:
   # libraries, and Apple's target flags (EXTRA_CFLAGS). On Windows bzlib.h declares the functions for static linking
   # (BZ_EXPORT) unless BZ_IMPORT is defined, so nothing more is needed there.
   system: none
-  vars: { tools: '' }
+  vars: { tools: '', shared-mode: '' }
   steps:
     - vars: { tools: '{host}-' }
       when: { set: '{host}' }
@@ -34,3 +43,27 @@ build:
       ]
     - copy: { from: libbz2.a, into: '{deps}/lib', preserve: true }
     - copy: { from: bzlib.h, into: '{deps}/include', preserve: true }
+    # The same seven PIC objects as upstream Makefile-libbz2_so, without building its command-line program.
+    - run:
+        [
+          '{CC|{tools}gcc}',
+          -shared,
+          '-Wl,-soname,libbz2.so.1.0',
+          '-Wl,-z,defs',
+          -o,
+          'libbz2.so.{version}',
+          blocksort.o,
+          huffman.o,
+          crctable.o,
+          randtable.o,
+          compress.o,
+          decompress.o,
+          bzlib.o,
+        ]
+      when: { set: '{shared-mode}' }
+    - copy: { from: 'libbz2.so.{version}', into: '{deps}/lib', preserve: true }
+      when: { set: '{shared-mode}' }
+    - run: [ln, -s, 'libbz2.so.{version}', '{deps}/lib/libbz2.so.1.0']
+      when: { set: '{shared-mode}' }
+    - run: [ln, -s, libbz2.so.1.0, '{deps}/lib/libbz2.so']
+      when: { set: '{shared-mode}' }

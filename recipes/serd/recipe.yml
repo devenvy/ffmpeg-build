@@ -5,8 +5,30 @@ source: { git: https://github.com/drobilla/serd, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # only the LV2 host stack (sord, sratom, lilv) builds against it
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          - --default-library=shared
+          - '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libserd-0.a:libsord-0.a:libsratom-0.a:libzix-0.a'
+      runtime: ['lib/libserd-0.so*']
 build:
   # Serd: a lightweight RDF (Turtle) reader and writer (ISC), static, for sord, sratom and lilv (FFmpeg's lv2 filter
   # reads plugins' Turtle descriptions with it). The library alone: no serdi program, man pages, docs or tests.
   system: meson
-  args: [-Dtools=disabled, -Dman=disabled, -Ddocs=disabled, -Dtests=disabled]
+  vars: { shared-args: [], shared-mode: '' }
+  args: ['{shared-args}', -Dtools=disabled, -Dman=disabled, -Ddocs=disabled, -Dtests=disabled]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'serd', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

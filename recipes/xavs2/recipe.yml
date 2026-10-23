@@ -7,6 +7,17 @@ source: { git: https://github.com/pkuvcl/xavs2, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+)$' }
 # Not Android: its thread pool calls pthread_setaffinity_np, which bionic hasn't got.
 platforms: [linux-x64, linux-musl-x64, win-x64, linux-arm64, linux-musl-arm64]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        library-args: [--enable-shared, '--extra-ldflags=-Wl,-z,defs']
+        library-target: lib-shared
+        install-target: install-lib-shared
+      runtime: ['lib/libxavs2.so*']
 build:
   # xavs2: AVS2 (IEEE 1857.4) video encoder from Peking University (GPL-2.0-or-later), static, for FFmpeg's libxavs2
   # encoder; GPL builds only. Found through xavs2.pc (1.3.0 or later). x264's configure, in build/linux; the library
@@ -14,7 +25,11 @@ build:
   # its endianness probe can't fail. Its 2019 code passes incompatible pointers, an error since
   # GCC 14, and its nasm macros use parameters the way nasm 2.16 warns about (warnings, not errors).
   system: none
-  vars: { cross: [] }
+  vars:
+    cross: []
+    library-args: [--enable-static]
+    library-target: lib-static
+    install-target: install-lib-static
   args:
     [
       --extra-cflags=-Wno-error=incompatible-pointer-types -std=gnu17,
@@ -31,18 +46,35 @@ build:
     - replace-in-file:
         { path: version.sh, from: 'VER_R=`git rev-list --count origin/master`', to: VER_R=0 }
     - replace-in-file: { path: build/linux/configure, from: 'elif !(', to: 'elif false && !(' }
+    # SysV x86-64 guarantees 16-byte incoming stacks, including pthread workers.
+    # Claiming 32 suppresses realignment of ALIGN32 AVX2 locals and crashes when
+    # a valid caller arrives at 16 modulo 32. Keep compiler and NASM in agreement.
+    - replace-in-file:
+        path: build/linux/configure
+        from: "if cc_check '' -mpreferred-stack-boundary=5 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=5\"\n        stack_alignment=32"
+        to: "if cc_check '' -mpreferred-stack-boundary=4 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=4\"\n        stack_alignment=16"
+      when: { platforms: [linux-x64] }
     - run:
         [
           ./configure,
           '--prefix={deps}',
           --disable-cli,
-          --enable-static,
+          '{library-args}',
           --enable-pic,
           '{cross}',
           '{args}',
         ]
       cwd: build/linux
-    - run: [make, '-j{jobs}', lib-static]
+    - run: [make, '-j{jobs}', '{library-target}']
       cwd: build/linux
-    - run: [make, install-lib-static]
+    - run: [make, '{install-target}']
       cwd: build/linux
+    # Exercise the actual AVX2 predictor through an external pthread caller at
+    # both valid stack alignments. Shared libraries are covered by real encodes.
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'xavs2', 'check-stack-abi.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-stack-abi'
+      when: { platforms: [linux-x64], exists: '{deps}/lib/libxavs2.a' }

@@ -9,12 +9,39 @@ source: { git: https://github.com/AcademySoftwareFoundation/openapv, ref: 'v{ver
 versions: { git-tags: '^v(0\.\d+\.\d+\.\d+)$' }
 # Not linux-armhf: its NEON code uses AArch64-only intrinsics.
 platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-library-arg: -DOAPV_BUILD_SHARED_LIB=ON
+        static-library-arg: -DOAPV_BUILD_STATIC_LIB=OFF
+        visibility-arg: -DCMAKE_C_VISIBILITY_PRESET=hidden
+        shared-link-arg: -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs
+      runtime: ['lib/liboapv.so*']
 build:
   # OpenAPV: the Advanced Professional Video codec (BSD-3-Clause), static, for FFmpeg's liboapv encoder (found through
   # oapv.pc, 0.2.0.0 or later; FFmpeg decodes APV itself). The static library alone: no shared one, apps or tests.
   # Static, its oapv.pc carries -DOAPV_STATIC_DEFINE, which keeps oapv.h from declaring its API dllimport.
   system: cmake
-  args: [-DOAPV_BUILD_SHARED_LIB=OFF, -DOAPV_BUILD_APPS=OFF, -DENABLE_TESTS=OFF]
+  vars:
+    {
+      shared-library-arg: -DOAPV_BUILD_SHARED_LIB=OFF,
+      static-library-arg: [],
+      visibility-arg: [],
+      shared-link-arg: [],
+    }
+  args:
+    [
+      '{shared-library-arg}',
+      '{static-library-arg}',
+      '{visibility-arg}',
+      '{shared-link-arg}',
+      -DOAPV_BUILD_APPS=OFF,
+      -DENABLE_TESTS=OFF,
+    ]
   before:
     # a NEON helper it forgot to make static, which XEVE's library defines under the same name: renamed, so a build
     # with both links on ARM
