@@ -15,6 +15,23 @@ versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # release tarball's VERSION file, which under FFmpeg's -I. shadowed libc++'s <version> on the case-insensitive file
 # system (devenvy/ffmpeg-build#41; build/ffmpeg.ts).
 platforms: [linux-*, osx-*, win-*, android-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        soname-mode: 'ON'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            -DCMAKE_CXX_VISIBILITY_PRESET=hidden,
+            -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs,--exclude-libs,ALL -Wl,--version-script={src}/ffb-private-cxx.map',
+          ]
+      runtime: ['lib/libOpenColorIO.so*']
 build:
   # OpenColorIO: colour management (BSD-3-Clause), static, for FFmpeg's ocio filter (found through OpenColorIO.pc, by
   # its C++ API). The library alone: no apps, OpenFX/Nuke plugins, Python or Java bindings, docs or tests. Every
@@ -23,8 +40,15 @@ build:
   #
   # Its .pc names only -lOpenColorIO: a static link also needs its dependencies and the C++ runtime.
   system: cmake
+  vars: { shared-mode: '', shared-args: [], soname-mode: 'OFF' }
+  before:
+    - write-file:
+        path: '{src}/ffb-private-cxx.map'
+        text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
+      when: { set: '{shared-mode}' }
   args:
     [
+      '{shared-args}',
       -DOCIO_INSTALL_EXT_PACKAGES=NONE,
       -DOCIO_BUILD_APPS=OFF,
       -DOCIO_BUILD_OPENFX=OFF,
@@ -34,7 +58,7 @@ build:
       -DOCIO_BUILD_DOCS=OFF,
       -DOCIO_BUILD_PYTHON=OFF,
       -DOCIO_BUILD_JAVA=OFF,
-      -DOCIO_USE_SOVERSION=OFF,
+      '-DOCIO_USE_SOVERSION={soname-mode}',
     ]
   platforms:
     # On Windows it opens one file stream from a std::wstring, an MSVC extension; mingw's C++ libraries take the
@@ -73,6 +97,15 @@ build:
     '*-arm64': { args: [-DOCIO_USE_SIMD=OFF] }
     linux-armhf: { args: [-DOCIO_USE_SIMD=OFF] }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'opencolorio', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CXX|g++}'
+        - '{version}'
+      when: { set: '{shared-mode}' }
     - edit-pkg-config:
         {
           path: '{deps}/lib/pkgconfig/OpenColorIO.pc',

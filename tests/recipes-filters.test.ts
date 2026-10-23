@@ -928,7 +928,7 @@ describe('tesseract', () => {
     );
     expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toContain('#include <cstdlib>\n');
     expect(h.read(pcPath(h, 'tesseract'))).toBe(
-      `Libs: -L\${libdir} -ltesseract55\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('win-') ? ' -lws2_32' : ''}\nRequires.private: lept\n`,
+      `Libs: -L\${libdir} -ltesseract55\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('linux-') ? ' -pthread' : ''}${platform.startsWith('win-') ? ' -lws2_32' : ''}\nRequires.private: lept\n`,
     );
   });
   it.each(platformsOf('cpu-features'))('cpu-features on %s', async (platform) => {

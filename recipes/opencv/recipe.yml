@@ -8,13 +8,29 @@ source: { git: https://github.com/opencv/opencv, ref: '{version}' }
 # OpenCV 4: FFmpeg's ocv filter is written against OpenCV's C API (core_c.h, imgproc_c.h), which OpenCV 5 removed
 versions: { git-tags: '^(4\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs,--exclude-libs,ALL -Wl,--version-script={src}/ffb-private-cxx.map',
+          ]
+      runtime: ['lib/libopencv_core.so*', 'lib/libopencv_imgproc.so*']
 build:
   # OpenCV: computer vision (Apache-2.0, so v3 builds only), static, its core and imgproc modules alone, for FFmpeg's
   # ocv filter (found through opencv4.pc). Nothing it would download during the build (IPP, ITT, ADE, protobuf), no
   # OpenCL, CUDA, LAPACK, Eigen, video or image I/O, apps, Java or Python bindings, tests or examples; zlib from deps.
   system: cmake
+  vars: { shared-mode: '', shared-args: [] }
   args:
     [
+      '{shared-args}',
       '-DBUILD_LIST=core,imgproc',
       -DOPENCV_GENERATE_PKGCONFIG=ON,
       -DBUILD_ZLIB=OFF,
@@ -83,6 +99,10 @@ build:
   # - its data-file search (cv::utils::findDataFile, for samples and tests) records the build folder and install
   #   prefix: neither (it still searches OPENCV_DATA_PATH and the folder relative to the library).
   before:
+    - write-file:
+        path: '{src}/ffb-private-cxx.map'
+        text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
+      when: { set: '{shared-mode}' }
     - replace-in-file:
         {
           path: CMakeLists.txt,
@@ -125,3 +145,12 @@ build:
           path: '{deps}/lib/pkgconfig/opencv4.pc',
           libs-private: { add: '{cxx-runtime}', missing: after-libs },
         }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'opencv', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CXX|g++}'
+        - '{version}'
+      when: { set: '{shared-mode}' }

@@ -118,6 +118,25 @@ Verification runs exact build-compiler SDK helpers on an Android emulator in
 separate detection/setter processes, and uses an FFmpeg library consumer for
 owned OCR text, unchanged pixels and filter EOF. The temporary verification
 build carries those helpers; release packages do not contain test executables.
+On Linux x64, Leptonica and Tesseract retain static defaults and offer bundled
+`shared` selections. Shared Tesseract requires shared Leptonica: their full public
+SDK transfers PIX ownership across the boundary, while Leptonica's custom pixel
+allocator is held in library-global state. The planner rejects a private static
+Leptonica inside shared Tesseract. Static Tesseract can use shared Leptonica, and
+PNG/zlib dependencies keep their independently selected modes.
+
+Shared Leptonica preserves its annotated public functions and data; shared
+Tesseract preserves its C and C++ SDK, including renderer RTTI and virtual methods,
+with a private static C++ runtime and the common system unwinder. Linux static SDK
+metadata includes its thread dependency. Native SDK checks track custom pixel
+allocations through ownership transfer, thresholded-image retention and destruction.
+
+Language models are separate resources in either mode. Supply `datapath` or
+`TESSDATA_PREFIX`; the maintained checks download and verify a pinned Apache-2.0
+English model solely for testing. Six FFmpeg 8/9 combinations recognize an owned
+text image and reject missing language data. External SDK checks also recognize
+the text through C/C++ APIs and exercise iterators and a renderer subclass. No
+training tools or language model is added to release archives.
 
 Some libraries offer a verified choice of linking mode. A target or base can use `link: { libgcrypt: shared }`,
 keyed by recipe name. Unspecified libraries keep their existing defaults; selecting a shared library does not
@@ -127,6 +146,8 @@ libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg
 libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, x264, openh264, xvidcore, x265, vvenc, svtav1,
 libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls, pixman, openal-soft, sndio,
 minizip-ng, yaml-cpp, pystring, imath, libvmaf, xavs, libssh and librtmp
+libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls,
+minizip-ng, yaml-cpp, pystring, imath, opencolorio and opencv
 offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
@@ -187,6 +208,25 @@ Owned unencrypted folder/ISO tests cover actual reads, metadata, EOF and seeks,
 plus FFmpeg packet counts and decoded video/audio. AACS/BD+ libraries and keys
 are not bundled; upstream can load separately installed system decryption
 libraries. BD-J remains disabled. Physical drives and protected media are untested.
+JPEG XL (`libjxl`), Brotli and Highway offer independent static and bundled shared choices on Linux x64.
+All three default to static. Bundled JPEG XL includes its encoder/decoder, thread runner and CMS libraries;
+the decoder-only upstream library is not installed. The shared C++ libraries carry a private static C++ runtime
+and use the common system unwinder. Mixed choices preserve each dependency's selected mode. Maintained runtime
+checks cover lossless RGB, alpha and true 16-bit pixels, multiple frames and threads, bounded lossy error,
+and installed C/C++ SDKs, including Brotli compression/dictionaries and Highway vector dispatch.
+ARIB caption libraries (`aribb24`, `libaribcaption`), Teletext (`zvbi`) and DeckLink ancillary data (`libklvanc`)
+offer static and bundled shared choices on Linux x64, with static defaults. The libaribcaption DSO uses the full
+source version in its engine-defined SONAME; this makes no distro-package compatibility promise. Its public C
+and C++ APIs are preserved, while embedded font libraries and C++ runtime symbols remain private. Maintained
+checks decode authored captions through FFmpeg and exercise native SDK text/rendering and ancillary roundtrips.
+DeckLink hardware I/O still needs the recipient's Desktop Video driver and hardware. The combined canaries use
+the existing nonfree classification because this group contains LGPLv3 and GPLv2-only code plus DeckLink's SDK;
+individual options retain their existing license choices.
+OpenCV's shared choice bundles its native core and imgproc modules together. OpenColorIO preserves its full
+public C++ interface, including application-owned logging callbacks and virtual configuration proxies. Their
+dependency choices remain independent: owned configuration archives, LUTs and morphology pixels are checked
+with static and shared dependencies. Linux shared builds keep their C++ runtime private and use the common
+system exception unwinder. Other platforms retain their existing static recipes.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
