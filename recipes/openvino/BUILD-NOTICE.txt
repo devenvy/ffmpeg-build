@@ -13,6 +13,6 @@ The C++ runtime is also linked statically. Source code is unchanged.
 runtime, dynamically loaded CPU plugin and IR frontend. Native plugins.xml
 generation is enabled and its relative registry ships beside the libraries.
 The C API header no longer requests static imports in that mode. C++ remains
-private with the common system unwinder; native public C++ owner interfaces
+statically embedded with its native public ABI and the common system unwinder; public C++ owner interfaces
 between the root, frontend and plugin are retained. CPU threading remains
 sequential and the same other devices/frontends remain disabled.

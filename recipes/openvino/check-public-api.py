@@ -31,8 +31,15 @@ required_bridges = {'_ZNKSt4hashIN2ov16DiscreteTypeInfoEEclERKS1_', '_ZSt5isnanN
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', str(deps / 'lib/libopenvino.so')], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}
 assert required_bridges <= names, required_bridges - names
-private = sorted(name for name in names if name.startswith(('_ZSt', '_ZNSt', '_ZNKSt')) and name not in required_bridges)
-assert not private, private[:30]
+assert {'__cxa_get_globals', '__cxa_throw'} <= names, names
+for mode, flags in [('dynamic', []), ('static', ['-static-libstdc++', '-shared-libgcc'])]:
+    probe = str(bridges) + '-exception-' + mode
+    subprocess.run([*shlex.split(os.environ.get('CXX', 'g++')), '-std=c++17',
+                    str(Path(os.environ['RECIPES'], 'openvino/public-exception.cpp')),
+                    '-I' + str(Path.cwd() / 'src/core/include'),
+                    '-L' + str(deps / 'lib'), '-lopenvino', *flags, '-o', probe],
+                   check=True, env=compile_environment)
+    subprocess.run([probe], timeout=30, check=True, env=environment)
 plugins = ET.parse(deps / 'lib/plugins.xml').findall('.//plugin')
 assert {plugin.attrib['name'] for plugin in plugins} == {'CPU'}, plugins
 assert all(not Path(plugin.attrib['location']).is_absolute() for plugin in plugins), 'registry must relocate'

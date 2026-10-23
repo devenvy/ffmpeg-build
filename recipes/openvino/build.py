@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -27,16 +28,17 @@ off = ['ENABLE_INTEL_GPU', 'ENABLE_INTEL_NPU', 'ENABLE_PROXY', 'ENABLE_AUTO',
        'ENABLE_KLEIDIAI_FOR_CPU', 'CMAKE_COMPILE_WARNING_AS_ERROR']
 shared_args = []
 if shared:
-    private_map = src / 'ffb-private-cxx.map'
-    # These two explicitly public std specializations bridge the root and IR frontend.
-    private_map.write_text('{ global: _ZNKSt4hashIN2ov16DiscreteTypeInfoEEclERKS1_; _ZSt5isnanN2ov7float16E; *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };\n')
-    private_flags = '-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--version-script=' + str(private_map)
+    native_link = runpy.run_path(str(Path(os.environ['RECIPES']) / 'openvino/native-link.py'))
+    native_link['prepare'](src)
+    private_flags = '-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs'
     shared_args = ['-DENABLE_PLUGINS_XML=ON', '-DCMAKE_SHARED_LINKER_FLAGS=' + private_flags,
                    '-DCMAKE_MODULE_LINKER_FLAGS=' + private_flags]
 run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
      '-DBUILD_SHARED_LIBS=' + ('ON' if shared else 'OFF'), '-DTHREADING=SEQ', '-DENABLE_INTEL_CPU=ON',
      '-DENABLE_OV_IR_FRONTEND=ON'] + ['-D' + name + '=OFF' for name in off] + shared_args)
+if shared:
+    native_link['audit'](build / 'build.ninja', os.environ['VERSION'])
 # Building this target also builds its runtime/plugin/frontend dependencies,
 # while excluding upstream's documentation executables and sample extensions.
 targets = ['openvino_c', 'openvino_intel_cpu_plugin', 'openvino_ir_frontend'] if shared else ['openvino_c']

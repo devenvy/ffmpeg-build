@@ -76,11 +76,12 @@ for (const name of components) {
       .map((line) => line.trim().split(/\s+/).at(-1).split('@')[0]);
     const privateSymbols = symbols.filter(
       (symbol) =>
-        (symbol.startsWith('_ZSt') ||
-          symbol.startsWith('_ZNSt') ||
-          symbol.startsWith('_ZNKSt') ||
+        ((backend !== 'openvino' &&
+          (symbol.startsWith('_ZSt') ||
+            symbol.startsWith('_ZNSt') ||
+            symbol.startsWith('_ZNKSt'))) ||
           symbol.includes('6google8protobuf') ||
-          (backend !== 'torch' && symbol.startsWith('__cxa')) ||
+          (backend === 'tensorflow' && symbol.startsWith('__cxa')) ||
           symbol.startsWith('_Unwind')) &&
         !publicBridges.has(symbol) &&
         // TensorFlow's native *TF_* / *TFE_* export globs retain C++ compatibility bridges.

@@ -10,6 +10,8 @@ with static as the default. Select `link: { openvino: shared }` to ship its
 native C and C++ runtimes, IR frontend, CPU plugin and relative plugin registry.
 The installed public APIs and native library ownership are retained. This mode
 includes the CPU implementation; GPU plugins require separate support.
+Its embedded C++ runtime retains the full native ABI so caller exceptions, streams and teardown share
+the correct state. Ten reviewed private dependency archives remain hidden; the system unwinder stays shared.
 
 Torch CPU inference offers static and bundled shared modes on Linux x64,
 with static as the default. Select `link: { torch: shared }` to ship its four
@@ -24,6 +26,7 @@ TensorFlow CPU inference offers static and bundled shared modes on Linux x64,
 with static as the default. Select `link: { tensorflow: shared }` to ship its
 native monolithic C runtime. The Graph and Eager APIs use the same native owner;
 the shared mode does not require a separate TensorFlow framework library.
+It embeds the pinned C++ compiler archives and requires the system's compatible `libgcc_s.so.1` unwinder.
 
 Rav1e defaults to static linking and offers a bundled shared mode on Linux x64.
 It uses cargo-c's native versioned C library and preserves all 37 public C API

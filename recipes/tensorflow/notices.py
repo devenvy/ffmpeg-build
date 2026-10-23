@@ -47,6 +47,10 @@ TOOL_GAPS = {
     'xz-build-tool': 'The upstream binary archive omits standalone XZ/liblzma license files.',
 }
 SHARED_RUNTIME = {
+    # hostcontext directly compiles the MPL work-queue filegroups; the native
+    # owner inventory folds them into tf_runtime rather than a separate archive.
+    'tf_runtime': ['LICENSE', 'third_party/llvm_derived/LICENSE',
+                   'third_party/concurrent_work_queue/LICENSE'],
     'shardy': ['LICENSE'],
     'stablehlo': ['LICENSE'],
     'com_github_grpc_grpc': ['LICENSE', 'third_party/address_sorting/LICENSE',
