@@ -2324,7 +2324,7 @@ describe('capture device libraries', () => {
 });
 
 // Batch f of #21, devices: Apple's capture device (AVFoundation) and the macOS framework behind the coreimage filters,
-// built in (the OS provides them). Nothing to build or license; none turns on by itself. (metal waits on #62.)
+// built in (the OS provides them). Nothing to build or license; none turns on by itself.
 describe("Apple's capture device and Core Image", () => {
   const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'];
   const apple = PLATFORMS.filter((p) => /^(osx|ios|maccatalyst)-/.test(p));
@@ -2340,6 +2340,15 @@ describe("Apple's capture device and Core Image", () => {
       platforms: macos,
       flags: ['--enable-coreimage', '--enable-appkit'],
       ships: { filters: ['coreimage', 'coreimagesrc'] },
+    },
+    metal: {
+      platforms: macos,
+      flags: ['--enable-metal', '--enable-videotoolbox'],
+      ships: {
+        filters: ['yadif_videotoolbox'],
+        hwaccels: ['videotoolbox'],
+        encoders: ['h264_videotoolbox', 'hevc_videotoolbox'],
+      },
     },
   };
   const OPTIONS = Object.keys(where);
@@ -2402,9 +2411,10 @@ describe("Apple's capture device and Core Image", () => {
     expect(flags('avfoundation').filter((f) => /appkit|coreimage/.test(f))).toEqual([]);
   });
 
-  it('leaves metal pending, on the crash #62 tracks', () => {
+  it('enables Metal only on macOS, with its upstream ownership fix applied during the build', () => {
     for (const major of ['8', '9']) {
-      expect(data.ffmpeg.get(major)!.options['metal']).toBeUndefined();
+      expect(data.ffmpeg.get(major)!.options['metal']!.builtin).toBe(true);
+      expect(data.ffmpeg.get(major)!['auto-components']).toContain('metal');
     }
   });
 
