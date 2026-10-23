@@ -15,6 +15,11 @@ linkage:
       platforms: [linux-x64]
       vars: { shared-library-arg: '-DBUILD_SHARED_LIBS=ON' }
       runtime: ['lib/liblzma.so*']
+    system-shared:
+      platforms: [linux-x64]
+      vars: { shared-library-arg: '-DBUILD_SHARED_LIBS=ON' }
+      runtime: ['lib/liblzma.so*']
+      packages: { debian: [liblzma5], ubuntu: [liblzma5], fedora: [xz-libs] }
 build:
   # liblzma: LZMA/XZ compression (0BSD since xz 5.6; the GPL that COPYING mentions is the xz tools' and scripts', not
   # built here), static, for FFmpeg's lzma (LZMA-compressed TIFF). Its CMake build (a git checkout has no configure

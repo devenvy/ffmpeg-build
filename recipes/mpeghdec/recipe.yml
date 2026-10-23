@@ -7,9 +7,42 @@ source: { git: https://github.com/Fraunhofer-IIS/mpeghdec.git, ref: 'r{version}'
 # r4.0.1 isolates the internal symbols shared with static fdk-aac.
 versions: { git-tags: '^r(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        consumer-flags: ''
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a -Wl,--version-script={src}/ffb-public-api.map',
+          ]
+      runtime: ['lib/libmpeghdec.so*']
 build:
   system: cmake
-  args: [-Dmpeghdec_BUILD_BINARIES=OFF, -Dmpeghdec_BUILD_DOC=OFF, -Dmpeghdec_SYMBOL_PREFIX=ON]
+  args:
+    [
+      '{shared-args}',
+      -Dmpeghdec_BUILD_BINARIES=OFF,
+      -Dmpeghdec_BUILD_DOC=OFF,
+      -Dmpeghdec_SYMBOL_PREFIX=ON,
+    ]
+  before:
+    # Upstream has no SONAME; use the engine's conservative full-version convention.
+    - replace-in-file:
+        path: src/CMakeLists.txt
+        from: "add_library(mpeghdec)\n"
+        to: "add_library(mpeghdec)\nset_target_properties(mpeghdec PROPERTIES VERSION {version} SOVERSION {version})\n"
+      when: { set: '{shared-mode}' }
+    - run:
+        - python3
+        - -c
+        - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'mpeghdec', 'exports.map'), 'ffb-public-api.map')"
+      when: { set: '{shared-mode}' }
   after:
     # Upstream installs this under share/pkgconfig; the engine searches lib/pkgconfig.
     # C consumers need the C++ runtime, and Windows consumers need the static export macro.
@@ -17,10 +50,20 @@ build:
         name: mpeghdec
         description: Fraunhofer MPEG-H decoder
         version: '{version}'
-        cflags: -DMPEGHDEC_STATIC=1
+        cflags: '{consumer-flags}'
         libs: -lmpeghdec
         libs-private: '-lm {cxx-runtime}'
-  vars: { cxx-runtime: -lstdc++ }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'mpeghdec', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+        - '{version}'
+      when: { set: '{shared-mode}' }
+  vars:
+    { cxx-runtime: -lstdc++, consumer-flags: -DMPEGHDEC_STATIC=1, shared-args: [], shared-mode: '' }
   platforms:
     linux-armhf:
       # Upstream's generated prefix header misses this C++ symbol on 32-bit ARM (long differs from x64).

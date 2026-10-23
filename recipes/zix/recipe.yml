@@ -5,8 +5,37 @@ source: { git: https://github.com/drobilla/zix, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # only the LV2 host stack (serd, sord, lilv) builds against it
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          - --default-library=shared
+          - '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libserd-0.a:libsord-0.a:libsratom-0.a:libzix-0.a'
+      runtime: ['lib/libzix-0.so*']
 build:
   # Zix: David Robillard's small C utility library (ISC), static, for sord and lilv (FFmpeg's lv2 filter). The library
   # alone: no benchmarks, docs or tests.
   system: meson
-  args: [-Dbenchmarks=disabled, -Ddocs=disabled, -Dtests=disabled, -Dtests_cpp=disabled]
+  vars: { shared-args: [], shared-mode: '' }
+  args:
+    [
+      '{shared-args}',
+      -Dbenchmarks=disabled,
+      -Ddocs=disabled,
+      -Dtests=disabled,
+      -Dtests_cpp=disabled,
+    ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'zix', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

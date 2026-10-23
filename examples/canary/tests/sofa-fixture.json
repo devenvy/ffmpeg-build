@@ -1,0 +1,13 @@
+{
+  "compressedSha256": "6966be1f18339a165d8b714ca6b3ba70f60bdb0d1eb863703f7da9e9711de909",
+  "sha256": "d1c46817fe05605a9fa62b364ccceafb4bf05c24f35d95416f1d7c251b9da23e",
+  "frames": 512,
+  "sampleRate": 48000,
+  "hrirLength": 32,
+  "leftImpulse": 0.5,
+  "rightImpulse": 0.25,
+  "rightDelaySamples": 1,
+  "netCDF4": "1.7.2",
+  "numpy": "2.2.6",
+  "license": "CC0-1.0"
+}

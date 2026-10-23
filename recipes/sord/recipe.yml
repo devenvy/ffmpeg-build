@@ -6,9 +6,38 @@ source: { git: https://github.com/drobilla/sord, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # only the LV2 host stack (sratom, lilv) builds against it
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          - --default-library=shared
+          - '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libserd-0.a:libsord-0.a:libsratom-0.a:libzix-0.a'
+      runtime: ['lib/libsord-0.so*']
 build:
   # Sord: an in-memory RDF store (ISC), static, for sratom and lilv (FFmpeg's lv2 filter). The library alone: no
   # sordi/sord_validate programs (and so no PCRE2), C++ bindings, man pages, docs or tests.
   system: meson
+  vars: { shared-args: [], shared-mode: '' }
   args:
-    [-Dtools=disabled, -Dbindings_cpp=disabled, -Dman=disabled, -Ddocs=disabled, -Dtests=disabled]
+    [
+      '{shared-args}',
+      -Dtools=disabled,
+      -Dbindings_cpp=disabled,
+      -Dman=disabled,
+      -Ddocs=disabled,
+      -Dtests=disabled,
+    ]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'sord', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

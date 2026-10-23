@@ -8,9 +8,30 @@ configure: [--enable-libvidstab]
 source: { git: https://github.com/georgmartius/vid.stab, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        library-arg: -DBUILD_SHARED_LIBS=ON
+        shared-args: ['-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs']
+      runtime: ['lib/libvidstab.so*']
 build:
   # vid.stab: video stabilization (GPL-2.0-or-later), static, for FFmpeg's vidstabdetect and vidstabtransform filters
   # (found through vidstab.pc, 0.98 or later); GPL builds only. Without OpenMP: its runtime would have to ship with
   # FFmpeg's libraries (and the NDK's and Apple's compilers have none); FFmpeg's filters run on its own threads.
   system: cmake
-  args: [-DUSE_OMP=OFF, -DBUILD_SHARED_LIBS=OFF]
+  vars: { library-arg: -DBUILD_SHARED_LIBS=OFF, shared-args: [], shared-mode: '' }
+  args: [-DUSE_OMP=OFF, '{library-arg}', '{shared-args}']
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vid.stab', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

@@ -162,6 +162,12 @@ shared Pango, Cairo and GLib. The planner rejects incompatible selections.
 FreeType remains independently selectable. Static upper libraries can consume
 shared lower libraries. The full native three-library Pango and librsvg SDKs are
 included; recipient fonts and Fontconfig configuration are still needed.
+MPEG-H offers `link: { mpeghdec: shared }` on Linux x64, with static as its default.
+The shared library preserves both decoder and UI-manager SDKs and isolates its
+internal FDK symbols, including when FDK AAC is enabled in the same build.
+Upstream does not version its shared ABI, so the engine uses the conservative
+full-version `libmpeghdec.so.4.0.1` SONAME. No system-provider mode is offered.
+The existing nonfree license selection and advisory release warning still apply.
 
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
@@ -238,6 +244,19 @@ yaml-cpp, Imath and OpenMPT likewise preserve the native C++ runtime ABI in thei
 SDK checks throw through public parser, stream and module APIs into both static and dynamic C++ callers,
 checking typed catches, retained rethrows and exception counts during unwinding and after cleanup.
 
+SOFA audio (`libmysofa`), stabilization (`vid.stab`) and lens correction (`lensfun`) offer independent static and
+bundled shared choices on Linux x64, with static defaults. The SOFA sample databases and Lensfun lens database
+remain excluded; callers provide those data files. Shared Lensfun preserves its C and C++ SDKs while keeping
+embedded GLib symbols private. Its embedded C++ runtime retains the native public ABI and common system
+unwinder, so application replacement new/delete also owns allocations inside Lensfun. Maintained SDK checks
+verify this with both static and dynamic C++ callers. Native SONAMEs are `libmysofa.so.1`, `libvidstab.so.1.2` and
+`liblensfun.so.2`. Maintained checks use authored HRTF impulses, lens calibration and translated video,
+checking actual samples, pixels, frame counts and stabilization rather than only filter listings.
+
+Linux x64 also supports `link: { bzip2: shared, libxml2: shared }`. Static remains their default;
+zlib retains its own selected mode. bzip2 uses the stable 1.0 ABI, and libxml2's actual SONAME follows
+its reviewed release rather than assuming a historical system-library name. Both shared libraries are bundled.
+
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
 or PipeWire ALSA plugins should select `link: { alsa-lib: shared }`; the bundled `libasound.so.2` then loads the
@@ -251,6 +270,12 @@ for distributions we have checked. The recorded source build version is not a mi
 Package suggestions do not block builds or releases and are not a cross-distribution compatibility guarantee.
 Static remains the default; `shared` continues to bundle the selected libraries beside FFmpeg. Dependencies
 keep their own selected modes, so select `system-shared` for each dependency you want the destination to supply.
+
+Linux x64 also supports system providers for `zlib`, `xz`, `libogg`, `libvorbis`, `opus`, `speex` and `libexpat`.
+The package hints were checked on Debian 12, Ubuntu 24.04 and Fedora 44, with real codec, compression and font
+configuration runs against those distributions' libraries. Each library keeps its static default. A distribution's
+shared library can load its own dependencies; selecting bundled Ogg alongside system Vorbis does not change how
+the distribution built Vorbis. The receipt distinguishes the omitted reference build from the shipped binaries.
 
 PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
 server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
@@ -266,6 +291,9 @@ Rubber Band keeps its builtin FFT and resampler; Chromaprint keeps its compiled-
 their C++ runtimes and retain the common system unwinder; Rubber Band preserves native public C++ ABI preemption.
 XEVE and XEVD are C libraries;
 their encoder and decoder linking modes can be selected independently.
+Codec2, Kvazaar, Xavs2 and Davs2 offer bundled shared libraries on Linux x64 while keeping static defaults.
+Xavs2 and Davs2 remain GPL build options, and their linking modes can be selected independently. Shared Davs2
+includes its private C++ runtime while retaining the common system unwinder.
 
 JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
 replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
@@ -309,6 +337,12 @@ ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Li
 `libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
 and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
 recording and playback paths can omit those unused functions when the client is linked statically.
+On Linux x64, the LV2 host libraries `lilv`, `serd`, `sord`, `sratom` and `zix` default to static linking and
+accept independent `shared` selections. LV2 plugins are loaded as separate modules in either mode. Supply
+compatible plugin bundles through `LV2_PATH` or the platform's usual LV2 folders. The maintained runtime check
+authors its own gain plugin and verifies sample values, complete output and separate instances; installed SDK
+checks also cover RDF parsing, typed atom serialization and indexed storage. LV2 itself supplies headers and
+specifications and has no runtime linking choice.
 
 A folder's `ffmpeg-build.yml` lists its builds. Each **target** is one build: one platform, one license, one FFmpeg
 series, and the complete list of what it gets. **Bases** hold what several targets share; a target takes its bases
@@ -640,6 +674,21 @@ common system unwinder remains shared for thread cancellation. SRT and librist
 use the selected pinned mbedTLS where the target's license permits it;
 other targets retain clear transport. RabbitMQ-C retains its existing plain
 AMQP support. The canary tests use isolated local peers and a disposable broker.
+FDK-AAC, OpenAPV, SVT-JPEG-XS and Quirc offer static and bundled shared modes on
+Linux x64, keyed by `fdk-aac`, `oapv`, `svt-jpegxs` and `quirc`. Static remains
+the default. The shared FDK library preserves its complete installed C SDK while
+keeping internal DSP symbols private; it also works beside the independently
+prefixed MPEG-H decoder. OpenAPV retains the supported 0.x API. Quirc's bundled
+library uses an engine-defined full-version SONAME (`libquirc.so.1.2` for 1.2);
+this makes no compatibility promise about separately installed distro libraries.
+These choices use the same existing license checks as their static versions.
+`link: { uavs3d: shared }` bundles the AVS3 decoder on Linux x64. Static remains
+the default. The shared library exposes the complete installed C SDK while
+keeping internal dispatch symbols private. Upstream does not version its
+SONAME, so the engine uses the full library version (`libuavs3d.so.1.2` for
+1.2), without claiming compatibility with distro packages. Static and shared
+canaries decode an authored eight-frame stream with one and two threads,
+requiring exact agreement with the encoder's reconstruction through EOF.
 
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.
