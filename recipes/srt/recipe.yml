@@ -19,7 +19,7 @@ linkage:
           - -DCMAKE_CXX_VISIBILITY_PRESET=hidden
           - -DCMAKE_C_VISIBILITY_PRESET=hidden
           - -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
-          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libgcc.a:libmbedtls.a:libmbedx509.a:libmbedcrypto.a:libeverest.a:libp256m.a -Wl,--version-script={src}/ffb-compiler-private.map'
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs -Wl,--exclude-libs,libmbedtls.a:libmbedx509.a:libmbedcrypto.a:libeverest.a:libp256m.a'
         shared-mode: 'yes'
         encryption-artifact: libsrt*.so*
       runtime: ['lib/libsrt.so*']
@@ -54,12 +54,6 @@ build:
     # -lmbedcrypto to resolve.
     'win-*': { vars: { mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto -lbcrypt } }
   before:
-    - run:
-        - python3
-        - -c
-        - "import os, shutil, sys; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'srt', 'compiler-private.map'), sys.argv[1])"
-        - '{src}/ffb-compiler-private.map'
-      when: { set: '{shared-mode}' }
     - vars: { enclib: mbedtls, encryption: [-DENABLE_ENCRYPTION=ON, -DUSE_ENCLIB=mbedtls] }
       when: { exists: '{deps}/lib/libmbedcrypto.*' }
     # On the Android NDK toolchain, find_library only searches CMAKE_FIND_ROOT_PATH (pointed at the

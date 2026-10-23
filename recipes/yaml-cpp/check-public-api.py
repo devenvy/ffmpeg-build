@@ -19,5 +19,12 @@ dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
 assert '[libyaml-cpp.so.0.9]' in dynamic and 'libstdc++.so' not in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', library], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}
-assert names and not any(name.startswith(('_ZSt', '_ZNSt', '_ZNSa', '_ZNKSt', '__cxa_')) for name in names), names
-print('yaml-cpp: native public C++ ABI/ownership and private static runtime with common unwinder passed')
+assert {'__cxa_get_globals', '__cxa_throw'} <= names, names
+assert 'libgcc_s.so.1' in dynamic, dynamic
+for mode, runtime_flags in [('dynamic', []), ('static', ['-static-libstdc++', '-shared-libgcc'])]:
+    probe = output + '-exception-' + mode
+    subprocess.run([*shlex.split(compiler), '-std=c++17',
+                    str(Path(os.environ['RECIPES'], 'yaml-cpp', 'public-exception.cpp')),
+                    *flags, *runtime_flags, '-o', probe], check=True, env=environment)
+    subprocess.run([probe], timeout=30, check=True, env=environment)
+print('yaml-cpp: native public C++ ownership, shared exception state and retained exception lifetime passed')

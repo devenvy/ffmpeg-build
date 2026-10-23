@@ -7,6 +7,21 @@ needs: [leptonica, { cpu-features: { platforms: [android-*] } }]
 source: { git: https://github.com/tesseract-ocr/tesseract, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      requires-link: { leptonica: [shared] }
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          [
+            -DBUILD_SHARED_LIBS=ON,
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs',
+          ]
+      runtime: ['lib/libtesseract.so*']
 build:
   # Tesseract: OCR (Apache-2.0, so v3 builds only), static, for FFmpeg's ocr filter (found through tesseract.pc, by
   # its C API). C++, on Leptonica. The library alone: no training tools, tests, ScrollView graphics, OpenMP, curl
@@ -16,8 +31,10 @@ build:
   #
   # Its .pc names no Leptonica, C++ runtime or libm, which a static link needs.
   system: cmake
+  vars: { shared-mode: '', shared-args: [] }
   args:
     [
+      '{shared-args}',
       -DBUILD_TRAINING_TOOLS=OFF,
       -DBUILD_TESTS=OFF,
       -DGRAPHICS_DISABLED=ON,
@@ -75,3 +92,15 @@ build:
           requires-private: { add: lept },
           libs-private: { set: '{cxx-runtime} -lm', missing: after-libs },
         }
+    # Static SDK consumers need the thread runtime that FFmpeg itself already links.
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/tesseract.pc', libs-private: { add: -pthread } }
+      when: { platforms: [linux-*] }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'tesseract', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CXX|g++}'
+      when: { set: '{shared-mode}' }

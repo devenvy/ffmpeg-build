@@ -135,7 +135,9 @@ const transport = async (name, encrypted, wrong) => {
   );
 };
 try {
-  for (const protocol of ['srt', 'rist']) {
+  const protocols = process.env.FFB_TRANSPORT_PROTOCOLS?.split(',') ?? ['srt', 'rist'];
+  assert.ok(protocols.length && protocols.every((protocol) => ['srt', 'rist'].includes(protocol)));
+  for (const protocol of protocols) {
     await transport(protocol, false, false);
     if (process.env.FFB_CRYPTO !== 'off') {
       await transport(protocol, true, false);

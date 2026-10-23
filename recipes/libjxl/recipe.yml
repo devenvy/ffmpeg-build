@@ -7,6 +7,19 @@ needs: [brotli, highway, lcms2]
 source: { git: https://github.com/libjxl/libjxl, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars:
+        shared-mode: 'yes'
+        shared-args:
+          - -DBUILD_SHARED_LIBS=ON
+          - -DJPEGXL_STATIC=OFF
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs'
+      runtime: ['lib/libjxl.so*', 'lib/libjxl_threads.so*', 'lib/libjxl_cms.so*']
 build:
   # libjxl: JPEG XL reference codec (BSD-3-Clause), static. Ported from devenvy/ffmpeg scripts/deps/libjxl.sh.
   # Enables FFmpeg's libjxl JPEG XL en/decoder. Consumes the brotli, highway, and lcms2 static libs built earlier via
@@ -24,6 +37,7 @@ build:
   # it to the root path (keeping the strict MODE=ONLY) makes android match the others.
   system: cmake
   args:
+    - '{shared-args}'
     - '-DCMAKE_FIND_ROOT_PATH={deps}'
     - -DBUILD_TESTING=OFF
     - -DJPEGXL_ENABLE_TOOLS=OFF
@@ -45,10 +59,27 @@ build:
   # so the static link test fails without an explicit -llog. A recipe can't touch FFmpeg's link line, so these go into
   # the Libs.private of the two .pc files FFmpeg's configure asks for (libjxl, libjxl_threads) when not already there.
   # (libjxl 0.12's own libjxl.pc already lists -lstdc++ on GNU toolchains; libjxl_threads.pc, std::thread based, doesn't.)
-  vars: { cxx-libs: '{cxx-runtime}' }
+  vars: { cxx-libs: '{cxx-runtime}', shared-args: [], shared-mode: '' }
+  before:
+    # CMS omits the export rule used by the encoder and threads libraries.
+    # Apply upstream's same public Jxl API rule to hide weak std templates.
+    - replace-in-file:
+        path: lib/jxl_cms.cmake
+        from: 'target_link_libraries(jxl_cms PRIVATE hwy)'
+        to: "target_link_libraries(jxl_cms PRIVATE hwy)\nset_property(TARGET jxl_cms APPEND_STRING PROPERTY LINK_FLAGS \" -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/jxl/jxl.version\")"
+      when: { set: '{shared-mode}' }
   platforms:
     'android-*': { vars: { cxx-libs: '{cxx-runtime} -llog' } }
   after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libjxl', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+        - '{CXX|g++}'
+      when: { set: '{shared-mode}' }
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/libjxl.pc', libs-private: { add: '{cxx-libs}' } }
     - edit-pkg-config:

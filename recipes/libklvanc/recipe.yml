@@ -4,9 +4,27 @@ license-files: [lgpl-2.1.txt]
 source: { git: https://github.com/stoth68000/libklvanc.git, ref: 'vid.obe.{version}' }
 versions: { git-tags: '^vid\.obe\.(\d+\.\d+\.\d+)$' }
 platforms: [linux-x64, osx-*]
+linkage:
+  default: static
+  modes:
+    static: {}
+    shared:
+      platforms: [linux-x64]
+      vars: { shared-arg: --enable-shared, static-arg: --disable-static, shared-mode: 'yes' }
+      runtime: ['lib/libklvanc.so*']
 build:
   system: autotools
   bootstrap: autoreconf
-  args: [--disable-shared, --enable-static, --with-pic]
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-mode: '' }
+  args: ['{shared-arg}', '{static-arg}', --with-pic]
   make-targets: [-C, src]
   install-targets: [-C, src, install]
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libklvanc', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'
+      when: { set: '{shared-mode}' }

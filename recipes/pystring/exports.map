@@ -1,5 +1,0 @@
-{
-  global:
-    extern "C++" { pystring::*; };
-  local: *;
-};
