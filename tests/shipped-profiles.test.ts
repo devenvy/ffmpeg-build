@@ -495,27 +495,26 @@ describe('Vulkan on Apple (MoltenVK)', () => {
     }
   });
 
-  it.each(['osx-arm64', 'osx-x64'])(
-    '%s builds the loader with MoltenVK and dlopens it, as on Linux',
-    (platform) => {
-      const cell = planOf(platform).cells[0]!;
-      expect(cell.recipes).toEqual(
-        expect.arrayContaining([
-          'vulkan-headers',
-          'spirv-headers',
-          'moltenvk',
-          'vulkan-loader',
-          'shaderc',
-          'libplacebo',
-        ]),
-      );
-      const flags = configureFlags(data, cell);
-      expect(flags).toEqual(expect.arrayContaining(['--enable-vulkan', '--enable-libplacebo']));
-      expect(flags.filter((f) => /vulkan-static|-framework/.test(f))).toEqual([]);
-    },
-  );
+  it.each(['osx-arm64', 'osx-x64'])('%s selects its verified native MoltenVK route', (platform) => {
+    const cell = planOf(platform).cells[0]!;
+    expect(cell.recipes).toEqual(
+      expect.arrayContaining([
+        'vulkan-headers',
+        'spirv-headers',
+        'moltenvk',
+        'vulkan-loader',
+        'shaderc',
+        'libplacebo',
+      ]),
+    );
+    const flags = configureFlags(data, cell);
+    expect(flags).toEqual(expect.arrayContaining(['--enable-vulkan', '--enable-libplacebo']));
+    const direct = platform === 'osx-arm64';
+    expect(flags.includes('--enable-vulkan-static')).toBe(direct);
+    expect(flags.some((flag) => flag.includes('-framework AppKit'))).toBe(direct);
+  });
 
-  it('macOS ships the loader, MoltenVK and its ICD manifest beside the libraries; iOS ships none', () => {
+  it('macOS x64 retains the shared driver route; arm64 and iOS embed their selected owner', () => {
     const runtimeOf = (platform: string) => {
       const cell = planOf(platform).cells[0]!;
       return makeBuildPlan({
@@ -532,7 +531,8 @@ describe('Vulkan on Apple (MoltenVK)', () => {
         cacheDir: mkdtempSync(join(tmpdir(), 'c-')),
       }).runtime;
     };
-    expect(runtimeOf('osx-arm64').sort()).toEqual([
+    expect(runtimeOf('osx-arm64')).toEqual([]);
+    expect(runtimeOf('osx-x64').sort()).toEqual([
       'lib/MoltenVK_icd.json',
       'lib/libMoltenVK.dylib',
       'lib/libvulkan*.dylib',
@@ -613,7 +613,7 @@ describe('Apple Vulkan in the shipped targets', () => {
       expect(c.recipes.includes('moltenvk'), `${platform} ${license} ${series}`).toBe(v3);
       expect(c.recipes.includes('vulkan-loader')).toBe(v3 && platform.startsWith('osx-'));
       expect(configureFlags(data, c).includes('--enable-vulkan-static')).toBe(
-        v3 && !platform.startsWith('osx-'),
+        v3 && platform !== 'osx-x64',
       );
     }
   });

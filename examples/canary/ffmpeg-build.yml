@@ -1639,6 +1639,19 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [vulkan, placebo, iconv, opencl, opencolorio]
+  osx-arm64-moltenvk-static-lgplv3:
+    platform: osx-arm64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [vulkan, placebo]
+    tests: [tests/moltenvk-linkage.sh]
+  osx-arm64-moltenvk-shared-lgplv3:
+    platform: osx-arm64
+    license: lgplv3
+    ffmpeg: '9'
+    with: [vulkan, placebo]
+    link: { vulkan-loader: shared, moltenvk: shared }
+    tests: [tests/moltenvk-linkage.sh]
   # Rockchip MPP, which only ARM Linux builds: rkmpp alone (with the libdrm it needs), to keep the arm64 run short; and
   # mbedTLS as the build's TLS, which the other Linux targets' OpenSSL and GnuTLS leave out (one TLS per build)
   linux-arm64-lgplv3:
