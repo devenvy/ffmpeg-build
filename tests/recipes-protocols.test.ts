@@ -258,7 +258,7 @@ describe('mbedtls', () => {
   });
 });
 
-// librtmp's library and .pc from rtmpdump's Makefile with the platform's tools, static; GnuTLS for its encryption
+// librtmp's library and .pc from rtmpdump's Makefile with the platform's tools, static; native OpenSSL encryption
 // when the build has it, none otherwise.
 describe('librtmp', () => {
   /** rtmpdump's SYS: the system libraries its .pc names. */
@@ -272,10 +272,12 @@ describe('librtmp', () => {
     [p, false],
     [p, true],
   ]) as [string, boolean][];
-  it.each(cases)('%s, GnuTLS in deps: %s', async (platform, gnutls) => {
+  it.each(cases)('%s, OpenSSL in deps: %s', async (platform, openssl) => {
     const h = fake(platform);
-    if (gnutls) {
-      put(join(h.deps, 'lib', 'libgnutls.a'), '');
+    if (openssl) {
+      put(join(h.deps, 'lib', 'libssl.a'), '');
+      put(join(h.deps, 'lib', 'libcrypto.a'), '');
+      put(pcPath(h, 'openssl'), 'Name: OpenSSL\nLibs: -lssl -lcrypto\n');
     }
     put(join(h.deps, 'man', 'man3', 'librtmp.3'), '');
     const src = (f: string) => join(h.src, 'librtmp', f);
@@ -289,25 +291,18 @@ describe('librtmp', () => {
     put(src('handshake.h'), hmac);
     put(src('rtmp_sys.h'), '#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n');
     await build(h, 'librtmp');
-    expect(h.read(src('rtmp_sys.h'))).toBe(
-      platform === 'linux-x64'
-        ? '#include "ffb_tls_read.h"\n#define TLS_read(s,b,l)\tffb_gnutls_read(s,b,l)\n'
-        : '#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n',
-    );
-    // Nettle 4's digest functions take no length: a macro gives it to Nettle 3 only
-    expect(h.read(src('nettle_compat.h'))).toBe(
-      '#include <nettle/version.h>\n#if NETTLE_VERSION_MAJOR >= 4\n#define NETTLE_LENGTH_ARG(n)\n#else\n' +
-        '#define NETTLE_LENGTH_ARG(n) n,\n#endif\n',
-    );
+    expect(h.read(src('rtmp_sys.h'))).toBe('#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n');
+    expect(h.files(join(h.src, 'librtmp'))).toEqual([
+      'handshake.h',
+      'hashswf.c',
+      'rtmp.c',
+      'rtmp_sys.h',
+    ]);
     expect(h.read(src('rtmp.c'))).toBe(
-      '#include <nettle/md5.h>\n#include "nettle_compat.h"\n' +
-        '#define MD5_Final(dig,ctx)\tmd5_digest(ctx,NETTLE_LENGTH_ARG(MD5_DIGEST_LENGTH)dig)\n',
+      '#include <nettle/md5.h>\n#define MD5_Final(dig,ctx)\tmd5_digest(ctx,MD5_DIGEST_LENGTH,dig)\n',
     );
     for (const f of ['hashswf.c', 'handshake.h']) {
-      expect(h.read(src(f)), f).toBe(
-        '#include <nettle/hmac.h>\n#include "nettle_compat.h"\n#define HMAC_finish(ctx, dig, dlen)\tdlen = ' +
-          'SHA256_DIGEST_LENGTH; hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)\n',
-      );
+      expect(h.read(src(f)), f).toBe(hmac);
     }
     const host = h.context.env['CROSS_HOST'] ?? '';
     const tools = host ? `${host}-` : '';
@@ -315,7 +310,7 @@ describe('librtmp', () => {
       `CC=${h.context.env['CC'] ?? `${tools}gcc`}`,
       `AR=${h.context.env['AR'] ?? `${tools}ar`}`,
       `SYS=${sysOf(platform)}`,
-      `CRYPTO=${gnutls ? 'GNUTLS' : ''}`,
+      `CRYPTO=${openssl ? 'OPENSSL' : ''}`,
       'SHARED=no',
       `prefix=${h.deps}`,
       `XCFLAGS=-fPIC ${h.context.env['CFLAGS'] ?? ''} -I${h.deps}/include`,
@@ -326,10 +321,10 @@ describe('librtmp', () => {
     ]);
     expect(h.files(h.deps).filter((f) => f.startsWith('man/'))).toEqual([]);
   });
-  it('is LGPL-2.1-or-later, needs zlib and uses GnuTLS where the build allows it', () => {
+  it('is LGPL-2.1-or-later, needs zlib and uses native OpenSSL where the build allows it', () => {
     expect(recipe('librtmp').license).toBe('LGPL-2.1-or-later');
     expect(recipe('librtmp').needs).toEqual([{ name: 'zlib' }]);
-    expect(recipe('librtmp').uses).toEqual([{ name: 'gnutls' }]);
+    expect(recipe('librtmp').uses).toEqual([{ name: 'openssl' }]);
     expect(platformsOf('librtmp')).toEqual(PLATFORMS);
   });
 });

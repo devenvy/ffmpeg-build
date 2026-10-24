@@ -202,7 +202,10 @@ try {
     const dependencies = run('readelf', ['-d', join(dirname(ffmpeg), name)]).toString();
     assert.doesNotMatch(dependencies, /libatomic\.so/);
     const exports = run('nm', ['-D', '--defined-only', join(dirname(ffmpeg), name)]).toString();
-    assert.doesNotMatch(exports, /\b(?:mbedtls_|gnutls_|nettle_|__gmp|asn1_)/);
+    assert.doesNotMatch(
+      exports,
+      /\b(?:mbedtls_|gnutls_|nettle_|__gmp|asn1_|SSL_|OPENSSL_|EVP_|CRYPTO_)/,
+    );
   }
   console.log('Networking linkage and private dependency exports passed');
   complete = true;

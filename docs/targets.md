@@ -259,8 +259,8 @@ Shared ALSA uses one upstream plugin directory: Debian's multiarch directory on 
 on musl. On another distribution, set `ALSA_PLUGIN_DIR` to its installed plugins directory, for example
 `/usr/lib64/alsa-lib` on Fedora. The engine does not add a multi-directory plugin search patch.
 For SFTP and RTMP, `link: { libssh: shared, librtmp: shared }` bundles the selected client libraries.
-Their cryptographic dependencies keep their own linking modes. Linux x64 librtmp normalizes GnuTLS retry
-and error results so TLS 1.3 post-handshake messages do not break RTMPS or bypass socket read timeouts.
+Their cryptographic dependencies keep their own linking modes. librtmp uses upstream's native OpenSSL route;
+the engine does not adapt GnuTLS return values or carry cryptographic API compatibility headers.
 The maintained checks use local SSH, RTMP and TLS servers; they do not require remote service credentials.
 Blu-ray and UDF reading offer independent Linux x64 static and bundled shared
 choices: `link: { libbluray: shared, libudfread: shared }`. Static remains the
@@ -360,6 +360,12 @@ bootstrap tools; the proxy gettext header must not override libc's API in these 
 
 OpenSSL, LibreSSL and mbedTLS default to static linking and offer bundled shared libraries on Linux x64.
 Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header and library names.
+This also applies to dependency-only providers. librtmp uses its unchanged OpenSSL backend, so a target selecting
+both `rtmp` and `libtls` is rejected rather than installing two SSL providers into the same prefix.
+Where OpenSSL is unavailable or its licence is excluded, librtmp retains upstream's plain RTMP/RTMPT mode;
+upstream explicitly rejects encrypted connections without TLS support. Native FFmpeg protocols remain an
+alternative when a target needs a different TLS backend. The RTMP/RTMPS stream and timeout checks must pass again
+against the native backend; earlier patched GnuTLS runs do not establish this support.
 OpenSSL's shared mode embeds its legacy provider in libcrypto, so an application can activate it without a
 separate provider-module directory. It does not activate legacy algorithms automatically. The shared mbedTLS
 mode bundles its TLS, X.509 and crypto libraries together and retains pthread support.

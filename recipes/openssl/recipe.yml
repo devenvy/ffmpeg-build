@@ -10,8 +10,14 @@ platforms: [linux-*, android-*, maccatalyst-*]
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      conflicts-link: &ssl-provider-conflict
+        libressl:
+          modes: [static, shared]
+          platforms: [linux-x64]
+          reason: 'OpenSSL and LibreSSL install the same SSL headers and library names. Select one provider per build prefix.'
     shared:
+      conflicts-link: *ssl-provider-conflict
       platforms: [linux-x64]
       vars:
         library-args: [shared, no-module]

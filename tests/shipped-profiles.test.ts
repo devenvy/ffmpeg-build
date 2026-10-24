@@ -1841,7 +1841,7 @@ describe('protocol and I/O libraries', () => {
       ships: { protocols: ['libssh'] },
       auto: true,
     },
-    // lgplv2 first: no GnuTLS (nettle's licence), so plain rtmp
+    // lgplv2 first: the OpenSSL dependency is excluded by this profile, so plain rtmp.
     rtmp: {
       platforms: PLATFORMS,
       recipe: 'librtmp',
@@ -1993,14 +1993,14 @@ describe('protocol and I/O libraries', () => {
     }
   });
 
-  it('encrypts rtmp with GnuTLS where the build may take it, and goes without elsewhere', () => {
+  it('selects native OpenSSL for rtmp only on eligible platforms and licences', () => {
     const recipesOf = (platform: string, license: string) =>
       [...planOn(platform, license, 'rtmp').cells[0]!.recipes].sort();
-    const gnutls = ['gmp', 'gnutls', 'librtmp', 'libtasn1', 'nettle', 'zlib'];
+    const openssl = ['librtmp', 'openssl', 'zlib'];
     for (const platform of ['linux-x64', 'linux-musl-arm64', 'android-arm64', 'maccatalyst-x64']) {
-      expect(recipesOf(platform, 'gplv2'), platform).toEqual(gnutls);
-      expect(recipesOf(platform, 'lgplv3'), platform).toEqual(gnutls);
-      // nettle (LGPL-3.0-or-later OR GPL-2.0-or-later) can't go into lgplv2: no GnuTLS
+      expect(recipesOf(platform, 'gplv2'), platform).toEqual(['librtmp', 'zlib']);
+      expect(recipesOf(platform, 'lgplv3'), platform).toEqual(openssl);
+      // OpenSSL's Apache-2.0 licence requires a version3 profile under the existing policy.
       expect(recipesOf(platform, 'lgplv2'), platform).toEqual(['librtmp', 'zlib']);
     }
     for (const platform of ['win-x64', 'osx-arm64', 'ios-arm64']) {
