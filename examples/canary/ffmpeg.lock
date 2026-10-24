@@ -19,7 +19,7 @@ libraries:
   cuda-runtime: { version: 12.8.90, sha256: 8d566b5fe745c46842dc16945cf36686227536decd2302c372be86da37faca68 }
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
-  davs2: { version: 1.7, commit: b06d7585620f4e90a6d19a2926bb4e59793b8942 }
+  davs2: { version: 1.7, sha256: b697d0b376a1c7f7eda3a4cc6d29707c8154c4774358303653f0a9727f923cc8 }
   decklink-headers: 27a47e3872c58a25418701aadab448b9e6bedcd3
   fdk-aac: { version: 3.0.0, commit: a68a51aa45d86a43c7b228e3d45624af09dcdd8d }
   flex: { version: 2.6.4, sha256: e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995 }
@@ -163,7 +163,7 @@ libraries:
   x264: b35605ace3ddf7c1a5d67a2eb553f034aef41d55
   x265: { version: 4.3, commit: e9b88125dc21393b3fd8d68e98083bdfb89778a8 }
   xavs: fbecc4fb0d5cfd0d38f7604d4d35e546ff1502ab
-  xavs2: { version: 1.4, commit: eae1e8b9d12468059bdd7dee893508e470fa83d8 }
+  xavs2: { version: 1.4, sha256: 1e6d731cd64cb2a8940a0a3fd24f9c2ac3bb39357d802432a47bc20bad52c6ce }
   xcb-proto: { version: 1.17.0, sha256: 2c1bacd2110f4799f74de6ebb714b94cf6f80fb112316b1219480fd22562148c }
   xevd: { version: 0.8.0, commit: 8fa744e865e9bdb94a5d5da6a4ab18268cdc4bb4 }
   xeve: { version: 0.7.1, commit: fe229fec19e14907c60d65626ebd59f41517d9b3 }

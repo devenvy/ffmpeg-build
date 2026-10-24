@@ -3,8 +3,8 @@ provides: xavs2
 license: GPL-2.0-or-later
 license-files: [COPYING]
 configure: [--enable-libxavs2]
-source: { git: https://github.com/pkuvcl/xavs2, ref: '{version}' }
-versions: { git-tags: '^(\d+\.\d+)$' }
+source: { url: 'https://github.com/pkuvcl/xavs2/archive/refs/tags/{version}.tar.gz' }
+versions: { git-tags: '^(\d+\.\d+)$', repo: https://github.com/pkuvcl/xavs2 }
 # Not Android: its thread pool calls pthread_setaffinity_np, which bionic hasn't got.
 platforms: [linux-x64, linux-musl-x64, win-x64, linux-arm64, linux-musl-arm64]
 linkage:
@@ -21,8 +21,8 @@ linkage:
 build:
   # xavs2: AVS2 (IEEE 1857.4) video encoder from Peking University (GPL-2.0-or-later), static, for FFmpeg's libxavs2
   # encoder; GPL builds only. Found through xavs2.pc (1.3.0 or later). x264's configure, in build/linux; the library
-  # alone (no CLI). As davs2: version.sh's origin/master count is 0 (a tag's shallow clone has no origin/master), and
-  # its endianness probe can't fail. Its 2019 code passes incompatible pointers, an error since
+  # alone (no CLI). Use the genuine source archive's native version fallback and compiler probe. Its 2019 code
+  # passes incompatible pointers, an error since
   # GCC 14, and its nasm macros use parameters the way nasm 2.16 warns about (warnings, not errors).
   system: none
   vars:
@@ -36,24 +36,16 @@ build:
       --extra-asflags=-w-macro-params-legacy,
     ]
   platforms:
-    win-x64: { vars: { cross: ['--cross-prefix={CROSS_PREFIX}-', --host=x86_64-w64-mingw32] } }
+    win-x64:
+      vars: { cross: ['--cross-prefix={CROSS_PREFIX}-', --host=x86_64-w64-mingw32] }
+      args: [--extra-cflags=-mincoming-stack-boundary=4]
+    linux-x64: { args: [--extra-cflags=-mincoming-stack-boundary=4] }
     # its ARM assembly is commented out or missing: plain C on ARM
     linux-arm64: { args: [--disable-asm] }
     linux-musl-arm64: { args: [--disable-asm] }
     # its x86-64 assembly assumes 32-byte-aligned memory that musl's threads don't give it (AVX2 stores crash): plain C
-    linux-musl-x64: { args: [--disable-asm] }
+    linux-musl-x64: { args: [--disable-asm, --extra-cflags=-mincoming-stack-boundary=4] }
   steps:
-    - replace-in-file:
-        { path: version.sh, from: 'VER_R=`git rev-list --count origin/master`', to: VER_R=0 }
-    - replace-in-file: { path: build/linux/configure, from: 'elif !(', to: 'elif false && !(' }
-    # SysV x86-64 guarantees 16-byte incoming stacks, including pthread workers.
-    # Claiming 32 suppresses realignment of ALIGN32 AVX2 locals and crashes when
-    # a valid caller arrives at 16 modulo 32. Keep compiler and NASM in agreement.
-    - replace-in-file:
-        path: build/linux/configure
-        from: "if cc_check '' -mpreferred-stack-boundary=5 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=5\"\n        stack_alignment=32"
-        to: "if cc_check '' -mpreferred-stack-boundary=4 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=4\"\n        stack_alignment=16"
-      when: { platforms: [linux-x64] }
     - run:
         [
           ./configure,

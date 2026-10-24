@@ -293,10 +293,12 @@ individual options retain their existing license choices.
 OpenCV's shared choice bundles its native core and imgproc modules together. OpenColorIO preserves its full
 public C++ interface, including application-owned logging callbacks and virtual configuration proxies. Their
 dependency choices remain independent: owned configuration archives, LUTs and morphology pixels are checked
-with static and shared dependencies. Linux shared builds embed their C++ runtime while preserving its native
-public ABI and the common system exception unwinder. Hiding compiler exception state would corrupt caller
+with static and shared dependencies. Shared OpenColorIO retains its native system C++ runtime and common system
+exception unwinder. Hiding compiler exception state would corrupt caller
 exception counts; a partial private standard-library map also broke exit-time teardown. Private noncompiler
-archives remain hidden. Other platforms retain their existing static recipes.
+archives remain hidden. Other supported platforms retain their existing static recipes.
+OpenColorIO is unavailable on the current Windows MinGW toolchains: its released source uses an MSVC-only stream
+constructor. Linux, macOS and Android retain their native builds.
 The same native C++ ABI boundary preserves caller-owned allocation in pystring, SRT, Rubber Band and
 Tesseract. Maintained SDK checks exercise replacement new/delete with both static and dynamic C++ callers;
 returned heap strings must belong to the caller's allocator. Tesseract's SDK also retains its independent

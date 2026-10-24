@@ -320,6 +320,10 @@ const x264Cross = (platform: string, h: Harness): string[] => {
 /** davs2 and xavs2: assembly only on glibc x86-64 Linux and Windows (on musl it crashes, on ARM it is missing). */
 const asmOff = (platform: string) =>
   /^(linux-x64|win-x64)$/.test(platform) ? [] : ['--disable-asm'];
+const incomingStack = (platform: string) =>
+  ['linux-x64', 'linux-musl-x64', 'win-x64'].includes(platform)
+    ? ['--extra-cflags=-mincoming-stack-boundary=4']
+    : [];
 const AVS2_PLATFORMS = [
   'linux-x64',
   'linux-arm64',
@@ -330,8 +334,7 @@ const AVS2_PLATFORMS = [
   'android-x64',
 ];
 
-// davs2's x264-style configure in build/linux, its version and endianness probe made to work in a shallow clone
-// with today's compilers, and the C++ runtime its .pc leaves out.
+// davs2's unchanged native configure/version scripts, selected compiler flags, and installed C++ runtime metadata.
 describe('davs2', () => {
   it('builds where its x86-64 assembly or plain C builds', () => {
     expect(platformsOf('davs2')).toEqual(AVS2_PLATFORMS);
@@ -358,17 +361,16 @@ describe('davs2', () => {
         '--enable-pic',
         ...x264Cross(platform, h),
         ...asmOff(platform),
+        ...incomingStack(platform),
       ].join(' ') + cxx,
       `build/linux$ make -j4 lib-static${cxx}`,
       `build/linux$ make install-lib-static${cxx}`,
     ]);
-    expect(h.read(join(h.src, 'version.sh'))).toBe('    VER_R=0\n');
-    const expectedStack =
-      platform === 'linux-x64'
-        ? stackProbe.replaceAll('boundary=5', 'boundary=4').replace('alignment=32', 'alignment=16')
-        : stackProbe;
+    expect(h.read(join(h.src, 'version.sh'))).toBe(
+      '    VER_R=`git rev-list --count origin/master`\n',
+    );
     expect(h.read(join(h.src, 'build', 'linux', 'configure'))).toBe(
-      `    elif false && !(strings | grep -q EGIB) ; then\n${expectedStack}`,
+      `    elif !(strings | grep -q EGIB) ; then\n${stackProbe}`,
     );
     expect(h.read(pcPath(h, 'davs2'))).toMatch(/\nLibs\.private: -l\S+\n$/);
   });
@@ -389,6 +391,7 @@ describe('xavs2', () => {
         '        CFLAGS="$CFLAGS -mpreferred-stack-boundary=5"\n' +
         '        stack_alignment=32\n',
     );
+    const upstreamConfigure = h.read(join(h.src, 'build', 'linux', 'configure'));
     await build(h, 'xavs2');
     expect(commands(h)).toEqual([
       [
@@ -400,15 +403,15 @@ describe('xavs2', () => {
         '--extra-cflags=-Wno-error=incompatible-pointer-types -std=gnu17',
         '--extra-asflags=-w-macro-params-legacy',
         ...asmOff(platform),
+        ...incomingStack(platform),
       ].join(' '),
       'build/linux$ make -j4 lib-static',
       'build/linux$ make install-lib-static',
     ]);
-    expect(h.read(join(h.src, 'version.sh'))).toBe('    VER_R=0\n');
-    const configure = h.read(join(h.src, 'build', 'linux', 'configure'));
-    expect(configure).toContain(
-      platform === 'linux-x64' ? 'stack_alignment=16' : 'stack_alignment=32',
+    expect(h.read(join(h.src, 'version.sh'))).toBe(
+      '    VER_R=`git rev-list --count origin/master`\n',
     );
+    expect(h.read(join(h.src, 'build', 'linux', 'configure'))).toBe(upstreamConfigure);
   });
 });
 

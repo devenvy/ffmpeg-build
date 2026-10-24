@@ -631,29 +631,29 @@ describe('OpenColorIO', () => {
         ...(arm ? ['-DOCIO_USE_SIMD=OFF'] : []),
       ]),
     );
-    const win = platform.startsWith('win-');
     const mac = platform.startsWith('osx-');
     expect(h.read(join(h.src, 'src', 'OpenColorIO', 'transforms', 'FileTransform.cpp'))).toContain(
-      win
-        ? 'Platform::filenameToUTF(filepath).c_str(), mode));'
-        : 'Platform::filenameToUTF(filepath), mode));',
+      'Platform::filenameToUTF(filepath), mode));',
     );
     expect(h.read(pcPath(h, 'OpenColorIO'))).toBe(
       `Libs: -L\${libdir} -lOpenColorIO\n` +
-        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${win ? ' -lgdi32 -luser32' : ''}${mac ? ' -framework ColorSync -framework CoreFoundation -framework CoreGraphics -framework IOKit' : ''}\n` +
-        `Cflags: -I\${includedir}${win ? ' -DOpenColorIO_SKIP_IMPORTS' : ''}\n` +
+        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${mac ? ' -framework ColorSync -framework CoreFoundation -framework CoreGraphics -framework IOKit' : ''}\n` +
+        `Cflags: -I\${includedir}\n` +
         'Requires.private: yaml-cpp minizip-ng Imath expat zlib\n',
     );
   });
   // macOS too (the engine's fix for FFmpeg's VERSION file, #41), not iOS or Mac Catalyst (their missing macOS APIs):
   // its dependencies build where it does
   const notIos = PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p));
-  it.each(['opencolorio', 'yaml-cpp', 'pystring', 'imath', 'minizip-ng'])(
+  it.each(['yaml-cpp', 'pystring', 'imath', 'minizip-ng'])(
     '%s builds on Linux, macOS, Windows and Android',
     (name) => {
       expect(platformsOf(name)).toEqual(notIos);
     },
   );
+  it('omits the unsupported MinGW constructor in the current OpenColorIO release', () => {
+    expect(platformsOf('opencolorio')).toEqual(notIos.filter((p) => !p.startsWith('win-')));
+  });
   it('takes libexpat, which now builds on Windows and Android too', () => {
     expect(platformsOf('libexpat')).toEqual(
       PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p)),

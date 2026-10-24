@@ -1619,7 +1619,7 @@ describe('filter and processing libraries', () => {
     },
     // not iOS or Mac Catalyst (their missing macOS APIs); macOS once FFmpeg's VERSION file is out of the way (#41)
     opencolorio: {
-      platforms: PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p)),
+      platforms: PLATFORMS.filter((p) => /^(linux|osx|android)-/.test(p)),
       recipe: 'opencolorio',
       recipes: () => [
         'imath',

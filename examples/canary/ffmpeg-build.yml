@@ -92,7 +92,7 @@ bases:
       ]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
-    without: [flite]
+    without: [flite, opencolorio]
   gplv2:
     with:
       [

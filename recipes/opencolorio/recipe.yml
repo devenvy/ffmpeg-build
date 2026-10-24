@@ -14,7 +14,9 @@ versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 # ColorSync). On macOS, FFmpeg's own C++ wrapper for it (ocio_wrapper.cpp) compiles once the engine removes the
 # release tarball's VERSION file, which under FFmpeg's -I. shadowed libc++'s <version> on the case-insensitive file
 # system (devenvy/ffmpeg-build#41; build/ffmpeg.ts).
-platforms: [linux-*, osx-*, win-*, android-*]
+# The current release uses MSVC's std::wstring ifstream extension on Windows;
+# the engine's MinGW C++ libraries do not provide that constructor.
+platforms: [linux-*, osx-*, android-*]
 linkage:
   default: static
   modes:
@@ -56,25 +58,6 @@ build:
       '-DOCIO_USE_SOVERSION={soname-mode}',
     ]
   platforms:
-    # On Windows it opens one file stream from a std::wstring, an MSVC extension; mingw's C++ libraries take the
-    # wide C string (the rest of its code already passes that). Its non-Unicode Windows build doesn't compile.
-    'win-*':
-      before:
-        - replace-in-file:
-            {
-              path: src/OpenColorIO/transforms/FileTransform.cpp,
-              from: 'Platform::filenameToUTF(filepath), mode));',
-              to: 'Platform::filenameToUTF(filepath).c_str(), mode));',
-            }
-      # without OpenColorIO_SKIP_IMPORTS its headers declare the API dllimport; its monitor listing (ICC profiles)
-      # calls GDI and User
-      after:
-        - edit-pkg-config:
-            {
-              path: '{deps}/lib/pkgconfig/OpenColorIO.pc',
-              cflags: { append: -DOpenColorIO_SKIP_IMPORTS },
-              libs-private: { add: -lgdi32 -luser32 },
-            }
     # the NDK's toolchain file finds packages only under its root paths: its dependencies' CMake configs are in deps
     'android-*': { args: ['-DCMAKE_FIND_ROOT_PATH={deps}'] }
     # its monitor listing (ICC profiles) calls ColorSync, CoreGraphics and IOKit, which its CMake links only into a
