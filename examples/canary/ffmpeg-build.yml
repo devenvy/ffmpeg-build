@@ -93,6 +93,7 @@ bases:
       ]
   win:
     with: [amf, d3d11va, dxva2, mediafoundation, schannel, cuda-llvm, d3d12va]
+    without: [flite]
   gplv2:
     with:
       [
@@ -1810,11 +1811,13 @@ targets:
     license: gplv2
     ffmpeg: '9'
     base: [common, win, gplv2]
+    without: [xvid]
   win-x64-gplv3:
     platform: win-x64
     license: gplv3
     ffmpeg: '9'
     base: [common, win, gplv3]
+    without: [xvid]
   win-x64-lgplv3:
     platform: win-x64
     license: lgplv3

@@ -11,6 +11,8 @@ configure: [--enable-libssh]
 needs: [mbedtls]
 source:
   url: 'https://www.libssh.org/files/{major}.{minor}/libssh-{version}.tar.xz'
+  # Debian's orig tarball is byte-identical to the locked upstream 0.12.2 release.
+  mirrors: ['https://deb.debian.org/debian/pool/main/libs/libssh/libssh_{version}.orig.tar.xz']
 versions: { git-tags: '^libssh-(\d+\.\d+\.\d+)$', repo: https://git.libssh.org/projects/libssh.git }
 # not Windows: libssh needs a thread-safe mbedTLS (its pthread or its application-installed locks), which mbedTLS is
 # only where the C library has pthreads (the mbedtls recipe says why)

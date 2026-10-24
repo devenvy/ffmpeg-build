@@ -338,9 +338,10 @@ configuration runs against those distributions' libraries. Each library keeps it
 shared library can load its own dependencies; selecting bundled Ogg alongside system Vorbis does not change how
 the distribution built Vorbis. The receipt distinguishes the omitted reference build from the shipped binaries.
 
-PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
-server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
-`libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
+PulseAudio uses its native shared client, bundling `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg.
+Its upstream Meson build does not offer static clients. It connects to the recipient's PulseAudio or pipewire-pulse
+server and reads that system's client configuration; server modules remain server-side. Native gettext support
+uses libc on glibc and the source-built proxy-libintl dependency on musl.
 
 OpenSSL, LibreSSL and mbedTLS default to static linking and offer bundled shared libraries on Linux x64.
 Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header and library names.
@@ -390,13 +391,17 @@ seeking, filesystem contents and caller-owned handles without requiring an optic
 Little CMS, GSM, Game_Music_Emu and Flite also offer static and bundled shared modes on Linux x64.
 Use their recipe names in `link`: `lcms2`, `libgsm`, `libgme` and `flite`. Static remains the default.
 Flite bundles its core, language, lexicon and six native voice libraries; it does not require an audio server.
+The published Flite release is unavailable on Windows with these toolchains: its native configure selects obsolete
+compilers and its snprintf helper does not link under MinGW. Linux, Apple and Android keep their native builds.
+Xvid is unavailable on Windows x64 with the current GCC producer: upstream configure cannot parse its
+`13-win32` version string and retains the unsupported `-mno-cygwin` flag.
 The GSM shared library is linked from the upstream PIC archive with the conventional `libgsm.so.1` name;
 upstream itself supplies only a static archive. Game_Music_Emu keeps its default LGPL emulator and disables VGZ.
 
 ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Linux x64 through `libmodplug`,
 `libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
-and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
-recording and playback paths can omit those unused functions when the client is linked statically.
+and their existing format choices. libsndfile serves PulseAudio's native sample-upload API, which is retained
+in the shared client closure even when an application only records or plays audio.
 
 Shared ModPlug, OpenMPT and OpenColorIO retain their native system C++ runtime dependency (`libstdc++.so.6` on Linux).
 The recipient needs a compatible runtime, commonly `libstdc++6` on Debian/Ubuntu or `libstdc++` on Fedora.

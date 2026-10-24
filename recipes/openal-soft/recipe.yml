@@ -60,6 +60,9 @@ build:
       -DALSOFT_BACKEND_SDL3=OFF,
     ]
   platforms:
+    # LLVM-MinGW's newer libc++ no longer exposes C allocation declarations transitively to the bundled fmt.
+    win-arm64:
+      env: { CXXFLAGS: '+= -include stdlib.h' }
     'linux-*':
       args: [-DALSOFT_REQUIRE_ALSA=ON, -DALSOFT_DLOPEN=OFF]
       after:

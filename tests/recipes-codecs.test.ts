@@ -278,8 +278,8 @@ describe('xvidcore', () => {
     expect(h.read(join(h.src, 'src', 'encoder.c'))).toBe('upstream encoder source\n');
     expect(h.files(h.deps)).toEqual(['include/xvid.h', 'lib/libxvidcore.a']);
   });
-  it('builds everywhere', () => {
-    expect(platformsOf('xvidcore')).toEqual(PLATFORMS);
+  it('omits Win-x64 where native configure retains the unsupported -mno-cygwin flag', () => {
+    expect(platformsOf('xvidcore')).toEqual(PLATFORMS.filter((p) => p !== 'win-x64'));
   });
 });
 

@@ -78,7 +78,8 @@ build:
     # proxy-libintl's documented native static-consumer configuration, as its Meson dependency propagates it.
     # https://github.com/frida/proxy-libintl/blob/0.5/libintl.h
     'win-*':
-      env: { CFLAGS: '+= -DG_INTL_STATIC_COMPILATION' }
+      # The cross file sets c_args, which overrides CFLAGS. Pass the native static-consumer macro through Meson.
+      args: ['-Dc_args=-I"{deps}/include" {CFLAGS|} -DG_INTL_STATIC_COMPILATION']
     # a native build has no cross file to name deps' folders, and libintl has no .pc: meson's search for it (the
     # header, then -lintl) is told where they are
     'linux-musl-*': &native

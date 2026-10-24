@@ -498,6 +498,7 @@ const recipeBuild = z
     'source-inventory': relativePath.optional(),
     'build-targets': z.array(text).min(1).optional(),
     'install-components': z.array(text).min(1).optional(),
+    'install-args': z.array(text).optional(),
     'configure-script': relativePath.default('configure'),
     'make-targets': z.array(text).default([]),
     'install-targets': z.array(text).default(['install']),

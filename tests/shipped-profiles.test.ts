@@ -1232,7 +1232,7 @@ describe('codec libraries', () => {
     },
     // FFmpeg's class gpl
     xvid: {
-      platforms: PLATFORMS,
+      platforms: PLATFORMS.filter((p) => p !== 'win-x64'),
       recipes: ['xvidcore'],
       flags: ['--enable-libxvid', '--extra-libs=-lm'],
       licenses: GPL,
@@ -1532,7 +1532,7 @@ describe('filter and processing libraries', () => {
       ships: { filters: ['quirc'] },
     },
     flite: {
-      platforms: PLATFORMS,
+      platforms: PLATFORMS.filter((p) => !p.startsWith('win-')),
       recipe: 'flite',
       recipes: () => ['flite'],
       flags: ['--enable-libflite', '--extra-libs=-lm'],
@@ -2058,9 +2058,13 @@ describe('audio device libraries', () => {
     pulse: {
       platforms: linuxAll,
       recipe: 'pulseaudio',
-      recipes: () => ['libsndfile', 'pulseaudio'],
+      recipes: (p) => [
+        'libsndfile',
+        ...(p.startsWith('linux-musl-') ? ['proxy-libintl'] : []),
+        'pulseaudio',
+      ],
       flags: ['--enable-libpulse'],
-      runtime: () => [],
+      runtime: () => ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so'],
     },
     jack: {
       platforms: ['linux-x64', 'linux-arm64', 'linux-armhf'],

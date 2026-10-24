@@ -748,7 +748,12 @@ export async function runRecipe(
     for (const component of scope.argv(build['install-components'] ?? [''])) {
       await run(
         'cmake',
-        ['--install', '_build', ...(component ? ['--component', component] : [])],
+        [
+          '--install',
+          '_build',
+          ...scope.argv(build['install-args'] ?? []),
+          ...(component ? ['--component', component] : []),
+        ],
         {
           cwd: src,
           env,

@@ -158,12 +158,13 @@ The standard builds:
 - **cmake**: `cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -B _build -S <source-dir> -DCMAKE_BUILD_TYPE=Release
 -DCMAKE_INSTALL_PREFIX=<deps> -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_PREFIX_PATH=<deps> -DBUILD_SHARED_LIBS=OFF
 -DCMAKE_POSITION_INDEPENDENT_CODE=ON <cross args> <args>`, then `cmake --build _build -j<n>` and `cmake --install _build`.
+  Optional `build-targets:` selects native build targets with `--target`. `install-components:` selects native
+  install components with `--component`; `install-args:` passes additional native install arguments, such as
+  `[--prefix, '{deps}']` for relocating an installation configured with a fixed runtime prefix.
 - **meson**: `meson setup _build <source-dir> --prefix=<deps> --libdir=lib --default-library=static
 --buildtype=release <cross args> <args>`, then `meson compile` and `meson install`.
 - **autotools**: `./configure --prefix=<deps> <args> [--host=<triple>]` (`--host` only when cross-compiling), then
-  `make -j<n> <make-targets>` and `make <install-targets>`. CMake's optional `build-targets:` selects native targets
-  with `cmake --build _build --target <targets>`, without changing upstream build files. `install-components:`
-  similarly selects native CMake install components with `--component`, when upstream defines them.
+  `make -j<n> <make-targets>` and `make <install-targets>`.
   Everything else is the recipe's: say `--disable-shared
 --enable-static --with-pic` (and `--libdir={deps}/lib` if the library wants it) in `args:`, in the order you want.
 

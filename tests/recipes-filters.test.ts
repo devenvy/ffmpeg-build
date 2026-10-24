@@ -77,7 +77,7 @@ describe('libmysofa', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'libmysofa'),
-          `Libs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: \n`,
+          `prefix=/usr\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: \n`,
         );
         put(join(h.deps, 'share', 'libmysofa', 'default.sofa'), 'sofa');
       }
@@ -91,16 +91,18 @@ describe('libmysofa', () => {
         '-DCODE_COVERAGE=OFF',
         '-DADDRESS_SANITIZE=OFF',
         '-DMATH=m',
-      ]),
+        '-DCMAKE_INSTALL_PREFIX=/usr',
+        '-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -fPIC',
+      ]).map((line) => (line === 'cmake --install _build' ? `${line} --prefix ${h.deps}` : line)),
     );
-    expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toContain('POSITION_INDEPENDENT_CODE ON)');
+    expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toContain(`\${BUILD_SHARED_LIBS})`);
     // no deps folder in the library: the default SOFA file is looked for where systems keep it
     expect(h.read(join(h.src, 'src', 'config.h.in'))).toBe(
-      '#define CMAKE_INSTALL_PREFIX "/usr"\n#define CPACK_PACKAGE_VERSION_MAJOR 1\n',
+      `#define CMAKE_INSTALL_PREFIX "\${CMAKE_INSTALL_PREFIX}"\n#define CPACK_PACKAGE_VERSION_MAJOR 1\n`,
     );
     expect(h.files(h.deps)).not.toContain('share/libmysofa/default.sofa');
     expect(h.read(pcPath(h, 'libmysofa'))).toBe(
-      `Libs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
+      `prefix=${h.deps}\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
     );
   });
   it('needs zlib', () => {
@@ -168,7 +170,7 @@ describe('quirc', () => {
   });
 });
 
-// Flite's libraries and headers: its configure without the old mingw and NDK toolchains, and no programs, tools or docs.
+// Flite's unchanged native configure and headers, with no programs, tools or docs.
 describe('flite', () => {
   const configure =
     `mingw*)\n                MINGWPREF="i386-mingw32-"\n                CC="\${MINGWPREF}gcc"\n` +
@@ -201,13 +203,12 @@ describe('flite', () => {
       ].map((line) => line + o2(h)),
     );
     const configured = h.read(join(h.src, 'configure'));
-    expect(configured).not.toMatch(/(CC|AR|RANLIB|NM)="\$\{(MINGWPREF|ANDROIDBIN)\}/);
-    expect(configured).toContain(`WINDRES="\${MINGWPREF}windres"`);
+    expect(configured).toBe(configure);
     expect(h.read(join(h.src, 'Makefile'))).toBe(
       'BUILD_DIRS = include src lang doc\nHOST_ONLY_DIRS = tools main\n',
     );
     expect(h.read(join(h.src, 'include', 'cst_file.h'))).toBe(
-      '#if defined(_WIN32) && !defined(__MINGW32__)\n#define snprintf c99_snprintf\n',
+      '#ifdef _WIN32\n#define snprintf c99_snprintf\n',
     );
     expect(h.files(h.deps)).toEqual(
       expect.arrayContaining([
@@ -503,9 +504,6 @@ describe('GLib', () => {
     const native = /^linux-musl-|^osx-arm64$/.test(platform)
       ? ` [CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`
       : '';
-    const staticIntl = platform.startsWith('win-')
-      ? ` [CFLAGS=${env(h, 'CFLAGS')} -DG_INTL_STATIC_COMPILATION]`
-      : '';
     // Apple cross builds: a second cross file names the Objective-C compiler
     const objc = /^(osx-x64|ios-|maccatalyst-)/.test(platform);
     expect(commands(h)).toEqual(
@@ -528,8 +526,11 @@ describe('GLib', () => {
         '-Dcharsetalias_dir=/usr/lib',
         '--localedir=/usr/share/locale',
         '--localstatedir=/var',
+        ...(platform.startsWith('win-')
+          ? [`-Dc_args=-I"${h.deps}/include" ${env(h, 'CFLAGS')} -DG_INTL_STATIC_COMPILATION`]
+          : []),
         ...(objc ? [`--cross-file=${h.src}/objc-cross.ini`] : []),
-      ]).map((line) => line + native + staticIntl),
+      ]).map((line) => line + native),
     );
     const ini = objc ? h.read(join(h.src, 'objc-cross.ini')) : '';
     expect(ini.includes(`objc = '${env(h, 'CC')}'`)).toBe(objc);
@@ -565,7 +566,7 @@ describe('lensfun', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'lensfun'),
-          `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
+          `prefix=/usr\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
         );
         put(join(h.deps, 'share', 'lensfun', 'version_2', 'mil-sony.xml'), '<lensdatabase/>');
       }
@@ -582,15 +583,15 @@ describe('lensfun', () => {
         '-DINSTALL_HELPER_SCRIPTS=OFF',
         '-DCMAKE_INSTALL_DATAROOTDIR=share',
         '-DPYTHON=PYTHON-NOTFOUND',
-      ]),
+        '-DCMAKE_INSTALL_PREFIX=/usr',
+      ]).map((line) => (line === 'cmake --install _build' ? `${line} --prefix ${h.deps}` : line)),
     );
     expect(h.files(h.deps).filter((f) => f.startsWith('share/'))).toEqual([]);
     // the system's database by default, not the deps folder's (where none is)
-    const system = '  #define SYSTEM_DB_PATH "/usr/share/lensfun"\n';
-    expect(h.read(config)).toBe(system + windows + system);
+    expect(h.read(config)).toBe(linux + windows + linux);
     const win = platform.startsWith('win-') ? ' -DCONF_LENSFUN_STATIC' : '';
     expect(h.read(pcPath(h, 'lensfun'))).toBe(
-      `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
+      `prefix=${h.deps}\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
     );
   });
   it('is the library alone, LGPL-3.0-or-later, from master', () => {

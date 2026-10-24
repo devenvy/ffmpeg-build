@@ -6,7 +6,7 @@ libraries:
   cairo: { version: 1.18.6, commit: 018b3424a10ecd37450360f21454ecf0f3007e17 }
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
-  fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
+  fontconfig: { version: 2.15.0, commit: 72b9a48f57de6204d99ce1c217b5609ee92ece9b }
   freetype: { version: 2.15.0, commit: 37515cf56ba3349656049edbed89ffc6f6466f2d }
   fribidi: { version: 1.0.17, commit: b93119f5fdc7ea47672cc304c1455ffa6dfe7536 }
   glib: { version: 2.86.5, commit: 3033f7862c2d3c7569cef2ad4b425cf42e95d4b4 }

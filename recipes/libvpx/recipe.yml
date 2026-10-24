@@ -27,7 +27,7 @@ build:
   vars: { shared-arg: --disable-shared, static-arg: --enable-static }
   steps:
     - - ./configure
-      - '--prefix={deps}'
+      - --prefix=/opt/ffmpeg-build/deps
       - '{shared-arg}'
       - '{static-arg}'
       - --enable-vp8
@@ -39,11 +39,10 @@ build:
       - --disable-unit-tests
       - --enable-pic
       - '{args}'
-    # libvpx compiles its configure line into the library (vpx_codec_build_config); name the deps folder as the
-    # container builds do, never a folder of this machine's (a native build's work folder)
-    - replace-in-file: { path: vpx_config.c, from: '{deps}', to: /opt/ffmpeg-build/deps }
     - [make, '-j{jobs}']
-    - [make, install]
+    # Native DIST_DIR controls the installation root independently of the compiled configure prefix.
+    - [make, install, 'DIST_DIR={deps}']
+    - edit-pkg-config: { path: '{deps}/lib/pkgconfig/vpx.pc', variables: { prefix: '{deps}' } }
   platforms:
     linux-armhf:
       {

@@ -137,30 +137,44 @@ describe('pulseaudio', () => {
       return undefined;
     };
     await build(h, 'pulseaudio');
-    expect(h.read(common)).toContain("libpulsecommon = library('pulsecommon-'");
-    expect(h.read(client)).not.toContain('shared_library(');
+    expect(h.read(common)).toBe(
+      "libpulsecommon = shared_library('pulsecommon-' + pa_version_major_minor,\n",
+    );
+    expect(h.read(client)).toBe(
+      "libpulse = shared_library('pulse',\nlibpulse_simple = shared_library('pulse-simple',\nlibpulse_mainloop_glib = shared_library('pulse-mainloop-glib',\n",
+    );
     expect(h.read(pc)).toContain('-lpulsecommon-1.2 -lm -ldl -lrt');
     expect(h.read(pc)).toContain('Requires.private: sndfile');
-    // no translations, so no <libintl.h> (musl has none)
-    expect(h.read(meson)).toBe('\n');
+    expect(h.read(meson)).toBe("cdata.set('ENABLE_NLS', 1)\n");
     expect(commands(h)).toEqual(
       [
         [
           'meson setup _build .',
           `--prefix=${h.deps}`,
-          '--libdir=lib --buildtype=release --default-library=static -Db_staticpic=true --sysconfdir=/etc --localedir=/usr/share/locale',
+          '--libdir=lib --buildtype=release --default-library=shared -Db_staticpic=true --sysconfdir=/etc --localedir=/usr/share/locale',
           ...h.context.toolchain.mesonArgs,
           '-Dauto_features=disabled -Ddaemon=false -Dclient=true -Ddoxygen=false -Dman=false -Dtests=false',
           '-Dbashcompletiondir=no -Dzshcompletiondir=no',
         ].join(' '),
         'meson compile -C _build',
         'meson install -C _build --tags runtime,devel',
-      ].map((line) => withEnv(line, muslLdflags(platform))),
+      ].map((line) =>
+        withEnv(
+          line,
+          platform.startsWith('linux-musl-') ? `CPPFLAGS= -I${h.deps}/include` : '',
+          platform.startsWith('linux-musl-')
+            ? `LDFLAGS= -L${h.deps}/lib -Wl,-z,stack-size=8388608`
+            : '',
+        ),
+      ),
     );
   });
   it('is the client library alone, on libsndfile, shipped with its libpulsecommon', () => {
     expect(recipe('pulseaudio').license).toBe('LGPL-2.1-or-later');
-    expect(recipe('pulseaudio').needs).toEqual([{ name: 'libsndfile' }]);
+    expect(recipe('pulseaudio').needs).toEqual([
+      { name: 'libsndfile' },
+      { name: 'proxy-libintl', platforms: ['linux-musl-*'] },
+    ]);
     expect(platformsOf('pulseaudio')).toEqual(LINUX);
     expect(recipe('pulseaudio').linkage!.modes.shared!.runtime).toEqual([
       { value: 'lib/libpulse.so*' },
@@ -307,7 +321,11 @@ describe('openal-soft', () => {
         ...(platform.startsWith('linux-')
           ? ['-DALSOFT_REQUIRE_ALSA=ON', '-DALSOFT_DLOPEN=OFF']
           : []),
-      ]),
+      ]).map((line) =>
+        platform === 'win-arm64'
+          ? `${line} [CXXFLAGS=${h.base['CXXFLAGS'] ?? ''} -include stdlib.h]`
+          : line,
+      ),
     );
     expect(h.read(pc)).toContain(`Libs.private: -lm ${cxxRuntime(platform)}`);
     expect(h.read(pc).includes('Requires.private: alsa')).toBe(platform.startsWith('linux-'));

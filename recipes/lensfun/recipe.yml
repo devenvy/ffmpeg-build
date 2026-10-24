@@ -38,6 +38,7 @@ build:
   # - Its .pc names neither the C++ runtime a static link needs nor, on Windows, CONF_LENSFUN_STATIC, without which
   #   lensfun.h declares the API dllimport.
   system: cmake
+  install-args: [--prefix, '{deps}']
   vars: { library-arg: -DBUILD_STATIC=ON, shared-args: [], shared-mode: '' }
   args:
     [
@@ -50,18 +51,11 @@ build:
       -DINSTALL_HELPER_SCRIPTS=OFF,
       -DCMAKE_INSTALL_DATAROOTDIR=share,
       -DPYTHON=PYTHON-NOTFOUND,
+      -DCMAKE_INSTALL_PREFIX=/usr,
     ]
-  # Where it looks for a database by default (when the filter's db_path isn't given) is its install prefix's: here
-  # the deps folder, which has none and is a build folder (the staged-binary check refuses it): the usual system one,
-  # where a system's lensfun-data package puts it (Windows' is relative to the library and stays).
-  before:
-    - replace-in-file:
-        {
-          path: include/lensfun/config.h.in.cmake,
-          from: '#define SYSTEM_DB_PATH "${CMAKE_INSTALL_FULL_DATAROOTDIR}/lensfun"',
-          to: '#define SYSTEM_DB_PATH "/usr/share/lensfun"',
-        }
+  # Native configuration retains the usual system data prefix; install --prefix relocates only the installation.
   after:
+    - edit-pkg-config: { path: '{deps}/lib/pkgconfig/lensfun.pc', variables: { prefix: '{deps}' } }
     - run:
         - python3
         - -c

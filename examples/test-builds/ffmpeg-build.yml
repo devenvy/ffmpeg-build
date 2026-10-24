@@ -7,10 +7,11 @@
 # headers, the OpenCL loader linked statically, Rockchip MPP). So do Apple's built-in device and framework options:
 # avfoundation on the Apple slices but the lean simulator one, coreimage (with AppKit) on macOS.
 # Every platform librsvg builds on (Linux, Windows, Android) has rav1e and rsvg together: two Rust static libraries,
-# each with its own copy of Rust's standard library, under its own names (DEVELOPMENT.md, Rust libraries), so FFmpeg
-# links both (devenvy/ffmpeg-build#48) with each platform's linker (GNU ld, lld, MinGW's ld, llvm-mingw's lld).
+# linked without engine symbol rewriting (DEVELOPMENT.md, Rust libraries). These targets verify whether each
+# platform's native linker accepts the upstream archives together (GNU ld, lld, MinGW's ld, llvm-mingw's lld).
 # tests/test-env.sh checks that build.yml's test-env secret reaches a target's tests: natively (linux-x64, osx-arm64,
 # win-x64 on its test runner) and in the test containers (Alpine for linux-musl-arm64, Debian armhf for linux-armhf).
+pin: { fontconfig: 2.15.0 }
 bases:
   small: { with: [dav1d, opus] }
 targets:
