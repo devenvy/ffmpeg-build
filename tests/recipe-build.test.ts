@@ -89,7 +89,7 @@ describe('recipe build data', () => {
         recipe({
           system: 'none',
           steps: [
-            { 'replace-in-file': { path: 'lib/sample.pc', from: '@prefix@', to: '{prefix}' } },
+            { 'edit-pkg-config': { path: '{deps}/lib/pkgconfig/sample.pc', libs: { add: '-lm' } } },
           ],
         }),
       ).success,
@@ -129,4 +129,29 @@ describe('recipe build data', () => {
       ).success,
     ).toBe(false);
   });
+
+  it.each(['before', 'steps', 'after'])(
+    'rejects the removed replace-in-file operation in %s',
+    (position) => {
+      expect(
+        recipeSchema.safeParse(
+          recipe({
+            system: 'none',
+            steps: [['true']],
+            [position]: [
+              {
+                'replace-in-file': {
+                  path: 'upstream.c',
+                  from: 'old',
+                  to: 'new',
+                  regex: 'true',
+                  optional: 'true',
+                },
+              },
+            ],
+          }),
+        ).success,
+      ).toBe(false);
+    },
+  );
 });

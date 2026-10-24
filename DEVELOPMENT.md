@@ -45,6 +45,10 @@ fails when it is stale).
 
 ## Upstream support and patches
 
+The generic `replace-in-file` recipe operation is removed. Recipes and saved build plans using it are rejected.
+Use scoped installed-package metadata operations for `.pc` files and upstream configuration tools for native build
+settings; do not reproduce source editing through another operation or helper.
+
 The engine builds upstream projects; it does not maintain FFmpeg or dependency code. Add support only for
 combinations of FFmpeg version, dependency version, platform, toolchain and linking mode that the relevant upstream
 projects support. An FFmpeg configure flag alone does not establish support for every such combination.

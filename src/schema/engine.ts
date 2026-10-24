@@ -373,16 +373,6 @@ const step = z.union([
     when,
   }),
   z.strictObject({
-    'replace-in-file': z.strictObject({
-      path: operationPath,
-      from: text,
-      to: z.string(),
-      regex: flag.default(false),
-      optional: flag.default(false),
-    }),
-    when,
-  }),
-  z.strictObject({
     copy: z
       .strictObject({
         from: z

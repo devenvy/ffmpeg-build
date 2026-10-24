@@ -2,7 +2,6 @@ import {
   accessSync,
   constants,
   cpSync,
-  existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -107,20 +106,11 @@ class RecipeScope {
   readonly src: string;
   readonly version: string;
   readonly args: readonly string[];
-  /** The recipe's name, for messages ('' when the caller doesn't say). */
-  readonly name: string;
-  constructor(
-    context: BuildContext,
-    src: string,
-    version: string,
-    args: readonly string[],
-    name = '',
-  ) {
+  constructor(context: BuildContext, src: string, version: string, args: readonly string[]) {
     this.context = context;
     this.src = src;
     this.version = version;
     this.args = args;
-    this.name = name;
   }
 
   private builtin(name: string): Value | undefined {
@@ -376,30 +366,6 @@ async function runStep(item: BuildStep, scope: RecipeScope, env: NodeJS.ProcessE
       cwd: resolve(src, item.cwd ?? '.'),
       env: scope.environment(env, item.env, item.unset),
     });
-  } else if ('replace-in-file' in item) {
-    const operation = item['replace-in-file'];
-    const path = scope.path(operation.path);
-    if (operation.optional && !existsSync(path)) {
-      return;
-    }
-    const from = scope.text(operation.from);
-    const to = scope.text(operation.to);
-    const text = readFileSync(path, 'utf8');
-    const pattern = operation.regex ? new RegExp(from, 'gm') : undefined;
-    // an edit that changes nothing is a recipe out of step with its source (upstream moved the text): it fails,
-    // unless the recipe says the edit is optional
-    if (!(pattern ? pattern.test(text) : text.includes(from))) {
-      if (operation.optional) {
-        return;
-      }
-      throw new Error(
-        `${scope.name ? `${scope.name}: ` : ''}replace-in-file found nothing to replace in ${operation.path}: ${
-          pattern ? `the pattern ${from} doesn't match it` : `${from} isn't in it`
-        } (the source changed? update the recipe's edit, or make it optional: true if it may find nothing)`,
-      );
-    }
-    // (a global regex's replace starts from the beginning whatever test() left in lastIndex)
-    writeFileSync(path, pattern ? text.replace(pattern, to) : text.replaceAll(from, to));
   } else if ('copy' in item) {
     const operation = item.copy;
     const sources = operation.from.flatMap((from) => {
@@ -674,13 +640,7 @@ export async function runRecipe(
 ): Promise<{ crates?: CrateInventory }> {
   const build = library.build;
   const extra = additions(build, context.buildPlan.platform);
-  const scope = new RecipeScope(
-    context,
-    src,
-    library.version,
-    [...build.args, ...extra.args],
-    library.name,
-  );
+  const scope = new RecipeScope(context, src, library.version, [...build.args, ...extra.args]);
   scope.setVars(build.vars ?? {});
   for (const values of extra.vars) {
     scope.setVars(values);

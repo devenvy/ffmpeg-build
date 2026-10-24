@@ -286,6 +286,11 @@ checks decode authored captions through FFmpeg and exercise native SDK text/rend
 DeckLink hardware I/O still needs the recipient's Desktop Video driver and hardware. The combined canaries use
 the existing nonfree classification because this group contains LGPLv3 and GPLv2-only code plus DeckLink's SDK;
 individual options retain their existing license choices.
+DeckLink is offered on Linux x64 and Windows x64. The stock Mac SDK lacks the identifier required by FFmpeg's
+callbacks, so the Mac combination is omitted instead of injecting a header definition. Windows uses native WIDL
+outputs; the complete generated header, which already contains the legacy interfaces, is copied byte-for-byte to
+FFmpeg's compatibility filename. This alias adds no declarations or ABI changes. Native Windows FFmpeg builds
+must verify it before this cleanup is accepted.
 OpenCV's shared choice bundles its native core and imgproc modules together. OpenColorIO preserves its full
 public C++ interface, including application-owned logging callbacks and virtual configuration proxies. Their
 dependency choices remain independent: owned configuration archives, LUTs and morphology pixels are checked
