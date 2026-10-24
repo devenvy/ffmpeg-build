@@ -42,7 +42,7 @@ linkage:
             -DCMAKE_C_VISIBILITY_PRESET=hidden,
             -DCMAKE_CXX_VISIBILITY_PRESET=hidden,
             -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON,
-            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a:libvulkan.a -Wl,--version-script={src}/ffb-private-cxx.map',
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--exclude-libs,libstdc++.a:libsupc++.a -Wl,--version-script={src}/ffb-private-cxx.map',
           ]
       runtime: ['lib/libwhisper.so*', 'lib/libparakeet.so*', 'lib/libggml*.so*']
 build:
@@ -65,13 +65,6 @@ build:
         path: '{src}/ffb-private-cxx.map'
         text: '{ global: *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; };'
       when: { set: '{shared-mode}' }
-    # FindVulkan's imported target omits dl when its library is our static loader.
-    # Keep the native backend dependency order and strict undefined-symbol check.
-    - replace-in-file:
-        path: ggml/src/ggml-vulkan/CMakeLists.txt
-        from: 'target_link_libraries(ggml-vulkan PRIVATE Vulkan::Vulkan)'
-        to: 'target_link_libraries(ggml-vulkan PRIVATE Vulkan::Vulkan ${CMAKE_DL_LIBS})'
-      when: { set: '{shared-mode}' }
   args:
     - '{shared-args}'
     - -DGGML_NATIVE=OFF
@@ -83,7 +76,7 @@ build:
     - -DGGML_BUILD_EXAMPLES=OFF
     - '{release-flags}'
     - '{backend-args}'
-    - '{compat-flags}'
+    - '{target-api-flags}'
   vars:
     shared-mode: ''
     shared-args: []
@@ -93,7 +86,7 @@ build:
     vulkan: '' # set where Vulkan is available
     backend-args: [-DGGML_CPU=ON]
     release-flags: []
-    compat-flags: []
+    target-api-flags: []
     # the system libraries whisper.pc's Libs.private ends with. Linux (glibc/musl) keeps libstdc++ for the CPU
     # backend; musl and the Vulkan backends say otherwise below.
     system-libs: -lstdc++ -lm -lpthread
@@ -195,20 +188,7 @@ build:
     # {deps}/lib as libvulkan-1.a or libvulkan.a); it resolves vulkan-1.dll through
     # LoadLibraryExA on first use, so the import disappears while the capability stays.
     #
-    # mingw-w64 headers lack the Win10 THREAD_POWER_THROTTLING_* definitions that ggml-cpu.c
-    # uses unconditionally on _WIN32 (they exist in the real Windows SDK but are gated out at
-    # MinGW's default NTDDI level). Force-include a shim so ggml-cpu compiles. ggml-cpu is built
-    # by EVERY backend, so this applies to all Windows platforms, CPU backend included. llvm-mingw (win-arm64) bundles
-    # the same mingw-w64 headers with the same NTDDI gating, so ggml-cpu.c fails there identically.
     'win-*':
-      vars:
-        {
-          compat-flags:
-            [
-              '-DCMAKE_C_FLAGS=-include {src}/win_ggml_compat.h',
-              '-DCMAKE_CXX_FLAGS=-include {src}/win_ggml_compat.h',
-            ],
-        }
       before:
         - vars: { vulkan: 'yes' }
           when: { exists: '{deps}/lib/libvulkan*.a' }
@@ -244,27 +224,18 @@ build:
                 '-DVulkan_LIBRARY={shim}',
               ]
           when: { set: '{vulkan}' }
-        - write-file:
-            path: '{src}/win_ggml_compat.h'
-            text: |
-              #ifndef WHISPER_WIN_GGML_COMPAT_H
-              #define WHISPER_WIN_GGML_COMPAT_H
-              #include <windows.h>
-              #ifndef THREAD_POWER_THROTTLING_CURRENT_VERSION
-              typedef struct _THREAD_POWER_THROTTLING_STATE {
-                  ULONG Version; ULONG ControlMask; ULONG StateMask;
-              } THREAD_POWER_THROTTLING_STATE, *PTHREAD_POWER_THROTTLING_STATE;
-              #define THREAD_POWER_THROTTLING_CURRENT_VERSION 1
-              #define THREAD_POWER_THROTTLING_EXECUTION_SPEED 0x1
-              #define THREAD_POWER_THROTTLING_VALID_FLAGS THREAD_POWER_THROTTLING_EXECUTION_SPEED
-              #endif
-              #endif
     # win-x64: the debug symbols archive (upstream's issue #20; symbols-<version>-<target>.tar.gz): CMake's own GCC
     # Release flags plus -g, so code generation is the same as before and only DWARF is added; the shipped avfilter
     # DLL is stripped at install, and staging checks ggml's frames resolve in the symbols.
     win-x64:
-      vars:
-        {
+      vars: {
+          # GCC's MinGW 11 SDK lacks the power-throttling types. GGML supports
+          # a caller-selected API baseline and omits that optional optimization.
+          target-api-flags:
+            [
+              '-DCMAKE_C_FLAGS={CFLAGS|} -D_WIN32_WINNT=0x0601 -DWINVER=0x0601',
+              '-DCMAKE_CXX_FLAGS={CXXFLAGS|} -D_WIN32_WINNT=0x0601 -DWINVER=0x0601',
+            ],
           release-flags:
             [-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -g, -DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -g],
         }

@@ -557,10 +557,13 @@ describe('svt-jpegxs', () => {
       `Libs: -L\${libdir} -lSvtJpegxs\nLibs.private: ${platform.startsWith('android-') ? '' : '-lpthread '}-lm\n`,
     );
     expect(commands(h)).toEqual(
-      cmakeLines(h, ['-DBUILD_APPS=OFF', '-DBUILD_TESTING=OFF', '-DJPEGXS_LTO=OFF']),
+      cmakeLines(h, ['-DBUILD_APPS=OFF', '-DBUILD_TESTING=OFF', '-DJPEGXS_LTO=OFF']).map((line) =>
+        platform.startsWith('android-')
+          ? `${line} [PATH=${env(h, 'TOOLCHAIN')}/bin:${env(h, 'PATH')}]`
+          : line,
+      ),
     );
-    // the bare-named llvm-ar swap is skipped: the toolchain's archiver stays
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('if(FALSE)\n');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(clang);
   });
   it('follows main, on every platform', () => {
     expect(recipe('svt-jpegxs').versions).toEqual({ 'git-branch': 'main' });

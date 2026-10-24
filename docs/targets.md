@@ -205,18 +205,21 @@ included; recipient fonts and Fontconfig configuration are still needed.
 MPEG-H offers `link: { mpeghdec: shared }` on Linux x64, with static as its default.
 The shared library preserves both decoder and UI-manager SDKs and isolates its
 internal FDK symbols, including when FDK AAC is enabled in the same build.
-Upstream does not version its shared ABI, so the engine uses the conservative
-full-version `libmpeghdec.so.4.0.1` SONAME. No system-provider mode is offered.
+Upstream does not version its shared ABI; the bundle retains its native
+`libmpeghdec.so` SONAME. Keep it with the matching FFmpeg build. No system-provider mode is offered.
 The existing nonfree license selection and advisory release warning still apply.
 Whisper offers `link: { whisper.cpp: shared }` on Linux x64 while retaining its
 static default. The complete native runtime includes Whisper, Parakeet, GGML,
 GGML base and CPU libraries, plus GGML Vulkan when that backend is selected.
 All belong to one coherent recipe mode; dynamic backend plugin loading remains
-disabled. The Vulkan loader keeps its own independent linking choice. Private
-C++ code and an embedded static Vulkan loader remain local to the owning library.
+disabled. Linux uses the native shared Vulkan loader shipped by its recipe.
+Private C++ code remains local to the owning library.
 Models are supplied separately. Tests cover real Whisper model inference on CPU
 and software Vulkan, GGML computation and GGUF metadata; no Parakeet inference
 claim is made by the invalid-model SDK check.
+On Windows x64, Whisper selects GGML's native API path without the optional power-throttling override because
+the current GCC SDK lacks its types. This may affect scheduling performance; it does not lower FFmpeg's supported
+Windows baseline. Windows ARM64 keeps the newer SDK's native path.
 
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`

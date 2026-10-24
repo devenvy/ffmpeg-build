@@ -32,12 +32,6 @@ build:
       -Dmpeghdec_SYMBOL_PREFIX=ON,
     ]
   before:
-    # Upstream has no SONAME; use the engine's conservative full-version convention.
-    - replace-in-file:
-        path: src/CMakeLists.txt
-        from: "add_library(mpeghdec)\n"
-        to: "add_library(mpeghdec)\nset_target_properties(mpeghdec PROPERTIES VERSION {version} SOVERSION {version})\n"
-      when: { set: '{shared-mode}' }
     - run:
         - python3
         - -c
@@ -60,7 +54,6 @@ build:
         - '{deps}'
         - '{src}/ffb-sdk'
         - '{CC|gcc}'
-        - '{version}'
       when: { set: '{shared-mode}' }
   vars:
     { cxx-runtime: -lstdc++, consumer-flags: -DMPEGHDEC_STATIC=1, shared-args: [], shared-mode: '' }

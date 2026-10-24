@@ -16,16 +16,10 @@ build:
   # standard build doesn't make: built before the install.
   system: none
   platforms:
-    # its architecture name for arch.h (the version string's) knows the Intel and PowerPC Macs, and fails on arm64:
-    # an architecture it doesn't know is taken as named
-    'osx-*':
-      before:
-        - replace-in-file:
-            {
-              path: avs_core/TargetArch.cmake,
-              from: 'message(FATAL_ERROR "Invalid OS X arch name: ${osx_arch}")',
-              to: 'list(APPEND ARCH ${osx_arch})',
-            }
+    # Its explicit Apple architecture list predates arm64, but its native compiler
+    # probe detects aarch64. Select that probe and explicitly target arm64 in it.
+    osx-arm64:
+      args: [-DCMAKE_OSX_ARCHITECTURES=, '-DCMAKE_C_FLAGS={CFLAGS|} -arch arm64']
   steps:
     - [
         cmake,
@@ -38,6 +32,7 @@ build:
         -DCMAKE_INSTALL_INCLUDEDIR=include,
         -DHEADERS_ONLY=ON,
         '{cmake-cross-args}',
+        '{args}',
       ]
     - [cmake, --build, _build, --target, VersionGen]
     - [cmake, --install, _build]

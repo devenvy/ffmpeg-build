@@ -183,10 +183,7 @@ describe('libssh', () => {
     put(join(h.src, 'src', 'misc.c'), misc);
     await build(h, 'libssh');
     const android = platform.startsWith('android-');
-    // Bionic has no S_IWRITE (S_IWUSR's old name); Windows' _S_IWRITE stays
-    expect(h.read(join(h.src, 'src', 'misc.c'))).toBe(
-      android ? misc.replace('& S_IWRITE)', '& S_IWUSR)') : misc,
-    );
+    expect(h.read(join(h.src, 'src', 'misc.c'))).toBe(misc);
     expect(commands(h)).toEqual(
       cmakeLines(h, [
         '-DWITH_MBEDTLS=ON',
@@ -204,7 +201,9 @@ describe('libssh', () => {
         '-DSERVER_TESTING=OFF',
         // the NDK's toolchain file finds only in its sysroot, and Bionic's glob() lacks GLOB_TILDE
         ...(android ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`, '-DHAVE_GLOB=0'] : []),
-      ]),
+      ]).map((line) =>
+        android ? `${line} [CFLAGS=${h.context.env['CFLAGS'] ?? ''} -D_BSD_SOURCE]` : line,
+      ),
     );
     expect(h.read(pcPath(h, 'libssh'))).toBe(
       `Name: libssh\nLibs: -L\${libdir} -lssh\nLibs.private: -lmbedcrypto\nCflags: -I\${includedir}\n`,
@@ -464,10 +463,7 @@ describe('avisynth-headers', () => {
     const fatal = `        message(FATAL_ERROR "Invalid OS X arch name: \${osx_arch}")\n`;
     put(arch, fatal);
     await build(h, 'avisynth-headers');
-    // on macOS an architecture its list doesn't name (arm64) is taken as named
-    expect(h.read(arch)).toBe(
-      platform.startsWith('osx-') ? `        list(APPEND ARCH \${osx_arch})\n` : fatal,
-    );
+    expect(h.read(arch)).toBe(fatal);
     // its HEADERS_ONLY install, with the generated version.h (a target of its own) made first
     expect(commands(h)).toEqual([
       [
@@ -475,6 +471,12 @@ describe('avisynth-headers', () => {
         `-DCMAKE_INSTALL_PREFIX=${h.deps}`,
         '-DCMAKE_INSTALL_INCLUDEDIR=include -DHEADERS_ONLY=ON',
         ...h.context.toolchain.cmakeArgs,
+        ...(platform === 'osx-arm64'
+          ? [
+              '-DCMAKE_OSX_ARCHITECTURES=',
+              `-DCMAKE_C_FLAGS=${h.context.env['CFLAGS'] ?? ''} -arch arm64`,
+            ]
+          : []),
       ].join(' '),
       'cmake --build _build --target VersionGen',
       'cmake --install _build',

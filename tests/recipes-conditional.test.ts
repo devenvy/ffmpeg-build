@@ -298,12 +298,13 @@ describe('whisper.cpp', () => {
       p === 'win-x64'
         ? ['-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -g', '-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -g']
         : [];
-    const compat = p.startsWith('win-')
-      ? [
-          `-DCMAKE_C_FLAGS=-include ${h.src}/win_ggml_compat.h`,
-          `-DCMAKE_CXX_FLAGS=-include ${h.src}/win_ggml_compat.h`,
-        ]
-      : [];
+    const compat =
+      p === 'win-x64'
+        ? [
+            `-DCMAKE_C_FLAGS=${h.context.env['CFLAGS'] ?? ''} -D_WIN32_WINNT=0x0601 -DWINVER=0x0601`,
+            `-DCMAKE_CXX_FLAGS=${h.context.env['CXXFLAGS'] ?? ''} -D_WIN32_WINNT=0x0601 -DWINVER=0x0601`,
+          ]
+        : [];
     const cxxStatic = p.startsWith('linux-musl-') ? '-l:libstdc++.a' : '-lstdc++';
     let cpuSys = `${cxxStatic} -lm -lpthread`;
     if (p.startsWith('android-')) {
@@ -358,9 +359,6 @@ describe('whisper.cpp', () => {
       sys: '-lvulkan -lstdc++ -lm -lpthread',
     };
   }
-  const COMPAT =
-    '#ifndef WHISPER_WIN_GGML_COMPAT_H\n#define WHISPER_WIN_GGML_COMPAT_H\n#include <windows.h>\n#ifndef THREAD_POWER_THROTTLING_CURRENT_VERSION\ntypedef struct _THREAD_POWER_THROTTLING_STATE {\n    ULONG Version; ULONG ControlMask; ULONG StateMask;\n} THREAD_POWER_THROTTLING_STATE, *PTHREAD_POWER_THROTTLING_STATE;\n#define THREAD_POWER_THROTTLING_CURRENT_VERSION 1\n#define THREAD_POWER_THROTTLING_EXECUTION_SPEED 0x1\n#define THREAD_POWER_THROTTLING_VALID_FLAGS THREAD_POWER_THROTTLING_EXECUTION_SPEED\n#endif\n#endif\n';
-
   // the -l flags and archives each GPU backend adds beside the CPU ones
   const backendFlags: Record<string, string[]> = {
     metal: ['-lggml-metal', '-lggml-blas'],
@@ -401,11 +399,7 @@ describe('whisper.cpp', () => {
             'libggml.a',
           ].sort(),
         );
-        // only Windows gets the compat header
-        const compatHeader = join(h.src, 'win_ggml_compat.h');
-        expect(existsSync(compatHeader) ? h.read(compatHeader) : undefined).toBe(
-          platform.startsWith('win-') ? COMPAT : undefined,
-        );
+        expect(existsSync(join(h.src, 'win_ggml_compat.h'))).toBe(false);
       },
     );
   }
