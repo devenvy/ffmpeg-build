@@ -479,13 +479,7 @@ targets:
     ffmpeg: '9'
     with: [iconv]
     tests: [tests/iconv-linkage.sh]
-  android-x64-cpu-shared-lgplv3:
-    platform: android-x64
-    license: lgplv3
-    ffmpeg: '9'
-    with: [tesseract]
-    link: { cpu-features: shared }
-  android-x64-cpu-static-lgplv3:
+  android-x64-ocr-lgplv3:
     platform: android-x64
     license: lgplv3
     ffmpeg: '9'
@@ -1782,7 +1776,7 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [rkmpp, mbedtls]
-  # cpu_features' NDK layer, which only Tesseract's Android build takes: tesseract alone, to keep the Android run short
+  # Tesseract's native Android CPU detection: OCR alone keeps the Android canary short.
   android-arm64-lgplv3:
     platform: android-arm64
     license: lgplv3

@@ -1667,14 +1667,7 @@ describe('filter and processing libraries', () => {
     tesseract: {
       platforms: PLATFORMS,
       recipe: 'tesseract',
-      recipes: (p) =>
-        [
-          'leptonica',
-          'libpng',
-          'tesseract',
-          'zlib',
-          ...(p.startsWith('android-') ? ['cpu-features'] : []),
-        ].sort(),
+      recipes: () => ['leptonica', 'libpng', 'tesseract', 'zlib'].sort(),
       flags: ['--enable-libtesseract'],
       licenses: V3,
       ships: { filters: ['ocr'] },

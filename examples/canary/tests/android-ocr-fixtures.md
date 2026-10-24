@@ -1,10 +1,3 @@
-The CPU SDK probe is compiled by the selected build's own NDK against its installed
-headers and static/shared libraries. A temporary verification runtime carries the
-helper; release runtimes do not. Detection and one-shot NDK setter checks run in
-separate emulator processes. Dynamic provider checks identify both selected native
-libraries. The feature bitfields have the pinned compiler/header ABI, not a general
-system-library compatibility guarantee.
-
 The FFmpeg OCR consumer links against the archived FFmpeg headers and libraries
 using the emulator host's NDK, as the engine's ordinary Android smoke test does.
 It verifies `HELLO WORLD 123`, exact unchanged grayscale pixels and filter EOF.

@@ -870,7 +870,7 @@ describe('librsvg', () => {
   });
 });
 
-// Tesseract on Leptonica (zlib and PNG alone), cpu_features' NDK layer on Android.
+// Tesseract's native Autotools library on Leptonica (zlib and PNG alone).
 describe('tesseract', () => {
   it.each(platformsOf('leptonica'))('leptonica on %s', async (platform) => {
     const h = fake(platform);
@@ -922,51 +922,48 @@ describe('tesseract', () => {
       '#include <numeric> // for std::inner_product\n',
     );
     h.onRun = (call) => {
-      if (call.command === 'cmake' && call.args[0] === '--install') {
-        put(pcPath(h, 'tesseract'), `Libs: -L\${libdir} -ltesseract55\nLibs.private:\n`);
+      if (call.command === 'make' && call.args.includes('install-libLTLIBRARIES')) {
+        put(
+          pcPath(h, 'tesseract'),
+          `Libs: -L\${libdir} -ltesseract\nLibs.private: -lpthread\nRequires.private: lept\n`,
+        );
       }
       return undefined;
     };
     await build(h, 'tesseract');
     expect(commands(h)).toEqual(
-      cmakeLines(h, [
-        '-DBUILD_TRAINING_TOOLS=OFF',
-        '-DBUILD_TESTS=OFF',
-        '-DGRAPHICS_DISABLED=ON',
-        '-DOPENMP_BUILD=OFF',
-        '-DDISABLE_CURL=ON',
-        '-DDISABLE_ARCHIVE=ON',
-        '-DDISABLE_TIFF=ON',
-        '-DENABLE_NATIVE=OFF',
-        '-DINSTALL_CONFIGS=OFF',
-        '-DENABLE_CCACHE=OFF',
-        '-DENABLE_PRECOMPILED_HEADERS=OFF',
-        ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
-      ]).map(
+      [
+        'sh autogen.sh',
+        configureLine(h, [
+          '--disable-shared',
+          '--enable-static',
+          '--with-pic',
+          '--disable-graphics',
+          '--disable-doc',
+          '--without-archive',
+          '--without-curl',
+          '--disable-openmp',
+        ]),
+        'make -j4 libtesseract.la',
+        'make install-libLTLIBRARIES install-pkgincludeHEADERS install-pkgconfigDATA',
+      ].map(
         (line) => `${line} [CXXFLAGS=${h.base['CXXFLAGS'] ?? ''} -include string -include cstdlib]`,
       ),
     );
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      'set(LIB_Ws2_32 ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64.*|AARCH64.*")\n',
+      'check_leptonica_tiff_support()\nset(LIB_Ws2_32 Ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64.*|AARCH64.*")\n',
     );
     expect(h.read(join(h.src, 'src', 'viewer', 'scrollview.h'))).toBe('#include <cstdio>\n');
     expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toBe(
       '#include <numeric> // for std::inner_product\n',
     );
     expect(h.read(pcPath(h, 'tesseract'))).toBe(
-      `Libs: -L\${libdir} -ltesseract55\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('linux-') ? ' -pthread' : ''}${platform.startsWith('win-') ? ' -lws2_32' : ''}\nRequires.private: lept\n`,
+      `Libs: -L\${libdir} -ltesseract\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('linux-') ? ' -pthread' : ''}${platform.startsWith('win-') ? ' -lws2_32' : ''}${/^(osx|ios|maccatalyst)-/.test(platform) ? ' -framework Accelerate' : ''}\nRequires.private: lept\n`,
     );
   });
-  it.each(platformsOf('cpu-features'))('cpu-features on %s', async (platform) => {
-    const h = fake(platform);
-    await build(h, 'cpu-features');
-    expect(commands(h)).toEqual(
-      cmakeLines(h, ['-DBUILD_TESTING=OFF', '-DBUILD_EXECUTABLE=OFF', '-DENABLE_INSTALL=ON']),
-    );
-  });
-  it('is Apache-2.0, and takes cpu_features on Android only', () => {
+  it('is Apache-2.0 and uses native CPU detection without the CMake-only NDK adapter', () => {
     expect(recipe('tesseract').license).toBe('Apache-2.0');
-    expect(platformsOf('cpu-features')).toEqual(PLATFORMS.filter((p) => p.startsWith('android-')));
+    expect(recipe('tesseract').needs).toEqual([{ name: 'leptonica' }]);
   });
 });
 

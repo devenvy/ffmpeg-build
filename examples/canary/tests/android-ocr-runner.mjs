@@ -17,17 +17,16 @@ import { gunzipSync } from 'node:zlib';
 
 const ARGUMENT_OFFSET = 2;
 const [target, dist] = process.argv.slice(ARGUMENT_OFFSET);
-assert.match(target, /^android-x64-(?:shared|static)-(?:8|9)-lgplv3$/);
+assert.match(target, /^android-x64-ocr-(?:8|9)-lgplv3$/);
 assert.ok(dist);
-const shared = target.includes('-shared-');
 const checks = dirname(fileURLToPath(import.meta.url));
-const REMOTE = '/data/local/tmp/ffb-cpu-sdk';
+const REMOTE = '/data/local/tmp/ffb-ocr-sdk';
 const TIMEOUT = 180000;
 const MAX_OUTPUT = 8388608;
 const MODEL_BYTES = 4113088;
 const MODEL_SHA256 = '7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2';
 const IMAGE_SHA256 = '455a1c0dfca94f31d8571127eb909f6794f289583d6808ae3aa8cbf52addca38';
-const work = mkdtempSync(join(tmpdir(), 'ffb-android-cpu-'));
+const work = mkdtempSync(join(tmpdir(), 'ffb-android-ocr-'));
 const execute = (program, args) => {
   const result = spawnSync(program, args, {
     encoding: 'utf8',
@@ -45,10 +44,8 @@ try {
   assert.equal(archives.length, 1, archives.join(','));
   execute('tar', ['-xzf', join(dist, archives[0]), '-C', work]);
   const libraries = join(work, 'lib/x86_64');
-  assert.equal(existsSync(join(libraries, 'libcpu_features.so')), shared);
-  assert.equal(existsSync(join(libraries, 'libndk_compat.so')), shared);
-  const cpuHelper = join(libraries, 'android-cpu-sdk');
-  assert.ok(existsSync(cpuHelper), 'verification build must include the exact-build SDK helper');
+  assert.equal(existsSync(join(libraries, 'libcpu_features.so')), false);
+  assert.equal(existsSync(join(libraries, 'libndk_compat.so')), false);
   const ndk = [
     process.env.ANDROID_NDK_HOME,
     process.env.ANDROID_NDK_LATEST_HOME,
@@ -101,23 +98,13 @@ try {
     adb('push', copy, `${REMOTE}/${name}`);
   }
   for (const [path, name] of [
-    [cpuHelper, 'cpu-sdk'],
     [ocrHelper, 'ocr-sdk'],
     [join(work, 'owned.pgm'), 'owned.pgm'],
     [join(work, 'eng.traineddata'), 'eng.traineddata'],
   ]) {
     adb('push', path, `${REMOTE}/${name}`);
   }
-  adb('shell', `chmod 755 ${REMOTE}/cpu-sdk ${REMOTE}/ocr-sdk`);
-  const mode = shared ? 'shared' : 'static';
-  for (const test of ['detect', 'setter']) {
-    const output = adb(
-      'shell',
-      `cd ${REMOTE} && LD_LIBRARY_PATH=${REMOTE} ./cpu-sdk ${test} ${mode}`,
-    );
-    assert.match(output, /Android CPU SDK: .* passed/);
-    console.log(output.trim());
-  }
+  adb('shell', `chmod 755 ${REMOTE}/ocr-sdk`);
   const output = adb(
     'shell',
     `cd ${REMOTE} && LD_LIBRARY_PATH=${REMOTE} ./ocr-sdk ${REMOTE}/owned.pgm ${REMOTE}`,

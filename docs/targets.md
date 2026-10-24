@@ -144,18 +144,11 @@ chapter timing and FFmpeg playback to EOF. No decryption libraries or keys are b
 encrypted discs require separately installed system libdvdcss, loaded at runtime by upstream.
 Physical drives, CSS and protected regions are not covered by these image tests.
 
-Android x64 offers a bundled shared `cpu-features` choice, retaining the static
-default. It bundles both native `libcpu_features.so` and `libndk_compat.so`;
-Tesseract uses the latter's NDK compatibility API. Both follow Android's 16 KB
-page-alignment requirement. Upstream has no versioned shared ABI and warns that
-public feature bitfields depend on the compiler. Use headers built with the
-same pinned NDK rather than treating these libraries as interchangeable system
-packages. Android arm64 retains its existing static recipe.
-
-Verification runs exact build-compiler SDK helpers on an Android emulator in
-separate detection/setter processes, and uses an FFmpeg library consumer for
-owned OCR text, unchanged pixels and filter EOF. The temporary verification
-build carries those helpers; release packages do not contain test executables.
+Tesseract uses its native Autotools build and CPU detection, including Android's libc APIs.
+It no longer needs the CMake-only `cpu-features` adapter or a separate selection for that dependency.
+Its Linux shared library keeps Autotools' native `libtesseract.so.5` SONAME.
+The Android OCR verification runner checks owned text, unchanged pixels and filter EOF using an FFmpeg SDK
+consumer. Fresh native verification is required after changing build systems; previous patched runs do not establish it.
 On Linux x64, Leptonica and Tesseract retain static defaults and offer bundled
 `shared` selections. Shared Tesseract requires shared Leptonica: their full public
 SDK transfers PIX ownership across the boundary, while Leptonica's custom pixel

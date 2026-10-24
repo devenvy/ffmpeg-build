@@ -14,9 +14,9 @@ subprocess.run([*shlex.split(compiler), '-std=c++17', '-static-libstdc++',
                 str(Path(os.environ['RECIPES'], 'tesseract', 'public-api.cpp')),
                 *flags, '-o', output], check=True, env=environment)
 subprocess.run([output], check=True, timeout=30, env=environment)
-library = library_dir / 'libtesseract.so.5.5'
+library = library_dir / 'libtesseract.so.5'
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
-assert '[libtesseract.so.5.5]' in dynamic and '[libleptonica.so.6]' in dynamic, dynamic
+assert '[libtesseract.so.5]' in dynamic and '[libleptonica.so.6]' in dynamic, dynamic
 assert 'libstdc++.so' not in dynamic, dynamic
 assert 'libgcc_s.so.1' in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', library], text=True)
