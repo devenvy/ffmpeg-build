@@ -46,7 +46,6 @@ bases:
         uavs3d,
         xeve,
         xevd,
-        oapv,
         svtjpegxs,
         gme,
         modplug,

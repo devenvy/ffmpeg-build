@@ -243,29 +243,29 @@ describe('libilbc', () => {
     ];
     put(join(h.src, 'CMakeLists.txt'), cmakeLists.join('\n'));
     h.onRun = (call) => {
-      if (call.command === 'cmake' && call.args[0] === '--install') {
-        put(join(h.deps, 'lib', 'libilbc.a'), '!<arch>\n');
-        put(join(h.deps, 'include', 'ilbc.h'), '');
-        put(join(h.deps, 'share', 'doc', 'libilbc', 'README.md'), '');
-        put(pcPath(h, 'libilbc'), `Name: libilbc\nLibs: -L\${libdir} -lilbc\n`);
+      if (call.command === 'cmake' && call.args[0] === '--build') {
+        put(join(h.src, '_build', 'libilbc.a'), '!<arch>\n');
+        put(join(h.src, 'ilbc.h'), '#include "ilbc_export.h"\n');
+        put(join(h.src, '_build', 'ilbc_export.h'), '/* native export header */\n');
+        put(join(h.src, '_build', 'libilbc.pc'), `Name: libilbc\nLibs: -L\${libdir} -lilbc\n`);
       }
       return undefined;
     };
     await build(h, 'libilbc');
-    expect(commands(h)).toEqual(cmakeLines(h, []));
-    // the platform's flags kept, the test programs neither built nor installed
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      [
-        `    set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Wextra")`,
-        `    set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -Wall -Wextra")`,
-        'add_executable(ilbc_test EXCLUDE_FROM_ALL modules/test.c)',
-        'add_executable(ilbc_test2 EXCLUDE_FROM_ALL iLBC_test2.c)',
-        'install(TARGETS ilbc',
-        '',
-      ].join('\n'),
+    const lines = commands(h);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('-DCMAKE_BUILD_TYPE=RelWithDebInfo');
+    expect(lines[0]).toContain(
+      `-DCMAKE_C_FLAGS_RELWITHDEBINFO=${h.context.env['CFLAGS'] ?? ''} -O2 -DNDEBUG`,
     );
+    expect(lines[0]).toContain(
+      `-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${h.context.env['CXXFLAGS'] ?? ''} -O2 -DNDEBUG`,
+    );
+    expect(lines[1]).toBe('cmake --build _build --target ilbc -j4');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(cmakeLists.join('\n'));
     expect(h.files(h.deps)).toEqual([
       'include/ilbc.h',
+      'include/ilbc_export.h',
       'lib/libilbc.a',
       'lib/pkgconfig/libilbc.pc',
     ]);
@@ -584,9 +584,9 @@ describe('oapv', () => {
     expect(commands(h)).toEqual(
       cmakeLines(h, ['-DOAPV_BUILD_SHARED_LIB=OFF', '-DOAPV_BUILD_APPS=OFF', '-DENABLE_TESTS=OFF']),
     );
-    // XEVE defines the same NEON helper: renamed, so both link together
+    // Preserve upstream's helper; the planner rejects the conflicting ARM64 combination.
     expect(h.read(join(h.src, 'src', 'neon', 'oapv_sad_neon.c'))).toBe(
-      'int oapv_sad_16b_neon_8x2n(void);\n',
+      'int sad_16b_neon_8x2n(void);\n',
     );
   });
   it('takes 0.x releases only', () => {

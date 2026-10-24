@@ -805,7 +805,7 @@ describe('pango', () => {
       ]).map((line) => `${line} [PATH=${h.deps}/bin:${env(h, 'PATH')}]`),
     );
     expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe('#include <hb-ft.h>\n');
-    expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Wunused-but-set-variable',\n");
+    expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Werror=unused-but-set-variable',\n");
   });
   it('stays on 1.56 while GLib does on 2.86, and leaves out Apple', () => {
     expect(recipe('pango').versions).toEqual({ 'git-tags': '^(1\\.56\\.\\d+)$' });

@@ -25,14 +25,25 @@ const builds = ['8', '9'].flatMap((major) =>
 );
 
 describe('nonfree audio options', () => {
-  it.each(builds)('%s on %s links both libraries together', (major, platform) => {
-    const plan = planOn(major, platform, 'nonfree');
-    expect(plan.errors).toEqual([]);
-    expect(plan.cells[0]!.recipes).toEqual(expect.arrayContaining(['fdk-aac', 'mpeghdec']));
-    expect(configureFlags(data, plan.cells[0]!)).toEqual(
-      expect.arrayContaining(['--enable-libfdk-aac', '--enable-libmpeghdec']),
-    );
-  });
+  it.each(builds.filter(([, platform]) => platform !== 'linux-armhf'))(
+    '%s on %s links both libraries together',
+    (major, platform) => {
+      const plan = planOn(major, platform, 'nonfree');
+      expect(plan.errors).toEqual([]);
+      expect(plan.cells[0]!.recipes).toEqual(expect.arrayContaining(['fdk-aac', 'mpeghdec']));
+      expect(configureFlags(data, plan.cells[0]!)).toEqual(
+        expect.arrayContaining(['--enable-libfdk-aac', '--enable-libmpeghdec']),
+      );
+    },
+  );
+  it.each(['8', '9'])(
+    '%s reports the upstream ARM hard-float symbol conflict before building',
+    (major) => {
+      const plan = planOn(major, 'linux-armhf', 'nonfree');
+      expect(plan.errors.join('\n')).toContain('mpeghdec static conflicts with fdk-aac static');
+      expect(plan.errors.join('\n')).toContain('schur_div');
+    },
+  );
   it.each(builds)('%s on %s excludes both from distributable builds', (major, platform) => {
     for (const license of ['lgplv2', 'lgplv3', 'gplv2', 'gplv3']) {
       const options = planOn(major, platform, license).cells.flatMap((c) => c.options);

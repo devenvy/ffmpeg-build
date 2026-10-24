@@ -115,6 +115,12 @@ choices produce an error, while dependencies keep their defaults until the targe
 explicitly selects another mode. Verify the accepted combinations; matching source
 versions alone do not make separate hidden implementations safe.
 
+A native symbol conflict between otherwise independent libraries can be declared under a mode with
+`conflicts-link: { peer: { modes: [static], platforms: [linux-arm64], reason: 'Explain the native incompatibility and which option to omit.' } }`.
+This checks the complete resolved selection, including dependency-only libraries, without adding a dependency or
+changing either library's default. Limit the constraint to demonstrated modes and platforms. Do not rename symbols
+or suggest an unverified shared mode to make incompatible libraries coexist.
+
 `linkage.defaults: { linux-x64: static }` can override a recipe's fallback `default:` on verified platform
 patterns. When patterns overlap, the last matching entry wins, as with `build.platforms:`; an explicit target or
 base `link:` choice wins over recipe defaults. Every default must name a declared mode supported on that platform.

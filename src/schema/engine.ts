@@ -556,6 +556,16 @@ const linkMode = z.strictObject({
   platforms: platforms.optional(),
   packages: z.record(text, z.array(text)).default({}),
   'requires-link': z.record(name, linkRequirement).optional(),
+  'conflicts-link': z
+    .record(
+      name,
+      z.strictObject({
+        modes: z.array(linkage).min(1),
+        platforms,
+        reason: text,
+      }),
+    )
+    .optional(),
 });
 
 /** recipes/<name>/recipe.yml: facts about one library. Never a version. */
