@@ -50,7 +50,10 @@ build:
     ]
   after:
     - edit-pkg-config:
-        { path: '{deps}/lib/pkgconfig/libmysofa.pc', variables: { prefix: '{deps}' } }
+        {
+          path: '{deps}/lib/pkgconfig/libmysofa.pc',
+          variables: { libdir: '{deps}/lib', includedir: '{deps}/include' },
+        }
     - run:
         - python3
         - -c

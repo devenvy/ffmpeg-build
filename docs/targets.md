@@ -185,13 +185,15 @@ libgpg-error, zlib, xz (liblzma), aom, dav1d, soxr, libbs2b, libogg, libvorbis, 
 libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg, snappy, freetype,
 libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, x264, openh264, xvidcore, x265, vvenc, svtav1,
 libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls, pixman, openal-soft, sndio,
-minizip-ng, yaml-cpp, pystring, imath, libvmaf, xavs, libssh and librtmp
-libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls,
-minizip-ng, yaml-cpp, pystring, imath, opencolorio and opencv
+minizip-ng, yaml-cpp, pystring, imath, libvmaf, xavs, libssh, librtmp, opencolorio and opencv
 offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
+
+Libgcrypt uses its native `--disable-jent-support` option to omit the optional CPU-timing entropy collector,
+whose generic symbols collide with static LibreSSL. Its OS-backed random generator and SHA3 algorithms remain
+enabled; the build does not rename internal library functions.
 
 Pango and librsvg offer bundled shared choices on Linux x64, retaining static defaults.
 Shared Pango requires shared GLib, Cairo, Fontconfig and HarfBuzz: the native Pango
@@ -276,9 +278,10 @@ and use the common system unwinder. Mixed choices preserve each dependency's sel
 checks cover lossless RGB, alpha and true 16-bit pixels, multiple frames and threads, bounded lossy error,
 and installed C/C++ SDKs, including Brotli compression/dictionaries and Highway vector dispatch.
 ARIB caption libraries (`aribb24`, `libaribcaption`), Teletext (`zvbi`) and DeckLink ancillary data (`libklvanc`)
-offer static and bundled shared choices on Linux x64, with static defaults. The libaribcaption DSO uses the full
-source version in its engine-defined SONAME; this makes no distro-package compatibility promise. Its public C
-and C++ APIs are preserved, including caller replacement allocators; embedded font libraries remain private. Maintained
+offer static and bundled shared choices on Linux x64, with static defaults. Shared libaribcaption retains its native
+unversioned `libaribcaption.so` name and requires shared FreeType and Fontconfig because its native CMake find modules
+do not supply their static dependency closure. Keep these libraries with the matching FFmpeg build. Its public C
+and C++ APIs are preserved, including caller replacement allocators. Maintained
 checks decode authored captions through FFmpeg and exercise native SDK text/rendering and ancillary roundtrips.
 DeckLink hardware I/O still needs the recipient's Desktop Video driver and hardware. The combined canaries use
 the existing nonfree classification because this group contains LGPLv3 and GPLv2-only code plus DeckLink's SDK;

@@ -9,7 +9,7 @@ COPY --from=node /usr/local/ /usr/local/
 # bash, jq and GNU findutils/coreutils/tar/sed/grep for the driver (BusyBox lacks find -printf and friends);
 # xxd for libvmaf's built-in models; python3 for meson. Alpine's own glslc is new enough (probed below).
 RUN apk add --no-cache \
-      bash autoconf automake libtool build-base cmake curl diffutils gperf git linux-headers m4 meson nasm ninja \
+      bash autoconf automake libtool gettext gettext-dev build-base cmake curl diffutils gperf git linux-headers m4 meson nasm ninja \
       patchelf perl pkgconf xz yasm xxd glslang shaderc jq python3 tar findutils coreutils sed grep
 
 # FFmpeg 8.1+ / 9.x probe the shader compiler with Vulkan 1.4 / SPIR-V 1.6; a glslc that predates Vulkan 1.4 makes

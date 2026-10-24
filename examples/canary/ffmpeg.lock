@@ -175,4 +175,4 @@ libraries:
   zimg: { version: 3.0.6, commit: f819b14e8f39d1282400b0d9543e8ef73c1b2bbd }
   zix: { version: 0.8.2, commit: 96163e9e071548df1bc2fb3b373c573246e9c5f7 }
   zlib: { version: 1.3.2, commit: da607da739fa6047df13e66a2af6b8bec7c2a498 }
-  zvbi: { version: 0.2.45, commit: d3a5ee9f2b047bf16cd1ee5ccf6ec05ee75409d0 }
+  zvbi: { version: 0.2.46, commit: 34bb6f660c5c1bacd4a66cc7b22311e4ca3c1ab5 }

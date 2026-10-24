@@ -1,7 +1,7 @@
 name: libgcrypt
 provides: gcrypt
 license: LGPL-2.1-or-later
-license-files: [COPYING.LIB, LICENSES, { recipe: BUILD-NOTICE.txt }]
+license-files: [COPYING.LIB, LICENSES]
 needs: [libgpg-error]
 linkage:
   default: static
@@ -24,12 +24,20 @@ platforms: [linux-x64]
 build:
   system: autotools
   vars: { static-arg: --enable-static, shared-arg: --disable-shared }
-  # The bundled jitter RNG exposes generic SHA3 symbols that collide with LibreSSL in a combined static link.
-  env:
-    CFLAGS: '+= -Dsha3_256_init=_gcry_jent_sha3_256_init -Dsha3_update=_gcry_jent_sha3_update -Dsha3_final=_gcry_jent_sha3_final -Dsha3_tester=_gcry_jent_sha3_tester'
   args:
     - '{shared-arg}'
     - '{static-arg}'
     - --with-pic
     - --disable-doc
+    # Native optional-collector selection avoids its generic SHA3 symbol collision
+    # with LibreSSL. The normal OS-backed random generator remains enabled.
+    - --disable-jent-support
     - '--with-libgpg-error-prefix={deps}'
+  after:
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'libgcrypt', 'check-public-api.py'), run_name='__main__')"
+        - '{deps}'
+        - '{src}/ffb-sdk'
+        - '{CC|gcc}'

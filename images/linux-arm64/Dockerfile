@@ -11,6 +11,17 @@ COPY --from=node /usr/local/ /usr/local/
 RUN dnf -y install --setopt=install_weak_deps=False \
       nasm cmake git pkgconfig autoconf automake libtool perl gperf xz bzip2 curl make diffutils gcc-c++ jq vim-common \
  && dnf clean all
+# ZVBI's upstream bootstrap needs gettext >=0.21. Keep these native build tools
+# separate from the target library search paths.
+RUN curl -fsSL https://ftpmirror.gnu.org/gettext/gettext-0.21.tar.xz -o /tmp/gettext.tar.xz \
+ && echo "d20fcbb537e02dcf1383197ba05bd0734ef7bf5db06bdb241eb69b7d16b73192  /tmp/gettext.tar.xz" | sha256sum -c - \
+ && tar -xJf /tmp/gettext.tar.xz -C /tmp \
+ && cd /tmp/gettext-0.21 \
+ && ./configure --prefix=/opt/gettext --disable-shared --disable-java --disable-csharp --without-emacs --disable-nls --disable-openmp \
+ && make -j$(nproc) && make install \
+ && rm -rf /tmp/gettext-0.21 /tmp/gettext.tar.xz
+ENV PATH="/opt/gettext/bin:${PATH}"
+ENV ACLOCAL_PATH=/opt/gettext/share/aclocal
 # meson/ninja: the system python is 3.6 (pip caps meson at 0.61) and dnf's meson is 0.58, below libdrm's >= 0.59.
 # meson and ninja by version and by sha256, as PyPI lists them: meson's one wheel, ninja's manylinux x86_64 and
 # aarch64 wheels (--only-binary: never an sdist, whose build would run code no hash covers).

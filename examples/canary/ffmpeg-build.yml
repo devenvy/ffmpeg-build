@@ -1,7 +1,7 @@
 # ffmpeg-build.yml: made by `ffmpeg-build init` from the shipped devenvy targets. Each target is one build
 # (one platform, one license, one FFmpeg series); bases hold what targets share. `ffmpeg-build show <target>`
 # lists what a target gets and where each entry comes from.
-pin: { openal-soft: 1.24.3, fontconfig: 2.15.0 }
+pin: { openal-soft: 1.24.3, fontconfig: 2.15.0, zvbi: 0.2.46 }
 bases:
   common:
     with:
@@ -233,6 +233,8 @@ targets:
         brotli: shared,
         aribb24: shared,
         libaribcaption: shared,
+        freetype: shared,
+        fontconfig: shared,
         zvbi: shared,
         libklvanc: shared,
         leptonica: shared,
@@ -1284,7 +1286,15 @@ targets:
     license: nonfree
     ffmpeg: '9'
     with: [aribb24, aribcaption, zvbi, decklink]
-    link: { aribb24: shared, libaribcaption: shared, zvbi: shared, libklvanc: shared }
+    link:
+      {
+        aribb24: shared,
+        libaribcaption: shared,
+        freetype: shared,
+        fontconfig: shared,
+        zvbi: shared,
+        libklvanc: shared,
+      }
     tests: [tests/caption-linkage.sh]
   linux-x64-media-filters-static-gplv3:
     platform: linux-x64

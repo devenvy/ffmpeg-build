@@ -223,7 +223,7 @@ jobs:
       # a native build (ffmpeg-build.yml build: in: here) uses the runner's own toolchain instead of a Docker image
       - name: Linux build tools (native build)
         if: runner.os == 'Linux' && matrix.in == 'here'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq build-essential cmake meson ninja-build nasm pkg-config git curl autoconf automake libtool binutils patchelf xxd python3 gperf xz-utils diffutils
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq build-essential cmake meson ninja-build nasm pkg-config git curl autoconf automake libtool gettext autopoint binutils patchelf xxd python3 gperf xz-utils diffutils
       - name: MSYS2 (native Windows build)
         if: runner.os == 'Windows' && matrix.in == 'here'
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
@@ -231,7 +231,7 @@ jobs:
           msystem: ${{ matrix.platform == 'win-arm64' && 'CLANGARM64' || 'UCRT64' }}
           path-type: inherit # node and the engine npm installed
           update: true
-          install: make git tar gzip curl autoconf automake libtool perl binutils vim python gperf xz diffutils
+          install: make git tar gzip curl autoconf automake libtool gettext-devel perl binutils vim python gperf xz diffutils
           pacboy: ${{ matrix.platform == 'win-arm64' && 'clang:p' || 'gcc:p' }} cmake:p meson:p ninja:p nasm:p pkgconf:p tools-git:p llvm:p
       - name: buildx with the Actions cache
         if: runner.os == 'Linux' && matrix.in == 'docker'

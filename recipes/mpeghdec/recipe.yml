@@ -61,8 +61,10 @@ build:
     linux-armhf:
       # Upstream's generated prefix header misses this C++ symbol on 32-bit ARM (long differs from x64).
       env: { CXXFLAGS: '+= -Dschur_div=_mpeghdec_schur_div' }
-    'osx-*,ios-*,maccatalyst-*':
+    'osx-*': &apple-runtime
       vars: { cxx-runtime: -lc++ }
+    'ios-*': *apple-runtime
+    'maccatalyst-*': *apple-runtime
     win-arm64:
       vars: { cxx-runtime: '-l:libc++.a' }
     'linux-musl-*':

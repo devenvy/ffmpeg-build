@@ -77,7 +77,7 @@ describe('libmysofa', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'libmysofa'),
-          `prefix=/usr\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: \n`,
+          `includedir=/usr/include\nlibdir=/usr/lib\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: \n`,
         );
         put(join(h.deps, 'share', 'libmysofa', 'default.sofa'), 'sofa');
       }
@@ -102,7 +102,7 @@ describe('libmysofa', () => {
     );
     expect(h.files(h.deps)).not.toContain('share/libmysofa/default.sofa');
     expect(h.read(pcPath(h, 'libmysofa'))).toBe(
-      `prefix=${h.deps}\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
+      `includedir=${h.deps}/include\nlibdir=${h.deps}/lib\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
     );
   });
   it('needs zlib', () => {
@@ -223,7 +223,7 @@ describe('flite', () => {
   });
 });
 
-// libzvbi's library alone, its configure.ac without gettext's macros (remade), without libpng.
+// libzvbi's library alone, with native gettext bootstrap and configure-time feature selection.
 describe('zvbi', () => {
   const configureAc =
     'AM_ICONV_LINK\nif test "x$am_cv_func_iconv" != xyes; then\n' +
@@ -235,6 +235,9 @@ describe('zvbi', () => {
     put(join(h.src, 'configure.ac'), configureAc);
     put(join(h.src, 'Makefile.am'), 'SUBDIRS += \\\n\tpo \\\n\tdoc\n');
     await build(h, 'zvbi');
+    const android = platform.startsWith('android-');
+    const apple = /^(osx|ios|maccatalyst)-/.test(platform);
+    const gettext = `${env(h, 'HOMEBREW_PREFIX') || '/opt/homebrew'}/opt/gettext`;
     expect(commands(h)).toEqual(
       [
         'autoreconf -fi',
@@ -242,6 +245,7 @@ describe('zvbi', () => {
           '--disable-shared',
           '--enable-static',
           '--with-pic',
+          '--disable-nls',
           '--disable-v4l',
           '--disable-dvb',
           '--disable-bktr',
@@ -259,17 +263,11 @@ describe('zvbi', () => {
         'make install-pkgconfigDATA',
       ].map(
         (line) =>
-          `${line} [CFLAGS=${env(h, 'CFLAGS')} -O2 CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`,
+          `${line} [${apple ? `ACLOCAL_PATH=${gettext}/share/aclocal:${env(h, 'ACLOCAL_PATH')} ` : ''}CFLAGS=${env(h, 'CFLAGS')} -O2${android ? ' -Wno-error=implicit-function-declaration' : ''} CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}${apple ? ` PATH=${gettext}/bin:${env(h, 'PATH')}` : ''}]`,
       ),
     );
-    expect(h.read(join(h.src, 'configure.ac'))).toBe(
-      'AC_SEARCH_LIBS([libiconv_open], [iconv], [am_cv_func_iconv=yes],\n' +
-        '  [AC_SEARCH_LIBS([iconv_open], [iconv], [am_cv_func_iconv=yes])])\n' +
-        'if test "x$am_cv_func_iconv" != xyes; then\n' +
-        'AC_CONFIG_FILES([\n  test/Makefile\n  zvbi.spec\n])\n' +
-        '    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create(0, 0, 0, 0);]])],[],[\n',
-    );
-    expect(h.read(join(h.src, 'Makefile.am'))).toBe('SUBDIRS += \\\n\tdoc\n');
+    expect(h.read(join(h.src, 'configure.ac'))).toBe(configureAc);
+    expect(h.read(join(h.src, 'Makefile.am'))).toBe('SUBDIRS += \\\n\tpo \\\n\tdoc\n');
   });
   it('is GPL-2.0-only in part, and takes GNU libiconv where the C library has no iconv', () => {
     expect(recipe('zvbi').license).toContain('GPL-2.0-only');
@@ -305,7 +303,7 @@ describe('aribb24', () => {
   });
 });
 
-// libaribcaption with its renderer, on CMake 3.11's terms; on Android its .pc names the FreeType it renders with.
+// libaribcaption with its renderer and native CMake requirements; Android metadata names its FreeType dependency.
 describe('libaribcaption', () => {
   it.each(platformsOf('libaribcaption'))('%s', async (platform) => {
     const h = fake(platform);
@@ -316,7 +314,7 @@ describe('libaribcaption', () => {
     expect(commands(h)).toEqual(
       cmakeLines(h, ['-DARIBCC_BUILD_TESTS=OFF', '-DARIBCC_SHARED_LIBRARY=OFF']),
     );
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('cmake_minimum_required(VERSION 3.11)\n');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('cmake_minimum_required(VERSION 3.28)\n');
     expect(h.read(pcPath(h, 'libaribcaption'))).toBe(
       platform.startsWith('android-')
         ? pc.replace('Requires.private:', 'Requires.private: freetype2')
@@ -566,7 +564,7 @@ describe('lensfun', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'lensfun'),
-          `prefix=/usr\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
+          `prefix=/usr\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
         );
         put(join(h.deps, 'share', 'lensfun', 'version_2', 'mil-sony.xml'), '<lensdatabase/>');
       }
@@ -591,7 +589,7 @@ describe('lensfun', () => {
     expect(h.read(config)).toBe(linux + windows + linux);
     const win = platform.startsWith('win-') ? ' -DCONF_LENSFUN_STATIC' : '';
     expect(h.read(pcPath(h, 'lensfun'))).toBe(
-      `prefix=${h.deps}\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
+      `prefix=${h.deps}\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
     );
   });
   it('is the library alone, LGPL-3.0-or-later, from master', () => {
