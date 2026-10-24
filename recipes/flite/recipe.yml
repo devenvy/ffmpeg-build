@@ -35,7 +35,7 @@ build:
   #   programs. The libraries and headers are installed by hand (the headers in include/flite, as its install does).
   # - Its headers define snprintf as an MSVC workaround (an `__inline` function that GCC and clang never emit) on any
   #   _WIN32: not on mingw, which has snprintf.
-  system: autotools
+  system: none
   vars:
     library-arg: --disable-shared
     library-files: 'build/*/lib/libflite*.a'
@@ -43,7 +43,6 @@ build:
   # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
   env: { CFLAGS: '+= -O2' }
   args: ['{library-arg}', --with-pic, --with-audio=none, --disable-sockets]
-  install-targets: []
   before:
     - replace-in-file:
         {
@@ -54,18 +53,17 @@ build:
         }
     - replace-in-file:
         {
-          path: Makefile,
-          from: 'BUILD_DIRS = include src lang doc',
-          to: 'BUILD_DIRS = include src lang',
-        }
-    - replace-in-file:
-        { path: Makefile, from: 'HOST_ONLY_DIRS = tools main', to: 'HOST_ONLY_DIRS =' }
-    - replace-in-file:
-        {
           path: include/cst_file.h,
           from: "#ifdef _WIN32\n#define snprintf c99_snprintf",
           to: "#if defined(_WIN32) && !defined(__MINGW32__)\n#define snprintf c99_snprintf",
         }
+  steps:
+    - [./configure, '--prefix={deps}', '{args}', '--host={host?}']
+    # Select native library subdirectories in order; command-line BUILD_DIRS overrides would also alter recursion
+    # inside src and lang, so leave upstream's Makefiles unchanged.
+    - [make, -C, include, '-j{jobs}']
+    - [make, -C, src, '-j{jobs}']
+    - [make, -C, lang, '-j{jobs}']
   after:
     - copy: { from: 'include/*.h', into: '{deps}/include/flite' }
     # Native targets supply every voice/language/core dependency and serialize

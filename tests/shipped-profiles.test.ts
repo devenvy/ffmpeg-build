@@ -165,7 +165,6 @@ describe('profiles/devenvy.yml', () => {
       '--enable-vaapi',
       '--enable-version3',
       '--enable-vulkan',
-      '--enable-vulkan-static',
       '--enable-whisper',
       '--enable-zlib',
       '--extra-cflags=-I/opt/ffmpeg-build/deps/include',
@@ -176,13 +175,13 @@ describe('profiles/devenvy.yml', () => {
     ]);
   });
 
-  it("builds today's published linux-x64 lgplv3 options with a static Vulkan loader", () => {
+  it("builds today's published linux-x64 lgplv3 options with the upstream shared Vulkan loader", () => {
     expect([...verifyNames(data, linux('lgplv3'))].sort()).toEqual(
-      [...PUBLISHED_LGPLV3_LINUX_X64, 'VULKAN_STATIC'].sort(),
+      [...PUBLISHED_LGPLV3_LINUX_X64].sort(),
     );
   });
 
-  it('restores the published configure and verify sets with the shared Vulkan override', () => {
+  it('keeps the same configure and verify sets with an explicit shared Vulkan selection', () => {
     const cell = linux('lgplv3');
     const shared = { ...cell, linkages: { ...cell.linkages, 'vulkan-loader': 'shared' as const } };
     expect(configureFlags(data, shared)).toEqual(
@@ -284,6 +283,16 @@ describe('profiles/devenvy.yml', () => {
         c.cell.platform === 'linux-x64' && c.cell.license === 'lgplv3' && c.cell.series === '9',
     )!;
     expect(linuxOnly.options).not.toContain('videotoolbox');
+  });
+
+  it('keeps Catalyst software builds without the unsupported VideoToolbox framework', () => {
+    for (const c of cells.filter((entry) => entry.cell.platform.startsWith('maccatalyst-'))) {
+      expect(c.options).not.toContain('videotoolbox');
+      const flags = configureFlags(data, c);
+      expect(flags).toContain('--disable-videotoolbox');
+      expect(flags).not.toContain('--enable-hwaccel=h264_videotoolbox');
+      expect(flags).not.toContain('--enable-hwaccel=hevc_videotoolbox');
+    }
   });
 
   // ffmpeg.exe's embedded configure line in the published 9.0.2.3 win-x64 lgplv3 artifact, minus --prefix and --extra-*
@@ -1334,7 +1343,7 @@ describe('codec libraries', () => {
     },
     // its COPYING's terms keep it out of GPL builds
     'lcevc-dec': {
-      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      platforms: PLATFORMS.filter((p) => !p.startsWith('win-')),
       recipes: ['lcevcdec'],
       flags: ['--enable-liblcevc-dec'],
       licenses: ['lgplv2', 'lgplv3', 'nonfree'],
@@ -1543,7 +1552,7 @@ describe('filter and processing libraries', () => {
     aribb24: {
       platforms: PLATFORMS,
       recipe: 'aribb24',
-      recipes: () => ['aribb24'],
+      recipes: () => ['aribb24', 'libpng', 'zlib'],
       flags: ['--enable-libaribb24'],
       licenses: V3,
       ships: { decoders: ['libaribb24'] },
@@ -1782,7 +1791,7 @@ describe('protocol and I/O libraries', () => {
     }
   > = {
     zmq: {
-      platforms: PLATFORMS,
+      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
       recipe: 'libzmq',
       recipes: () => ['libzmq'],
       flags: () => ['--enable-libzmq'],

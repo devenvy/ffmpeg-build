@@ -1,6 +1,7 @@
 # ffmpeg-build.yml: made by `ffmpeg-build init` from the shipped devenvy targets. Each target is one build
 # (one platform, one license, one FFmpeg series); bases hold what targets share. `ffmpeg-build show <target>`
 # lists what a target gets and where each entry comes from.
+pin: { openal-soft: 1.24.3, fontconfig: 2.15.0 }
 bases:
   common:
     with:
@@ -143,7 +144,6 @@ bases:
     with:
       [
         kvazaar,
-        lcevc-dec,
         aribb24,
         lensfun,
         rsvg,
@@ -1475,12 +1475,6 @@ targets:
     with: [gnutls]
     link: { gmp: shared, nettle: shared, libtasn1: shared, gnutls: shared }
     tests: [tests/tls-linkage.sh]
-  linux-x64-vulkan-static-lgplv3:
-    platform: linux-x64
-    license: lgplv3
-    ffmpeg: '9'
-    with: [vulkan, placebo, whisper]
-    tests: [tests/vulkan-linkage.sh]
   linux-x64-vulkan-shared-lgplv3:
     platform: linux-x64
     license: lgplv3
@@ -1834,7 +1828,7 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     base: [common, linux, lgplv3]
-    with: [openssl]
+    with: [openssl, lcevc-dec]
   win-x64-gplv2:
     platform: win-x64
     license: gplv2
@@ -1949,13 +1943,6 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [whisper]
-    tests: [tests/vulkan-shim-linkage.sh]
-  win-x64-vulkan-shim-shared-lgplv3:
-    platform: win-x64
-    license: lgplv3
-    ffmpeg: '9'
-    with: [whisper]
-    link: { vulkan-shim: shared }
     tests: [tests/vulkan-shim-linkage.sh]
   linux-x64-core-system-lgplv3:
     platform: linux-x64

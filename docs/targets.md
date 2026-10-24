@@ -66,12 +66,24 @@ catalog loading. The shared library preserves its mutable text domain and public
 data; native tests also cover GLib's context/plural wrappers and rendered pixels.
 This library is not a replacement for arbitrary system gettext installations.
 
-On Windows x64, `vulkan-shim` defaults to static linking. Selecting
-`link: { vulkan-shim: shared }` bundles `ffb-vulkan-shim.dll`, which Whisper's
-Vulkan backend imports instead of the system Vulkan loader. The DLL loads the
-optional driver on the first API call; FFmpeg still starts and CPU processing
-works without a Vulkan driver. GPU processing requires an installed Vulkan
-driver in either mode. Windows arm64 retains its static recipe.
+On Windows, `vulkan-shim` supports static linking only, matching upstream's
+build. The shim loads the system Vulkan loader at run time, so FFmpeg can start
+and process on the CPU without a Vulkan driver. GPU processing requires an
+installed Vulkan driver.
+
+On Windows ARM64, zimg uses upstream's scalar `--disable-simd` build and the compiler's standard
+`-include exception` option. This avoids carrying a compatibility header for the release's Windows header-name
+assumption. Its conversion API remains available; this platform does not claim zimg's SIMD acceleration.
+
+ZeroMQ is unavailable on Windows ARM64 with the current release: its clock implementation requires an upstream
+source fix. LCEVC is unavailable on Windows with the current toolchains: ARM64 has native build incompatibilities,
+and the x64 cross image's MinGW SDK 11 lacks a required thread-description declaration. Windows x64 support can be
+revisited with a verified SDK 12 or newer build. The engine does not supply source fixes or declaration shims.
+
+Libva uses its native Autotools build for static archives. Its driver search defaults to Debian's multiarch
+directory on glibc and `/usr/lib/dri` on musl; set upstream's `LIBVA_DRIVERS_PATH` for another layout.
+Static libva still loads the recipient's graphics driver dynamically. Actual hardware compatibility requires
+testing with that driver.
 
 On Linux x64, `libdrm`, `libva` and `libvpl` accept independent bundled `shared`
 selections and retain static defaults. Shared VA includes both its core and DRM
@@ -238,6 +250,9 @@ OpenAL Soft and sndio retain static defaults and independently accept bundled sh
 Their ALSA implementation keeps its own selection: static ALSA uses builtin plugins, while shared ALSA can
 load the recipient's desktop plugins. Audio device access still requires the recipient's configured audio
 system. sndio can connect to an external sndiod server or use its direct `rsnd/` ALSA backend; no server is bundled.
+Shared ALSA uses one upstream plugin directory: Debian's multiarch directory on glibc, `/usr/lib/alsa-lib`
+on musl. On another distribution, set `ALSA_PLUGIN_DIR` to its installed plugins directory, for example
+`/usr/lib64/alsa-lib` on Fedora. The engine does not add a multi-directory plugin search patch.
 For SFTP and RTMP, `link: { libssh: shared, librtmp: shared }` bundles the selected client libraries.
 Their cryptographic dependencies keep their own linking modes. Linux x64 librtmp normalizes GnuTLS retry
 and error results so TLS 1.3 post-handshake messages do not break RTMPS or bypass socket read timeouts.
@@ -294,6 +309,10 @@ Linux x64 also supports `link: { bzip2: shared, libxml2: shared }`. Static remai
 zlib retains its own selected mode. bzip2 uses the stable 1.0 ABI, and libxml2's actual SONAME follows
 its reviewed release rather than assuming a historical system-library name. Both shared libraries are bundled.
 
+Mac Catalyst builds currently disable VideoToolbox: the supported FFmpeg releases reference an OpenGL ES
+compatibility key unavailable to Catalyst. Software codecs remain available; the engine does not patch
+FFmpeg to enable this framework. VideoToolbox remains available on macOS and iOS.
+
 On macOS, `with: [metal]` enables `yadif_videotoolbox` and the VideoToolbox framework it needs. Metal remains
 opt-in and uses the system frameworks; it adds no third-party runtime library. A build with Metal selected
 backports [FFmpeg's autorelease ownership fix](https://github.com/FFmpeg/FFmpeg/commit/7f2e5cdd7c3ad502141c918bac13e2a31b4829c0)
@@ -345,10 +364,9 @@ replacement or when a swappable client library is needed. Neither mode starts a 
 On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
 can still be embedded statically. Musl builds retain their static compiler runtime.
 
-On Linux x64, `vulkan-loader` defaults to static linking. `link: { vulkan-loader: shared }` bundles the shared
-loader instead. Other loader platforms retain their shared default until their static mode is verified. Both
-modes require an installed Vulkan ICD driver; static linking embeds the loader, not the GPU driver. FFmpeg adds
-`--enable-vulkan-static` for the static mode. Whisper can use that loader without enabling FFmpeg's Vulkan
+On Linux, `vulkan-loader` supports bundled shared linking only, matching upstream's build. A static Unix loader
+requires changes to upstream's CMake target and is not offered. The shared loader requires an installed Vulkan ICD
+driver; bundling the loader does not bundle a GPU driver. Whisper can use that loader without enabling FFmpeg's Vulkan
 components unless the target also lists `vulkan`. The maintained runtime check uses Mesa lavapipe and explicitly
 selects it for GGML, which normally excludes CPU Vulkan devices. This verifies API operation without claiming
 physical GPU coverage.
@@ -381,6 +399,10 @@ ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Li
 `libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
 and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
 recording and playback paths can omit those unused functions when the client is linked statically.
+
+Shared ModPlug and OpenMPT retain upstream Libtool's system C++ runtime dependency (`libstdc++.so.6` on Linux).
+The recipient needs a compatible runtime, commonly `libstdc++6` on Debian/Ubuntu or `libstdc++` on Fedora.
+These package names are suggestions; runtime compatibility still depends on the compiler and target system.
 On Linux x64, the LV2 host libraries `lilv`, `serd`, `sord`, `sratom` and `zix` default to static linking and
 accept independent `shared` selections. LV2 plugins are loaded as separate modules in either mode. Supply
 compatible plugin bundles through `LV2_PATH` or the platform's usual LV2 folders. The maintained runtime check

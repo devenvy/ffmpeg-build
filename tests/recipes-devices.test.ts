@@ -62,23 +62,22 @@ const withEnv = (line: string, ...env: string[]) =>
 
 // ALSA defaults to static builtin plugins; PulseAudio and JACK retain shared client libraries.
 describe('alsa-lib', () => {
-  // the distributions' plugin folders for the platform, Debian's multiarch one first
+  // Upstream uses one plugin directory, with ALSA_PLUGIN_DIR as the recipient's native override.
   const plugindirs: Record<string, string> = {
-    'linux-x64': '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-musl-x64': '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-arm64': '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-musl-arm64': '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-armhf': '/usr/lib/arm-linux-gnueabihf/alsa-lib:/usr/lib/alsa-lib',
+    'linux-x64': '/usr/lib/x86_64-linux-gnu/alsa-lib',
+    'linux-musl-x64': '/usr/lib/alsa-lib',
+    'linux-arm64': '/usr/lib/aarch64-linux-gnu/alsa-lib',
+    'linux-musl-arm64': '/usr/lib/alsa-lib',
+    'linux-armhf': '/usr/lib/arm-linux-gnueabihf/alsa-lib',
   };
   it.each(platformsOf('alsa-lib'))('%s', async (platform) => {
     const h = fake(platform);
     expect(h.base['CFLAGS']).toContain('-fPIC');
     const dlmisc = join(h.src, 'src', 'dlmisc.c');
-    put(
-      dlmisc,
+    const original =
       '\tsnprintf(path, path_len, "%s/%s",\n\t\t snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR, name);\n' +
-        '#ifndef PIC\n\tif (name == NULL)\n\t\treturn &snd_dlsym_start;\n#else\n',
-    );
+      '#ifndef PIC\n\tif (name == NULL)\n\t\treturn &snd_dlsym_start;\n#else\n';
+    put(dlmisc, original);
     const topology = pcPath(h, 'alsa-topology');
     h.onRun = (call) => {
       if (call.args.includes('install-pkgconfigDATA')) {
@@ -107,12 +106,7 @@ describe('alsa-lib', () => {
       ].map((line) => withEnv(line, muslLdflags(platform))),
     );
     expect(existsSync(topology)).toBe(false);
-    // ALSA_PLUGIN_DIR read as a list: the first folder that has the plugin
-    const patched = h.read(dlmisc);
-    expect(patched).toContain("end = strchr(dir, ':');");
-    expect(patched).toContain('if (access(path, F_OK) == 0)');
-    expect(patched).not.toContain('snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR');
-    expect(patched).toContain('External plugins are disabled in this static ALSA build');
+    expect(h.read(dlmisc)).toBe(original);
   });
   it('is LGPL-2.1-or-later, on Linux, with an opt-in shared runtime', () => {
     expect(recipe('alsa-lib').license).toBe('LGPL-2.1-or-later');
@@ -292,7 +286,7 @@ describe('openal-soft', () => {
     const h = fake(platform);
     const pc = pcPath(h, 'openal');
     const alc = join(h.src, 'alc', 'alc.cpp');
-    put(alc, '| std::views::transform(&ContextBase::EffectSlotCluster::operator*)\n');
+    put(alc, 'unmodified upstream source\n');
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(pc, 'Name: OpenAL\nLibs: -lopenal\nLibs.private: -lm\n');
@@ -312,7 +306,6 @@ describe('openal-soft', () => {
         '-DALSOFT_INSTALL_EXAMPLES=OFF',
         '-DALSOFT_INSTALL_UTILS=OFF',
         '-DALSOFT_UPDATE_BUILD_VERSION=OFF',
-        '-DALSOFT_ENABLE_MODULES=OFF',
         '-DALSOFT_BACKEND_PIPEWIRE=OFF',
         '-DALSOFT_BACKEND_PULSEAUDIO=OFF',
         '-DALSOFT_BACKEND_JACK=OFF',
@@ -327,10 +320,7 @@ describe('openal-soft', () => {
     );
     expect(h.read(pc)).toContain(`Libs.private: -lm ${cxxRuntime(platform)}`);
     expect(h.read(pc).includes('Requires.private: alsa')).toBe(platform.startsWith('linux-'));
-    // a lambda for the member pointer newer libc++ can't deduce in views::transform
-    expect(h.read(alc)).toBe(
-      '| std::views::transform([](auto &cluster) -> auto& { return *cluster; })\n',
-    );
+    expect(h.read(alc)).toBe('unmodified upstream source\n');
     // Windows: COM's and the known folders' libraries, which its .pc leaves out
     expect(h.read(pc).includes('-lole32 -lshell32 -luuid')).toBe(platform.startsWith('win-'));
   });

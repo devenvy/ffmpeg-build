@@ -24,7 +24,7 @@ libraries:
   fdk-aac: { version: 3.0.0, commit: a68a51aa45d86a43c7b228e3d45624af09dcdd8d }
   flex: { version: 2.6.4, sha256: e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995 }
   flite: { version: 2.2, commit: e9e2e37c329dbe98bfeb27a1828ef9a71fa84f88 }
-  fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
+  fontconfig: { version: 2.15.0, commit: 72b9a48f57de6204d99ce1c217b5609ee92ece9b }
   freetype: { version: 2.14.3, commit: 0a0221a1347e2f1e07c395263540026e9a0aa7c7 }
   frei0r: { version: 3.6.0, commit: d63e2e3537ec9119d1376c3d8f021bc2bfe35470 }
   fribidi: { version: 1.0.17, commit: b93119f5fdc7ea47672cc304c1455ffa6dfe7536 }
@@ -109,7 +109,7 @@ libraries:
   nv-codec: { version: 13.1.15.0, commit: 0a6fba9a2820628b8103464f4c8753ee05838baa }
   oapv: { version: 0.3.0.0, commit: 9f6fd2a7369db90acec67d99fc57724f1136fb84 }
   onnxruntime: { version: 1.31.0, commit: 402979ac1bef89dcd55add41eaa7277c407599eb }
-  openal-soft: { version: 1.25.2, commit: b2c48f7718ef3fcf67921a8b6534c4914e328970 }
+  openal-soft: { version: 1.24.3, commit: dc7d7054a5b4f3bec1dc23a42fd616a0847af948 }
   opencl-headers: { version: 2026.05.29, commit: 6fe718c31a45fe25151362a72ef041c3a1047cbd }
   opencl-icd-loader: { version: 2026.05.29, commit: b7bd2803acc779c03d96588e9ca9e9568a18698a }
   opencolorio: { version: 2.6.0, commit: 10a43ec1df03d072ca9a9e2fb3f26e454b0900d8 }

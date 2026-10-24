@@ -206,7 +206,7 @@ options:
     {
       builtin: true,
       kind: hwaccel,
-      platforms: [osx-*, ios-*, maccatalyst-*],
+      platforms: [osx-*, ios-*],
       ships: { hwaccels: [videotoolbox], encoders: [h264_videotoolbox, hevc_videotoolbox] },
     }
   audiotoolbox:

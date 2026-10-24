@@ -24,13 +24,12 @@ build:
   # its 2017 config.sub doesn't know every triple the cross builds use (aarch64-w64-mingw32): autoreconf refreshes it
   bootstrap: autoreconf
   args: ['{shared-arg}', '{static-arg}', --with-pic]
-  before:
-    # Keep libm after the archive in static pkg-config links (FFmpeg 8 uses --as-needed).
-    - replace-in-file:
-        path: shine.pc.in
-        from: 'Libs: -L${libdir} -lm -lshine'
-        to: "Libs: -L${libdir} -lshine\nLibs.private: -lm"
   # C17: its `void shine_mdct_initialise()` declaration conflicts with the definition under C23, newer GCCs' default
   env: { CFLAGS: '+= -std=gnu17' }
   make-targets: [libshine.la]
   install-targets: [install-libLTLIBRARIES, install-libshine_laHEADERS, install-pkgconfigDATA]
+  after:
+    # Correct installed link metadata while preserving the upstream source template.
+    - edit-pkg-config: { path: '{deps}/lib/pkgconfig/shine.pc', libs: { remove: -lm } }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/shine.pc', libs-private: { add: -lm, missing: after-libs } }

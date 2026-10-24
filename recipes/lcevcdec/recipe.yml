@@ -8,8 +8,9 @@ license-files: [LICENSE.md, COPYING]
 configure: [--enable-liblcevc-dec]
 source: { git: https://github.com/v-novaltd/LCEVCdec, ref: '{version}' }
 versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
-# Not win-arm64: its build takes the x86 SIMD path there, and its Windows threads header misses errno.h.
-platforms: [linux-*, win-x64, osx-*, ios-*, maccatalyst-*, android-*]
+# Not Windows ARM64: its build takes the x86 SIMD path there. Windows x64 needs MinGW SDK 12 or newer for the
+# native SetThreadDescription declaration; this engine's cross image still uses SDK 11. No declaration shim is kept.
+platforms: [linux-*, osx-*, ios-*, maccatalyst-*, android-*]
 linkage:
   default: static
   modes:
@@ -51,24 +52,6 @@ build:
       -DVN_SDK_BUILD_DETAILS=OFF,
     ]
   platforms:
-    # it names its threads with SetThreadDescription (Windows 10), which win-x64's mingw-w64 11 has in kernel32's
-    # import library but doesn't declare: a header declaring it is included first
-    win-x64:
-      before:
-        - write-file:
-            path: '{src}/_lcevc-compat.h'
-            text: |
-              #pragma once
-              #include <stddef.h>
-              #ifdef __cplusplus
-              extern "C"
-              #endif
-              __declspec(dllimport) long __stdcall SetThreadDescription(void *thread, const wchar_t *name);
-      args:
-        [
-          '-DCMAKE_C_FLAGS=-include {src}/_lcevc-compat.h',
-          '-DCMAKE_CXX_FLAGS=-include {src}/_lcevc-compat.h',
-        ]
     # its Android code draws to ANativeWindow and AHardwareBuffer surfaces: libandroid and libnativewindow
     'android-*':
       after:

@@ -79,14 +79,9 @@ describe('libzmq', () => {
     put(join(h.src, 'src', 'polling_util.hpp'), '#include <stdlib.h>\n#include <vector>\n');
     await build(h, 'libzmq');
     expect(h.read(join(h.src, 'src', 'polling_util.hpp'))).toBe(
-      `#include <stdlib.h>\n#include <vector>\n${platform === 'win-arm64' ? '#include <new>\n' : ''}`,
+      '#include <stdlib.h>\n#include <vector>\n',
     );
-    // llvm-mingw's arm64 build takes the clock_gettime path, which needs nsecs_per_usec on Windows too
-    expect(h.read(join(h.src, 'src', 'clock.cpp'))).toBe(
-      platform === 'win-arm64'
-        ? '#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\n#endif\nconst uint64_t nsecs_per_usec = 1000;\n'
-        : clock,
-    );
+    expect(h.read(join(h.src, 'src', 'clock.cpp'))).toBe(clock);
     const win = platform.startsWith('win-');
     expect(commands(h)).toEqual(
       cmakeLines(h, [
@@ -111,9 +106,9 @@ describe('libzmq', () => {
         `Requires.private: \nCflags: -I\${includedir} ${win ? ' -DZMQ_STATIC' : ''}\n`,
     );
   });
-  it('is MPL-2.0, and builds everywhere', () => {
+  it('is MPL-2.0, and excludes the Windows ARM64 source-incompatible build', () => {
     expect(recipe('libzmq').license).toBe('MPL-2.0');
-    expect(platformsOf('libzmq')).toEqual(PLATFORMS);
+    expect(platformsOf('libzmq')).toEqual(PLATFORMS.filter((platform) => platform !== 'win-arm64'));
   });
 });
 
@@ -163,10 +158,11 @@ describe('snappy', () => {
         '-DSNAPPY_BUILD_TESTS=OFF',
         '-DSNAPPY_BUILD_BENCHMARKS=OFF',
         '-DSNAPPY_INSTALL=ON',
+        '-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -Wno-error',
       ]),
     );
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      '  if(NOT CMAKE_CXX_FLAGS MATCHES "-Werror")\n    \n  endif()\n',
+      `  if(NOT CMAKE_CXX_FLAGS MATCHES "-Werror")\n    set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -Werror")\n  endif()\n`,
     );
   });
   it('is BSD-3-Clause, builds everywhere, and puts the C++ runtime on FFmpeg’s link', () => {
@@ -240,19 +236,22 @@ describe('mbedtls', () => {
         platform.startsWith('win-') ? 'Libs.private: -lbcrypt -lws2_32\n' : ''
       }`,
     );
-    expect(commands(h)).toEqual(
-      cmakeLines(h, [
+    expect(commands(h)).toEqual([
+      ...(platform.startsWith('win-')
+        ? []
+        : [
+            'python3 scripts/config.py set MBEDTLS_THREADING_C',
+            'python3 scripts/config.py set MBEDTLS_THREADING_PTHREAD',
+          ]),
+      ...cmakeLines(h, [
         '-DUSE_SHARED_MBEDTLS_LIBRARY=OFF',
         '-DUSE_STATIC_MBEDTLS_LIBRARY=ON',
         '-DENABLE_TESTING=OFF',
         '-DENABLE_PROGRAMS=OFF',
       ]),
-    );
-    expect(h.read(join(h.src, 'include', 'mbedtls', 'mbedtls_config.h'))).toBe(
-      platform.startsWith('win-')
-        ? CONFIG
-        : '//#define MBEDTLS_THREADING_ALT\n#define MBEDTLS_THREADING_PTHREAD\n#define MBEDTLS_THREADING_C\n',
-    );
+    ]);
+    // The harness stubs upstream's configuration tool; the engine itself must not edit the header.
+    expect(h.read(join(h.src, 'include', 'mbedtls', 'mbedtls_config.h'))).toBe(CONFIG);
   });
 });
 
@@ -384,12 +383,19 @@ describe('libdvdread and libdvdnav', () => {
     const h = fake(platform);
     const header = join(h.src, 'src', 'dvdread', 'dvd_filesystem.h');
     put(header, '#elif defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n');
+    put(pcPath(h, 'dvdread'), `Cflags: -I\${includedir}\n`);
     await build(h, 'libdvdread');
-    expect(commands(h)).toEqual(mesonLines(h, ['-Denable_docs=false', '-Dlibdvdcss=disabled']));
-    // musl has no off64_t unless asked first: it takes the BSDs' typedef (its off_t is 64-bit)
-    expect(h.read(header)).toBe(
-      `#elif ${platform.startsWith('linux-musl-') ? 'defined(__linux__) || ' : ''}defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n`,
+    expect(commands(h)).toEqual(
+      mesonLines(h, ['-Denable_docs=false', '-Dlibdvdcss=disabled']).map((line) =>
+        platform.startsWith('linux-musl-') ? `${line} [CPPFLAGS= -D_LARGEFILE64_SOURCE]` : line,
+      ),
     );
+    expect(h.read(header)).toBe(
+      '#elif defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n',
+    );
+    const musl = platform.startsWith('linux-musl-');
+    expect((h.calls[0]!.env['CPPFLAGS'] ?? '').includes('-D_LARGEFILE64_SOURCE')).toBe(musl);
+    expect(h.read(pcPath(h, 'dvdread')).includes('-D_LARGEFILE64_SOURCE')).toBe(musl);
   });
   it.each(platformsOf('libdvdnav'))('libdvdnav %s', async (platform) => {
     const h = fake(platform);

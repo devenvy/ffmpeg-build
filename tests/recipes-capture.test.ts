@@ -72,12 +72,14 @@ describe('v4l-utils', () => {
     put(meson, "    dep_argp = cc.find_library('argp')\ndep_intl = dependency('intl')\n");
     const header = join(h.deps, 'include', 'libv4l2.h');
     put(header, '#ifdef LIBV4L_HAVE_POSIX_IOCTL\n');
+    put(pcPath(h, 'libv4l2'), 'Cflags: -I/include\n');
     await build(h, 'v4l-utils');
     // on musl, the installed header declares the POSIX ioctl libv4l2 was built with
-    expect(h.read(header)).toBe(
+    expect(h.read(header)).toBe('#ifdef LIBV4L_HAVE_POSIX_IOCTL\n');
+    expect(h.read(pcPath(h, 'libv4l2'))).toBe(
       platform.startsWith('linux-musl-')
-        ? '#if 1 /* musl: built with POSIX ioctl */\n'
-        : '#ifdef LIBV4L_HAVE_POSIX_IOCTL\n',
+        ? 'Cflags: -I/include -DLIBV4L_HAVE_POSIX_IOCTL\n'
+        : 'Cflags: -I/include\n',
     );
     // argp is only the tools', libintl only libdvbv5's, and musl's C library has neither
     expect(h.read(meson)).toBe(
@@ -110,12 +112,23 @@ describe('libraw1394', () => {
     const h = fake(platform);
     const header = join(h.src, 'src', 'raw1394.h');
     put(header, '#include <sys/types.h>\n\tu_int8_t tcode;\nu_int64_t mask; my_u_int8_t x;\n');
+    put(pcPath(h, 'libraw1394'), 'Cflags: -I/include\n');
     await build(h, 'libraw1394');
-    // stdint.h's types for the BSD ones musl leaves out under FFmpeg's feature macros
+    // Select musl's documented feature profile; leave the native public types untouched.
     expect(h.read(header)).toBe(
-      '#include <sys/types.h>\n#include <stdint.h>\n\tuint8_t tcode;\nuint64_t mask; my_u_int8_t x;\n',
+      '#include <sys/types.h>\n\tu_int8_t tcode;\nu_int64_t mask; my_u_int8_t x;\n',
     );
-    expect(commands(h)).toEqual([configureLine(h, STATIC), 'make -j4', 'make install']);
+    const featureFlags = platform.startsWith('linux-musl-')
+      ? ` [CPPFLAGS=${h.context.env['CPPFLAGS'] ?? ''} -D_DEFAULT_SOURCE]`
+      : '';
+    expect(commands(h)).toEqual(
+      [configureLine(h, STATIC), 'make -j4', 'make install'].map((line) => line + featureFlags),
+    );
+    expect(h.read(pcPath(h, 'libraw1394'))).toBe(
+      platform.startsWith('linux-musl-')
+        ? 'Cflags: -I/include -D_DEFAULT_SOURCE\n'
+        : 'Cflags: -I/include\n',
+    );
   });
 });
 

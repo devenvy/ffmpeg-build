@@ -8,18 +8,13 @@ const data = loadEngineData(packageRoot);
 const libraries = ['shaderc', 'libplacebo', 'vulkan-loader'];
 
 describe('Vulkan graphics library linking choices', () => {
-  it('keeps static defaults and permits shared processing with either caller-owned loader', () => {
+  it('keeps static processing defaults and permits shared processing with the native shared loader', () => {
     for (const library of ['shaderc', 'libplacebo']) {
       expect(linkagePlan(data, libraries, 'linux-x64').modes[library]).toBe('static');
-      for (const loaderMode of ['static', 'shared'] as const) {
-        const selected = linkagePlan(data, libraries, 'linux-x64', {
-          [library]: 'shared',
-          'vulkan-loader': loaderMode,
-        });
-        expect(selected.errors).toEqual([]);
-        expect(selected.modes[library]).toBe('shared');
-        expect(selected.modes['vulkan-loader']).toBe(loaderMode);
-      }
+      const selected = linkagePlan(data, libraries, 'linux-x64', { [library]: 'shared' });
+      expect(selected.errors).toEqual([]);
+      expect(selected.modes[library]).toBe('shared');
+      expect(selected.modes['vulkan-loader']).toBe('shared');
       expect(
         linkagePlan(data, libraries, 'linux-arm64', { [library]: 'shared' }).errors,
       ).toHaveLength(1);

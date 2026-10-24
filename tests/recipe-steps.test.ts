@@ -186,6 +186,27 @@ describe('pkg-config files', () => {
       noPrivate,
     );
   });
+
+  it('normalizes complete pkg-config linker tokens without changing other libraries or fields', () => {
+    const metadata =
+      'Libs.private: /old/lib/libmbedcrypto.a /old/lib/libmbedcrypto.so.16 -lmbedcrypto /old/lib/libmbedcryptography.a\nCflags: -DKEEP\n';
+    expect(
+      editPcField(metadata, 'libs-private', {
+        removeLibraryPaths: ['mbedcrypto'],
+        missing: 'skip',
+      }),
+    ).toBe('Libs.private:   -lmbedcrypto /old/lib/libmbedcryptography.a\nCflags: -DKEEP\n');
+    expect(
+      editPcField(
+        'Libs.private: -l-lpthread -l-pthread -pthread\nCflags: -l-pthread\n',
+        'libs-private',
+        {
+          tokens: { '-l-lpthread': '-lpthread', '-l-pthread': '-pthread' },
+          missing: 'skip',
+        },
+      ),
+    ).toBe('Libs.private: -lpthread -pthread -pthread\nCflags: -l-pthread\n');
+  });
 });
 
 describe('small pieces', () => {
@@ -576,5 +597,32 @@ describe('declared steps', () => {
       `Libs: -L\${libdir} -la\nCflags: -I\${includedir} -DA\nLibs.private: -lc++ -llog\n`,
     );
     expect(existsSync(join(h.deps, 'lib', 'pkgconfig', 'none.pc'))).toBe(false);
+  });
+
+  it('relocates pkg-config variables across staged metadata and retains unrelated fields', async () => {
+    const h = fake('linux-x64');
+    const original = `prefix=/usr\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nLibs: -L\${libdir} -la\nCflags.private: -DSTATIC\n`;
+    for (const name of ['a', 'b']) {
+      writeFileSync(join(h.deps, 'lib', 'pkgconfig', `${name}.pc`), original);
+    }
+    writeFileSync(join(h.src, 'upstream.h'), 'unchanged upstream header\n');
+    await runBuild(h, {
+      system: 'none',
+      steps: [
+        {
+          'edit-pkg-config': {
+            path: '{deps}/lib/pkgconfig/*.pc',
+            variables: { prefix: '{deps}' },
+            'cflags-private': { remove: '-DSTATIC' },
+          },
+        },
+      ],
+    });
+    for (const name of ['a', 'b']) {
+      expect(h.read(join(h.deps, 'lib', 'pkgconfig', `${name}.pc`))).toBe(
+        `prefix=${h.deps}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nLibs: -L\${libdir} -la\nCflags.private:\n`,
+      );
+    }
+    expect(h.read(join(h.src, 'upstream.h'))).toBe('unchanged upstream header\n');
   });
 });

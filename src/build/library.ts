@@ -25,6 +25,7 @@ import { type CrateInventory, crateLicenseProblems, discoverCrates, keepCrates }
 import { fetchSource, keepGitSource, sourceRecord, type SourceRecord } from './fetch.ts';
 import {
   editPcField,
+  editPcVariables,
   expandArgs,
   expandText,
   globPaths,
@@ -37,7 +38,6 @@ import { run, step } from './run.ts';
 import { isolateRustArchive } from './rust-archive.ts';
 import { keepSupplementalSources } from './supplemental-sources.ts';
 import { platformMatches } from '../platforms.ts';
-import { readFileIfPresent } from '../read-file.ts';
 import { cxxRuntime, type Toolchain } from './toolchain.ts';
 import { PC_FIELDS, type Recipe } from '../schema/engine.ts';
 
@@ -468,31 +468,36 @@ async function runStep(item: BuildStep, scope: RecipeScope, env: NodeJS.ProcessE
     );
   } else if ('edit-pkg-config' in item) {
     const operation = item['edit-pkg-config'];
-    const path = scope.path(operation.path);
-    const found = readFileIfPresent(path);
-    if (found === undefined) {
-      if (operation.optional) {
-        return;
-      }
+    const paths = globPaths(scope.path(operation.path));
+    if (!paths.length && !operation.optional) {
       throw new Error(`edit-pkg-config: there is no ${operation.path}`);
     }
-    let text = found;
     const value = (v: string | undefined): string | undefined =>
       v === undefined ? undefined : scope.text(v);
-    for (const field of Object.keys(PC_FIELDS) as (keyof typeof PC_FIELDS)[]) {
-      const edit = operation[field];
-      if (edit) {
-        text = editPcField(text, field, {
-          append: value(edit.append),
-          prepend: value(edit.prepend),
-          add: value(edit.add),
-          set: value(edit.set),
-          remove: value(edit.remove),
-          missing: edit.missing,
-        });
+    for (const path of paths) {
+      let text = editPcVariables(
+        readFileSync(path, 'utf8'),
+        Object.fromEntries(
+          Object.entries(operation.variables ?? {}).map(([name, raw]) => [name, value(raw)]),
+        ),
+      );
+      for (const field of Object.keys(PC_FIELDS) as (keyof typeof PC_FIELDS)[]) {
+        const edit = operation[field];
+        if (edit) {
+          text = editPcField(text, field, {
+            append: value(edit.append),
+            prepend: value(edit.prepend),
+            add: value(edit.add),
+            set: value(edit.set),
+            remove: value(edit.remove),
+            tokens: edit.tokens,
+            removeLibraryPaths: edit['remove-library-paths'],
+            missing: edit.missing,
+          });
+        }
       }
+      writeFileSync(path, text);
     }
-    writeFileSync(path, text);
   } else if ('vars' in item) {
     scope.setVars(item.vars);
   } else if ('find' in item) {
@@ -730,8 +735,27 @@ export async function runRecipe(
       ],
       { cwd: src, env },
     );
-    await run('cmake', ['--build', '_build', `-j${context.jobs}`], { cwd: src, env });
-    await run('cmake', ['--install', '_build'], { cwd: src, env });
+    const targets = scope.argv(build['build-targets'] ?? []);
+    await run(
+      'cmake',
+      [
+        '--build',
+        '_build',
+        `-j${context.jobs}`,
+        ...(targets.length ? ['--target', ...targets] : []),
+      ],
+      { cwd: src, env },
+    );
+    for (const component of scope.argv(build['install-components'] ?? [''])) {
+      await run(
+        'cmake',
+        ['--install', '_build', ...(component ? ['--component', component] : [])],
+        {
+          cwd: src,
+          env,
+        },
+      );
+    }
   } else if (build.system === 'meson') {
     const source = build['source-dir'] ?? '.';
     await run(

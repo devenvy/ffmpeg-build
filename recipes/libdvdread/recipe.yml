@@ -2,7 +2,9 @@ name: libdvdread
 provides: dvdread
 license: GPL-2.0-or-later
 license-files: [COPYING]
-configure: [--enable-libdvdread]
+configure:
+  - --enable-libdvdread
+  - '--extra-cflags=-D_LARGEFILE64_SOURCE': { platforms: [linux-musl-*] }
 # the release tarballs (VideoLAN's download site and two of its mirrors): code.videolan.org's git often stalls
 source:
   url: 'https://download.videolan.org/pub/videolan/libdvdread/{version}/libdvdread-{version}.tar.xz'
@@ -42,14 +44,10 @@ build:
         - '{CC|gcc}'
       when: { set: '{shared-mode}' }
   platforms:
-    # its public dvd_filesystem.h types off64_t for glibc, MSVC and the BSDs; musl (1.2.4 on) declares off64_t only
-    # when _LARGEFILE64_SOURCE comes before its first header, which libdvdnav's sources don't do (its off_t is 64-bit
-    # anyway): musl takes the BSDs' typedef
+    # musl exposes its native off64_t alias when this feature-test macro precedes the first system header.
+    # Propagate it to installed SDK consumers as well as the library build; no upstream header edits.
     'linux-musl-*':
-      before:
-        - replace-in-file:
-            {
-              path: src/dvdread/dvd_filesystem.h,
-              from: '#elif defined(__APPLE__) || defined(__FreeBSD__)',
-              to: '#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)',
-            }
+      env: { CPPFLAGS: '+= -D_LARGEFILE64_SOURCE' }
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/dvdread.pc', cflags: { add: -D_LARGEFILE64_SOURCE } }

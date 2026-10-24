@@ -50,7 +50,7 @@ bases:
         ass,
       ]
   maccatalyst:
-    with: [whisper, aom, vpx, opus, freetype, fribidi, harfbuzz, ass, videotoolbox]
+    with: [whisper, aom, vpx, opus, freetype, fribidi, harfbuzz, ass]
   osx:
     with:
       [

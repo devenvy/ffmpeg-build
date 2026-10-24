@@ -45,14 +45,6 @@ build:
   # Text) on macOS. No X11/XCB, tests or BFD symbol lookup.
   system: meson
   vars: { shared-mode: '', shared-args: [] }
-  before:
-    # Optional preload development tools embed build paths and are not the rendering SDK.
-    # Upstream has no dedicated option; retain the core, GObject and interpreter targets.
-    - replace-in-file:
-        path: util/meson.build
-        from: "if conf.get('CAIRO_HAS_TRACE', 0) == 1\n"
-        to: "if false # ffmpeg-build: omit optional preload instrumentation\n"
-      when: { set: '{shared-mode}' }
   args:
     [
       '{shared-args}',
@@ -99,6 +91,11 @@ build:
       }
     'maccatalyst-*': *freetype
   after:
+    # Build upstream unchanged, then omit optional preload instrumentation from this rendering SDK package.
+    # The core, GObject and script-interpreter libraries remain installed.
+    - remove: { path: '{deps}/lib/cairo/libcairo-trace.*' }
+    - remove: { path: '{deps}/lib/cairo/libcairo-fdr.*' }
+    - remove: { path: '{deps}/bin/cairo-trace' }
     - run:
         - python3
         - -c

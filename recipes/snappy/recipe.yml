@@ -26,8 +26,8 @@ linkage:
 build:
   # Snappy: Google's fast compressor (BSD-3-Clause), static, for FFmpeg's HAP encoder (the decoder has FFmpeg's own
   # Snappy decompressor). The library alone: no tests or benchmarks (which would want GoogleTest and Benchmark). Its
-  # CMakeLists makes every warning an error under Clang, which a newer Clang than upstream's CI turns into a failed
-  # build: left out.
+  # CMakeLists makes every warning an error under Clang. Use CMake's ordinary Release flag configuration to keep
+  # compiler warnings as warnings; configuration-specific flags follow the project's global CXX flags.
   system: cmake
   vars: { shared-library-arg: [], runtime-link-arg: [] }
   args:
@@ -37,7 +37,5 @@ build:
       -DSNAPPY_BUILD_TESTS=OFF,
       -DSNAPPY_BUILD_BENCHMARKS=OFF,
       -DSNAPPY_INSTALL=ON,
+      '-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -Wno-error',
     ]
-  before:
-    - replace-in-file:
-        { path: CMakeLists.txt, from: 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")', to: '' }

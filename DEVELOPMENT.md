@@ -43,6 +43,35 @@ fails when it is stale).
 | `scripts/compare-published*.sh`                                 | compare a build with a published devenvy/ffmpeg archive                                                               |
 | `docs/`                                                         | the user documentation (targets, building, releases)                                                                  |
 
+## Upstream support and patches
+
+The engine builds upstream projects; it does not maintain FFmpeg or dependency code. Add support only for
+combinations of FFmpeg version, dependency version, platform, toolchain and linking mode that the relevant upstream
+projects support. An FFmpeg configure flag alone does not establish support for every such combination.
+
+- Check FFmpeg's dependency requirements and the dependency's build documentation, configure options and CI as
+  references. Record the upstream references and compatible versions in the pull request, then verify a full FFmpeg
+  build and relevant runtime behavior on every platform and linking mode claimed. Passing a patched build is not
+  evidence that the upstream combination works.
+- Use upstream build procedures and supported options, compiler/linker flags and configuration tools. Normal
+  generated configuration, cross-compilation files, installation/staging and package metadata handling belong here.
+- Do not add or carry patches to FFmpeg or dependencies, including source/header edits, upstream build-script edits,
+  injected compatibility code or backports of fixes awaiting an upstream release. Do not use `replace-in-file`,
+  scripts, generated replacement files, forks or another mechanism to work around this rule. Patches that an
+  upstream project ships and applies as part of its own supported build procedure remain upstream's responsibility;
+  the engine must not introduce or maintain additional ones.
+- When a combination fails, first check compatible upstream versions, toolchains and supported build options.
+  If it still requires our patch, omit that combination and document why. A library may be static-only, shared-only,
+  restricted to particular platforms or versions, or unsupported. Prefer static by default where upstream supports
+  it and we have verified it; never force static or shared support by changing upstream code or build logic.
+- Report upstream defects with reproduction steps and wait for a compatible upstream release before claiming the
+  affected support. A successful build alone does not resolve a known failure in the runtime behavior being claimed.
+
+This rule applies to engine code, recipes and helper scripts. Existing workarounds are cleanup work, not precedent
+or an exception for new contributions. Contributor-maintained patches must not be added to the repository or applied
+automatically by the engine. User-supplied patches explicitly selected in a consumer's build profile are separate
+from the engine's supported upstream builds and do not establish support here.
+
 ## Recipe format
 
 A recipe is data: `recipes/<name>/recipe.yml`, with no shell in it. Node runs every command itself, as an argument
@@ -132,7 +161,10 @@ The standard builds:
 - **meson**: `meson setup _build <source-dir> --prefix=<deps> --libdir=lib --default-library=static
 --buildtype=release <cross args> <args>`, then `meson compile` and `meson install`.
 - **autotools**: `./configure --prefix=<deps> <args> [--host=<triple>]` (`--host` only when cross-compiling), then
-  `make -j<n> <make-targets>` and `make <install-targets>`. Everything else is the recipe's: say `--disable-shared
+  `make -j<n> <make-targets>` and `make <install-targets>`. CMake's optional `build-targets:` selects native targets
+  with `cmake --build _build --target <targets>`, without changing upstream build files. `install-components:`
+  similarly selects native CMake install components with `--component`, when upstream defines them.
+  Everything else is the recipe's: say `--disable-shared
 --enable-static --with-pic` (and `--libdir={deps}/lib` if the library wants it) in `args:`, in the order you want.
 
 ### Rust libraries
@@ -171,26 +203,33 @@ one there).
 A step is a command, or one of the operations below. A command is a list: `[make, '-j{jobs}', install]`. Any
 operation, and `run:`, can take `when:`.
 
-| Step                                                                                                  | What it does                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[cmd, arg, ...]`                                                                                     | runs the command in the source folder                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `run: [cmd, ...]` with `env:`, `unset:`, `cwd:`                                                       | the same, with this command's own environment additions and folder                                                                                                                                                                                                                                                                                                                                                                        |
-| `when: { platforms: [...], exists: <glob>, missing: <glob>, set: '{x}', unset: '{x}' }`               | runs the step only if all that are given hold (`set`: the text is not empty once filled in)                                                                                                                                                                                                                                                                                                                                               |
-| `vars: { name: value }`                                                                               | sets recipe variables (a list stays a list)                                                                                                                                                                                                                                                                                                                                                                                               |
-| `find: { var, glob: [...], dirname, basename, ignore-case, required: <message> }`                     | the first path the globs match (in order); empty, or an error with `required:`                                                                                                                                                                                                                                                                                                                                                            |
-| `read: { file, pattern, var, last, message }`                                                         | a variable from a file: the regex's first group, of its first (or `last`) match                                                                                                                                                                                                                                                                                                                                                           |
-| `check: { ..., message }`                                                                             | fails the build with the message unless it holds: `exists:`/`missing:` a glob, `file:` with `contains:` or `line:`, `command:` on PATH, or `output: [cmd, ...]` matching `matches:` (with `min-version:` for its first group; `cwd:`)                                                                                                                                                                                                     |
-| `copy: { from, to \| into, recursive, preserve }`                                                     | `from` is a path, glob or list of them; `to` is the copy's path, `into` a folder                                                                                                                                                                                                                                                                                                                                                          |
-| `move: { from, to }`                                                                                  | renames a file                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `remove: { path, recursive }`                                                                         | deletes a path, or everything a glob matches                                                                                                                                                                                                                                                                                                                                                                                              |
-| `replace-in-file: { path, from, to, regex, optional }`                                                | every occurrence; `regex: true` is a JavaScript regex (multiline, `$1` in `to`). It fails the build, naming the recipe, file and text, when there is nothing to replace (upstream moved the text): `optional: true` lets it find no file or no match, for an edit only some versions or platforms need                                                                                                                                    |
-| `write-file: { path, text }`                                                                          | writes a file                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `pkg-config: { name, description, version, libs, libs-private, requires, cflags, exec-prefix, file }` | writes `{deps}/lib/pkgconfig/<file or name>.pc` in the usual layout: `prefix=`, `libdir=` (when there are `libs`), `includedir=`, then the fields; `Libs: -L${libdir} <libs>`, `Cflags: -I${includedir} <cflags>`                                                                                                                                                                                                                         |
-| `edit-pkg-config: { path, optional, <field>: { <edit>, missing } }`                                   | edits an installed .pc. Fields: `libs`, `libs-private`, `requires`, `requires-private`, `cflags`. Edits: `append` (at the end of the line), `prepend` (right after `Field:`), `add` (the words not already there; for the link fields, on Libs or Libs.private), `set` (the whole value), `remove` (these words). `missing:` says what to do when the file has no such line: `end` (add it at the end, the default), `after-libs`, `skip` |
-| `sync-shaderc-deps: true`                                                                             | shaderc's `utils/git-sync-deps`, verified and retried                                                                                                                                                                                                                                                                                                                                                                                     |
+| Step                                                                                                  | What it does                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `[cmd, arg, ...]`                                                                                     | runs the command in the source folder                                                                                                                                                                                                                                                      |
+| `run: [cmd, ...]` with `env:`, `unset:`, `cwd:`                                                       | the same, with this command's own environment additions and folder                                                                                                                                                                                                                         |
+| `when: { platforms: [...], exists: <glob>, missing: <glob>, set: '{x}', unset: '{x}' }`               | runs the step only if all that are given hold (`set`: the text is not empty once filled in)                                                                                                                                                                                                |
+| `vars: { name: value }`                                                                               | sets recipe variables (a list stays a list)                                                                                                                                                                                                                                                |
+| `find: { var, glob: [...], dirname, basename, ignore-case, required: <message> }`                     | the first path the globs match (in order); empty, or an error with `required:`                                                                                                                                                                                                             |
+| `read: { file, pattern, var, last, message }`                                                         | a variable from a file: the regex's first group, of its first (or `last`) match                                                                                                                                                                                                            |
+| `check: { ..., message }`                                                                             | fails the build with the message unless it holds: `exists:`/`missing:` a glob, `file:` with `contains:` or `line:`, `command:` on PATH, or `output: [cmd, ...]` matching `matches:` (with `min-version:` for its first group; `cwd:`)                                                      |
+| `copy: { from, to \| into, recursive, preserve }`                                                     | `from` is a path, glob or list of them; `to` is the copy's path, `into` a folder                                                                                                                                                                                                           |
+| `move: { from, to }`                                                                                  | renames a file                                                                                                                                                                                                                                                                             |
+| `remove: { path, recursive }`                                                                         | deletes a path, or everything a glob matches                                                                                                                                                                                                                                               |
+| `write-file: { path, text }`                                                                          | writes a file                                                                                                                                                                                                                                                                              |
+| `pkg-config: { name, description, version, libs, libs-private, requires, cflags, exec-prefix, file }` | writes `{deps}/lib/pkgconfig/<file or name>.pc` in the usual layout: `prefix=`, `libdir=` (when there are `libs`), `includedir=`, then the fields; `Libs: -L${libdir} <libs>`, `Cflags: -I${includedir} <cflags>`                                                                          |
+| `edit-pkg-config: { path, optional, variables, <field>: { <edit>, missing } }`                        | edits installed `.pc` metadata (a path or glob). Fields: `libs`, `libs-private`, `requires`, `requires-private`, `cflags`, `cflags-private`. Edits: `append`, `prepend`, `add`, `set`, `remove`, `tokens`, `remove-library-paths`. `missing:` is `end` (default), `after-libs`, or `skip`. |
+| `sync-shaderc-deps: true`                                                                             | shaderc's `utils/git-sync-deps`, verified and retried                                                                                                                                                                                                                                      |
 
 File paths are relative to the source, or start with `{src}`, `{deps}` or a variable holding a path; a step can't
 reach outside the source and deps folders.
+
+`edit-pkg-config` accepts only `.pc` paths and globs. Its `variables:` relocates existing installation variables
+(`prefix`, `exec_prefix`, `libdir`, `includedir`) without changing source or installed headers. `append` and
+`prepend` add the given words at the end or start of a field; `add` adds only missing words, `set` sets its value,
+and `remove` removes whole words. `tokens: { '-l-lpthread': -lpthread }` maps exact metadata words, without regexes
+or substring matches. `remove-library-paths: [mbedcrypto]` removes file inputs naming that library from a field;
+retain the appropriate `-l` flags and dependency order for cache relocation. These are packaging operations and
+must not be used to introduce source, header or build-script patches.
 
 ### Placeholders
 
@@ -207,6 +246,8 @@ variables, and the platform's environment (`{CC}`, `{CROSS_PREFIX}`, `{TOOLCHAIN
 - An unknown `{name}` stays as written.
 
 ### Adding a library
+
+First establish the upstream-supported combinations under [Upstream support and patches](#upstream-support-and-patches).
 
 1. Write `recipes/<name>/recipe.yml`: the source and versions, the licence and its files, `provides:` and `configure:`
    if FFmpeg has an option for it (and the option in `ffmpeg/<major>.yml`), `needs:`/`uses:`, the platforms. Where
@@ -242,6 +283,9 @@ A recipe that claims a platform no FFmpeg option builds it on fails the check: n
 option there). One that no option builds on any platform is only noted.
 
 ### Adding support for an FFmpeg option
+
+Apply [Upstream support and patches](#upstream-support-and-patches) before adding an option or extending its
+platforms, versions or linking modes. Coverage bookkeeping does not establish upstream support.
 
 Everything FFmpeg's configure can turn on (its external library and hardware options: configure's
 `EXTERNAL_LIBRARY_LIST`, `EXTERNAL_AUTODETECT_LIBRARY_LIST`, `HWACCEL_LIBRARY_LIST` and

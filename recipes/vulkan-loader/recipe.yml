@@ -24,10 +24,10 @@ version-group: vulkan-sdk
 platforms: [linux-x64, linux-arm64, linux-musl-*, osx-*] # not linux-armhf: upstream uses the headers there
 linkage:
   default: shared
-  defaults: { linux-x64: static, osx-arm64: static }
+  defaults: { osx-arm64: static }
   modes:
     static:
-      platforms: [linux-x64, osx-arm64]
+      platforms: [osx-arm64]
       configure:
         - --enable-vulkan-static
         - '--extra-libs=-lc++ -framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics -framework IOSurface -framework IOKit -framework AppKit':
@@ -45,8 +45,8 @@ runtime:
   - 'lib/libvulkan.so*': { platforms: [linux-*] }
   - 'lib/libvulkan*.dylib': { platforms: [osx-*] }
 build:
-  # Vulkan-Loader: minimal Vulkan ICD loader (Apache-2.0), built with WSI disabled. Linux x64 can embed a PIC
-  # static loader; other platforms retain the bundled shared loader until their static builds are verified.
+  # Vulkan-Loader: minimal Vulkan ICD loader (Apache-2.0), built with WSI disabled. Upstream's Unix loader is shared;
+  # Linux static builds would require changing upstream's CMake target and are not offered.
   #
   # Whisper's ggml-vulkan links this loader directly. FFmpeg links it in static mode through vulkan-static,
   # and resolves it at runtime in shared mode. Both modes still load the recipient's installed ICD driver:
@@ -73,17 +73,6 @@ build:
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'vulkan-loader', 'direct-moltenvk.py'), run_name='__main__')"
         - '{deps}'
       when: { set: '{direct-moltenvk}' }
-    # Upstream's Unix loader is unconditionally shared. Keep this exact edit confined to the static mode.
-    - replace-in-file:
-        path: loader/CMakeLists.txt
-        from: '        add_library(vulkan SHARED)'
-        to: '        add_library(vulkan STATIC)'
-      when: { platforms: [linux-x64], set: '{static-loader}' }
-    - replace-in-file:
-        path: loader/CMakeLists.txt
-        from: target_link_libraries(vulkan PRIVATE loader_specific_options)
-        to: target_link_libraries(vulkan PRIVATE $<BUILD_INTERFACE:loader_specific_options>)
-      when: { platforms: [linux-x64], set: '{static-loader}' }
     - run:
         - cmake
         - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
@@ -107,10 +96,6 @@ build:
       when: { unset: '{direct-moltenvk}' }
     - run: [cmake, --install, _build]
       when: { unset: '{direct-moltenvk}' }
-    - edit-pkg-config:
-        path: '{deps}/lib/pkgconfig/vulkan.pc'
-        libs-private: { add: '-ldl -lm -pthread' }
-      when: { platforms: [linux-x64], set: '{static-loader}' }
     - run:
         - python3
         - -c

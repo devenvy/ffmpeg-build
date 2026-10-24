@@ -112,7 +112,7 @@ describe('srt', () => {
       put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
       writeFileSync(pcPath(h, 'srt'), installed(h));
       await build(h, 'srt');
-      expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toContain('return srt::CUDT::socket();');
+      expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toBe(source);
       const encryption = mbedtls
         ? [
             '-DENABLE_ENCRYPTION=ON',
@@ -177,11 +177,13 @@ describe('srt', () => {
     seedSrt(h);
     await expect(build(h, 'srt')).rejects.toThrow(/no libsrt\*\.a found/);
   });
-  it('rejects an unrecognized legacy namespace before building', async () => {
+  it('builds without inspecting or rewriting the legacy namespace', async () => {
     const h = fake('linux-x64');
     put(join(h.src, 'srtcore', 'api.cpp'), 'namespace changed {}\n');
-    await expect(build(h, 'srt')).rejects.toThrow(/replace-in-file/);
-    expect(commands(h)).toEqual([]);
+    writeFileSync(pcPath(h, 'srt'), 'Libs: -lsrt\nLibs.private: -lm\n');
+    await build(h, 'srt');
+    expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toBe('namespace changed {}\n');
+    expect(commands(h).length).toBeGreaterThan(0);
   });
 });
 

@@ -1,6 +1,6 @@
 // Batch d of #21 (filters and processing): each library's build on every platform it builds on, with the process
 // runner stubbed, and the files it leaves in deps.
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -195,14 +195,16 @@ describe('flite', () => {
           '--with-audio=none',
           '--disable-sockets',
         ]),
-        'make -j4',
+        'make -C include -j4',
+        'make -C src -j4',
+        'make -C lang -j4',
       ].map((line) => line + o2(h)),
     );
     const configured = h.read(join(h.src, 'configure'));
     expect(configured).not.toMatch(/(CC|AR|RANLIB|NM)="\$\{(MINGWPREF|ANDROIDBIN)\}/);
     expect(configured).toContain(`WINDRES="\${MINGWPREF}windres"`);
     expect(h.read(join(h.src, 'Makefile'))).toBe(
-      'BUILD_DIRS = include src lang\nHOST_ONLY_DIRS =\n',
+      'BUILD_DIRS = include src lang doc\nHOST_ONLY_DIRS = tools main\n',
     );
     expect(h.read(join(h.src, 'include', 'cst_file.h'))).toBe(
       '#if defined(_WIN32) && !defined(__MINGW32__)\n#define snprintf c99_snprintf\n',
@@ -276,7 +278,7 @@ describe('zvbi', () => {
   });
 });
 
-// aribb24 1.0.4 (VideoLAN's fork), without libpng, its configure made after that edit.
+// aribb24 1.0.4 (VideoLAN's fork), with its native PNG feature and math-library link flags.
 describe('aribb24', () => {
   it.each(platformsOf('aribb24'))('%s', async (platform) => {
     const h = fake(platform);
@@ -285,6 +287,7 @@ describe('aribb24', () => {
       'pkg_requires=""\nPKG_CHECK_MODULES(PNG, "libpng", [\n  AC_DEFINE(HAVE_PNG, 1, "have libpng")\n' +
         '  pkg_requires="libpng"\n], [])\n\nAC_CHECK_FUNCS([vasprintf])\n',
     );
+    const source = h.read(join(h.src, 'configure.ac'));
     await build(h, 'aribb24');
     expect(commands(h)).toEqual(
       [
@@ -292,11 +295,9 @@ describe('aribb24', () => {
         configureLine(h, ['--disable-shared', '--enable-static', '--with-pic']),
         'make -j4',
         'make install',
-      ].map((line) => line + o2(h)),
+      ].map((line) => `${line} [CFLAGS=${env(h, 'CFLAGS')} -O2 LIBS=${env(h, 'LIBS')} -lm]`),
     );
-    expect(h.read(join(h.src, 'configure.ac'))).toBe(
-      'pkg_requires=""\n\n\nAC_CHECK_FUNCS([vasprintf])\n',
-    );
+    expect(h.read(join(h.src, 'configure.ac'))).toBe(source);
   });
   it('is LGPL-3.0-or-later', () => {
     expect(recipe('aribb24').license).toBe('LGPL-3.0-or-later');
@@ -485,9 +486,7 @@ describe('GLib', () => {
     put(join(h.deps, 'include', 'libintl.h'), header);
     await build(h, 'proxy-libintl');
     expect(commands(h)).toEqual(mesonLines(h, []));
-    expect(h.read(join(h.deps, 'include', 'libintl.h'))).toBe(
-      '#if 0 /* static: ffmpeg-build */\n#  define G_INTL_EXPORT __declspec(dllimport)\n',
-    );
+    expect(h.read(join(h.deps, 'include', 'libintl.h'))).toBe(header);
   });
   it.each(platformsOf('glib'))('glib on %s', async (platform) => {
     const h = fake(platform);
@@ -497,10 +496,15 @@ describe('GLib', () => {
     );
     await build(h, 'glib');
     // the system's folders, not deps', for translations and charset.alias
-    expect(h.read(join(h.src, 'meson.build'))).toBe("glib_localedir = '/usr/share/locale'\n");
+    expect(h.read(join(h.src, 'meson.build'))).toBe(
+      "glib_localedir = join_paths(glib_prefix, get_option('localedir'))\n",
+    );
     // native builds (musl, osx-arm64): deps' folders for meson's libintl search
     const native = /^linux-musl-|^osx-arm64$/.test(platform)
       ? ` [CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`
+      : '';
+    const staticIntl = platform.startsWith('win-')
+      ? ` [CFLAGS=${env(h, 'CFLAGS')} -DG_INTL_STATIC_COMPILATION]`
       : '';
     // Apple cross builds: a second cross file names the Objective-C compiler
     const objc = /^(osx-x64|ios-|maccatalyst-)/.test(platform);
@@ -522,8 +526,10 @@ describe('GLib', () => {
         '-Dlibelf=disabled',
         '-Dglib_debug=disabled',
         '-Dcharsetalias_dir=/usr/lib',
+        '--localedir=/usr/share/locale',
+        '--localstatedir=/var',
         ...(objc ? [`--cross-file=${h.src}/objc-cross.ini`] : []),
-      ]).map((line) => line + native),
+      ]).map((line) => line + native + staticIntl),
     );
     const ini = objc ? h.read(join(h.src, 'objc-cross.ini')) : '';
     expect(ini.includes(`objc = '${env(h, 'CC')}'`)).toBe(objc);
@@ -704,11 +710,26 @@ describe('cairo', () => {
   };
   it.each(platformsOf('cairo'))('%s', async (platform) => {
     const h = fake(platform);
+    const instrumentation = [
+      'lib/cairo/libcairo-trace.so',
+      'lib/cairo/libcairo-fdr.a',
+      'bin/cairo-trace',
+    ];
+    for (const name of instrumentation) {
+      put(join(h.deps, name), 'optional development instrumentation\n');
+    }
+    put(join(h.deps, 'lib', 'libcairo.a'), '!<arch>\n');
     put(
       pcPath(h, 'cairo'),
       `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I\${includedir}/cairo\n`,
     );
     await build(h, 'cairo');
+    expect(instrumentation.map((name) => existsSync(join(h.deps, name)))).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    expect(h.read(join(h.deps, 'lib', 'libcairo.a'))).toBe('!<arch>\n');
     expect(commands(h)).toEqual(
       mesonLines(h, [
         '-Dtests=disabled',
@@ -785,9 +806,7 @@ describe('pango', () => {
         `-Dfreetype=${fc}`,
       ]).map((line) => `${line} [PATH=${h.deps}/bin:${env(h, 'PATH')}]`),
     );
-    expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe(
-      '#include <hb-ft.h>\n#include <fontconfig/fcfreetype.h>\n',
-    );
+    expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe('#include <hb-ft.h>\n');
     expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Wunused-but-set-variable',\n");
   });
   it('stays on 1.56 while GLib does on 2.86, and leaves out Apple', () => {
@@ -858,16 +877,19 @@ describe('tesseract', () => {
   it.each(platformsOf('leptonica'))('leptonica on %s', async (platform) => {
     const h = fake(platform);
     const win = platform.startsWith('win-');
+    const nativeArchive = `libleptonica-${h.base['VERSION']!}.dll`;
     put(
       join(h.src, 'src', 'CMakeLists.txt'),
       'if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX\n',
     );
     if (win) {
       put(pcPath(h, 'lept_Release'), 'Libs: -lleptonica\n');
+      put(join(h.deps, 'lib', nativeArchive), '!<arch>\n');
+      h.onRun = (call) => (call.command === 'file' ? 'current ar archive\n' : undefined);
     }
     await build(h, 'leptonica');
-    expect(commands(h)).toEqual(
-      cmakeLines(h, [
+    expect(commands(h)).toEqual([
+      ...cmakeLines(h, [
         '-DBUILD_PROG=OFF',
         '-DSW_BUILD=OFF',
         '-DENABLE_ZLIB=ON',
@@ -878,12 +900,16 @@ describe('tesseract', () => {
         '-DENABLE_WEBP=OFF',
         '-DENABLE_OPENJPEG=OFF',
       ]),
+      ...(win ? [`file -b ${h.deps}/lib/${nativeArchive}`] : []),
+    ]);
+    expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toBe(
+      'if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX\n',
     );
-    expect(
-      h
-        .read(join(h.src, 'src', 'CMakeLists.txt'))
-        .startsWith(win ? 'if(MINGW AND BUILD_SHARED_LIBS)' : 'if(MINGW)\n'),
-    ).toBe(true);
+    // Retain the native name for upstream's installed CMake target metadata.
+    const installedArchives = win
+      ? [nativeArchive, 'libleptonica.a'].map((name) => h.read(join(h.deps, 'lib', name)))
+      : [];
+    expect(installedArchives).toEqual(win ? ['!<arch>\n', '!<arch>\n'] : []);
     expect(h.files(h.deps).includes('lib/pkgconfig/lept.pc')).toBe(win);
   });
   it.each(platformsOf('tesseract'))('tesseract on %s', async (platform) => {

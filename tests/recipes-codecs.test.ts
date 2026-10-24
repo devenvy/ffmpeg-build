@@ -80,14 +80,14 @@ describe('libtheora', () => {
   });
 });
 
-// TwoLAME's library and .pc from the release tarball; on Windows its header loses the dllimport that FFmpeg's plain
-// `-ltwolame` link can't satisfy.
+// TwoLAME's library and .pc from the release tarball, with its native static-consumer configuration on Windows.
 describe('twolame', () => {
   const header =
     '#  ifdef LIBTWOLAME_STATIC\n#   define TL_API\n#  else\n#   define TL_API __declspec(dllimport)\n';
   it.each(platformsOf('twolame'))('%s', async (platform) => {
     const h = fake(platform);
     put(join(h.deps, 'include', 'twolame.h'), header);
+    put(pcPath(h, 'twolame'), `Libs: -ltwolame\nCflags: -I\${includedir}\n`);
     await build(h, 'twolame');
     expect(commands(h)).toEqual([
       configureLine(h, ['--disable-shared', '--enable-static', '--with-pic', '--disable-sndfile']),
@@ -95,8 +95,11 @@ describe('twolame', () => {
       'make -C libtwolame install',
       'make install-pkgconfigDATA',
     ]);
-    expect(h.read(join(h.deps, 'include', 'twolame.h'))).toBe(
-      platform.startsWith('win-') ? header.replace('__declspec(dllimport)', '') : header,
+    expect(h.read(join(h.deps, 'include', 'twolame.h'))).toBe(header);
+    expect(h.read(pcPath(h, 'twolame'))).toContain(
+      platform.startsWith('win-')
+        ? `Cflags: -I\${includedir} -DLIBTWOLAME_STATIC\n`
+        : `Cflags: -I\${includedir}\n`,
     );
   });
   it('builds everywhere', () => {
@@ -110,8 +113,10 @@ describe('shine', () => {
     const h = fake(platform);
     const pkgConfig = join(h.src, 'shine.pc.in');
     put(pkgConfig, `Libs: -L\${libdir} -lm -lshine\n`);
+    put(pcPath(h, 'shine'), `Libs: -L\${libdir} -lm -lshine\n`);
     await build(h, 'shine');
-    expect(h.read(pkgConfig)).toBe(`Libs: -L\${libdir} -lshine\nLibs.private: -lm\n`);
+    expect(h.read(pkgConfig)).toBe(`Libs: -L\${libdir} -lm -lshine\n`);
+    expect(h.read(pcPath(h, 'shine'))).toBe(`Libs: -L\${libdir} -lshine\nLibs.private: -lm\n`);
     expect(commands(h)).toEqual(
       [
         'autoreconf -fi',
@@ -249,17 +254,15 @@ describe('libilbc', () => {
 });
 
 // Xvid's own configure in build/generic, only its static archive (mingw's xvidcore.a installed as libxvidcore.a),
-// and xvid.h, by hand; C17, and mingw's configure without -mno-cygwin.
+// and xvid.h, by hand; C17, with upstream's own configure handling the compiler's supported flags.
 describe('xvidcore', () => {
-  const nativeTail =
-    '\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n';
   it.each(platformsOf('xvidcore'))('%s', async (platform) => {
     const h = fake(platform);
     const archive = platform.startsWith('win-') ? 'xvidcore.a' : 'libxvidcore.a';
     put(join(h.src, 'build', 'generic', 'configure'), '\tSPECIFIC_CFLAGS="-mno-cygwin"\n');
     put(join(h.src, 'build', 'generic', '=build', archive), '!<arch>\n');
     put(join(h.src, 'src', 'xvid.h'), '/* xvid */\n');
-    put(join(h.src, 'src', 'encoder.c'), nativeTail);
+    put(join(h.src, 'src', 'encoder.c'), 'upstream encoder source\n');
     await build(h, 'xvidcore');
     const host = env(h, 'CROSS_HOST');
     const asm = ['osx-x64', 'maccatalyst-x64', 'android-x64'].includes(platform)
@@ -269,18 +272,14 @@ describe('xvidcore', () => {
       `build/generic$ ./configure --prefix=${h.deps}${host ? ` --host=${host}` : ''}${asm}${gnu17(h)}`,
       `build/generic$ make -j4 ${archive}${gnu17(h)}`,
     ]);
-    expect(h.read(join(h.src, 'build', 'generic', 'configure'))).toBe('\tSPECIFIC_CFLAGS=""\n');
-    expect(h.read(join(h.src, 'src', 'encoder.c'))).toContain('goto repeat;');
+    expect(h.read(join(h.src, 'build', 'generic', 'configure'))).toBe(
+      '\tSPECIFIC_CFLAGS="-mno-cygwin"\n',
+    );
+    expect(h.read(join(h.src, 'src', 'encoder.c'))).toBe('upstream encoder source\n');
     expect(h.files(h.deps)).toEqual(['include/xvid.h', 'lib/libxvidcore.a']);
   });
   it('builds everywhere', () => {
     expect(platformsOf('xvidcore')).toEqual(PLATFORMS);
-  });
-  it('rejects an unrecognized native EOF branch before compiling', async () => {
-    const h = fake('linux-x64');
-    put(join(h.src, 'src', 'encoder.c'), 'changed native EOF branch\n');
-    await expect(build(h, 'xvidcore')).rejects.toThrow(/replace-in-file/);
-    expect(commands(h)).toEqual([]);
   });
 });
 
@@ -457,10 +456,14 @@ describe('uavs3d', () => {
       'printf("libuavs3d(%2d): %s_%s, %s\\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);\n',
     );
     await build(h, 'uavs3d');
-    expect(commands(h)).toEqual(cmakeLines(h, ['-DCOMPILE_10BIT=1']));
+    expect(commands(h)).toEqual(
+      cmakeLines(h, ['-DCOMPILE_10BIT=1']).map((line) =>
+        line === 'cmake --build _build -j4' ? `${line} --target uavs3d` : line,
+      ),
+    );
     // its decoder program is left out of the build
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      `add_executable(uavs3dec EXCLUDE_FROM_ALL \${DIR_SRC_TEST})\n`,
+      `add_executable(uavs3dec \${DIR_SRC_TEST})\n`,
     );
     // Android has no libpthread to link: neither the library nor its .pc names it there
     expect(h.read(cmake)).toBe(
@@ -471,7 +474,7 @@ describe('uavs3d', () => {
   });
 });
 
-// XEVE and XEVD: no -Werror and no app; the static archive moved out of lib/<name>/, the shared library removed, and
+// XEVE and XEVD: native Release flags, library targets and install components; static archive moved out of lib/<name>/,
 // the .pc's extra -L dropped.
 describe.each(['xeve', 'xevd'])('%s', (name) => {
   it('builds everywhere but linux-armhf', () => {
@@ -497,9 +500,19 @@ describe.each(['xeve', 'xevd'])('%s', (name) => {
       return undefined;
     };
     await build(h, name);
-    expect(commands(h)).toEqual(cmakeLines(h, ['-DSET_PROF=MAIN']));
+    const configure = cmakeLines(h, [
+      '-DSET_PROF=MAIN',
+      '-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -Wno-error',
+      '-DCMAKE_MACOSX_BUNDLE=OFF',
+    ])[0]!;
+    expect(commands(h)).toEqual([
+      configure,
+      `cmake --build _build -j4 --target ${name} ${name}_dynamic`,
+      'cmake --install _build --component Libraries',
+      'cmake --install _build --component Development',
+    ]);
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      `set (CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Wno-pointer-sign")\n\n`,
+      `set (CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Werror -Wno-pointer-sign")\nadd_subdirectory(app)\n`,
     );
     expect(h.files(h.deps)).toEqual([
       `include/${name}/${name}.h`,
@@ -571,13 +584,7 @@ describe('lcevcdec', () => {
       return undefined;
     };
     await build(h, 'lcevcdec');
-    // win-x64's mingw-w64 doesn't declare SetThreadDescription: a header that does, included first
-    const compat = `${h.src}/_lcevc-compat.h`;
-    const win =
-      platform === 'win-x64'
-        ? [`-DCMAKE_C_FLAGS=-include ${compat}`, `-DCMAKE_CXX_FLAGS=-include ${compat}`]
-        : [];
-    expect(existsSync(compat)).toBe(platform === 'win-x64');
+    expect(h.files(h.src)).toEqual([]);
     expect(commands(h)).toEqual(
       cmakeLines(h, [
         '-DVN_SDK_EXECUTABLES=OFF',
@@ -590,7 +597,6 @@ describe('lcevcdec', () => {
         '-DVN_SDK_METRICS=OFF',
         '-DVN_SDK_SYSTEM_INSTALL=OFF',
         '-DVN_SDK_BUILD_DETAILS=OFF',
-        ...win,
       ]),
     );
     expect(existsSync(join(h.deps, 'licenses'))).toBe(false);
@@ -603,8 +609,8 @@ describe('lcevcdec', () => {
       ),
     );
   });
-  it('builds everywhere but win-arm64', () => {
-    expect(platformsOf('lcevcdec')).toEqual(PLATFORMS.filter((p) => p !== 'win-arm64'));
+  it('excludes Windows until the toolchain and source support native unpatched builds', () => {
+    expect(platformsOf('lcevcdec')).toEqual(PLATFORMS.filter((p) => !p.startsWith('win-')));
   });
   it('is under its own licence terms, kept out of GPL builds', () => {
     expect(recipe('lcevcdec').license).toBe('LicenseRef-LCEVCdec');

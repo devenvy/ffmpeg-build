@@ -302,6 +302,7 @@ export const PC_FIELDS = {
   requires: 'Requires',
   'requires-private': 'Requires.private',
   cflags: 'Cflags',
+  'cflags-private': 'Cflags.private',
 } as const;
 const pcFieldEdit = z
   .strictObject({
@@ -310,17 +311,25 @@ const pcFieldEdit = z
     add: text.optional(), // the words not already on the line (for Libs and Libs.private: on either) go at the end
     set: z.string().optional(), // the line becomes `Field: <set>`
     remove: text.optional(), // these words leave the line
+    tokens: z
+      .record(
+        text.refine((word) => !/\s/.test(word), { error: 'expected one metadata token' }),
+        text.refine((word) => !/\s/.test(word), { error: 'expected one metadata token' }),
+      )
+      .optional(), // map complete metadata words, without patterns or substring edits
+    'remove-library-paths': z.array(name).min(1).optional(), // named library file inputs leave this field
     missing: z
       .enum(['end', 'after-libs', 'skip'], { error: 'expected end, after-libs or skip' })
       .default('end'),
   })
   .refine(
     (o) =>
-      ['append', 'prepend', 'add', 'set', 'remove'].filter(
+      ['append', 'prepend', 'add', 'set', 'remove', 'tokens', 'remove-library-paths'].filter(
         (k) => o[k as keyof typeof o] !== undefined,
       ).length === 1,
     {
-      error: 'give exactly one of append, prepend, add, set or remove',
+      error:
+        'give exactly one of append, prepend, add, set, remove, tokens or remove-library-paths',
     },
   );
 
@@ -411,8 +420,18 @@ const step = z.union([
   }),
   z.strictObject({
     'edit-pkg-config': z.strictObject({
-      path: operationPath,
+      path: operationPath.refine((path) => path.endsWith('.pc'), {
+        error: 'package metadata operations require a .pc path or glob',
+      }),
       optional: flag.default(false), // a missing file is skipped
+      variables: z
+        .strictObject({
+          prefix: text.optional(),
+          exec_prefix: text.optional(),
+          libdir: text.optional(),
+          includedir: text.optional(),
+        })
+        .optional(),
       ...(Object.fromEntries(
         Object.keys(PC_FIELDS).map((k) => [k, pcFieldEdit.optional()]),
       ) as Record<keyof typeof PC_FIELDS, z.ZodOptional<typeof pcFieldEdit>>),
@@ -477,6 +496,8 @@ const recipeBuild = z
     args: z.array(text).default([]),
     'source-dir': relativePath.optional(),
     'source-inventory': relativePath.optional(),
+    'build-targets': z.array(text).min(1).optional(),
+    'install-components': z.array(text).min(1).optional(),
     'configure-script': relativePath.default('configure'),
     'make-targets': z.array(text).default([]),
     'install-targets': z.array(text).default(['install']),

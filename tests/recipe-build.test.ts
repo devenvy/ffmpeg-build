@@ -111,4 +111,22 @@ describe('recipe build data', () => {
       ).success,
     ).toBe(true);
   });
+
+  it('limits package metadata operations to .pc files', () => {
+    expect(
+      recipeSchema.safeParse(
+        recipe({
+          system: 'none',
+          steps: [
+            {
+              'edit-pkg-config': {
+                path: 'src/upstream.c',
+                libs: { set: '-lother' },
+              },
+            },
+          ],
+        }),
+      ).success,
+    ).toBe(false);
+  });
 });

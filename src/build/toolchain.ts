@@ -660,7 +660,7 @@ export function beforeFfmpeg(
     depsDir: string;
     env: NodeJS.ProcessEnv;
   },
-  ffmpegDir: string,
+  _ffmpegDir: string,
   flags: readonly string[],
 ): string[] {
   const { setup, platform } = context.buildPlan;
@@ -734,20 +734,6 @@ export function beforeFfmpeg(
       `--extra-cxxflags=${setting('CXXFLAGS')}`,
       `--extra-ldflags=${setting('LDFLAGS')}`,
     );
-    if (platform.startsWith('maccatalyst-')) {
-      const path = join(ffmpegDir, 'libavcodec', 'videotoolbox.c');
-      let text = readFileSync(path, 'utf8');
-      if (!text.includes('TARGET_OS_MACCATALYST')) {
-        text = text.replace(
-          /^#if TARGET_OS_IPHONE$/m,
-          '#if TARGET_OS_MACCATALYST\n    /* Mac Catalyst: no OpenGL(ES) interop (patched by ffmpeg-build). */\n#elif TARGET_OS_IPHONE',
-        );
-        if (!text.includes('#if TARGET_OS_MACCATALYST')) {
-          throw new Error('videotoolbox.c Mac Catalyst patch did not apply');
-        }
-        writeFileSync(path, text);
-      }
-    }
   }
   return out;
 }

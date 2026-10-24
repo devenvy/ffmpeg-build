@@ -60,12 +60,8 @@ build:
     # FFmpeg's v4l2 device (whose ioctl pointer is POSIX's on musl) can't take
     'linux-musl-*':
       after:
-        - replace-in-file:
-            {
-              path: '{deps}/include/libv4l2.h',
-              from: '#ifdef LIBV4L_HAVE_POSIX_IOCTL',
-              to: '#if 1 /* musl: built with POSIX ioctl */',
-            }
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/libv4l2.pc', cflags: { add: -DLIBV4L_HAVE_POSIX_IOCTL } }
   before:
     - run:
         - python3

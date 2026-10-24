@@ -66,8 +66,8 @@ build:
     # (libshaderc_combined bundles glslang + SPIRV-Tools) and drop the shared library, so
     # FFmpeg's static link of libplacebo pulls the static shaderc and nothing depends on a
     # libshaderc_shared.so at runtime.
-    - replace-in-file:
-        { path: '{deps}/lib/pkgconfig/shaderc.pc', from: -lshaderc_shared, to: -lshaderc_combined }
+    - copy:
+        { from: '{deps}/lib/pkgconfig/shaderc_combined.pc', to: '{deps}/lib/pkgconfig/shaderc.pc' }
       when: { unset: '{shared-mode}' }
     - remove: { path: '{deps}/lib/libshaderc_shared.*' } # .so/.dylib/.dll across platforms
       when: { unset: '{shared-mode}' }

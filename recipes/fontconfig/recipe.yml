@@ -12,8 +12,11 @@ source:
     ref: '{version}',
     mirror: https://github.com/fontconfig/fontconfig.git,
   }
-# x.y.9x tags are development snapshots for the next minor.
-versions: { git-tags: '^(\d+\.\d+\.(?:\d|[0-8]\d))$' }
+# Pango 1.56 uses FcFreeTypeQueryAll from fontconfig.h; the released 2.15 series still declares it there.
+# Select a compatible native font stack instead of adding headers to Pango's sources.
+versions: { git-tags: '^(2\.15\.\d+)$', repo: https://github.com/fontconfig/fontconfig.git }
+notes:
+  '>=2.16.0': 'The current Pango 1.56 integration selects the unmodified Fontconfig 2.15 release series; newer font stacks need full unpatched consumer and SDK verification.'
 # Not on Windows (needs a runtime fonts.conf for no real gain: libass uses DirectWrite, drawtext uses fontfile=), iOS
 # or Mac Catalyst. On Android only for Pango (librsvg's text), which requires it there; Android has no fonts.conf of
 # its own, so an application names its fonts with FONTCONFIG_FILE.
@@ -87,27 +90,9 @@ build:
           message: 'fontconfig DESTDIR install produced no /usr tree under {src}/_stage',
         }
     - copy: { from: '{src}/_stage/usr', to: '{deps}', recursive: true, preserve: true }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/fontconfig.pc',
-          from: '^prefix=.*',
-          to: 'prefix={deps}',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/fontconfig.pc',
-          from: '^libdir=.*',
-          to: 'libdir={deps}/lib',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/fontconfig.pc',
-          from: '^includedir=.*',
-          to: 'includedir={deps}/include',
-          regex: true,
-        }
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/fontconfig.pc'
+        variables: { prefix: '{deps}', libdir: '{deps}/lib', includedir: '{deps}/include' }
     - check:
         {
           file: '{deps}/lib/pkgconfig/fontconfig.pc',

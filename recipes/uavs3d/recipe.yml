@@ -24,14 +24,10 @@ build:
   # uavs3d.pc, 1.1.41 or later: version.sh writes 1.2.<commits in the clone>). Its decoder program, never installed,
   # is left out of the build (on iOS and Mac Catalyst it is an app that doesn't link).
   system: cmake
+  build-targets: [uavs3d]
   vars: { shared-mode: '', shared-args: [] }
   args: [-DCOMPILE_10BIT=1, '{shared-args}']
   before:
-    # Keep the native version diagnostic away from stdout media and application data.
-    - replace-in-file:
-        path: source/decoder/uavs3d.c
-        from: 'printf("libuavs3d(%2d): %s_%s, %s\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);'
-        to: 'fprintf(stderr, "libuavs3d(%2d): %s_%s, %s\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);'
     - run:
         - python3
         - -c
@@ -45,12 +41,6 @@ build:
         from: 'add_library(${LIBNAME} ${DIR_UAVS3D_SRC} ${UAVS3D_ASM_FILES})'
         to: "add_library(${LIBNAME} ${DIR_UAVS3D_SRC} ${UAVS3D_ASM_FILES})\nset_target_properties(uavs3d PROPERTIES VERSION {version} SOVERSION {version})"
       when: { set: '{shared-mode}' }
-    - replace-in-file:
-        {
-          path: CMakeLists.txt,
-          from: 'add_executable(uavs3dec ',
-          to: 'add_executable(uavs3dec EXCLUDE_FROM_ALL ',
-        }
   after:
     - run:
         - python3

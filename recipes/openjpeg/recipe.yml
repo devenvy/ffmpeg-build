@@ -19,26 +19,20 @@ build:
   vars: { shared-library-arg: [], shared-mode: '' }
   args: ['{shared-library-arg}', -DBUILD_CODEC=OFF, -DBUILD_TESTING=OFF]
   after:
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/libopenjp2.pc'
+        optional: true
+        libs-private:
+          tokens: { '-l-lpthread': -lpthread, '-l-pthread': -pthread }
     # OpenJPEG 2.5.x emits a malformed Libs.private in libopenjp2.pc — its CMake prepends -l to an
     # already-complete thread flag, giving "-l-lpthread" (glibc, thread lib = -lpthread) or
     # "-l-pthread" (NDK/others, thread flag = -pthread). FFmpeg's static pkg-config link test then
     # looks for a library literally named "-lpthread"/"-pthread" and fails ("libopenjp2 not found").
     # Repair both forms in place (a no-op where the token isn't emitted).
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/libopenjp2.pc',
-          from: '-l(-l?pthread)',
-          to: '$1',
-          regex: true,
-          optional: true,
-        }
     # pkgconf --static also adds Cflags.private for a shared consumer. OPJ_STATIC
     # declares those imported functions hidden on ELF, so their DSO cannot satisfy
     # the link. Keep it for static builds and remove it only in shared mode.
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/libopenjp2.pc',
-          from: 'Cflags.private: -DOPJ_STATIC',
-          to: 'Cflags.private:',
-        }
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/libopenjp2.pc'
+        cflags-private: { remove: -DOPJ_STATIC }
       when: { set: '{shared-mode}' }

@@ -32,18 +32,10 @@ build:
   platforms:
     'linux-*': &threads
       before:
-        - replace-in-file:
-            {
-              path: include/mbedtls/mbedtls_config.h,
-              from: "//#define MBEDTLS_THREADING_C\n",
-              to: "#define MBEDTLS_THREADING_C\n",
-            }
-        - replace-in-file:
-            {
-              path: include/mbedtls/mbedtls_config.h,
-              from: "//#define MBEDTLS_THREADING_PTHREAD\n",
-              to: "#define MBEDTLS_THREADING_PTHREAD\n",
-            }
+        # Upstream's supported configuration tool; no engine-owned header edits.
+        # https://github.com/Mbed-TLS/mbedtls-docs/blob/main/kb/compiling-and-building/how-do-i-configure-mbedtls.md
+        - [python3, scripts/config.py, set, MBEDTLS_THREADING_C]
+        - [python3, scripts/config.py, set, MBEDTLS_THREADING_PTHREAD]
     # its .pc files don't name the Windows libraries its static libraries call: bcrypt (entropy) and ws2_32
     # (x509's inet_pton), on the crypto library every other one requires (srt and librist name their own)
     'win-*':
