@@ -31,15 +31,13 @@ build:
   vars: { shared-mode: '', shared-args: [] }
   # the crates cargo cinstall compiles in (rav1e with its default features and cargo-c's capi), fetched and checked
   # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. av-metrics and profiling publish no
-  # licence file in their crates: the standard text of their licence (MIT, or MIT among their choices). Its C API is
-  # rav1e_*: the rest of what its Rust objects define (its copy of Rust's standard library) gets rav1e's own names,
-  # so it links beside another Rust library (librsvg)
+  # licence file in their crates: the standard text of their licence (MIT, or MIT among their choices).
+  # Native archive symbols are preserved; no engine namespace transformation is applied.
   cargo:
     target: '{target}'
     package: rav1e
     features: [capi]
     standard-texts: [av-metrics, profiling]
-    exports: [rav1e_*]
   # its build scripts (libgit2, for the version string) run here, so they are compiled with the build machine's own
   # compilers and flags, not the platform's (which the cc crate otherwise takes from CC and CFLAGS). Rust keeps source
   # paths in its panic messages: the source folder (with Apple's CARGO_HOME) and the images' /opt/cargo crates are

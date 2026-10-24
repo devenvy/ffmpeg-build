@@ -944,15 +944,17 @@ describe('tesseract', () => {
         '-DENABLE_CCACHE=OFF',
         '-DENABLE_PRECOMPILED_HEADERS=OFF',
         ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
-      ]),
+      ]).map(
+        (line) => `${line} [CXXFLAGS=${h.base['CXXFLAGS'] ?? ''} -include string -include cstdlib]`,
+      ),
     );
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
       'set(LIB_Ws2_32 ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64.*|AARCH64.*")\n',
     );
-    expect(h.read(join(h.src, 'src', 'viewer', 'scrollview.h'))).toBe(
-      '#include <cstdio>\n#include <string>\n',
+    expect(h.read(join(h.src, 'src', 'viewer', 'scrollview.h'))).toBe('#include <cstdio>\n');
+    expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toBe(
+      '#include <numeric> // for std::inner_product\n',
     );
-    expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toContain('#include <cstdlib>\n');
     expect(h.read(pcPath(h, 'tesseract'))).toBe(
       `Libs: -L\${libdir} -ltesseract55\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('linux-') ? ' -pthread' : ''}${platform.startsWith('win-') ? ' -lws2_32' : ''}\nRequires.private: lept\n`,
     );

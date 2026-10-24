@@ -46,8 +46,8 @@ use borrowed faces, and verify tracked allocators and final destruction.
 
 Shared Cairo bundles its core, GObject and script-interpreter libraries. It keeps
 PNG, PDF, PostScript and SVG output. Optional preload development instrumentation
-(cairo-trace/FDR) is excluded by a shared-only source adaptation because upstream
-has no dedicated disabling option; it is separate from the rendering SDK.
+(cairo-trace/FDR) is omitted from the installed package after the unchanged native build;
+it is separate from the rendering SDK.
 
 Six FFmpeg 8/9 static/shared/mixed targets check exact drawvg pixels. Native SDK
 checks also cover boxed-surface lifetime, PNG and script pixels, vector document
@@ -313,12 +313,10 @@ Mac Catalyst builds currently disable VideoToolbox: the supported FFmpeg release
 compatibility key unavailable to Catalyst. Software codecs remain available; the engine does not patch
 FFmpeg to enable this framework. VideoToolbox remains available on macOS and iOS.
 
-On macOS, `with: [metal]` enables `yadif_videotoolbox` and the VideoToolbox framework it needs. Metal remains
-opt-in and uses the system frameworks; it adds no third-party runtime library. A build with Metal selected
-backports [FFmpeg's autorelease ownership fix](https://github.com/FFmpeg/FFmpeg/commit/7f2e5cdd7c3ad502141c918bac13e2a31b4829c0)
-for the affected 8.1.3/9.0.2 implementation, preventing a crash when its filter thread exits. Already-fixed
-sources are preserved; an unrecognized implementation requires review before building. This option is verified
-on macOS only; iOS and Mac Catalyst are not claimed.
+FFmpeg's `metal` option is unavailable in the current releases: its `yadif_videotoolbox` filter has an ownership
+crash that needs an [upstream fix](https://github.com/FFmpeg/FFmpeg/commit/7f2e5cdd7c3ad502141c918bac13e2a31b4829c0).
+It can return after a compatible upstream release passes runtime verification. The engine does not backport
+the fix. Whisper's independent upstream Metal backend remains available on macOS.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
@@ -358,11 +356,11 @@ Codec2, Kvazaar, Xavs2 and Davs2 offer bundled shared libraries on Linux x64 whi
 Xavs2 and Davs2 remain GPL build options, and their linking modes can be selected independently. Shared Davs2
 includes its private C++ runtime while retaining the common system unwinder.
 
-JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
-replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
-replacement or when a swappable client library is needed. Neither mode starts a server automatically.
-On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
-can still be embedded statically. Musl builds retain their static compiler runtime.
+JACK2 uses its native shared Linux client on glibc and needs a compatible JACK2 server. It can be replaced by
+PipeWire's `pw-jack` through `LD_LIBRARY_PATH`; it never starts a server automatically. A static Linux client
+requires changing upstream's Waf rules and is not offered. Its bundled Waf requires Python 3.11 or earlier
+(the `imp` module). Current musl toolchain images ship a newer Python, so JACK2 is unavailable there.
+The client uses the system's `libgcc_s.so.1` for thread cancellation and embeds its C++ runtime.
 
 On Linux, `vulkan-loader` supports bundled shared linking only, matching upstream's build. A static Unix loader
 requires changes to upstream's CMake target and is not offered. The shared loader requires an installed Vulkan ICD
@@ -400,7 +398,7 @@ ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Li
 and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
 recording and playback paths can omit those unused functions when the client is linked statically.
 
-Shared ModPlug and OpenMPT retain upstream Libtool's system C++ runtime dependency (`libstdc++.so.6` on Linux).
+Shared ModPlug, OpenMPT and OpenColorIO retain their native system C++ runtime dependency (`libstdc++.so.6` on Linux).
 The recipient needs a compatible runtime, commonly `libstdc++6` on Debian/Ubuntu or `libstdc++` on Fedora.
 These package names are suggestions; runtime compatibility still depends on the compiler and target system.
 On Linux x64, the LV2 host libraries `lilv`, `serd`, `sord`, `sratom` and `zix` default to static linking and
@@ -738,6 +736,9 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 [tests that need a secret](building.md#tests-that-need-a-secret).
 
 ## Rules
+
+VMAF is unavailable on Windows ARM64 with this toolchain: upstream libsvm fails to compile against its libc++.
+Other VMAF platforms keep their existing linking choices. The engine does not rename upstream source symbols.
 
 SRT, librist, ZeroMQ and RabbitMQ-C offer static and bundled shared modes on
 Linux x64, keyed by `srt`, `librist`, `libzmq` and `rabbitmq-c`. Static remains

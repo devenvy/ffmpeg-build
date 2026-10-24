@@ -298,7 +298,7 @@ describe('libva', () => {
 });
 
 describe('libvmaf', () => {
-  // win-arm64: sed -i "s/\bswap(/libsvm_swap(/g" libvmaf/src/svm.cpp; command -v xxd || exit 1;
+  // Native model prerequisites and metadata; the upstream libsvm implementation stays unchanged.
   // linux-x64|linux-musl-x64|win-x64|osx-x64|maccatalyst-x64|android-x64: nasm -v must say >= 2.14;
   // after: Libs.private gets ${CXX_RT} (or a line at the end)
   const x64 = [
@@ -333,11 +333,7 @@ describe('libvmaf', () => {
         'libvmaf',
       ),
     ]);
-    expect(h.read(join(h.src, 'libvmaf', 'src', 'svm.cpp'))).toBe(
-      platform === 'win-arm64'
-        ? 'template <class T> static inline void libsvm_swap(T& x, T& y) {}\n  libsvm_swap(a, b); std::libsvm_swap(c, d); myswap(e);\n'
-        : svm,
-    );
+    expect(h.read(join(h.src, 'libvmaf', 'src', 'svm.cpp'))).toBe(svm);
     expect(h.read(pcPath(h, 'libvmaf'))).toBe(sedAppend(pc, 'Libs.private', bashCxxRt(platform)));
   });
   it('fails without xxd, and with a nasm older than 2.14', async () => {

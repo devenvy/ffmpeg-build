@@ -73,7 +73,11 @@ try {
       const dynamic = spawnSync('readelf', ['-d', library], { encoding: 'utf8', timeout: 30000 });
       assert.equal(dynamic.status, 0, dynamic.stderr);
       assert.ok(dynamic.stdout.includes(`[${soname}]`), dynamic.stdout);
-      assert.ok(!dynamic.stdout.includes('libstdc++.so'), dynamic.stdout);
+      assert.equal(
+        dynamic.stdout.includes('libstdc++.so.6'),
+        component === 'libOpenColorIO',
+        dynamic.stdout,
+      );
     }
   }
   console.log(

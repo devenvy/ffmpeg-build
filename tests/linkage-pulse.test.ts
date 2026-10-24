@@ -10,7 +10,7 @@ const RUNTIMES = {
   pulseaudio: ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so'],
   jack2: ['lib/libjack.so*'],
 };
-for (const name of ['pulseaudio', 'jack2'] as const) {
+for (const name of ['pulseaudio'] as const) {
   const recipe = data.recipes.get(name)!;
   it.each(expandPlatforms(recipe.platforms))(
     `${name} on %s defaults to static with shared opt-in`,
@@ -26,3 +26,17 @@ for (const name of ['pulseaudio', 'jack2'] as const) {
     },
   );
 }
+
+it.each(expandPlatforms(data.recipes.get('jack2')!.platforms))(
+  'JACK2 on %s uses its native shared client and rejects a patched static build',
+  (platform) => {
+    expect(linkagePlan(data, ['jack2'], platform)).toEqual({
+      modes: { jack2: 'shared' },
+      errors: [],
+    });
+    expect(linkagePlan(data, ['jack2'], platform, { jack2: 'static' }).errors).toHaveLength(1);
+    expect(linkedRecipe(data.recipes.get('jack2')!, 'shared').runtime).toEqual(
+      RUNTIMES.jack2.map((value) => ({ value })),
+    );
+  },
+);

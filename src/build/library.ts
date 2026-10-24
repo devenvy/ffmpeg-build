@@ -35,7 +35,6 @@ import {
   versionAtLeast,
 } from './recipe-ops.ts';
 import { run, step } from './run.ts';
-import { isolateRustArchive } from './rust-archive.ts';
 import { keepSupplementalSources } from './supplemental-sources.ts';
 import { platformMatches } from '../platforms.ts';
 import { cxxRuntime, type Toolchain } from './toolchain.ts';
@@ -831,33 +830,6 @@ function checkRestoredCrates(
   }
 }
 
-/**
- * A Rust library's static libraries (what it installed under lib/), each with its own names for its copy of Rust
- * (rust-archive.ts), so it links beside another Rust library. Before the cache keeps them.
- */
-export async function isolateRustLibraries(
-  context: BuildContext,
-  library: Pick<PlannedLibrary, 'name' | 'build'>,
-  installed: readonly string[],
-): Promise<void> {
-  const exports = library.build.cargo?.exports;
-  if (!exports) {
-    return;
-  }
-  for (const file of installed.filter((f) => /^lib\/[^/]+\.a$/.test(f))) {
-    const renamed = await isolateRustArchive(join(context.depsDir, file), {
-      library: library.name,
-      exports,
-      env: context.env,
-      platform: context.buildPlan.platform,
-      work: context.work,
-    });
-    if (renamed) {
-      step(`${library.name}: ${file}'s copy of Rust under its own names (${renamed} symbols)`);
-    }
-  }
-}
-
 export async function buildLibrary(
   context: BuildContext,
   library: PlannedLibrary,
@@ -892,7 +864,6 @@ export async function buildLibrary(
       cause: error,
     });
   }
-  await isolateRustLibraries(context, library, changedFiles(before, listing(depsDir)));
   copyLicenses(
     library.name,
     library.version,

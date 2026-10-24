@@ -17,7 +17,7 @@ subprocess.run([output], check=True, timeout=60, env=environment)
 soname = 'libOpenColorIO.so.' + '.'.join(version.split('.')[:2])
 library = library_dir / soname
 dynamic = subprocess.check_output(['readelf', '-d', str(library)], text=True)
-assert '[' + soname + ']' in dynamic and 'libstdc++.so' not in dynamic, dynamic
+assert '[' + soname + ']' in dynamic and '[libstdc++.so.6]' in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', str(library)], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}
 private = sorted(name for name in names if name.startswith(('inflate', 'deflate', 'crc32', 'adler32')))

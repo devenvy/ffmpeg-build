@@ -188,15 +188,11 @@ the library for the target (`cargo tree -e normal,no-proc-macro`), and builds of
   cache, `.sources/` and the release's sources archive, as `cargo vendor` would hold them; SOURCES.md lists each and
   says how to build offline from them).
 
-A Rust static library carries its own copy of Rust's standard library, under the same names every library built by
-the same rustc gives it, so two of them (rav1e and librsvg) can't link into one FFmpeg as they are. Once it is built,
-each static library it installed under `lib/` keeps its C API (`exports:`, globs as nm names its symbols: `rav1e_*`)
-and every other symbol its Rust objects (`*.rcgu.o`) define takes the library's own prefix (`ffb.rav1e.`), renamed
-consistently in all of them with the platform's `objcopy --redefine-syms` (`src/build/rust-archive.ts`). Each library
-then calls its own copy of Rust, as two Rust shared libraries in one program do, and its C, assembly and import members
-are left as they are. An `exports:` glob that matches nothing the Rust objects define fails the build. Xcode has no
-objcopy, so on Apple a library is left as built and a target with two Rust libraries is refused (rav1e is the only
-one there).
+Rust static libraries include their Rust dependencies, so combinations need native link and runtime verification.
+Preserve the outputs produced by upstream's Cargo build; the engine does not rename private symbols or reconstruct
+archives. Use ordinary archive extraction/link ordering and upstream static/shared outputs. If a combination fails
+with unmodified libraries, restrict that combination after verifying an upstream-supported alternative. Planning a
+target successfully is not proof that its native Rust archives can link or run together.
 
 ### Steps
 
@@ -297,7 +293,8 @@ writes it (`node scripts/ffmpeg-support.ts --write`); it is never edited by hand
   `configure:` (on some platform the engine builds), or as `--enable-<option>` when it is `builtin: true`; or
 - **listed** in `ffmpeg/unsupported.yml` with a reason: `pending` (with the open `issue:` that tracks it, and its
   `batch:` there), `sdk-not-redistributable`, `needs-hardware-sdk`, `platform-not-built`, `deprecated-upstream`, or
-  `alternative-built` (with `instead:`, the option that does the job) or `shared-only` (its library needs a shared
+  `upstream-incompatible` (current releases or toolchains need an upstream fix), `alternative-built` (with
+  `instead:`, the option that does the job) or `shared-only` (its library needs a shared
   dependency chain that has not been integrated and verified), and a `note:`. Shared-only libraries can be supported
   once that chain is verified; Samba is an example. `majors:` limits an entry to
   some FFmpeg majors; without it, it is for every major that offers the name.

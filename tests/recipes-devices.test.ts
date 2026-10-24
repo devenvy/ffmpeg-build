@@ -205,24 +205,15 @@ describe('jack2', () => {
       return undefined;
     };
     await build(h, 'jack2');
-    expect(h.read(common)).toContain("features=['c', 'cxx', 'cxxstlib', 'cstlib']");
-    expect(h.read(pc)).toContain(
-      platform.startsWith('linux-musl-')
-        ? '-l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a'
-        : '-l:libstdc++.a -shared-libgcc -lgcc_s',
-    );
-    expect(h.read(pc)).toContain('--exclude-libs,libjack.a:');
-    // Python 3.12 has no imp
+    expect(h.read(common)).toBe("clientlib = bld(features=['c', 'cxx', 'cxxshlib', 'cshlib'])\n");
+    expect(h.read(pc)).toBe('Name: jack\nLibs: -ljack\n');
     expect(h.read(context)).toBe(
-      'import os, re, sys, types\n\tmodule = types.ModuleType(WSCRIPT_FILE)\n',
+      'import os, re, imp, sys\n\tmodule = imp.new_module(WSCRIPT_FILE)\n',
     );
     const cross = platform === 'linux-armhf' ? 'arm-linux-gnueabihf-' : '';
-    const privateRuntime = platform.startsWith('linux-musl-')
-      ? '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
-      : '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a';
-    const musl = platform.startsWith('linux-musl-')
-      ? muslLdflags(platform, ` ${privateRuntime}`)
-      : `LDFLAGS= ${privateRuntime}`;
+    const privateRuntime =
+      '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a';
+    const musl = `LDFLAGS= ${privateRuntime}`;
     expect(commands(h)).toEqual([
       withEnv(
         [
@@ -241,7 +232,7 @@ describe('jack2', () => {
   });
   it('ships libjack (LGPL-2.1-or-later) on Linux', () => {
     expect(recipe('jack2').license).toBe('LGPL-2.1-or-later');
-    expect(platformsOf('jack2')).toEqual(LINUX);
+    expect(platformsOf('jack2')).toEqual(['linux-x64', 'linux-arm64', 'linux-armhf']);
     expect(recipe('jack2').linkage!.modes.shared!.runtime).toEqual([{ value: 'lib/libjack.so*' }]);
   });
 });

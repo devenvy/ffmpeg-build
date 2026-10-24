@@ -2063,11 +2063,11 @@ describe('audio device libraries', () => {
       runtime: () => [],
     },
     jack: {
-      platforms: linuxAll,
+      platforms: ['linux-x64', 'linux-arm64', 'linux-armhf'],
       recipe: 'jack2',
       recipes: () => ['jack2'],
       flags: ['--enable-libjack'],
-      runtime: () => [],
+      runtime: () => ['lib/libjack.so*'],
     },
     // static, on the selected ALSA library
     sndio: {
@@ -2350,15 +2350,6 @@ describe("Apple's capture device and Core Image", () => {
       flags: ['--enable-coreimage', '--enable-appkit'],
       ships: { filters: ['coreimage', 'coreimagesrc'] },
     },
-    metal: {
-      platforms: macos,
-      flags: ['--enable-metal', '--enable-videotoolbox'],
-      ships: {
-        filters: ['yadif_videotoolbox'],
-        hwaccels: ['videotoolbox'],
-        encoders: ['h264_videotoolbox', 'hevc_videotoolbox'],
-      },
-    },
   };
   const OPTIONS = Object.keys(where);
   const text = (platform: string, license: string, options: string) =>
@@ -2420,10 +2411,10 @@ describe("Apple's capture device and Core Image", () => {
     expect(flags('avfoundation').filter((f) => /appkit|coreimage/.test(f))).toEqual([]);
   });
 
-  it('enables Metal only on macOS, with its upstream ownership fix applied during the build', () => {
+  it('does not offer Metal while supported releases require a runtime fix', () => {
     for (const major of ['8', '9']) {
-      expect(data.ffmpeg.get(major)!.options['metal']!.builtin).toBe(true);
-      expect(data.ffmpeg.get(major)!['auto-components']).toContain('metal');
+      expect(data.ffmpeg.get(major)!.options['metal']).toBeUndefined();
+      expect(data.ffmpeg.get(major)!['auto-components']).not.toContain('metal');
     }
   });
 

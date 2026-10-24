@@ -29,7 +29,7 @@ linkage:
             -DBUILD_SHARED_LIBS=ON,
             -DCMAKE_CXX_VISIBILITY_PRESET=hidden,
             -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON,
-            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs',
+            '-DCMAKE_SHARED_LINKER_FLAGS=-shared-libgcc -pthread -Wl,-z,defs',
           ]
       runtime: ['lib/libOpenColorIO.so*']
 build:
@@ -41,13 +41,6 @@ build:
   # Its .pc names only -lOpenColorIO: a static link also needs its dependencies and the C++ runtime.
   system: cmake
   vars: { shared-mode: '', shared-args: [], soname-mode: 'OFF' }
-  before:
-    # Preserve the public C++ runtime/exception ABI; hide only reviewed private archives.
-    - replace-in-file:
-        path: src/OpenColorIO/CMakeLists.txt
-        from: '--exclude-libs,ALL'
-        to: '--exclude-libs,libexpat.a:libyaml-cpp.a:libpystring.a:libImath-3_2.a:libminizip-ng.a:libz.a'
-      when: { set: '{shared-mode}' }
   args:
     [
       '{shared-args}',
