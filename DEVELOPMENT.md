@@ -190,6 +190,9 @@ the library for the target (`cargo tree -e normal,no-proc-macro`), and builds of
   says how to build offline from them).
 
 Rust static libraries include their Rust dependencies, so combinations need native link and runtime verification.
+Rav1e uses its upstream `release-no-lto` profile. Its LTO release archive merged Rust standard-library definitions
+into codec objects, causing duplicate definitions with librsvg in native CI. Verify the combined build after
+changes to compiler versions, profiles or dependencies; a passing individual build does not establish compatibility.
 Preserve the outputs produced by upstream's Cargo build; the engine does not rename private symbols or reconstruct
 archives. Use ordinary archive extraction/link ordering and upstream static/shared outputs. If a combination fails
 with unmodified libraries, restrict that combination after verifying an upstream-supported alternative. Planning a

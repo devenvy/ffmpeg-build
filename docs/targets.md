@@ -191,6 +191,10 @@ with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
 
+BS2B uses its untouched 3.1.0 release configuration on Linux x64 and ARM hard-float only, with libsndfile installed
+for its native configure check. Its obsolete Automake inputs cannot be regenerated with the current tools, and its
+distributed configuration scripts do not recognize the other target triples.
+
 Libgcrypt uses its native `--disable-jent-support` option to omit the optional CPU-timing entropy collector,
 whose generic symbols collide with static LibreSSL. Its OS-backed random generator and SHA3 algorithms remain
 enabled; the build does not rename internal library functions.

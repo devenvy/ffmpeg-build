@@ -49,11 +49,13 @@ build:
     HOST_CXXFLAGS: -O2
     RUSTFLAGS: '--remap-path-prefix={src}=/work/src/rav1e --remap-path-prefix=/opt/cargo=/cargo'
   steps:
-    - run:
-        [
+    - run: [
           cargo,
           cinstall,
-          --release,
+          # Upstream's optimized no-LTO profile preserves separate Rust dependency
+          # objects for native linking with other Rust static libraries.
+          --profile,
+          release-no-lto,
           --locked,
           --library-type=staticlib,
           '{shared-args}',

@@ -110,7 +110,7 @@ describe('libmysofa', () => {
   });
 });
 
-// libbs2b's library alone: configure.ac without its libsndfile check, remade, and only src's library and headers.
+// libbs2b's untouched release configuration, with its real libsndfile check and only library targets.
 describe('libbs2b', () => {
   it.each(platformsOf('libbs2b'))('%s', async (platform) => {
     const h = fake(platform);
@@ -119,10 +119,10 @@ describe('libbs2b', () => {
       'AM_INIT_AUTOMAKE([1.10.1 -Wall foreign subdir-objects\n                  dist-zip dist-bzip2 dist-lzma])\n' +
         '# Checks for libraries.\nPKG_CHECK_EXISTS([sndfile], [], [\n    AC_MSG_ERROR(Please install libsndfile.)\n])\n',
     );
+    const upstream = h.read(join(h.src, 'configure.ac'));
     await build(h, 'libbs2b');
     expect(commands(h)).toEqual(
       [
-        'autoreconf -fi',
         configureLine(h, [
           '--disable-shared',
           '--enable-static',
@@ -134,14 +134,12 @@ describe('libbs2b', () => {
         'make install-pkgconfigDATA',
       ].map((line) => line + o2(h)),
     );
-    expect(h.read(join(h.src, 'configure.ac'))).toBe(
-      'AM_INIT_AUTOMAKE([1.10.1 -Wall foreign subdir-objects\n                  dist-zip dist-bzip2])\n' +
-        '# Checks for libraries.\n\n',
-    );
+    expect(h.read(join(h.src, 'configure.ac'))).toBe(upstream);
   });
   it('is MIT, from the release tarball', () => {
     expect(recipe('libbs2b').license).toBe('MIT');
-    expect(platformsOf('libbs2b')).toEqual(PLATFORMS);
+    expect(platformsOf('libbs2b')).toEqual(['linux-x64', 'linux-armhf']);
+    expect(recipe('libbs2b').needs).toEqual([{ name: 'libsndfile' }]);
   });
 });
 

@@ -786,7 +786,7 @@ describe('rav1e', () => {
     expect(h.calls.at(-1)!.env['CARGO_NET_OFFLINE']).toBe('true');
     const calls = all.filter((c) => !/^(rustc|cargo (fetch|metadata|tree))( |$)/.test(c));
     expect(calls.at(-1)).toBe(
-      `cargo cinstall --release --locked --library-type=staticlib --target=${target} --prefix=${h.deps} --libdir=${h.deps}/lib --includedir=${h.deps}/include`,
+      `cargo cinstall --profile release-no-lto --locked --library-type=staticlib --target=${target} --prefix=${h.deps} --libdir=${h.deps}/lib --includedir=${h.deps}/include`,
     );
     // build scripts run here: compiled with this machine's compilers
     const last = h.calls.at(-1)!;

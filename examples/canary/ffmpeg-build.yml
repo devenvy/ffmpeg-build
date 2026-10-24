@@ -53,7 +53,6 @@ bases:
         openmpt,
         rav1e,
         mysofa,
-        bs2b,
         qrencode,
         quirc,
         flite,
@@ -161,6 +160,11 @@ bases:
         gmp,
       ]
 targets:
+  linux-armhf-bs2b-lgplv2:
+    platform: linux-armhf
+    license: lgplv2
+    ffmpeg: '9'
+    with: [bs2b]
   linux-x64-xvid-static-8-gplv3:
     platform: linux-x64
     license: gplv3
