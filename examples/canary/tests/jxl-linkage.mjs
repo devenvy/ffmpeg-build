@@ -181,16 +181,27 @@ try {
   assert.notEqual(rejected.status, 0);
   assert.equal(rejected.signal, null);
   const libraryFolder = dirname(ffmpeg);
+  let hasJxlDso = false;
+  let hasSystemCxx = false;
   for (const name of readdirSync(libraryFolder).filter((entry) =>
     /^(?:libjxl(?:_threads|_cms)?|libhwy|libbrotli(?:common|dec|enc))\.so\./u.test(entry),
   )) {
     const library = join(libraryFolder, name);
     const dynamic = command('readelf', ['-d', library]).toString();
     assert.match(dynamic, /SONAME/u, name);
-    assert.doesNotMatch(dynamic, /libstdc\+\+\.so/u, name);
-    const exported = command('nm', ['-D', '--defined-only', '--demangle', library]).toString();
-    assert.doesNotMatch(exported, /\b(?:std::|__gnu_cxx::)/u, name);
-    console.log(`${name}: SONAME and private C++ runtime checked`);
+    if (name.startsWith('libjxl')) {
+      hasJxlDso = true;
+      hasSystemCxx ||= dynamic.includes('libstdc++.so.6');
+      console.log(`${name}: native SONAME and system runtime dependency checked`);
+    } else {
+      assert.doesNotMatch(dynamic, /libstdc\+\+\.so/u, name);
+      const exported = command('nm', ['-D', '--defined-only', '--demangle', library]).toString();
+      assert.doesNotMatch(exported, /\b(?:std::|__gnu_cxx::)/u, name);
+      console.log(`${name}: SONAME and private C++ runtime checked`);
+    }
+  }
+  if (hasJxlDso) {
+    assert.ok(hasSystemCxx, 'JPEG XL native system C++ runtime dependency');
   }
 } finally {
   rmSync(folder, { recursive: true, force: true });

@@ -1307,7 +1307,7 @@ describe('codec libraries', () => {
       ships: { encoders: ['libxavs2'] },
     },
     uavs3d: {
-      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      platforms: PLATFORMS.filter((p) => !['win-arm64', 'android-x64'].includes(p)),
       recipes: ['uavs3d'],
       flags: ['--enable-libuavs3d'],
       licenses: ALL,

@@ -139,8 +139,7 @@ describe('liblc3', () => {
   });
 });
 
-// codec2's library alone, its codebook generator compiled for the build machine first and handed to the CMake as an
-// imported program (its own cross build of the generator inherits the target's compiler).
+// Codec2's native host generator gets a clean build environment; target configuration and install metadata stay native.
 describe('codec2', () => {
   it.each(platformsOf('codec2'))('%s', async (platform) => {
     const h = fake(platform);
@@ -152,12 +151,34 @@ describe('codec2', () => {
       join(h.src, 'CMakeLists.txt'),
       `if(WIN32)\n    install(SCRIPT \${CMAKE_BINARY_DIR}/cmake/GetDependencies.cmake)\nendif()\n`,
     );
+    put(
+      join(h.src, '_build', 'src', 'CMakeFiles', 'Export', 'native', 'codec2-config.cmake'),
+      'native install export\n',
+    );
+    put(
+      join(h.src, '_build', 'src', 'CMakeFiles', 'Export', 'native', 'codec2-config-release.cmake'),
+      'native Release export\n',
+    );
     await build(h, 'codec2');
-    const unset = ['CC', 'CFLAGS', 'CPPFLAGS', 'LDFLAGS', 'SDKROOT']
+    const unset = [
+      'AR',
+      'CC',
+      'CFLAGS',
+      'CMAKE_FIND_ROOT_PATH',
+      'CMAKE_PREFIX_PATH',
+      'CMAKE_TOOLCHAIN_FILE',
+      'CPPFLAGS',
+      'CXX',
+      'CXXFLAGS',
+      'LDFLAGS',
+      'PKG_CONFIG_LIBDIR',
+      'PKG_CONFIG_PATH',
+      'RANLIB',
+      'SDKROOT',
+    ]
       .filter((k) => h.base[k] !== undefined)
       .map((k) => `-${k}`);
     expect(commands(h)).toEqual([
-      `cc -O2 -o generate_codebook_host src/generate_codebook.c -lm${unset.length ? ` [${unset.join(' ')}]` : ''}`,
       [
         'cmake',
         '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
@@ -172,16 +193,28 @@ describe('codec2', () => {
         '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
         '-DUNITTEST=OFF',
         '-DLPCNET=OFF',
-        `-DGENERATE_CODEBOOK=${h.src}/generate_codebook_host`,
         ...h.context.toolchain.cmakeArgs,
       ].join(' '),
-      'cmake --build _build --target codec2 -j4',
-      'cmake --install _build',
+      `cmake --build _build --target codec2 -j4${unset.length ? ` [${unset.join(' ')}]` : ''}`,
+      ...(platform.startsWith('win-')
+        ? [
+            'cmake --install _build --component lib',
+            'cmake --install _build --component dev',
+            'cmake --install _build --component codec2_devel',
+          ]
+        : ['cmake --install _build']),
     ]);
     expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toBe(
-      `if(DEFINED GENERATE_CODEBOOK)\n    add_executable(generate_codebook IMPORTED)\n    set_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION \${GENERATE_CODEBOOK})\nelseif(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)\n    include(ExternalProject)\n`,
+      'if(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)\n    include(ExternalProject)\n',
     );
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('if(WIN32)\n    \nendif()\n');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      `if(WIN32)\n    install(SCRIPT \${CMAKE_BINARY_DIR}/cmake/GetDependencies.cmake)\nendif()\n`,
+    );
+    expect(h.files(h.deps)).toEqual(
+      platform.startsWith('win-')
+        ? ['lib/cmake/codec2/codec2-config-release.cmake', 'lib/cmake/codec2/codec2-config.cmake']
+        : [],
+    );
   });
 });
 
@@ -434,7 +467,7 @@ describe('xavs', () => {
       `./configure --prefix=${h.deps} --disable-asm --enable-pic${cross}`,
       'make -j4 libxavs.a',
     ]);
-    expect(h.read(join(h.src, 'configure'))).toBe('    DEVNULL="/dev/null"\n');
+    expect(h.read(join(h.src, 'configure'))).toBe('    DEVNULL="NUL"\n');
     expect(h.files(h.deps)).toEqual(['include/xavs.h', 'lib/libxavs.a']);
   });
   it('follows the mirror of r55, and ships its GPL notice', () => {
@@ -444,10 +477,12 @@ describe('xavs', () => {
   });
 });
 
-// uavs3d: CMake, 10-bit (which decodes 8-bit too).
+// uavs3d: native CMake 10-bit and the upstream Android ARM64 8-bit NDK module.
 describe('uavs3d', () => {
-  it('builds everywhere but win-arm64', () => {
-    expect(platformsOf('uavs3d')).toEqual(PLATFORMS.filter((p) => p !== 'win-arm64'));
+  it('omits unsupported Windows ARM64 and generic Android x64 producers', () => {
+    expect(platformsOf('uavs3d')).toEqual(
+      PLATFORMS.filter((p) => !['win-arm64', 'android-x64'].includes(p)),
+    );
   });
   it.each(platformsOf('uavs3d'))('%s', async (platform) => {
     const h = fake(platform);
@@ -458,22 +493,36 @@ describe('uavs3d', () => {
       join(h.src, 'source', 'decoder', 'uavs3d.c'),
       'printf("libuavs3d(%2d): %s_%s, %s\\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);\n',
     );
+    put(join(h.src, '_ndk', 'obj', 'local', 'arm64-v8a', 'libuavs3d.a'), '!<arch>\n');
+    put(join(h.src, 'source', 'decoder', 'uavs3d.h'), 'native public header\n');
     await build(h, 'uavs3d');
     expect(commands(h)).toEqual(
-      cmakeLines(h, ['-DCOMPILE_10BIT=1']).map((line) =>
-        line === 'cmake --build _build -j4' ? `${line} --target uavs3d` : line,
-      ),
+      platform === 'android-arm64'
+        ? [
+            'sh ./version.sh',
+            `build/android/ndk/jni$ ${env(h, 'ANDROID_NDK_HOME')}/ndk-build ` +
+              `NDK_PROJECT_PATH=${h.src}/build/android/ndk APP_BUILD_SCRIPT=${h.src}/build/android/ndk/jni/Android.mk ` +
+              `NDK_APPLICATION_MK=${h.src}/build/android/ndk/jni/Application.mk APP_ABI=arm64-v8a ` +
+              `APP_PLATFORM=android-${env(h, 'API')} APP_MODULES=uavs3d-static APP_OPTIM=release ` +
+              `APP_CFLAGS=${env(h, 'CFLAGS')} -ffile-prefix-map=${h.src}=/work/src/uavs3d ` +
+              `NDK_OUT=${h.src}/_ndk/obj NDK_LIBS_OUT=${h.src}/_ndk/libs -j4 V=1`,
+          ]
+        : cmakeLines(h, ['-DCOMPILE_10BIT=1']).map((line) =>
+            line === 'cmake --build _build -j4' ? `${line} --target uavs3d` : line,
+          ),
     );
     // its decoder program is left out of the build
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
       `add_executable(uavs3dec \${DIR_SRC_TEST})\n`,
     );
-    // Android has no libpthread to link: neither the library nor its .pc names it there
-    expect(h.read(cmake)).toBe(
-      platform.startsWith('android-')
-        ? 'if(FALSE)\nif(FALSE)\n'
-        : 'if(CMAKE_USE_PTHREADS_INIT)\nif(CMAKE_USE_PTHREADS_INIT)\n',
+    expect(h.read(cmake)).toBe('if(CMAKE_USE_PTHREADS_INIT)\nif(CMAKE_USE_PTHREADS_INIT)\n');
+    expect(h.files(h.deps)).toEqual(
+      platform === 'android-arm64'
+        ? ['include/uavs3d.h', 'lib/libuavs3d.a', 'lib/pkgconfig/uavs3d.pc']
+        : [],
     );
+    const ndkPc = platform === 'android-arm64' ? h.read(pcPath(h, 'uavs3d')) : '';
+    expect(ndkPc).not.toContain('-lpthread');
   });
 });
 

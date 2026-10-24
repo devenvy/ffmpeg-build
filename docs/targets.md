@@ -277,8 +277,8 @@ are not bundled; upstream can load separately installed system decryption
 libraries. BD-J remains disabled. Physical drives and protected media are untested.
 JPEG XL (`libjxl`), Brotli and Highway offer independent static and bundled shared choices on Linux x64.
 All three default to static. Bundled JPEG XL includes its encoder/decoder, thread runner and CMS libraries;
-the decoder-only upstream library is not installed. The shared C++ libraries carry a private static C++ runtime
-and use the common system unwinder. Mixed choices preserve each dependency's selected mode. Maintained runtime
+the decoder-only upstream library is not installed. Shared JPEG XL retains the native system C++ runtime and
+common system unwinder. Mixed choices preserve each dependency's selected mode. Maintained runtime
 checks cover lossless RGB, alpha and true 16-bit pixels, multiple frames and threads, bounded lossy error,
 and installed C/C++ SDKs, including Brotli compression/dictionaries and Highway vector dispatch.
 ARIB caption libraries (`aribb24`, `libaribcaption`), Teletext (`zvbi`) and DeckLink ancillary data (`libklvanc`)
@@ -415,7 +415,7 @@ ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Li
 and their existing format choices. libsndfile serves PulseAudio's native sample-upload API, which is retained
 in the shared client closure even when an application only records or plays audio.
 
-Shared ModPlug, OpenMPT and OpenColorIO retain their native system C++ runtime dependency (`libstdc++.so.6` on Linux).
+Shared ModPlug, OpenMPT, OpenColorIO and JPEG XL retain their native system C++ runtime dependency (`libstdc++.so.6` on Linux).
 The recipient needs a compatible runtime, commonly `libstdc++6` on Debian/Ubuntu or `libstdc++` on Fedora.
 These package names are suggestions; runtime compatibility still depends on the compiler and target system.
 On Linux x64, the LV2 host libraries `lilv`, `serd`, `sord`, `sratom` and `zix` default to static linking and
@@ -775,11 +775,15 @@ this makes no compatibility promise about separately installed distro libraries.
 These choices use the same existing license checks as their static versions.
 `link: { uavs3d: shared }` bundles the AVS3 decoder on Linux x64. Static remains
 the default. The shared library exposes the complete installed C SDK while
-keeping internal dispatch symbols private. Upstream does not version its
-SONAME, so the engine uses the full library version (`libuavs3d.so.1.2` for
-1.2), without claiming compatibility with distro packages. Static and shared
+keeping internal dispatch symbols private. It retains the native unversioned
+`libuavs3d.so` name; keep it with the matching FFmpeg build. Static and shared
 canaries decode an authored eight-frame stream with one and two threads,
 requiring exact agreement with the encoder's reconstruction through EOF.
+Upstream writes a decoder-creation diagnostic to stdout. Use file output with this decoder; its binary stdout
+streams contain that diagnostic and are unsuitable for media piping.
+Android ARM64 uses upstream's NDK build and supports 8-bit streams only. Other supported platforms use its
+native 10-bit CMake configuration, which also decodes 8-bit streams. Generic Android x64 is unavailable because
+the native NDK configuration forces an AVX2 CPU baseline.
 
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.
