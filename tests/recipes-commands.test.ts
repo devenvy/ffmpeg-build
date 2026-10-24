@@ -3,7 +3,8 @@
 // their environment and the files with what the old `shell:` step did, as read from it (quoted in the comments).
 // The old steps ran `cmake` through a helper that added -DCMAKE_POLICY_VERSION_MINIMUM=3.5 first to every cmake call
 // but --build and --install.
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -275,6 +276,9 @@ describe('libvpx', () => {
           `static const char *cfg = "${call.args.join(' ')}";\n`,
         );
       }
+      if (call.command === 'make' && call.args[0] === 'install') {
+        h.write(pcPath(h, 'vpx'), 'prefix=/opt/ffmpeg-build/deps\n');
+      }
       return undefined;
     };
     await build(h, 'libvpx');
@@ -284,7 +288,7 @@ describe('libvpx', () => {
     expect(h.calls.map((c) => [c.command, ...c.args])).toEqual([
       [
         './configure',
-        `--prefix=${h.deps}`,
+        '--prefix=/opt/ffmpeg-build/deps',
         '--disable-shared',
         '--enable-static',
         '--enable-vp8',
@@ -298,7 +302,7 @@ describe('libvpx', () => {
         ...args,
       ],
       ['make', '-j4'],
-      ['make', 'install'],
+      ['make', 'install', `DIST_DIR=${h.deps}`],
     ]);
     for (const call of h.calls) {
       expect(call.env).toEqual(crossPrefix ? { CROSS: crossPrefix } : {});
@@ -559,9 +563,7 @@ describe('zimg', () => {
       '--enable-static',
       '--with-pic',
       ...(host[platform] ? [`--host=${host[platform]}`] : []),
-      ...(platform === 'win-arm64'
-        ? [`CXXFLAGS=-O2 -include exception -I${h.src}/_zimg-compat`]
-        : []),
+      ...(platform === 'win-arm64' ? ['--disable-simd', 'CXXFLAGS=-O2 -include exception'] : []),
     ];
     expect(commands(h)).toEqual([
       './autogen.sh',
@@ -572,12 +574,7 @@ describe('zimg', () => {
     expect(h.read(pcPath(h, 'zimg'))).toBe(
       `Libs: -L\${libdir} -lzimg\nLibs.private: -lstdc++ -lm\n`,
     );
-    expect(h.files(h.src)).toEqual(platform === 'win-arm64' ? ['_zimg-compat/Windows.h'] : []);
-    // only win-arm64 writes the compat header; elsewhere the folder is empty, as checked above
-    const header = join(h.src, '_zimg-compat', 'Windows.h');
-    expect(existsSync(header) ? h.read(header) : undefined).toBe(
-      platform === 'win-arm64' ? '#pragma once\n#include <windows.h>\n' : undefined,
-    );
+    expect(h.files(h.src)).toEqual([]);
   });
 });
 
@@ -642,8 +639,12 @@ describe('moltenvk', () => {
         join(dylibs, 'MoltenVK_icd.json'),
         '{\n  "file_format_version": "1.0.0",\n  "ICD": {\n    "library_path" : "../../../Lib/libMoltenVK.dylib",\n    "api_version": "1.4.0"\n  }\n}\n',
       );
+      h.onRun = (call) =>
+        call.command === 'node'
+          ? execFileSync(process.execPath, call.args, { encoding: 'utf8' })
+          : undefined;
       await build(h, 'moltenvk');
-      expect(commands(h)).toEqual([
+      expect(commands(h).filter((line) => !line.startsWith('node '))).toEqual([
         './fetchDependencies --macos',
         'make macos',
         `strip -S -x ${h.deps}/lib/libMoltenVK.dylib`,
@@ -651,6 +652,9 @@ describe('moltenvk', () => {
       expect(h.files(join(h.deps, 'lib'))).toEqual(['MoltenVK_icd.json', 'libMoltenVK.dylib']);
       expect(h.read(join(h.deps, 'lib', 'MoltenVK_icd.json'))).toContain(
         '"library_path": "./libMoltenVK.dylib",',
+      );
+      expect(JSON.parse(h.read(join(dylibs, 'MoltenVK_icd.json'))).ICD.library_path).toBe(
+        '../../../Lib/libMoltenVK.dylib',
       );
     },
   );
@@ -810,6 +814,10 @@ describe('shaderc', () => {
       pcPath(h, 'shaderc'),
       `Libs: -L\${libdir} -lshaderc_shared\nLibs.private: -lpthread\n`,
     );
+    writeFileSync(
+      pcPath(h, 'shaderc_combined'),
+      `Name: native combined metadata\nLibs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread\n`,
+    );
     for (const path of [
       'lib/libshaderc_shared.so',
       'lib/libshaderc_shared.so.1',
@@ -829,12 +837,13 @@ describe('shaderc', () => {
       'cmake --build _build --target install -j 4',
     ]);
     expect(h.read(pcPath(h, 'shaderc'))).toBe(
-      `Libs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread ${rt(platform)} -lm\n`,
+      `Name: native combined metadata\nLibs: -L\${libdir} -lshaderc_combined\nLibs.private: -lpthread ${rt(platform)} -lm\n`,
     );
     expect(h.files(h.deps)).toEqual([
       'bin/spirv-as',
       'lib/libshaderc_combined.a',
       'lib/pkgconfig/shaderc.pc',
+      'lib/pkgconfig/shaderc_combined.pc',
     ]);
   });
 });

@@ -24,7 +24,7 @@ linkage:
       platforms: [linux-x64]
       vars:
         library-args: [--enable-shared, --disable-static]
-        runtime-link-flags: '-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs'
+        runtime-link-flags: '-shared-libgcc -pthread -Wl,-z,defs'
         shared-mode: 'yes'
       runtime: ['lib/libopenmpt.so*']
 build:
@@ -63,22 +63,6 @@ build:
     # C++20's <memory> pulls in std::mutex, which win32-thread GCC 13 (win-x64's mingw-w64) only has when targeting
     # Vista or later
     win-x64: { env: { CPPFLAGS: '+= -D_WIN32_WINNT=0x0601' } }
-  before:
-    # Libtool uses -nostdlib and explicitly appends -lstdc++; the driver flag
-    # alone cannot make that dependency private. Keep the native C++ tag and
-    # public SDK, replacing only its compiler-discovered C++ runtime archive.
-    - replace-in-file:
-        path: configure
-        from: 'case " $postdeps_CXX " in'
-        to: |
-          ffb_postdeps_CXX=
-          for ffb_lib in $postdeps_CXX; do
-            case "$ffb_lib" in -lstdc++) ffb_lib='-l:libstdc++.a';; esac
-            ffb_postdeps_CXX="$ffb_postdeps_CXX $ffb_lib"
-          done
-          postdeps_CXX="$ffb_postdeps_CXX"
-          case " $postdeps_CXX " in
-      when: { set: '{shared-mode}' }
   after:
     - run:
         - python3

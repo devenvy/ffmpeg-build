@@ -18,7 +18,7 @@ linkage:
         shared-args:
           - -DBUILD_SHARED_LIBS=ON
           - -DJPEGXL_STATIC=OFF
-          - '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a -Wl,-z,defs'
+          - '-DCMAKE_SHARED_LINKER_FLAGS=-shared-libgcc -Wl,-z,defs'
       runtime: ['lib/libjxl.so*', 'lib/libjxl_threads.so*', 'lib/libjxl_cms.so*']
 build:
   # libjxl: JPEG XL reference codec (BSD-3-Clause), static. Ported from devenvy/ffmpeg scripts/deps/libjxl.sh.
@@ -60,14 +60,6 @@ build:
   # the Libs.private of the two .pc files FFmpeg's configure asks for (libjxl, libjxl_threads) when not already there.
   # (libjxl 0.12's own libjxl.pc already lists -lstdc++ on GNU toolchains; libjxl_threads.pc, std::thread based, doesn't.)
   vars: { cxx-libs: '{cxx-runtime}', shared-args: [], shared-mode: '' }
-  before:
-    # CMS omits the export rule used by the encoder and threads libraries.
-    # Apply upstream's same public Jxl API rule to hide weak std templates.
-    - replace-in-file:
-        path: lib/jxl_cms.cmake
-        from: 'target_link_libraries(jxl_cms PRIVATE hwy)'
-        to: "target_link_libraries(jxl_cms PRIVATE hwy)\nset_property(TARGET jxl_cms APPEND_STRING PROPERTY LINK_FLAGS \" -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/jxl/jxl.version\")"
-      when: { set: '{shared-mode}' }
   platforms:
     'android-*': { vars: { cxx-libs: '{cxx-runtime} -llog' } }
   after:

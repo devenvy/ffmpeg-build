@@ -27,9 +27,9 @@ for source, compiler in [('public-api.c', cc), ('public-api.cc', cxx)]:
                 '-L' + str(library_dir), *flags, '-Wl,-rpath-link,' + str(library_dir), '-o', executable]
     subprocess.run(command, check=True, env=environment)
     subprocess.run([executable], check=True, timeout=30, env=environment)
-library = library_dir / 'libaribcaption.so.1.1.2'
+library = library_dir / 'libaribcaption.so'
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
-assert '[libaribcaption.so.1.1.2]' in dynamic, dynamic
+assert '[libaribcaption.so]' in dynamic, dynamic
 assert 'libstdc++.so' not in dynamic, dynamic
 assert 'libgcc_s.so.1' in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', '--demangle', library], text=True)
@@ -37,4 +37,4 @@ for line in symbols.splitlines():
     symbol = line.split(maxsplit=2)[2]
     assert not symbol.startswith(('FT_', 'Fc', 'XML_', 'png_', 'inflate', 'deflate', 'crc32', 'adler32')), symbol
 subprocess.run([sys.executable, str(recipe / 'check-allocator.py'), deps, output, cxx], check=True)
-print('libaribcaption: installed SDK, versioned SONAME and runtime dependencies passed')
+print('libaribcaption: installed SDK, native SONAME and runtime dependencies passed')

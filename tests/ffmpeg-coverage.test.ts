@@ -138,7 +138,8 @@ describe('ffmpeg/unsupported.yml', () => {
     expect(
       parseUnsupported(
         `${ok}  libvidstab: { reason: pending, issue: 21, batch: d, note: vidstab }\n  libcelt: { reason: deprecated-upstream, majors: [8], note: CELT }\n` +
-          '  libsmbclient: { reason: shared-only, note: Samba }\n',
+          '  libsmbclient: { reason: shared-only, note: Samba }\n' +
+          '  metal: { reason: upstream-incompatible, note: Upstream runtime fix required }\n',
       ),
     ).toEqual({
       batches: { d: 'Filters' },
@@ -146,6 +147,7 @@ describe('ffmpeg/unsupported.yml', () => {
         libvidstab: { reason: 'pending', issue: 21, batch: 'd', note: 'vidstab' },
         libcelt: { reason: 'deprecated-upstream', majors: ['8'], note: 'CELT' },
         libsmbclient: { reason: 'shared-only', note: 'Samba' },
+        metal: { reason: 'upstream-incompatible', note: 'Upstream runtime fix required' },
       },
     });
   });

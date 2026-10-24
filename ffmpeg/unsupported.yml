@@ -13,6 +13,7 @@
 #            alternative-built: another option does the same job; needs instead: (that option)
 #            shared-only: its library needs a shared dependency chain that has not been integrated and verified;
 #              shared linking itself is supported (for example, Samba)
+#            upstream-incompatible: supported releases/toolchains need an upstream fix; the engine carries no patch
 #   note    what it is, and anything a contributor should know
 #   majors   optional: the FFmpeg majors the entry is for (default: every major that offers it)
 #
@@ -25,6 +26,12 @@ batches:
   g: Nonfree (nonfree builds only)
   h: Large ML backends (last; where they build reasonably)
 options:
+  metal:
+    reason: upstream-incompatible
+    note: >-
+      The yadif_videotoolbox filter in current FFmpeg 8.1.3/9.0.2 releases has an autorelease ownership crash.
+      Upstream fix 7f2e5cdd7c3ad502141c918bac13e2a31b4829c0 must ship in a compatible release and pass native
+      runtime verification before this is offered again; the engine does not backport it.
   # g. Nonfree (nonfree builds only)
 
   # not planned

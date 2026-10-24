@@ -89,11 +89,11 @@ for (let channel = 0; channel < CHANNELS; channel++) {
     energy(channel, FREQUENCIES[channel]) > ENERGY_RATIO * energy(channel, REFERENCE_FREQUENCY),
   );
 }
-const shared = join(dirname(ffmpeg), 'libmpeghdec.so.4.0.1');
+const shared = join(dirname(ffmpeg), 'libmpeghdec.so');
 if (existsSync(shared)) {
   const elf = spawnSync('readelf', ['-d', shared], { encoding: 'utf8', timeout: TIMEOUT });
   assert.equal(elf.status, 0, elf.stderr);
-  assert.ok(elf.stdout.includes('[libmpeghdec.so.4.0.1]'));
+  assert.ok(elf.stdout.includes('[libmpeghdec.so]'));
   assert.doesNotMatch(elf.stdout, /libstdc\+\+\.so/);
 }
 console.log(

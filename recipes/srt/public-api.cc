@@ -8,7 +8,7 @@
 
 int main() {
   assert(UDT::startup() == 0);
-  const SRTSOCKET socket = UDT::socket();
+  const SRTSOCKET socket = srt_create_socket();
   assert(socket != UDT::INVALID_SOCK);
   const SRTSOCKET legacy_socket = UDT::socket(AF_INET, SOCK_DGRAM, 0);
   const SRTSOCKET c_socket = srt_create_socket();

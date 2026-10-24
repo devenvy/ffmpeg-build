@@ -12,7 +12,12 @@ platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*, ios-*, maccataly
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      conflicts-link:
+        xeve:
+          modes: [static]
+          platforms: ['*-arm64']
+          reason: 'Upstream libraries define incompatible sad_16b_neon_8x2n helpers. Omit either oapv or xeve on ARM64.'
     shared:
       platforms: [linux-x64]
       vars:
@@ -42,8 +47,3 @@ build:
       -DOAPV_BUILD_APPS=OFF,
       -DENABLE_TESTS=OFF,
     ]
-  before:
-    # a NEON helper it forgot to make static, which XEVE's library defines under the same name: renamed, so a build
-    # with both links on ARM
-    - replace-in-file:
-        { path: src/neon/oapv_sad_neon.c, from: sad_16b_neon_8x2n, to: oapv_sad_16b_neon_8x2n }

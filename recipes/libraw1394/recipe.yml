@@ -1,6 +1,8 @@
 name: libraw1394
 license: LGPL-2.1-or-later
 license-files: [COPYING.LIB]
+configure:
+  - '--extra-cflags=-D_DEFAULT_SOURCE': { platforms: [linux-musl-*] }
 source:
   url: 'https://www.kernel.org/pub/linux/libs/ieee1394/libraw1394-{version}.tar.xz'
   mirrors: ['https://mirrors.edge.kernel.org/pub/linux/libs/ieee1394/libraw1394-{version}.tar.xz']
@@ -39,17 +41,13 @@ build:
     }
   env: { LDFLAGS: '+= {shared-ldflags?}' }
   args: ['{shared-arg}', '{static-arg}', --with-pic]
-  before:
-    # its public raw1394.h types its API with the BSD u_intN_t, which musl's <sys/types.h> leaves out under FFmpeg's
-    # -D_POSIX_C_SOURCE/-D_XOPEN_SOURCE: the same types as <stdint.h>'s uintN_t
-    - replace-in-file:
-        {
-          path: src/raw1394.h,
-          from: '#include <sys/types.h>',
-          to: "#include <sys/types.h>\n#include <stdint.h>",
-        }
-    - replace-in-file:
-        { path: src/raw1394.h, from: '\bu_int(8|16|32|64)_t\b', to: 'uint$1_t', regex: true }
+  platforms:
+    # musl's documented feature-test macro exposes the BSD typedefs used by the unchanged upstream header.
+    'linux-musl-*':
+      env: { CPPFLAGS: '+= -D_DEFAULT_SOURCE' }
+      after:
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/libraw1394.pc', cflags: { add: -D_DEFAULT_SOURCE } }
   after:
     - run:
         - python3

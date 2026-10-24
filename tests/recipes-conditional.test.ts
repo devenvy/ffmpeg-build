@@ -112,7 +112,7 @@ describe('srt', () => {
       put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
       writeFileSync(pcPath(h, 'srt'), installed(h));
       await build(h, 'srt');
-      expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toContain('return srt::CUDT::socket();');
+      expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toBe(source);
       const encryption = mbedtls
         ? [
             '-DENABLE_ENCRYPTION=ON',
@@ -177,11 +177,13 @@ describe('srt', () => {
     seedSrt(h);
     await expect(build(h, 'srt')).rejects.toThrow(/no libsrt\*\.a found/);
   });
-  it('rejects an unrecognized legacy namespace before building', async () => {
+  it('builds without inspecting or rewriting the legacy namespace', async () => {
     const h = fake('linux-x64');
     put(join(h.src, 'srtcore', 'api.cpp'), 'namespace changed {}\n');
-    await expect(build(h, 'srt')).rejects.toThrow(/replace-in-file/);
-    expect(commands(h)).toEqual([]);
+    writeFileSync(pcPath(h, 'srt'), 'Libs: -lsrt\nLibs.private: -lm\n');
+    await build(h, 'srt');
+    expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toBe('namespace changed {}\n');
+    expect(commands(h).length).toBeGreaterThan(0);
   });
 });
 
@@ -296,12 +298,13 @@ describe('whisper.cpp', () => {
       p === 'win-x64'
         ? ['-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -g', '-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -g']
         : [];
-    const compat = p.startsWith('win-')
-      ? [
-          `-DCMAKE_C_FLAGS=-include ${h.src}/win_ggml_compat.h`,
-          `-DCMAKE_CXX_FLAGS=-include ${h.src}/win_ggml_compat.h`,
-        ]
-      : [];
+    const compat =
+      p === 'win-x64'
+        ? [
+            `-DCMAKE_C_FLAGS=${h.context.env['CFLAGS'] ?? ''} -D_WIN32_WINNT=0x0601 -DWINVER=0x0601`,
+            `-DCMAKE_CXX_FLAGS=${h.context.env['CXXFLAGS'] ?? ''} -D_WIN32_WINNT=0x0601 -DWINVER=0x0601`,
+          ]
+        : [];
     const cxxStatic = p.startsWith('linux-musl-') ? '-l:libstdc++.a' : '-lstdc++';
     let cpuSys = `${cxxStatic} -lm -lpthread`;
     if (p.startsWith('android-')) {
@@ -356,9 +359,6 @@ describe('whisper.cpp', () => {
       sys: '-lvulkan -lstdc++ -lm -lpthread',
     };
   }
-  const COMPAT =
-    '#ifndef WHISPER_WIN_GGML_COMPAT_H\n#define WHISPER_WIN_GGML_COMPAT_H\n#include <windows.h>\n#ifndef THREAD_POWER_THROTTLING_CURRENT_VERSION\ntypedef struct _THREAD_POWER_THROTTLING_STATE {\n    ULONG Version; ULONG ControlMask; ULONG StateMask;\n} THREAD_POWER_THROTTLING_STATE, *PTHREAD_POWER_THROTTLING_STATE;\n#define THREAD_POWER_THROTTLING_CURRENT_VERSION 1\n#define THREAD_POWER_THROTTLING_EXECUTION_SPEED 0x1\n#define THREAD_POWER_THROTTLING_VALID_FLAGS THREAD_POWER_THROTTLING_EXECUTION_SPEED\n#endif\n#endif\n';
-
   // the -l flags and archives each GPU backend adds beside the CPU ones
   const backendFlags: Record<string, string[]> = {
     metal: ['-lggml-metal', '-lggml-blas'],
@@ -399,11 +399,7 @@ describe('whisper.cpp', () => {
             'libggml.a',
           ].sort(),
         );
-        // only Windows gets the compat header
-        const compatHeader = join(h.src, 'win_ggml_compat.h');
-        expect(existsSync(compatHeader) ? h.read(compatHeader) : undefined).toBe(
-          platform.startsWith('win-') ? COMPAT : undefined,
-        );
+        expect(existsSync(join(h.src, 'win_ggml_compat.h'))).toBe(false);
       },
     );
   }

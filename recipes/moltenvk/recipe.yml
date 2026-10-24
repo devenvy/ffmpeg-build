@@ -104,11 +104,17 @@ build:
       when: { platforms: [osx-*], unset: '{static-moltenvk}' }
     - copy: { from: '{icd}', to: '{deps}/lib/MoltenVK_icd.json' }
       when: { platforms: [osx-*], unset: '{static-moltenvk}' }
-    - replace-in-file:
-        path: '{deps}/lib/MoltenVK_icd.json'
-        from: '"library_path"\s*:\s*"[^"]*"'
-        to: '"library_path": "./libMoltenVK.dylib"'
-        regex: true
+    - run:
+        - node
+        - --input-type=module
+        - -e
+        - |
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = process.argv[1];
+          const manifest = JSON.parse(readFileSync(path, 'utf8'));
+          manifest.ICD.library_path = './libMoltenVK.dylib';
+          writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+        - '{deps}/lib/MoltenVK_icd.json'
       when: { platforms: [osx-*], unset: '{static-moltenvk}' }
     # Xcode's Release build keeps a debug map naming its object files (in DerivedData, under the home folder), which
     # the staged-binary check rejects; drop it and the local symbols, as FFmpeg's install does to its own libraries.

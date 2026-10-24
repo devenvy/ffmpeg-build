@@ -24,6 +24,7 @@ linkage:
       platforms: [linux-x64]
       vars:
         shared-library-arg: -DBUILD_SHARED_LIBS=ON
+        library-files: '_build/libilbc.so*'
         runtime-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a'
       runtime: ['lib/libilbc.so*']
 build:
@@ -31,37 +32,40 @@ build:
   # static, for FFmpeg's libilbc decoder and encoder. It compiles against abseil-cpp's headers (a submodule; nothing of
   # abseil is linked).
   #
-  # - Its CMakeLists sets CMAKE_C_FLAGS and CMAKE_CXX_FLAGS outright, dropping the platform's (osx-x64's -arch x86_64,
-  #   the -ffile-prefix-map that keeps build folders out of the binaries): its warnings are added to them instead.
-  # - Its two test programs are built and installed with the library (and an iOS executable is an app bundle CMake
-  #   wants a destination for): left out of the default build and the install. The docs it installs are removed.
-  system: cmake
-  vars: { shared-library-arg: [], runtime-link-arg: [] }
-  args: ['{shared-library-arg}', '{runtime-link-arg}']
-  before:
-    - replace-in-file:
-        {
-          path: CMakeLists.txt,
-          from: 'set(CMAKE_C_FLAGS "-Wall',
-          to: 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall',
-        }
-    - replace-in-file:
-        {
-          path: CMakeLists.txt,
-          from: 'set(CMAKE_CXX_FLAGS "-Wall',
-          to: 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall',
-        }
-    - replace-in-file:
-        {
-          path: CMakeLists.txt,
-          from: 'add_executable\((ilbc_test2?) ',
-          to: 'add_executable($1 EXCLUDE_FROM_ALL ',
-          regex: true,
-        }
-    - replace-in-file:
-        { path: CMakeLists.txt, from: install(TARGETS ilbc ilbc_test, to: install(TARGETS ilbc }
+  # Upstream overwrites global and Release compiler flags. Its standard RelWithDebInfo configuration accepts
+  # target flags without edits. Build only the native library target, and package its full native SDK outputs.
+  system: none
+  vars:
+    {
+      shared-library-arg: -DBUILD_SHARED_LIBS=OFF,
+      runtime-link-arg: [],
+      library-files: _build/libilbc.a,
+    }
+  steps:
+    - [
+        cmake,
+        -B,
+        _build,
+        -S,
+        .,
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo,
+        '-DCMAKE_INSTALL_PREFIX={deps}',
+        -DCMAKE_INSTALL_LIBDIR=lib,
+        -DCMAKE_INSTALL_INCLUDEDIR=include,
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON,
+        -DCMAKE_MACOSX_BUNDLE=OFF,
+        '-DCMAKE_C_FLAGS_RELWITHDEBINFO={CFLAGS|} -O2 -DNDEBUG',
+        '-DCMAKE_CXX_FLAGS_RELWITHDEBINFO={CXXFLAGS|} -O2 -DNDEBUG',
+        '{shared-library-arg}',
+        '{runtime-link-arg}',
+        '{cmake-cross-args}',
+      ]
+    - [cmake, --build, _build, --target, ilbc, '-j{jobs}']
+    - copy: { from: '{library-files}', into: '{deps}/lib', preserve: true }
+    - copy: { from: ilbc.h, into: '{deps}/include' }
+    - copy: { from: _build/ilbc_export.h, into: '{deps}/include' }
+    - copy: { from: _build/libilbc.pc, into: '{deps}/lib/pkgconfig' }
   after:
-    - remove: { path: '{deps}/share/doc/libilbc', recursive: true }
     - edit-pkg-config:
         {
           path: '{deps}/lib/pkgconfig/libilbc.pc',

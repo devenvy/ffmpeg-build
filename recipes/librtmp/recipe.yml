@@ -5,24 +5,30 @@ license: LGPL-2.1-or-later
 license-files: [librtmp/COPYING]
 configure: [--enable-librtmp]
 needs: [zlib]
-# its encryption (rtmpe, rtmps and SWF verification): GnuTLS where the build has it (Linux, Android and Mac Catalyst,
-# in every licence but lgplv2, as nettle's licence allows); elsewhere plain rtmp and rtmpt only
-uses: [gnutls]
+# Native OpenSSL encryption where its platform/licence permits; otherwise upstream's plain RTMP/RTMPT mode.
+# The native GnuTLS backend requires compatibility fixes, so it is not selected.
+uses: [openssl]
 source: { git: https://git.ffmpeg.org/rtmpdump.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+)$' }
 platforms: all
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      conflicts-link: &native-ssl-provider
+        libressl:
+          modes: [static, shared]
+          platforms: [linux-x64]
+          reason: 'This librtmp route selects OpenSSL; LibreSSL-backed librtmp is not verified. Omit rtmp or libtls from this target.'
     shared:
+      conflicts-link: *native-ssl-provider
       platforms: [linux-x64]
       vars:
         shared: yes
         shared-mode: yes
         library-targets: [librtmp.a, librtmp.so.1, librtmp.pc]
         install-targets: [install_base, install_so]
-        shared-link-arg: 'XLDFLAGS=-L{deps}/lib {LDFLAGS|} -Wl,--exclude-libs,libgnutls.a:libhogweed.a:libnettle.a:libgmp.a:libtasn1.a:libz.a:libatomic.a -Wl,-z,defs'
+        shared-link-arg: 'XLDFLAGS=-L{deps}/lib {LDFLAGS|} -Wl,--exclude-libs,libssl.a:libcrypto.a:libz.a:libatomic.a -Wl,-z,defs'
       runtime: ['lib/librtmp.so*']
 build:
   # librtmp (rtmpdump's library), static, for FFmpeg's librtmp protocols (found through librtmp.pc). With it on, they
@@ -47,105 +53,32 @@ build:
     'ios-*': { vars: { sys: darwin } }
     'maccatalyst-*': { vars: { sys: darwin } }
   steps:
-    # GnuTLS can report internal TLS 1.3 progress without a socket error. librtmp expects POSIX read results.
-    # Retry that progress, preserve actual transport timeouts, and never count negative TLS errors as bytes.
-    - write-file:
-        path: librtmp/ffb_tls_read.h
-        text: |
-          #include <errno.h>
-          extern int RTMP_ctrlC;
-          static int ffb_gnutls_read(gnutls_session_t session, void *buffer, size_t size)
-          {
-            ssize_t result;
-            int transport_error;
-            do {
-              errno = 0;
-              result = gnutls_record_recv(session, buffer, size);
-              transport_error = errno;
-            } while (!RTMP_ctrlC &&
-                     (result == GNUTLS_E_INTERRUPTED ||
-                      (result == GNUTLS_E_AGAIN && transport_error == 0)));
-            if (result < 0) {
-              errno = result == GNUTLS_E_AGAIN ? EAGAIN :
-                      result == GNUTLS_E_INTERRUPTED ? EINTR : EIO;
-              return -1;
-            }
-            return (int)result;
-          }
-      when: { platforms: [linux-x64] }
-    - replace-in-file:
-        path: librtmp/rtmp_sys.h
-        from: "#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)"
-        to: "#include \"ffb_tls_read.h\"\n#define TLS_read(s,b,l)\tffb_gnutls_read(s,b,l)"
-      when: { platforms: [linux-x64] }
-    # Nettle 4 dropped the length argument of its digest functions, which librtmp's GnuTLS code passes: one macro gives
-    # it to Nettle 3 and leaves it out for 4
-    - write-file:
-        path: librtmp/nettle_compat.h
-        text: |
-          #include <nettle/version.h>
-          #if NETTLE_VERSION_MAJOR >= 4
-          #define NETTLE_LENGTH_ARG(n)
-          #else
-          #define NETTLE_LENGTH_ARG(n) n,
-          #endif
-    - replace-in-file:
-        {
-          path: librtmp/rtmp.c,
-          from: "#include <nettle/md5.h>\n",
-          to: "#include <nettle/md5.h>\n#include \"nettle_compat.h\"\n",
-        }
-    - replace-in-file:
-        {
-          path: librtmp/rtmp.c,
-          from: 'md5_digest(ctx,MD5_DIGEST_LENGTH,dig)',
-          to: 'md5_digest(ctx,NETTLE_LENGTH_ARG(MD5_DIGEST_LENGTH)dig)',
-        }
-    - replace-in-file:
-        {
-          path: librtmp/hashswf.c,
-          from: "#include <nettle/hmac.h>\n",
-          to: "#include <nettle/hmac.h>\n#include \"nettle_compat.h\"\n",
-        }
-    - replace-in-file:
-        {
-          path: librtmp/hashswf.c,
-          from: 'hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)',
-          to: 'hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)',
-        }
-    - replace-in-file:
-        {
-          path: librtmp/handshake.h,
-          from: "#include <nettle/hmac.h>\n",
-          to: "#include <nettle/hmac.h>\n#include \"nettle_compat.h\"\n",
-        }
-    - replace-in-file:
-        {
-          path: librtmp/handshake.h,
-          from: 'hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)',
-          to: 'hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)',
-        }
     - vars: { tools: '{host}-' }
       when: { set: '{host}' }
     - find:
-        var: gnutls-library
-        glob: ['{deps}/lib/libgnutls.a', '{deps}/lib/libgnutls.so*']
-    - vars: { crypto: GNUTLS }
-      when: { set: '{gnutls-library}' }
+        var: ssl-library
+        glob: ['{deps}/lib/libssl.a', '{deps}/lib/libssl.so*']
+    - check:
+        file: '{deps}/lib/pkgconfig/openssl.pc'
+        line: 'Name: OpenSSL'
+        message: 'librtmp requires the resolved OpenSSL provider; this prefix contains different or incomplete SSL metadata'
+      when: { set: '{ssl-library}' }
+    - vars: { crypto: OPENSSL }
+      when: { set: '{ssl-library}' }
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'librtmp', 'crypto-link-flags.py'), run_name='__main__')"
         - '{src}/_ffb-rtmp-crypto.txt'
-      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/gnutls.pc' }
+      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/openssl.pc' }
     - read:
         file: '{src}/_ffb-rtmp-crypto.txt'
         pattern: '^(.+)$'
         var: crypto-libs
-        message: 'GnuTLS did not provide a static dependency closure for shared librtmp'
-      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/gnutls.pc' }
-    - vars: { crypto-link-arg: 'LIB_GNUTLS={crypto-libs}' }
-      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/gnutls.pc' }
+        message: 'OpenSSL did not provide a static dependency closure for shared librtmp'
+      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/openssl.pc' }
+    - vars: { crypto-link-arg: 'LIB_OPENSSL={crypto-libs}' }
+      when: { set: '{shared-mode}', exists: '{deps}/lib/pkgconfig/openssl.pc' }
     - vars:
         make-args:
           [

@@ -46,8 +46,8 @@ use borrowed faces, and verify tracked allocators and final destruction.
 
 Shared Cairo bundles its core, GObject and script-interpreter libraries. It keeps
 PNG, PDF, PostScript and SVG output. Optional preload development instrumentation
-(cairo-trace/FDR) is excluded by a shared-only source adaptation because upstream
-has no dedicated disabling option; it is separate from the rendering SDK.
+(cairo-trace/FDR) is omitted from the installed package after the unchanged native build;
+it is separate from the rendering SDK.
 
 Six FFmpeg 8/9 static/shared/mixed targets check exact drawvg pixels. Native SDK
 checks also cover boxed-surface lifetime, PNG and script pixels, vector document
@@ -60,18 +60,33 @@ Latin-9 subtitle conversion and native GNU conversion/error/callback APIs are
 checked; this uses the bundled GNU library rather than Apple's system library.
 Other Apple platforms and Windows retain their existing static recipes.
 
-On musl Linux x64, proxy-libintl offers static and bundled shared modes, defaulting
-to static. It remains GLib's native English-message stub, without translation
-catalog loading. The shared library preserves its mutable text domain and public
-data; native tests also cover GLib's context/plural wrappers and rendered pixels.
-This library is not a replacement for arbitrary system gettext installations.
+Linux uses libc's native gettext implementation, including musl's catalog support.
+GLib's proxy-libintl English-message stubs remain static dependencies on Windows,
+Apple platforms and Android, where this build needs a separate gettext provider.
 
-On Windows x64, `vulkan-shim` defaults to static linking. Selecting
-`link: { vulkan-shim: shared }` bundles `ffb-vulkan-shim.dll`, which Whisper's
-Vulkan backend imports instead of the system Vulkan loader. The DLL loads the
-optional driver on the first API call; FFmpeg still starts and CPU processing
-works without a Vulkan driver. GPU processing requires an installed Vulkan
-driver in either mode. Windows arm64 retains its static recipe.
+Rust libraries on musl use the toolchain's native LLVM static unwinder. The Alpine images provide
+`llvm-libunwind-static`; native builds need that archive too. Rav1e's pkg-config metadata and librsvg's dependency
+discovery retain the upstream `unwind` name. The runtime's complete upstream licence notice is included with both
+recipes. This static runtime does not add a shared library installation requirement to FFmpeg executables.
+
+On Windows, `vulkan-shim` supports static linking only, matching upstream's
+build. The shim loads the system Vulkan loader at run time, so FFmpeg can start
+and process on the CPU without a Vulkan driver. GPU processing requires an
+installed Vulkan driver.
+
+On Windows ARM64, zimg uses upstream's scalar `--disable-simd` build and the compiler's standard
+`-include exception` option. This avoids carrying a compatibility header for the release's Windows header-name
+assumption. Its conversion API remains available; this platform does not claim zimg's SIMD acceleration.
+
+ZeroMQ is unavailable on Windows ARM64 with the current release: its clock implementation requires an upstream
+source fix. LCEVC is unavailable on Windows with the current toolchains: ARM64 has native build incompatibilities,
+and the x64 cross image's MinGW SDK 11 lacks a required thread-description declaration. Windows x64 support can be
+revisited with a verified SDK 12 or newer build. The engine does not supply source fixes or declaration shims.
+
+Libva uses its native Autotools build for static archives. Its driver search defaults to Debian's multiarch
+directory on glibc and `/usr/lib/dri` on musl; set upstream's `LIBVA_DRIVERS_PATH` for another layout.
+Static libva still loads the recipient's graphics driver dynamically. Actual hardware compatibility requires
+testing with that driver.
 
 On Linux x64, `libdrm`, `libva` and `libvpl` accept independent bundled `shared`
 selections and retain static defaults. Shared VA includes both its core and DRM
@@ -134,18 +149,11 @@ chapter timing and FFmpeg playback to EOF. No decryption libraries or keys are b
 encrypted discs require separately installed system libdvdcss, loaded at runtime by upstream.
 Physical drives, CSS and protected regions are not covered by these image tests.
 
-Android x64 offers a bundled shared `cpu-features` choice, retaining the static
-default. It bundles both native `libcpu_features.so` and `libndk_compat.so`;
-Tesseract uses the latter's NDK compatibility API. Both follow Android's 16 KB
-page-alignment requirement. Upstream has no versioned shared ABI and warns that
-public feature bitfields depend on the compiler. Use headers built with the
-same pinned NDK rather than treating these libraries as interchangeable system
-packages. Android arm64 retains its existing static recipe.
-
-Verification runs exact build-compiler SDK helpers on an Android emulator in
-separate detection/setter processes, and uses an FFmpeg library consumer for
-owned OCR text, unchanged pixels and filter EOF. The temporary verification
-build carries those helpers; release packages do not contain test executables.
+Tesseract uses its native Autotools build and CPU detection, including Android's libc APIs.
+It no longer needs the CMake-only `cpu-features` adapter or a separate selection for that dependency.
+Its Linux shared library keeps Autotools' native `libtesseract.so.5` SONAME.
+The Android OCR verification runner checks owned text, unchanged pixels and filter EOF using an FFmpeg SDK
+consumer. Fresh native verification is required after changing build systems; previous patched runs do not establish it.
 On Linux x64, Leptonica and Tesseract retain static defaults and offer bundled
 `shared` selections. Shared Tesseract requires shared Leptonica: their full public
 SDK transfers PIX ownership across the boundary, while Leptonica's custom pixel
@@ -173,13 +181,19 @@ libgpg-error, zlib, xz (liblzma), aom, dav1d, soxr, libbs2b, libogg, libvorbis, 
 libmp3lame, shine, twolame, liblc3, libqrencode, openjpeg, libwebp, libvpx, zimg, snappy, freetype,
 libpng, fribidi, harfbuzz, fontconfig, libass, libexpat, x264, openh264, xvidcore, x265, vvenc, svtav1,
 libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls, pixman, openal-soft, sndio,
-minizip-ng, yaml-cpp, pystring, imath, libvmaf, xavs, libssh and librtmp
-libtheora, opencore-amr, vo-amrwbenc, libilbc, gmp, nettle, libtasn1, gnutls,
-minizip-ng, yaml-cpp, pystring, imath, opencolorio and opencv
+minizip-ng, yaml-cpp, pystring, imath, libvmaf, xavs, libssh, librtmp, opencolorio and opencv
 offer static and bundled shared modes on Linux x64,
 with static as their default. Shared libraries
 are included beside FFmpeg; this setting does not link to an arbitrary system installation. Other recipes reject
 linking overrides until a mode has been verified for them.
+
+BS2B uses its untouched 3.1.0 release configuration on Linux x64 and ARM hard-float only, with libsndfile installed
+for its native configure check. Its obsolete Automake inputs cannot be regenerated with the current tools, and its
+distributed configuration scripts do not recognize the other target triples.
+
+Libgcrypt uses its native `--disable-jent-support` option to omit the optional CPU-timing entropy collector,
+whose generic symbols collide with static LibreSSL. Its OS-backed random generator and SHA3 algorithms remain
+enabled; the build does not rename internal library functions.
 
 Pango and librsvg offer bundled shared choices on Linux x64, retaining static defaults.
 Shared Pango requires shared GLib, Cairo, Fontconfig and HarfBuzz: the native Pango
@@ -193,18 +207,21 @@ included; recipient fonts and Fontconfig configuration are still needed.
 MPEG-H offers `link: { mpeghdec: shared }` on Linux x64, with static as its default.
 The shared library preserves both decoder and UI-manager SDKs and isolates its
 internal FDK symbols, including when FDK AAC is enabled in the same build.
-Upstream does not version its shared ABI, so the engine uses the conservative
-full-version `libmpeghdec.so.4.0.1` SONAME. No system-provider mode is offered.
+Upstream does not version its shared ABI; the bundle retains its native
+`libmpeghdec.so` SONAME. Keep it with the matching FFmpeg build. No system-provider mode is offered.
 The existing nonfree license selection and advisory release warning still apply.
 Whisper offers `link: { whisper.cpp: shared }` on Linux x64 while retaining its
 static default. The complete native runtime includes Whisper, Parakeet, GGML,
 GGML base and CPU libraries, plus GGML Vulkan when that backend is selected.
 All belong to one coherent recipe mode; dynamic backend plugin loading remains
-disabled. The Vulkan loader keeps its own independent linking choice. Private
-C++ code and an embedded static Vulkan loader remain local to the owning library.
+disabled. Linux uses the native shared Vulkan loader shipped by its recipe.
+Private C++ code remains local to the owning library.
 Models are supplied separately. Tests cover real Whisper model inference on CPU
 and software Vulkan, GGML computation and GGUF metadata; no Parakeet inference
 claim is made by the invalid-model SDK check.
+On Windows x64, Whisper selects GGML's native API path without the optional power-throttling override because
+the current GCC SDK lacks its types. This may affect scheduling performance; it does not lower FFmpeg's supported
+Windows baseline. Windows ARM64 keeps the newer SDK's native path.
 
 X11 libraries offer Linux x64 bundled shared modes, retaining static defaults.
 Select `link: { libxcb: shared, libx11: shared, libxext: shared, libxv: shared }`
@@ -238,9 +255,12 @@ OpenAL Soft and sndio retain static defaults and independently accept bundled sh
 Their ALSA implementation keeps its own selection: static ALSA uses builtin plugins, while shared ALSA can
 load the recipient's desktop plugins. Audio device access still requires the recipient's configured audio
 system. sndio can connect to an external sndiod server or use its direct `rsnd/` ALSA backend; no server is bundled.
+Shared ALSA uses one upstream plugin directory: Debian's multiarch directory on glibc, `/usr/lib/alsa-lib`
+on musl. On another distribution, set `ALSA_PLUGIN_DIR` to its installed plugins directory, for example
+`/usr/lib64/alsa-lib` on Fedora. The engine does not add a multi-directory plugin search patch.
 For SFTP and RTMP, `link: { libssh: shared, librtmp: shared }` bundles the selected client libraries.
-Their cryptographic dependencies keep their own linking modes. Linux x64 librtmp normalizes GnuTLS retry
-and error results so TLS 1.3 post-handshake messages do not break RTMPS or bypass socket read timeouts.
+Their cryptographic dependencies keep their own linking modes. librtmp uses upstream's native OpenSSL route;
+the engine does not adapt GnuTLS return values or carry cryptographic API compatibility headers.
 The maintained checks use local SSH, RTMP and TLS servers; they do not require remote service credentials.
 Blu-ray and UDF reading offer independent Linux x64 static and bundled shared
 choices: `link: { libbluray: shared, libudfread: shared }`. Static remains the
@@ -253,25 +273,39 @@ are not bundled; upstream can load separately installed system decryption
 libraries. BD-J remains disabled. Physical drives and protected media are untested.
 JPEG XL (`libjxl`), Brotli and Highway offer independent static and bundled shared choices on Linux x64.
 All three default to static. Bundled JPEG XL includes its encoder/decoder, thread runner and CMS libraries;
-the decoder-only upstream library is not installed. The shared C++ libraries carry a private static C++ runtime
-and use the common system unwinder. Mixed choices preserve each dependency's selected mode. Maintained runtime
+the decoder-only upstream library is not installed. Shared JPEG XL retains the native system C++ runtime and
+common system unwinder. Mixed choices preserve each dependency's selected mode. Maintained runtime
 checks cover lossless RGB, alpha and true 16-bit pixels, multiple frames and threads, bounded lossy error,
 and installed C/C++ SDKs, including Brotli compression/dictionaries and Highway vector dispatch.
 ARIB caption libraries (`aribb24`, `libaribcaption`), Teletext (`zvbi`) and DeckLink ancillary data (`libklvanc`)
-offer static and bundled shared choices on Linux x64, with static defaults. The libaribcaption DSO uses the full
-source version in its engine-defined SONAME; this makes no distro-package compatibility promise. Its public C
-and C++ APIs are preserved, including caller replacement allocators; embedded font libraries remain private. Maintained
+offer static and bundled shared choices on Linux x64, with static defaults. Shared libaribcaption retains its native
+unversioned `libaribcaption.so` name and requires shared FreeType and Fontconfig because its native CMake find modules
+do not supply their static dependency closure. Keep these libraries with the matching FFmpeg build. Its public C
+and C++ APIs are preserved, including caller replacement allocators. Maintained
 checks decode authored captions through FFmpeg and exercise native SDK text/rendering and ancillary roundtrips.
 DeckLink hardware I/O still needs the recipient's Desktop Video driver and hardware. The combined canaries use
 the existing nonfree classification because this group contains LGPLv3 and GPLv2-only code plus DeckLink's SDK;
 individual options retain their existing license choices.
+DeckLink is offered on Linux x64 and Windows x64. The stock Mac SDK lacks the identifier required by FFmpeg's
+callbacks, so the Mac combination is omitted instead of injecting a header definition. Windows uses native WIDL
+outputs; the complete generated header, which already contains the legacy interfaces, is copied byte-for-byte to
+FFmpeg's compatibility filename. This alias adds no declarations or ABI changes. Native Windows FFmpeg builds
+must verify it before this cleanup is accepted.
 OpenCV's shared choice bundles its native core and imgproc modules together. OpenColorIO preserves its full
 public C++ interface, including application-owned logging callbacks and virtual configuration proxies. Their
 dependency choices remain independent: owned configuration archives, LUTs and morphology pixels are checked
-with static and shared dependencies. Linux shared builds embed their C++ runtime while preserving its native
-public ABI and the common system exception unwinder. Hiding compiler exception state would corrupt caller
+with static and shared dependencies. Shared OpenColorIO retains its native system C++ runtime and common system
+exception unwinder. Hiding compiler exception state would corrupt caller
 exception counts; a partial private standard-library map also broke exit-time teardown. Private noncompiler
-archives remain hidden. Other platforms retain their existing static recipes.
+archives remain hidden. Other supported platforms retain their existing static recipes.
+OpenColorIO is unavailable on the current Windows MinGW toolchains: its released source uses an MSVC-only stream
+constructor. Linux, macOS and Android retain their native builds.
+
+OpenCV retains its upstream build information and data-search behavior. Its native binaries can contain producer
+paths in diagnostic text and search metadata. Apple staging reports those strings for targets containing OpenCV;
+machine-local library loads and invalid RPATHs remain errors. Portability needs relocation and SDK runtime checks,
+not an absence of path strings. Native SDK probes cover build information, owned sample-file discovery, pixels and
+allocator lifetime. iOS uses engine-generated pkg-config packaging metadata because upstream omits that file.
 The same native C++ ABI boundary preserves caller-owned allocation in pystring, SRT, Rubber Band and
 Tesseract. Maintained SDK checks exercise replacement new/delete with both static and dynamic C++ callers;
 returned heap strings must belong to the caller's allocator. Tesseract's SDK also retains its independent
@@ -294,12 +328,14 @@ Linux x64 also supports `link: { bzip2: shared, libxml2: shared }`. Static remai
 zlib retains its own selected mode. bzip2 uses the stable 1.0 ABI, and libxml2's actual SONAME follows
 its reviewed release rather than assuming a historical system-library name. Both shared libraries are bundled.
 
-On macOS, `with: [metal]` enables `yadif_videotoolbox` and the VideoToolbox framework it needs. Metal remains
-opt-in and uses the system frameworks; it adds no third-party runtime library. A build with Metal selected
-backports [FFmpeg's autorelease ownership fix](https://github.com/FFmpeg/FFmpeg/commit/7f2e5cdd7c3ad502141c918bac13e2a31b4829c0)
-for the affected 8.1.3/9.0.2 implementation, preventing a crash when its filter thread exits. Already-fixed
-sources are preserved; an unrecognized implementation requires review before building. This option is verified
-on macOS only; iOS and Mac Catalyst are not claimed.
+Mac Catalyst builds currently disable VideoToolbox: the supported FFmpeg releases reference an OpenGL ES
+compatibility key unavailable to Catalyst. Software codecs remain available; the engine does not patch
+FFmpeg to enable this framework. VideoToolbox remains available on macOS and iOS.
+
+FFmpeg's `metal` option is unavailable in the current releases: its `yadif_videotoolbox` filter has an ownership
+crash that needs an [upstream fix](https://github.com/FFmpeg/FFmpeg/commit/7f2e5cdd7c3ad502141c918bac13e2a31b4829c0).
+It can return after a compatible upstream release passes runtime verification. The engine does not backport
+the fix. Whisper's independent upstream Metal backend remains available on macOS.
 
 ALSA defaults to static linking with builtin plugins and direct hardware access. Static ALSA disables external
 plugins to avoid loading a second ALSA library into the same process. Desktop configurations that use PulseAudio
@@ -321,12 +357,20 @@ configuration runs against those distributions' libraries. Each library keeps it
 shared library can load its own dependencies; selecting bundled Ogg alongside system Vorbis does not change how
 the distribution built Vorbis. The receipt distinguishes the omitted reference build from the shipped binaries.
 
-PulseAudio's client defaults to static linking. It still connects to the recipient's PulseAudio or pipewire-pulse
-server using the native protocol; server modules remain server-side. `link: { pulseaudio: shared }` instead bundles
-`libpulse.so.0` and its private `libpulsecommon` beside FFmpeg. Both modes read the recipient's client configuration.
+PulseAudio uses its native shared client, bundling `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg.
+Its upstream Meson build does not offer static clients. It connects to the recipient's PulseAudio or pipewire-pulse
+server and reads that system's client configuration; server modules remain server-side. Native gettext support
+uses libc on both glibc and musl. The musl toolchain keeps musl's native libintl header alongside the gettext
+bootstrap tools; the proxy gettext header must not override libc's API in these builds.
 
 OpenSSL, LibreSSL and mbedTLS default to static linking and offer bundled shared libraries on Linux x64.
 Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header and library names.
+This also applies to dependency-only providers. librtmp uses its unchanged OpenSSL backend, so a target selecting
+both `rtmp` and `libtls` is rejected rather than installing two SSL providers into the same prefix.
+Where OpenSSL is unavailable or its licence is excluded, librtmp retains upstream's plain RTMP/RTMPT mode;
+upstream explicitly rejects encrypted connections without TLS support. Native FFmpeg protocols remain an
+alternative when a target needs a different TLS backend. The RTMP/RTMPS stream and timeout checks must pass again
+against the native backend; earlier patched GnuTLS runs do not establish this support.
 OpenSSL's shared mode embeds its legacy provider in libcrypto, so an application can activate it without a
 separate provider-module directory. It does not activate legacy algorithms automatically. The shared mbedTLS
 mode bundles its TLS, X.509 and crypto libraries together and retains pthread support.
@@ -339,16 +383,15 @@ Codec2, Kvazaar, Xavs2 and Davs2 offer bundled shared libraries on Linux x64 whi
 Xavs2 and Davs2 remain GPL build options, and their linking modes can be selected independently. Shared Davs2
 includes its private C++ runtime while retaining the common system unwinder.
 
-JACK2's client also defaults to static linking and needs a compatible JACK2 server. Static clients cannot be
-replaced by `pw-jack` through `LD_LIBRARY_PATH`. Select `link: { jack2: shared }` when using PipeWire's JACK
-replacement or when a swappable client library is needed. Neither mode starts a server automatically.
-On glibc Linux, both modes use the system's `libgcc_s.so.1` for thread cancellation; JACK and its C++ runtime
-can still be embedded statically. Musl builds retain their static compiler runtime.
+JACK2 uses its native shared Linux client on glibc and needs a compatible JACK2 server. It can be replaced by
+PipeWire's `pw-jack` through `LD_LIBRARY_PATH`; it never starts a server automatically. A static Linux client
+requires changing upstream's Waf rules and is not offered. Its bundled Waf requires Python 3.11 or earlier
+(the `imp` module). Current musl toolchain images ship a newer Python, so JACK2 is unavailable there.
+The client uses the system's `libgcc_s.so.1` for thread cancellation and embeds its C++ runtime.
 
-On Linux x64, `vulkan-loader` defaults to static linking. `link: { vulkan-loader: shared }` bundles the shared
-loader instead. Other loader platforms retain their shared default until their static mode is verified. Both
-modes require an installed Vulkan ICD driver; static linking embeds the loader, not the GPU driver. FFmpeg adds
-`--enable-vulkan-static` for the static mode. Whisper can use that loader without enabling FFmpeg's Vulkan
+On Linux, `vulkan-loader` supports bundled shared linking only, matching upstream's build. A static Unix loader
+requires changes to upstream's CMake target and is not offered. The shared loader requires an installed Vulkan ICD
+driver; bundling the loader does not bundle a GPU driver. Whisper can use that loader without enabling FFmpeg's Vulkan
 components unless the target also lists `vulkan`. The maintained runtime check uses Mesa lavapipe and explicitly
 selects it for GGML, which normally excludes CPU Vulkan devices. This verifies API operation without claiming
 physical GPU coverage.
@@ -374,13 +417,21 @@ seeking, filesystem contents and caller-owned handles without requiring an optic
 Little CMS, GSM, Game_Music_Emu and Flite also offer static and bundled shared modes on Linux x64.
 Use their recipe names in `link`: `lcms2`, `libgsm`, `libgme` and `flite`. Static remains the default.
 Flite bundles its core, language, lexicon and six native voice libraries; it does not require an audio server.
+The published Flite release is unavailable on Windows with these toolchains: its native configure selects obsolete
+compilers and its snprintf helper does not link under MinGW. Linux, Apple and Android keep their native builds.
+Xvid is unavailable on Windows x64 with the current GCC producer: upstream configure cannot parse its
+`13-win32` version string and retains the unsupported `-mno-cygwin` flag.
 The GSM shared library is linked from the upstream PIC archive with the conventional `libgsm.so.1` name;
 upstream itself supplies only a static archive. Game_Music_Emu keeps its default LGPL emulator and disables VGZ.
 
 ModPlug, OpenMPT and libsndfile also offer static and bundled shared modes on Linux x64 through `libmodplug`,
 `libopenmpt` and `libsndfile`. Static remains their default. The tracker libraries retain their installed C++ SDKs
-and their existing format choices. libsndfile serves PulseAudio's sample-upload API; FFmpeg's ordinary PulseAudio
-recording and playback paths can omit those unused functions when the client is linked statically.
+and their existing format choices. libsndfile serves PulseAudio's native sample-upload API, which is retained
+in the shared client closure even when an application only records or plays audio.
+
+Shared ModPlug, OpenMPT, OpenColorIO and JPEG XL retain their native system C++ runtime dependency (`libstdc++.so.6` on Linux).
+The recipient needs a compatible runtime, commonly `libstdc++6` on Debian/Ubuntu or `libstdc++` on Fedora.
+These package names are suggestions; runtime compatibility still depends on the compiler and target system.
 On Linux x64, the LV2 host libraries `lilv`, `serd`, `sord`, `sratom` and `zix` default to static linking and
 accept independent `shared` selections. LV2 plugins are loaded as separate modules in either mode. Supply
 compatible plugin bundles through `LV2_PATH` or the platform's usual LV2 folders. The maintained runtime check
@@ -680,13 +731,17 @@ caller-owned buffers without a device. Actual decoding and encoding require
 a supported Rockchip SoC and kernel driver.
 
 V4L libraries retain static defaults and offer a bundled shared choice on Linux x64
-through `link: { v4l-utils: shared }`. On Linux x64 both modes ship the independent
-`ov511-decomp` and `ov518-decomp` decoder programs beside the runtime; their GPL-2.0-only
-and BSD-2-Clause notices are included separately from the LGPL-linked libraries.
-Upstream's fork/pipe protocol remains intact. Owner-relative paths replace the
-build-machine paths, including when the library is embedded statically inside FFmpeg.
-Other platforms retain their existing static behavior. Software conversion fixtures
-exercise both helpers, but physical V4L camera capture remains untested.
+through `link: { v4l-utils: shared }`. Device plugins are disabled in both modes.
+The native OV511/OV518 conversion path requires independent system programs at
+`/usr/lib/libv4l/ov511-decomp` and `/usr/lib/libv4l/ov518-decomp`. The engine preserves
+that upstream contract and does not bundle relocated helper executables. Alpine's
+`v4l-utils-libs` supplies these paths; other distributions may use different directories,
+so package installation alone is not guaranteed to satisfy this particular native path.
+Ordinary software conversions do not need those helpers. The separate programs are
+GPL-2.0-only with BSD-2-Clause utility code; the linked libraries retain LGPL licensing.
+SDK checks cover RGB conversion, RDS, absent devices, actual system-helper dispatch or
+clean missing-helper failure, and the source-built decoder programs' exact bytes and EOF.
+The tests install nothing globally. Physical V4L camera capture remains untested.
 
 On macOS arm64, Vulkan can link the native MoltenVK archive directly into FFmpeg,
 without a separate loader or ICD manifest. This is the static default. To bundle
@@ -717,6 +772,9 @@ In CI the values come from `build.yml`'s `test-env` secret; locally, from your e
 
 ## Rules
 
+VMAF is unavailable on Windows ARM64 with this toolchain: upstream libsvm fails to compile against its libc++.
+Other VMAF platforms keep their existing linking choices. The engine does not rename upstream source symbols.
+
 SRT, librist, ZeroMQ and RabbitMQ-C offer static and bundled shared modes on
 Linux x64, keyed by `srt`, `librist`, `libzmq` and `rabbitmq-c`. Static remains
 the default. SRT's installed C++ SDK preserves native compiler ABI preemption
@@ -735,11 +793,15 @@ this makes no compatibility promise about separately installed distro libraries.
 These choices use the same existing license checks as their static versions.
 `link: { uavs3d: shared }` bundles the AVS3 decoder on Linux x64. Static remains
 the default. The shared library exposes the complete installed C SDK while
-keeping internal dispatch symbols private. Upstream does not version its
-SONAME, so the engine uses the full library version (`libuavs3d.so.1.2` for
-1.2), without claiming compatibility with distro packages. Static and shared
+keeping internal dispatch symbols private. It retains the native unversioned
+`libuavs3d.so` name; keep it with the matching FFmpeg build. Static and shared
 canaries decode an authored eight-frame stream with one and two threads,
 requiring exact agreement with the encoder's reconstruction through EOF.
+Upstream writes a decoder-creation diagnostic to stdout. Use file output with this decoder; its binary stdout
+streams contain that diagnostic and are unsuitable for media piping.
+Android ARM64 uses upstream's NDK build and supports 8-bit streams only. Other supported platforms use its
+native 10-bit CMake configuration, which also decodes 8-bit streams. Generic Android x64 is unavailable because
+the native NDK configuration forces an AVX2 CPU baseline.
 
 - **Saying no is explicit.** `without:` turns something down for good: `profile missing` and the update PR text stop
   suggesting it.

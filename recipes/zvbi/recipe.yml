@@ -25,21 +25,25 @@ build:
   # 0.2.28 or later). The library alone: no capture interfaces (V4L, DVB, BSD bktr, the proxy daemon), programs,
   # examples, tests or docs.
   #
-  # - Its configure.ac takes gettext's macros (native language support, and AM_ICONV_LINK for iconv) from the gettext
-  #   tools, which the toolchain images haven't got: they go, without translations (the library's few messages stay
-  #   English), and iconv is searched for directly (GNU libiconv's symbol is libiconv_open).
+  # - Native gettext tools provide its bootstrap macros and iconv discovery. NLS is disabled through configure.
   # - It would take libpng (PNG export of Teletext pages, which FFmpeg doesn't use) from whatever the build has: told
   #   there is none.
   # - AC_FUNC_MALLOC and AC_FUNC_REALLOC assume a cross build's malloc(0) returns NULL and call rpl_malloc and
   #   rpl_realloc, which nothing defines (Android's link failed): every C library this builds for returns a pointer.
-  # - The configure script is made after these edits (autoreconf -fi; `bootstrap:` would run before them).
+  # - Native autoreconf generates the configure script without engine edits.
   system: autotools
-  vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-mode: '' }
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-mode: '',
+      pthread-probe-flags: '',
+    }
   # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it; GNU libiconv
   # is found in deps (it has no .pc)
   env:
     {
-      CFLAGS: '+= -O2',
+      CFLAGS: '+= -O2{pthread-probe-flags}',
       CPPFLAGS: '-I{deps}/include {CPPFLAGS|}',
       LDFLAGS: '-L{deps}/lib {LDFLAGS|}',
     }
@@ -48,6 +52,7 @@ build:
       '{shared-arg}',
       '{static-arg}',
       --with-pic,
+      --disable-nls,
       --disable-v4l,
       --disable-dvb,
       --disable-bktr,
@@ -73,23 +78,16 @@ build:
         - '{CC|gcc}'
       when: { set: '{shared-mode}' }
   before:
-    - replace-in-file:
-        {
-          path: configure.ac,
-          from: "AM_ICONV_LINK\n",
-          to: "AC_SEARCH_LIBS([libiconv_open], [iconv], [am_cv_func_iconv=yes],\n  [AC_SEARCH_LIBS([iconv_open], [iconv], [am_cv_func_iconv=yes])])\n",
-        }
-    - replace-in-file: { path: configure.ac, from: "AM_GNU_GETTEXT_VERSION([0.21])\n", to: '' }
-    - replace-in-file:
-        { path: configure.ac, from: "AM_GNU_GETTEXT([external], [need-ngettext])\n", to: '' }
-    - replace-in-file: { path: configure.ac, from: "  po/Makefile.in\n", to: '' }
-    - replace-in-file: { path: Makefile.am, from: "\tpo \\\n", to: '' }
-    # its last try for pthreads (Android's are in the C library) calls pthread_create undeclared, an error in C99
-    # and later: declared
-    - replace-in-file:
-        {
-          path: configure.ac,
-          from: 'AC_LANG_PROGRAM([[]], [[pthread_create();]])',
-          to: 'AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create(0, 0, 0, 0);]])',
-        }
+    - [autopoint, --force]
     - [autoreconf, -fi]
+  platforms:
+    'android-*':
+      # Its native fallback links an undeclared pthread_create symbol. Permit
+      # that configure probe instead of rewriting it or inventing a cache result.
+      vars: { pthread-probe-flags: ' -Wno-error=implicit-function-declaration' }
+    'osx-*': &apple-gettext
+      env:
+        PATH: '{HOMEBREW_PREFIX|/opt/homebrew}/opt/gettext/bin:{PATH}'
+        ACLOCAL_PATH: '{HOMEBREW_PREFIX|/opt/homebrew}/opt/gettext/share/aclocal:{ACLOCAL_PATH|}'
+    'ios-*': *apple-gettext
+    'maccatalyst-*': *apple-gettext

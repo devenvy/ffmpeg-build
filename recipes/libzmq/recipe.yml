@@ -5,7 +5,8 @@ license-files: [LICENSE]
 configure: [--enable-libzmq]
 source: { git: https://github.com/zeromq/libzmq, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
-platforms: all
+# The released Windows ARM64 clock path needs a source fix; do not carry it here.
+platforms: [linux-*, win-x64, osx-*, ios-*, maccatalyst-*, android-*]
 linkage:
   default: static
   modes:
@@ -63,23 +64,6 @@ build:
             {
               path: '{deps}/lib/pkgconfig/libzmq.pc',
               libs-private: { add: -lpthread -lws2_32 -liphlpapi -lrpcrt4, missing: after-libs },
-            }
-    # its clock reads clock_gettime on a Windows compiler that isn't MSVC and isn't x86 (llvm-mingw's arm64), with a
-    # constant it defines for every system but Windows; and its polling code uses std::nothrow without <new>, which
-    # libc++'s headers don't bring in by the way
-    'win-arm64':
-      before:
-        - replace-in-file:
-            {
-              path: src/polling_util.hpp,
-              from: "#include <vector>\n",
-              to: "#include <vector>\n#include <new>\n",
-            }
-        - replace-in-file:
-            {
-              path: src/clock.cpp,
-              from: "#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\nconst uint64_t nsecs_per_usec = 1000;\n#endif\n",
-              to: "#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\n#endif\nconst uint64_t nsecs_per_usec = 1000;\n",
             }
   after:
     - run:

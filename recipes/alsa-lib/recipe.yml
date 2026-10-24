@@ -25,52 +25,22 @@ build:
   # system's plugins: never the build's. Only the library, its headers and alsa.pc are installed. No Python mixer
   # modules, no topology library.
   #
-  # The plugins' folder is the distribution's: Debian and Ubuntu's /usr/lib/<multiarch>/alsa-lib, Fedora's
-  # /usr/lib64/alsa-lib, Arch's and Alpine's /usr/lib/alsa-lib. The conf.d files name some plugins by file name alone
-  # (Debian's pulse.conf: libasound_module_conf_pulse.so), found in the one folder alsa-lib was built with
-  # (ALSA_PLUGIN_DIR; $ALSA_PLUGIN_DIR overrides it). Here that is the list of all three, and alsa-lib takes the first
-  # that has the plugin.
+  # Upstream supports one plugin directory, with the native ALSA_PLUGIN_DIR runtime override. Use Debian's
+  # multiarch layout on glibc and Alpine's /usr/lib layout on musl. Other distributions can set that override.
   system: autotools
   vars:
-    plugindirs: '/usr/lib64/alsa-lib:/usr/lib/alsa-lib'
+    plugindir: '/usr/lib/alsa-lib'
     shared-arg: --disable-shared
     static-arg: --enable-static
     libdl-arg: --without-libdl
   # The toolchain's -fPIC permits static ALSA inside a shared consumer. Do not define the PIC preprocessor macro:
   # ALSA uses that macro to select dynamic instead of builtin plugin registration.
   platforms:
-    'linux-x64':
-      {
-        vars:
-          {
-            plugindirs: '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-          },
-      }
+    'linux-x64': { vars: { plugindir: '/usr/lib/x86_64-linux-gnu/alsa-lib' } }
     # shipped on musl: it asks for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml)
     'linux-musl-*': { env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608' } }
-    'linux-musl-x64':
-      {
-        vars:
-          {
-            plugindirs: '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-          },
-      }
-    'linux-arm64':
-      {
-        vars:
-          {
-            plugindirs: '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-          },
-      }
-    'linux-musl-arm64':
-      {
-        vars:
-          {
-            plugindirs: '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-          },
-      }
-    'linux-armhf':
-      { vars: { plugindirs: '/usr/lib/arm-linux-gnueabihf/alsa-lib:/usr/lib/alsa-lib' } }
+    'linux-arm64': { vars: { plugindir: '/usr/lib/aarch64-linux-gnu/alsa-lib' } }
+    'linux-armhf': { vars: { plugindir: '/usr/lib/arm-linux-gnueabihf/alsa-lib' } }
   args:
     [
       '{shared-arg}',
@@ -80,45 +50,9 @@ build:
       --disable-topology,
       --disable-aload,
       --with-configdir=/usr/share/alsa,
-      '--with-plugindir={plugindirs}',
+      '--with-plugindir={plugindir}',
     ]
-  before:
-    - replace-in-file:
-        path: src/dlmisc.c
-        from: |
-          #ifndef PIC
-          	if (name == NULL)
-          		return &snd_dlsym_start;
-          #else
-        to: |
-          #ifndef PIC
-          	if (name == NULL)
-          		return &snd_dlsym_start;
-          #ifndef HAVE_LIBDL
-          	if (errbuf && errbuflen)
-          		snprintf(errbuf, errbuflen, "External plugins are disabled in this static ALSA build; use shared ALSA for PulseAudio/PipeWire plugins");
-          	return NULL;
-          #endif
-          #else
     # ALSA_PLUGIN_DIR as a list: the first folder that has the plugin (or the last, for dlopen's error)
-    - replace-in-file:
-        path: src/dlmisc.c
-        from: |
-          	snprintf(path, path_len, "%s/%s",
-          		 snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR, name);
-        to: |
-          	if (snd_plugin_dir) {
-          		snprintf(path, path_len, "%s/%s", snd_plugin_dir, name);
-          	} else {
-          		const char *dir = ALSA_PLUGIN_DIR, *end;
-          		do {
-          			end = strchr(dir, ':');
-          			snprintf(path, path_len, "%.*s/%s", end ? (int)(end - dir) : (int)strlen(dir), dir, name);
-          			if (access(path, F_OK) == 0)
-          				break;
-          			dir = end + 1;
-          		} while (end);
-          	}
   make-targets: [-C, src]
   install-targets: [-C, src, install-libLTLIBRARIES]
   after:

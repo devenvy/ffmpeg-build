@@ -15,26 +15,42 @@ linkage:
       platforms: [linux-x64]
       vars:
         {
-          library-arg: --default-library=shared,
+          shared-arg: --enable-shared,
+          static-arg: --disable-static,
           shared-mode: 'yes',
           shared-ldflags: '-Wl,-z,defs,--exclude-libs,libdrm.a',
         }
       runtime: ['lib/libva.so*', 'lib/libva-drm.so*']
 build:
-  system: meson
-  vars: { library-arg: [], shared-mode: '', shared-ldflags: '' }
+  # The native Autotools build supports static archives; Meson's targets are unconditionally shared.
+  system: autotools
+  bootstrap: autoreconf
+  vars:
+    {
+      shared-arg: --disable-shared,
+      static-arg: --enable-static,
+      shared-mode: '',
+      shared-ldflags: '',
+      drivers-dir: /usr/lib/dri,
+    }
   env: { LDFLAGS: '+= {shared-ldflags?}' }
   args:
     [
-      '{library-arg}',
-      -Dwith_x11=no,
-      -Dwith_glx=no,
-      -Dwith_wayland=no,
-      -Dwith_win32=no,
-      -Ddisable_drm=false,
+      '{shared-arg}',
+      '{static-arg}',
+      --with-pic,
+      --enable-drm,
+      --disable-x11,
+      --disable-glx,
+      --disable-wayland,
+      --disable-docs,
+      --sysconfdir=/etc,
+      '--with-drivers-path={drivers-dir}',
     ]
-  before:
-    - replace-in-file: { path: va/meson.build, from: 'shared_library(', to: 'library(' }
+  platforms:
+    linux-x64: { vars: { drivers-dir: /usr/lib/x86_64-linux-gnu/dri } }
+    linux-arm64: { vars: { drivers-dir: /usr/lib/aarch64-linux-gnu/dri } }
+    linux-armhf: { vars: { drivers-dir: /usr/lib/arm-linux-gnueabihf/dri } }
   # Static libva dlopens the VA driver at runtime, so its consumers need -ldl; libva-drm
   # also pulls in libva + libdrm. Make sure pkg-config --static exposes these for FFmpeg.
   after:
@@ -49,6 +65,7 @@ build:
           path: '{deps}/lib/pkgconfig/libva-drm.pc',
           optional: true,
           libs-private: { set: -ldl, missing: after-libs },
+          requires-private: { add: libdrm, missing: end },
         }
     - run:
         - python3

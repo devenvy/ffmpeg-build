@@ -15,13 +15,11 @@ describe('Platform text runtime library linking', () => {
     );
   });
 
-  it('keeps proxy gettext static by default and allows a common shared musl owner', () => {
-    expect(linkagePlan(data, ['proxy-libintl'], 'linux-musl-x64').modes['proxy-libintl']).toBe(
-      'static',
-    );
+  it('keeps proxy gettext static outside Linux and uses native libc on Linux', () => {
+    expect(linkagePlan(data, ['proxy-libintl'], 'osx-arm64').modes['proxy-libintl']).toBe('static');
     expect(
-      linkagePlan(data, ['proxy-libintl'], 'linux-musl-x64', { 'proxy-libintl': 'shared' }).errors,
-    ).toEqual([]);
+      data.recipes.get('glib')!.needs.find((need) => need.name === 'proxy-libintl')!.platforms,
+    ).toEqual(['win-*', 'osx-*', 'ios-*', 'maccatalyst-*', 'android-*']);
     expect(
       linkagePlan(data, ['proxy-libintl'], 'osx-arm64', { 'proxy-libintl': 'shared' }).errors,
     ).toHaveLength(1);

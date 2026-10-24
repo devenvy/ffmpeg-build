@@ -69,7 +69,7 @@ try {
   assert.equal(missing.signal, null, missing.error?.message);
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr.toString(), /traineddata|language|tesseract/i);
-  for (const name of ['libleptonica.so.6', 'libtesseract.so.5.5']) {
+  for (const name of ['libleptonica.so.6', 'libtesseract.so.5']) {
     const library = join(dirname(ffmpeg), name);
     if (existsSync(library)) {
       const dynamic = execute('readelf', ['-d', library]);

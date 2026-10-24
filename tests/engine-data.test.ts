@@ -93,6 +93,41 @@ describe('engine data', () => {
     ).toMatch(/requires-link.*provider/);
   });
 
+  it.each([
+    ['missing', 'static', 'linux-x64', 'no recipes/missing'],
+    ['provider', 'shared', 'linux-x64', 'provider does not declare shared linking'],
+    ['provider', 'static', 'missing-*', 'matches no platform'],
+  ])(
+    'rejects an invalid native composition constraint for %s/%s/%s',
+    (peer, mode, platform, message) => {
+      expect(
+        errorsOf({
+          'ffmpeg/9.yml': okFfmpeg,
+          'recipes/owner/recipe.yml': okRecipe(
+            'owner',
+            `linkage: { default: static, modes: { static: { conflicts-link: { ${peer}: { modes: [${mode}], platforms: [${platform}], reason: Native conflict } } } } }\n`,
+          ),
+          'recipes/provider/recipe.yml': okRecipe(
+            'provider',
+            'linkage: { default: static, modes: { static: {} } }\n',
+          ),
+        }).join('\n'),
+      ).toContain(message);
+    },
+  );
+
+  it('requires a useful explanation for a native composition conflict', () => {
+    expect(
+      errorsOf({
+        'ffmpeg/9.yml': okFfmpeg,
+        'recipes/owner/recipe.yml': okRecipe(
+          'owner',
+          'linkage: { default: static, modes: { static: { conflicts-link: { provider: { modes: [static], platforms: [linux-x64], reason: "" } } } } }\n',
+        ),
+      }).join('\n'),
+    ).toContain('reason');
+  });
+
   it("knows the CI runner that runs each platform's builds when its build runner can't", () => {
     const data = loadEngineData(packageRoot);
     const test = (p: string) => testRunnerOf(data, p);

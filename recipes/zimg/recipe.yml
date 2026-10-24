@@ -42,23 +42,11 @@ build:
         { path: '{deps}/lib/pkgconfig/zimg.pc', libs-private: { set: -lstdc++ -lm, missing: skip } }
   platforms:
     win-x64: { args: [--host=x86_64-w64-mingw32] }
-    # zimg 3.0.6 has two mingw-on-ARM bugs, both reproduced by cross-building it locally:
-    #  1. src/zimg/api/zimg.cpp uses std::exception_ptr without including <exception>. That
-    #     compiles under libstdc++, which pulls it in transitively; llvm-mingw uses libc++,
-    #     which does not, so every EX_END macro fails. Force the include.
-    #  2. src/zimg/common/arm/cpuinfo_arm.cpp includes <Windows.h> with a capital W.
-    #     mingw-w64 ships windows.h lowercase, which only works on a case-insensitive
-    #     filesystem, so a Linux cross-build cannot find it. A one-line shim header on the
-    #     include path fixes it while keeping zimg's NEON paths (--disable-simd would not).
-    # Both are fixed in zimg main; drop this when the pinned version moves past 3.0.6.
+    # Scalar Windows ARM64 build: upstream's native --disable-simd avoids the CPU-detection source's Windows.h
+    # casing assumption. Use the compiler's standard <exception> header through its existing forced-include
+    # option; no authored compatibility header or upstream source/build-file edit is carried.
     win-arm64:
-      before:
-        - write-file:
-            path: '{src}/_zimg-compat/Windows.h'
-            text: |
-              #pragma once
-              #include <windows.h>
-      args: [--host=aarch64-w64-mingw32, 'CXXFLAGS=-O2 -include exception -I{src}/_zimg-compat']
+      args: [--host=aarch64-w64-mingw32, --disable-simd, 'CXXFLAGS=-O2 -include exception']
     linux-armhf: { args: [--host=arm-linux-gnueabihf] }
     android-arm64: { args: [--host=aarch64-linux-android] }
     android-x64: { args: [--host=x86_64-linux-android] }

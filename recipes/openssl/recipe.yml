@@ -10,8 +10,14 @@ platforms: [linux-*, android-*, maccatalyst-*]
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      conflicts-link: &ssl-provider-conflict
+        libressl:
+          modes: [static, shared]
+          platforms: [linux-x64]
+          reason: 'OpenSSL and LibreSSL install the same SSL headers and library names. Select one provider per build prefix.'
     shared:
+      conflicts-link: *ssl-provider-conflict
       platforms: [linux-x64]
       vars:
         library-args: [shared, no-module]
@@ -60,33 +66,15 @@ build:
           exists: '{src}/_stage/opt/ffmpeg-build/deps/lib/libcrypto.a',
           message: 'OpenSSL staged install produced no lib/libcrypto.a under {src}/_stage/opt/ffmpeg-build/deps',
         }
+    - edit-pkg-config:
+        path: '{src}/_stage/opt/ffmpeg-build/deps/lib/pkgconfig/*.pc'
+        variables: { prefix: '{deps}' }
     - copy:
         {
           from: '{src}/_stage/opt/ffmpeg-build/deps',
           to: '{deps}',
           recursive: true,
           preserve: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/libcrypto.pc',
-          from: '^prefix=.*',
-          to: 'prefix={deps}',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/libssl.pc',
-          from: '^prefix=.*',
-          to: 'prefix={deps}',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/openssl.pc',
-          from: '^prefix=.*',
-          to: 'prefix={deps}',
-          regex: true,
         }
     - check:
         {

@@ -15,7 +15,6 @@
 major: 9
 releases: [9.0, 9.0.1, 9.0.2]
 auto-components:
-  - metal
   - cuda-nvcc
   - decklink
   - smbclient
@@ -206,7 +205,7 @@ options:
     {
       builtin: true,
       kind: hwaccel,
-      platforms: [osx-*, ios-*, maccatalyst-*],
+      platforms: [osx-*, ios-*],
       ships: { hwaccels: [videotoolbox], encoders: [h264_videotoolbox, hevc_videotoolbox] },
     }
   audiotoolbox:
@@ -227,21 +226,6 @@ options:
       platforms: [osx-*],
       configure: [--enable-coreimage, --enable-appkit],
       ships: { filters: [coreimage, coreimagesrc] },
-    }
-
-  # The build backports upstream 7f2e5cdd7c3a's autorelease fix only when Metal is selected.
-  metal:
-    {
-      builtin: true,
-      kind: framework,
-      platforms: [osx-*],
-      configure: [--enable-metal, --enable-videotoolbox],
-      ships:
-        {
-          filters: [yadif_videotoolbox],
-          hwaccels: [videotoolbox],
-          encoders: [h264_videotoolbox, hevc_videotoolbox],
-        },
     }
 
   # TLS (one per build: group tls; the profile lists which, per platform and license)

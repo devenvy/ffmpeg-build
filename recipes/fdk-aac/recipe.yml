@@ -15,7 +15,7 @@ linkage:
       platforms: [linux-x64]
       vars:
         library-arg: -DBUILD_SHARED_LIBS=ON
-        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs -Wl,--version-script={src}/ffb-public-api.map'
+        shared-link-arg: '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs,--as-needed -Wl,--version-script={src}/ffb-public-api.map'
         shared-mode: 'yes'
         static-mode: ''
       runtime: ['lib/libfdk-aac.so*']
@@ -29,13 +29,7 @@ build:
       static-mode: 'yes',
     }
   before:
-    # CMake adds the C++ runtime for C++ objects even though this library uses
-    # no C++ runtime APIs. The strict shared link proves that it is unnecessary.
-    - replace-in-file:
-        path: CMakeLists.txt
-        from: 'set_target_properties(fdk-aac PROPERTIES'
-        to: "list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_LIBRARIES stdc++)\nset_target_properties(fdk-aac PROPERTIES"
-      when: { set: '{shared-mode}' }
+    # Use the linker's standard export-map input; upstream build files remain unchanged.
     - run:
         - python3
         - -c

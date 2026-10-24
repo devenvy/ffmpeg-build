@@ -84,7 +84,7 @@ try {
   const deviceDependencies = dependencies('libavdevice');
   for (const [name, parent] of [
     ['libaribb24.so.0', codecDependencies],
-    ['libaribcaption.so.1.1.2', codecDependencies],
+    ['libaribcaption.so', codecDependencies],
     ['libzvbi.so.0', codecDependencies],
     ['libklvanc.so.0', deviceDependencies],
   ]) {
@@ -95,7 +95,7 @@ try {
     );
   }
   for (const name of readdirSync(libraryFolder).filter((entry) =>
-    /^lib(?:aribb24|aribcaption|zvbi|klvanc)\.so\./u.test(entry),
+    /^lib(?:aribb24|aribcaption|zvbi|klvanc)\.so(?:\.|$)/u.test(entry),
   )) {
     const library = join(libraryFolder, name);
     const dynamic = command('readelf', ['-d', library]);

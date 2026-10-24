@@ -3,8 +3,9 @@ provides: davs2
 license: GPL-2.0-or-later
 license-files: [COPYING]
 configure: [--enable-libdavs2]
-source: { git: https://github.com/pkuvcl/davs2, ref: '{version}' }
-versions: { git-tags: '^(\d+\.\d+)$' }
+# The genuine tag archive uses upstream's no-.git revision fallback without editing version.sh.
+source: { url: 'https://github.com/pkuvcl/davs2/archive/refs/tags/{version}.tar.gz' }
+versions: { git-tags: '^(\d+\.\d+)$', repo: https://github.com/pkuvcl/davs2 }
 platforms:
   [linux-x64, linux-musl-x64, win-x64, linux-arm64, linux-musl-arm64, android-arm64, android-x64]
 linkage:
@@ -26,11 +27,7 @@ build:
   # decoder; GPL builds only. Found through davs2.pc (1.6.0 or later). x264's configure, in build/linux; the library
   # alone (no CLI). Its sources are C++ (.cc), but davs2.pc names no C++ runtime: it gains one.
   #
-  # - version.sh counts origin/master's commits for the version's last number, which a tag's shallow clone hasn't
-  #   got (it would write "1.6." and fail FFmpeg's >= 1.6.0): 0 instead, as outside git.
-  # - Its endianness probe greps the compiled object for marker strings that clang doesn't leave in it, and dies
-  #   when it can't find them; every platform here is little-endian (the default it keeps), so that failure is
-  #   skipped.
+  # Use the native source-archive version fallback and preserve the compiler's actual endianness probe.
   system: none
   vars:
     cross: []
@@ -41,12 +38,17 @@ build:
   # platform sets CC to a C compiler, the platform's C++ compiler instead (clang refuses C++ flags for C)
   env: { CC: '{CXX|g++}' }
   platforms:
-    win-x64: { vars: { cross: ['--cross-prefix={CROSS_PREFIX}-', --host=x86_64-w64-mingw32] } }
+    win-x64:
+      vars: { cross: ['--cross-prefix={CROSS_PREFIX}-', --host=x86_64-w64-mingw32] }
+      args: [--extra-cflags=-mincoming-stack-boundary=4]
+    # Accept the platform's 16-byte incoming stacks while native configure may
+    # prefer 32-byte outgoing alignment for AVX locals and internal calls.
+    linux-x64: { args: [--extra-cflags=-mincoming-stack-boundary=4] }
     # its ARM assembly is listed in the Makefile but isn't in the repository: plain C++ on ARM
     linux-arm64: { args: [--disable-asm] }
     linux-musl-arm64: { args: [--disable-asm] }
     # its x86-64 assembly crashes on musl as xavs2's does (alignment it assumes musl's threads don't give): plain C++
-    linux-musl-x64: { args: [--disable-asm] }
+    linux-musl-x64: { args: [--disable-asm, --extra-cflags=-mincoming-stack-boundary=4] }
     android-arm64:
       {
         vars: { cross: [--host=aarch64-linux-android, '--sysroot={TOOLCHAIN}/sysroot'] },
@@ -59,16 +61,6 @@ build:
         args: [--disable-asm],
       }
   steps:
-    - replace-in-file:
-        { path: version.sh, from: 'VER_R=`git rev-list --count origin/master`', to: VER_R=0 }
-    - replace-in-file: { path: build/linux/configure, from: 'elif !(', to: 'elif false && !(' }
-    # pthread callers guarantee 16-byte SysV stacks. Let both GCC and NASM
-    # realign their AVX2 locals instead of incorrectly assuming 32 on entry.
-    - replace-in-file:
-        path: build/linux/configure
-        from: "if cc_check '' -mpreferred-stack-boundary=5 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=5\"\n        stack_alignment=32"
-        to: "if cc_check '' -mpreferred-stack-boundary=4 ; then\n        CFLAGS=\"$CFLAGS -mpreferred-stack-boundary=4\"\n        stack_alignment=16"
-      when: { platforms: [linux-x64] }
     - run:
         [
           ./configure,

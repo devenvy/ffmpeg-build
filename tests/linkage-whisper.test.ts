@@ -7,16 +7,14 @@ import { packageRoot } from '../src/paths.ts';
 const data = loadEngineData(packageRoot);
 
 describe('Whisper and GGML shared runtime', () => {
-  it('keeps static default and permits either Vulkan loader mode without imposing a handle owner', () => {
+  it('keeps the static processing default and permits a shared runtime with the native shared loader', () => {
     expect(linkagePlan(data, ['whisper.cpp'], 'linux-x64').modes['whisper.cpp']).toBe('static');
-    for (const loader of ['static', 'shared'] as const) {
-      const selected = linkagePlan(data, ['whisper.cpp', 'vulkan-loader'], 'linux-x64', {
-        'whisper.cpp': 'shared',
-        'vulkan-loader': loader,
-      });
-      expect(selected.errors).toEqual([]);
-      expect(selected.modes['whisper.cpp']).toBe('shared');
-    }
+    const selected = linkagePlan(data, ['whisper.cpp', 'vulkan-loader'], 'linux-x64', {
+      'whisper.cpp': 'shared',
+    });
+    expect(selected.errors).toEqual([]);
+    expect(selected.modes['whisper.cpp']).toBe('shared');
+    expect(selected.modes['vulkan-loader']).toBe('shared');
     expect(
       linkagePlan(data, ['whisper.cpp'], 'linux-arm64', { 'whisper.cpp': 'shared' }).errors,
     ).toHaveLength(1);

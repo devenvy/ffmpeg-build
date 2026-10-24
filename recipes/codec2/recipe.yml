@@ -21,26 +21,11 @@ build:
   # Codec 2: low-bitrate speech codec (LGPL-2.1), static, for FFmpeg's libcodec2 decoder and encoder (found with
   # `-lcodec2`, header codec2/codec2.h). Only the codec2 target: the ~40 demo and test programs aren't built.
   #
-  # Its codebooks are C generated at build time by generate_codebook, a host program. A cross build makes it through an
-  # ExternalProject that inherits the target's CC and flags (so it builds a program that can't run here), and osx-x64
-  # on Apple silicon doesn't count as cross. So it is compiled here with the build machine's own cc first, and the
-  # CMake given it as an imported program.
+  # Its native ExternalProject builds the host codebook generator during cmake --build. Keep target configuration
+  # intact, then clear target environment overrides while the cached target build and native child run.
   system: none
   vars: { library-arg: -DBUILD_SHARED_LIBS=OFF }
   steps:
-    - run: [cc, -O2, -o, generate_codebook_host, src/generate_codebook.c, -lm]
-      unset: [CC, CFLAGS, LDFLAGS, CPPFLAGS, SDKROOT]
-    - replace-in-file:
-        path: src/CMakeLists.txt
-        from: "if(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)"
-        to: "if(DEFINED GENERATE_CODEBOOK)\n    add_executable(generate_codebook IMPORTED)\n    set_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION ${GENERATE_CODEBOOK})\nelseif(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)"
-    # Windows: an install script that walks libcodec2.dll's DLL dependencies (there is no DLL in a static build)
-    - replace-in-file:
-        {
-          path: CMakeLists.txt,
-          from: 'install(SCRIPT ${CMAKE_BINARY_DIR}/cmake/GetDependencies.cmake)',
-          to: '',
-        }
     - - cmake
       - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       - -B
@@ -54,7 +39,44 @@ build:
       - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       - -DUNITTEST=OFF
       - -DLPCNET=OFF
-      - '-DGENERATE_CODEBOOK={src}/generate_codebook_host'
       - '{cmake-cross-args}'
-    - [cmake, --build, _build, --target, codec2, '-j{jobs}']
-    - [cmake, --install, _build]
+    - run: [cmake, --build, _build, --target, codec2, '-j{jobs}']
+      unset:
+        [
+          AR,
+          CC,
+          CFLAGS,
+          CMAKE_FIND_ROOT_PATH,
+          CMAKE_PREFIX_PATH,
+          CMAKE_TOOLCHAIN_FILE,
+          CPPFLAGS,
+          CXX,
+          CXXFLAGS,
+          LDFLAGS,
+          PKG_CONFIG_LIBDIR,
+          PKG_CONFIG_PATH,
+          RANLIB,
+          SDKROOT,
+        ]
+    - run: [cmake, --install, _build]
+      when: { platforms: [linux-*, osx-*, ios-*, maccatalyst-*, android-*] }
+    # Native components omit the inapplicable Windows DLL dependency script.
+    - run: [cmake, --install, _build, --component, lib]
+      when: { platforms: [win-*] }
+    - run: [cmake, --install, _build, --component, dev]
+      when: { platforms: [win-*] }
+    - run: [cmake, --install, _build, --component, codec2_devel]
+      when: { platforms: [win-*] }
+    # Preserve the native install-tree CMake SDK metadata; never copy the build-tree export.
+    - copy:
+        {
+          from: '_build/src/CMakeFiles/Export/*/codec2-config.cmake',
+          into: '{deps}/lib/cmake/codec2',
+        }
+      when: { platforms: [win-*] }
+    - copy:
+        {
+          from: '_build/src/CMakeFiles/Export/*/codec2-config-release.cmake',
+          into: '{deps}/lib/cmake/codec2',
+        }
+      when: { platforms: [win-*] }

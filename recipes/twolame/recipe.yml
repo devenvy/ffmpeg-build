@@ -13,7 +13,11 @@ platforms: all
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      # Upstream's installed header documents this define for static Windows consumers.
+      # https://github.com/njh/twolame/blob/main/libtwolame/twolame.h
+      configure:
+        - '--extra-cflags=-DLIBTWOLAME_STATIC': { platforms: [win-*] }
     shared:
       platforms: [linux-x64]
       vars: { shared-arg: --enable-shared, static-arg: --disable-static }
@@ -30,9 +34,8 @@ build:
   after:
     - [make, install-pkgconfigDATA]
   platforms:
-    # twolame.h declares its API dllimport on Windows unless LIBTWOLAME_STATIC is defined, which FFmpeg doesn't
-    # define: the installed header is made to declare the static library's plain symbols.
+    # Preserve the installed header and advertise upstream's static-consumer define to SDK users.
     'win-*':
       after:
-        - replace-in-file:
-            { path: '{deps}/include/twolame.h', from: '__declspec(dllimport)', to: '' }
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/twolame.pc', cflags: { add: -DLIBTWOLAME_STATIC } }

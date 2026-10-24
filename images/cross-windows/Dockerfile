@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # libraries), the build tools upstream installs, and a native gcc/g++ for host tools (glslc below, nettle's helpers).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       mingw-w64 mingw-w64-tools llvm \
-      build-essential cmake nasm yasm autoconf automake libtool pkg-config gperf m4 perl python3 python3-pip python3-venv \
+      build-essential cmake nasm yasm autoconf automake libtool gettext autopoint pkg-config gperf m4 perl python3 python3-pip python3-venv \
       git curl ca-certificates xz-utils bzip2 jq xxd file unzip patch \
  && rm -rf /var/lib/apt/lists/*
 # meson/ninja pinned as in the linux images (Ubuntu's meson works, but the same versions everywhere keep recipes alike).

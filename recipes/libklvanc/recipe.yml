@@ -3,7 +3,7 @@ license: LGPL-2.1-or-later
 license-files: [lgpl-2.1.txt]
 source: { git: https://github.com/stoth68000/libklvanc.git, ref: 'vid.obe.{version}' }
 versions: { git-tags: '^vid\.obe\.(\d+\.\d+\.\d+)$' }
-platforms: [linux-x64, osx-*]
+platforms: [linux-x64]
 linkage:
   default: static
   modes:

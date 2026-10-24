@@ -1,6 +1,6 @@
 // Batch d of #21 (filters and processing): each library's build on every platform it builds on, with the process
 // runner stubbed, and the files it leaves in deps.
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -77,7 +77,7 @@ describe('libmysofa', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'libmysofa'),
-          `Libs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: \n`,
+          `includedir=/usr/include\nlibdir=/usr/lib\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: \n`,
         );
         put(join(h.deps, 'share', 'libmysofa', 'default.sofa'), 'sofa');
       }
@@ -91,16 +91,18 @@ describe('libmysofa', () => {
         '-DCODE_COVERAGE=OFF',
         '-DADDRESS_SANITIZE=OFF',
         '-DMATH=m',
-      ]),
+        '-DCMAKE_INSTALL_PREFIX=/usr',
+        '-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -fPIC',
+      ]).map((line) => (line === 'cmake --install _build' ? `${line} --prefix ${h.deps}` : line)),
     );
-    expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toContain('POSITION_INDEPENDENT_CODE ON)');
+    expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toContain(`\${BUILD_SHARED_LIBS})`);
     // no deps folder in the library: the default SOFA file is looked for where systems keep it
     expect(h.read(join(h.src, 'src', 'config.h.in'))).toBe(
-      '#define CMAKE_INSTALL_PREFIX "/usr"\n#define CPACK_PACKAGE_VERSION_MAJOR 1\n',
+      `#define CMAKE_INSTALL_PREFIX "\${CMAKE_INSTALL_PREFIX}"\n#define CPACK_PACKAGE_VERSION_MAJOR 1\n`,
     );
     expect(h.files(h.deps)).not.toContain('share/libmysofa/default.sofa');
     expect(h.read(pcPath(h, 'libmysofa'))).toBe(
-      `Libs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
+      `includedir=${h.deps}/include\nlibdir=${h.deps}/lib\nLibs: -L\${libdir} -lmysofa\nCflags: -I\${includedir}\n\nLibs.private: -lz -lm\n`,
     );
   });
   it('needs zlib', () => {
@@ -108,7 +110,7 @@ describe('libmysofa', () => {
   });
 });
 
-// libbs2b's library alone: configure.ac without its libsndfile check, remade, and only src's library and headers.
+// libbs2b's untouched release configuration, with its real libsndfile check and only library targets.
 describe('libbs2b', () => {
   it.each(platformsOf('libbs2b'))('%s', async (platform) => {
     const h = fake(platform);
@@ -117,10 +119,10 @@ describe('libbs2b', () => {
       'AM_INIT_AUTOMAKE([1.10.1 -Wall foreign subdir-objects\n                  dist-zip dist-bzip2 dist-lzma])\n' +
         '# Checks for libraries.\nPKG_CHECK_EXISTS([sndfile], [], [\n    AC_MSG_ERROR(Please install libsndfile.)\n])\n',
     );
+    const upstream = h.read(join(h.src, 'configure.ac'));
     await build(h, 'libbs2b');
     expect(commands(h)).toEqual(
       [
-        'autoreconf -fi',
         configureLine(h, [
           '--disable-shared',
           '--enable-static',
@@ -132,14 +134,12 @@ describe('libbs2b', () => {
         'make install-pkgconfigDATA',
       ].map((line) => line + o2(h)),
     );
-    expect(h.read(join(h.src, 'configure.ac'))).toBe(
-      'AM_INIT_AUTOMAKE([1.10.1 -Wall foreign subdir-objects\n                  dist-zip dist-bzip2])\n' +
-        '# Checks for libraries.\n\n',
-    );
+    expect(h.read(join(h.src, 'configure.ac'))).toBe(upstream);
   });
   it('is MIT, from the release tarball', () => {
     expect(recipe('libbs2b').license).toBe('MIT');
-    expect(platformsOf('libbs2b')).toEqual(PLATFORMS);
+    expect(platformsOf('libbs2b')).toEqual(['linux-x64', 'linux-armhf']);
+    expect(recipe('libbs2b').needs).toEqual([{ name: 'libsndfile' }]);
   });
 });
 
@@ -168,7 +168,7 @@ describe('quirc', () => {
   });
 });
 
-// Flite's libraries and headers: its configure without the old mingw and NDK toolchains, and no programs, tools or docs.
+// Flite's unchanged native configure and headers, with no programs, tools or docs.
 describe('flite', () => {
   const configure =
     `mingw*)\n                MINGWPREF="i386-mingw32-"\n                CC="\${MINGWPREF}gcc"\n` +
@@ -195,17 +195,18 @@ describe('flite', () => {
           '--with-audio=none',
           '--disable-sockets',
         ]),
-        'make -j4',
+        'make -C include -j4',
+        'make -C src -j4',
+        'make -C lang -j4',
       ].map((line) => line + o2(h)),
     );
     const configured = h.read(join(h.src, 'configure'));
-    expect(configured).not.toMatch(/(CC|AR|RANLIB|NM)="\$\{(MINGWPREF|ANDROIDBIN)\}/);
-    expect(configured).toContain(`WINDRES="\${MINGWPREF}windres"`);
+    expect(configured).toBe(configure);
     expect(h.read(join(h.src, 'Makefile'))).toBe(
-      'BUILD_DIRS = include src lang\nHOST_ONLY_DIRS =\n',
+      'BUILD_DIRS = include src lang doc\nHOST_ONLY_DIRS = tools main\n',
     );
     expect(h.read(join(h.src, 'include', 'cst_file.h'))).toBe(
-      '#if defined(_WIN32) && !defined(__MINGW32__)\n#define snprintf c99_snprintf\n',
+      '#ifdef _WIN32\n#define snprintf c99_snprintf\n',
     );
     expect(h.files(h.deps)).toEqual(
       expect.arrayContaining([
@@ -220,7 +221,7 @@ describe('flite', () => {
   });
 });
 
-// libzvbi's library alone, its configure.ac without gettext's macros (remade), without libpng.
+// libzvbi's library alone, with native gettext bootstrap and configure-time feature selection.
 describe('zvbi', () => {
   const configureAc =
     'AM_ICONV_LINK\nif test "x$am_cv_func_iconv" != xyes; then\n' +
@@ -232,13 +233,18 @@ describe('zvbi', () => {
     put(join(h.src, 'configure.ac'), configureAc);
     put(join(h.src, 'Makefile.am'), 'SUBDIRS += \\\n\tpo \\\n\tdoc\n');
     await build(h, 'zvbi');
+    const android = platform.startsWith('android-');
+    const apple = /^(osx|ios|maccatalyst)-/.test(platform);
+    const gettext = `${env(h, 'HOMEBREW_PREFIX') || '/opt/homebrew'}/opt/gettext`;
     expect(commands(h)).toEqual(
       [
+        'autopoint --force',
         'autoreconf -fi',
         configureLine(h, [
           '--disable-shared',
           '--enable-static',
           '--with-pic',
+          '--disable-nls',
           '--disable-v4l',
           '--disable-dvb',
           '--disable-bktr',
@@ -256,17 +262,11 @@ describe('zvbi', () => {
         'make install-pkgconfigDATA',
       ].map(
         (line) =>
-          `${line} [CFLAGS=${env(h, 'CFLAGS')} -O2 CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`,
+          `${line} [${apple ? `ACLOCAL_PATH=${gettext}/share/aclocal:${env(h, 'ACLOCAL_PATH')} ` : ''}CFLAGS=${env(h, 'CFLAGS')} -O2${android ? ' -Wno-error=implicit-function-declaration' : ''} CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}${apple ? ` PATH=${gettext}/bin:${env(h, 'PATH')}` : ''}]`,
       ),
     );
-    expect(h.read(join(h.src, 'configure.ac'))).toBe(
-      'AC_SEARCH_LIBS([libiconv_open], [iconv], [am_cv_func_iconv=yes],\n' +
-        '  [AC_SEARCH_LIBS([iconv_open], [iconv], [am_cv_func_iconv=yes])])\n' +
-        'if test "x$am_cv_func_iconv" != xyes; then\n' +
-        'AC_CONFIG_FILES([\n  test/Makefile\n  zvbi.spec\n])\n' +
-        '    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create(0, 0, 0, 0);]])],[],[\n',
-    );
-    expect(h.read(join(h.src, 'Makefile.am'))).toBe('SUBDIRS += \\\n\tdoc\n');
+    expect(h.read(join(h.src, 'configure.ac'))).toBe(configureAc);
+    expect(h.read(join(h.src, 'Makefile.am'))).toBe('SUBDIRS += \\\n\tpo \\\n\tdoc\n');
   });
   it('is GPL-2.0-only in part, and takes GNU libiconv where the C library has no iconv', () => {
     expect(recipe('zvbi').license).toContain('GPL-2.0-only');
@@ -276,7 +276,7 @@ describe('zvbi', () => {
   });
 });
 
-// aribb24 1.0.4 (VideoLAN's fork), without libpng, its configure made after that edit.
+// aribb24 1.0.4 (VideoLAN's fork), with its native PNG feature and math-library link flags.
 describe('aribb24', () => {
   it.each(platformsOf('aribb24'))('%s', async (platform) => {
     const h = fake(platform);
@@ -285,6 +285,7 @@ describe('aribb24', () => {
       'pkg_requires=""\nPKG_CHECK_MODULES(PNG, "libpng", [\n  AC_DEFINE(HAVE_PNG, 1, "have libpng")\n' +
         '  pkg_requires="libpng"\n], [])\n\nAC_CHECK_FUNCS([vasprintf])\n',
     );
+    const source = h.read(join(h.src, 'configure.ac'));
     await build(h, 'aribb24');
     expect(commands(h)).toEqual(
       [
@@ -292,18 +293,16 @@ describe('aribb24', () => {
         configureLine(h, ['--disable-shared', '--enable-static', '--with-pic']),
         'make -j4',
         'make install',
-      ].map((line) => line + o2(h)),
+      ].map((line) => `${line} [CFLAGS=${env(h, 'CFLAGS')} -O2 LIBS=${env(h, 'LIBS')} -lm]`),
     );
-    expect(h.read(join(h.src, 'configure.ac'))).toBe(
-      'pkg_requires=""\n\n\nAC_CHECK_FUNCS([vasprintf])\n',
-    );
+    expect(h.read(join(h.src, 'configure.ac'))).toBe(source);
   });
   it('is LGPL-3.0-or-later', () => {
     expect(recipe('aribb24').license).toBe('LGPL-3.0-or-later');
   });
 });
 
-// libaribcaption with its renderer, on CMake 3.11's terms; on Android its .pc names the FreeType it renders with.
+// libaribcaption with its renderer and native CMake requirements; Android metadata names its FreeType dependency.
 describe('libaribcaption', () => {
   it.each(platformsOf('libaribcaption'))('%s', async (platform) => {
     const h = fake(platform);
@@ -314,7 +313,7 @@ describe('libaribcaption', () => {
     expect(commands(h)).toEqual(
       cmakeLines(h, ['-DARIBCC_BUILD_TESTS=OFF', '-DARIBCC_SHARED_LIBRARY=OFF']),
     );
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('cmake_minimum_required(VERSION 3.11)\n');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('cmake_minimum_required(VERSION 3.28)\n');
     expect(h.read(pcPath(h, 'libaribcaption'))).toBe(
       platform.startsWith('android-')
         ? pc.replace('Requires.private:', 'Requires.private: freetype2')
@@ -485,9 +484,7 @@ describe('GLib', () => {
     put(join(h.deps, 'include', 'libintl.h'), header);
     await build(h, 'proxy-libintl');
     expect(commands(h)).toEqual(mesonLines(h, []));
-    expect(h.read(join(h.deps, 'include', 'libintl.h'))).toBe(
-      '#if 0 /* static: ffmpeg-build */\n#  define G_INTL_EXPORT __declspec(dllimport)\n',
-    );
+    expect(h.read(join(h.deps, 'include', 'libintl.h'))).toBe(header);
   });
   it.each(platformsOf('glib'))('glib on %s', async (platform) => {
     const h = fake(platform);
@@ -497,7 +494,9 @@ describe('GLib', () => {
     );
     await build(h, 'glib');
     // the system's folders, not deps', for translations and charset.alias
-    expect(h.read(join(h.src, 'meson.build'))).toBe("glib_localedir = '/usr/share/locale'\n");
+    expect(h.read(join(h.src, 'meson.build'))).toBe(
+      "glib_localedir = join_paths(glib_prefix, get_option('localedir'))\n",
+    );
     // native builds (musl, osx-arm64): deps' folders for meson's libintl search
     const native = /^linux-musl-|^osx-arm64$/.test(platform)
       ? ` [CPPFLAGS=-I${h.deps}/include ${env(h, 'CPPFLAGS')} LDFLAGS=-L${h.deps}/lib ${env(h, 'LDFLAGS')}]`
@@ -522,6 +521,11 @@ describe('GLib', () => {
         '-Dlibelf=disabled',
         '-Dglib_debug=disabled',
         '-Dcharsetalias_dir=/usr/lib',
+        '--localedir=/usr/share/locale',
+        '--localstatedir=/var',
+        ...(platform.startsWith('win-')
+          ? [`-Dc_args=-I"${h.deps}/include" ${env(h, 'CFLAGS')} -DG_INTL_STATIC_COMPILATION`]
+          : []),
         ...(objc ? [`--cross-file=${h.src}/objc-cross.ini`] : []),
       ]).map((line) => line + native),
     );
@@ -529,8 +533,8 @@ describe('GLib', () => {
     expect(ini.includes(`objc = '${env(h, 'CC')}'`)).toBe(objc);
     expect(ini.includes(`'-I${h.deps}/include']`)).toBe(objc);
   });
-  it('takes proxy-libintl wherever the C library is not glibc, GNU libiconv on Apple, and 2.86', () => {
-    const noGettext = PLATFORMS.filter((p) => !/^linux-(x64|arm64|armhf)$/.test(p));
+  it('takes proxy-libintl outside Linux and GNU libiconv on Apple', () => {
+    const noGettext = PLATFORMS.filter((p) => !p.startsWith('linux-'));
     expect(platformsOf('proxy-libintl')).toEqual(noGettext);
     expect(recipe('glib').needs).toEqual([
       { name: 'zlib' },
@@ -538,7 +542,7 @@ describe('GLib', () => {
       { name: 'libffi' },
       {
         name: 'proxy-libintl',
-        platforms: ['linux-musl-*', 'win-*', 'osx-*', 'ios-*', 'maccatalyst-*', 'android-*'],
+        platforms: ['win-*', 'osx-*', 'ios-*', 'maccatalyst-*', 'android-*'],
       },
       { name: 'libiconv', platforms: ['osx-*', 'ios-*', 'maccatalyst-*'] },
     ]);
@@ -559,7 +563,7 @@ describe('lensfun', () => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(
           pcPath(h, 'lensfun'),
-          `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
+          `prefix=/usr\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nCflags: -I\${includedir}\n`,
         );
         put(join(h.deps, 'share', 'lensfun', 'version_2', 'mil-sony.xml'), '<lensdatabase/>');
       }
@@ -576,15 +580,15 @@ describe('lensfun', () => {
         '-DINSTALL_HELPER_SCRIPTS=OFF',
         '-DCMAKE_INSTALL_DATAROOTDIR=share',
         '-DPYTHON=PYTHON-NOTFOUND',
-      ]),
+        '-DCMAKE_INSTALL_PREFIX=/usr',
+      ]).map((line) => (line === 'cmake --install _build' ? `${line} --prefix ${h.deps}` : line)),
     );
     expect(h.files(h.deps).filter((f) => f.startsWith('share/'))).toEqual([]);
     // the system's database by default, not the deps folder's (where none is)
-    const system = '  #define SYSTEM_DB_PATH "/usr/share/lensfun"\n';
-    expect(h.read(config)).toBe(system + windows + system);
+    expect(h.read(config)).toBe(linux + windows + linux);
     const win = platform.startsWith('win-') ? ' -DCONF_LENSFUN_STATIC' : '';
     expect(h.read(pcPath(h, 'lensfun'))).toBe(
-      `Requires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
+      `prefix=${h.deps}\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\nRequires.private: glib-2.0\nLibs: -L\${libdir} -llensfun\nLibs.private: ${cxxRuntime(platform)}\nCflags: -I\${includedir}${win}\n`,
     );
   });
   it('is the library alone, LGPL-3.0-or-later, from master', () => {
@@ -628,29 +632,29 @@ describe('OpenColorIO', () => {
         ...(arm ? ['-DOCIO_USE_SIMD=OFF'] : []),
       ]),
     );
-    const win = platform.startsWith('win-');
     const mac = platform.startsWith('osx-');
     expect(h.read(join(h.src, 'src', 'OpenColorIO', 'transforms', 'FileTransform.cpp'))).toContain(
-      win
-        ? 'Platform::filenameToUTF(filepath).c_str(), mode));'
-        : 'Platform::filenameToUTF(filepath), mode));',
+      'Platform::filenameToUTF(filepath), mode));',
     );
     expect(h.read(pcPath(h, 'OpenColorIO'))).toBe(
       `Libs: -L\${libdir} -lOpenColorIO\n` +
-        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${win ? ' -lgdi32 -luser32' : ''}${mac ? ' -framework ColorSync -framework CoreFoundation -framework CoreGraphics -framework IOKit' : ''}\n` +
-        `Cflags: -I\${includedir}${win ? ' -DOpenColorIO_SKIP_IMPORTS' : ''}\n` +
+        `Libs.private: -lpystring ${cxxRuntime(platform)} -lm${mac ? ' -framework ColorSync -framework CoreFoundation -framework CoreGraphics -framework IOKit' : ''}\n` +
+        `Cflags: -I\${includedir}\n` +
         'Requires.private: yaml-cpp minizip-ng Imath expat zlib\n',
     );
   });
   // macOS too (the engine's fix for FFmpeg's VERSION file, #41), not iOS or Mac Catalyst (their missing macOS APIs):
   // its dependencies build where it does
   const notIos = PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p));
-  it.each(['opencolorio', 'yaml-cpp', 'pystring', 'imath', 'minizip-ng'])(
+  it.each(['yaml-cpp', 'pystring', 'imath', 'minizip-ng'])(
     '%s builds on Linux, macOS, Windows and Android',
     (name) => {
       expect(platformsOf(name)).toEqual(notIos);
     },
   );
+  it('omits the unsupported MinGW constructor in the current OpenColorIO release', () => {
+    expect(platformsOf('opencolorio')).toEqual(notIos.filter((p) => !p.startsWith('win-')));
+  });
   it('takes libexpat, which now builds on Windows and Android too', () => {
     expect(platformsOf('libexpat')).toEqual(
       PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p)),
@@ -704,11 +708,26 @@ describe('cairo', () => {
   };
   it.each(platformsOf('cairo'))('%s', async (platform) => {
     const h = fake(platform);
+    const instrumentation = [
+      'lib/cairo/libcairo-trace.so',
+      'lib/cairo/libcairo-fdr.a',
+      'bin/cairo-trace',
+    ];
+    for (const name of instrumentation) {
+      put(join(h.deps, name), 'optional development instrumentation\n');
+    }
+    put(join(h.deps, 'lib', 'libcairo.a'), '!<arch>\n');
     put(
       pcPath(h, 'cairo'),
       `Libs: -L\${libdir} -lcairo\nLibs.private: -lgdi32\nCflags: -I\${includedir}/cairo\n`,
     );
     await build(h, 'cairo');
+    expect(instrumentation.map((name) => existsSync(join(h.deps, name)))).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    expect(h.read(join(h.deps, 'lib', 'libcairo.a'))).toBe('!<arch>\n');
     expect(commands(h)).toEqual(
       mesonLines(h, [
         '-Dtests=disabled',
@@ -785,10 +804,8 @@ describe('pango', () => {
         `-Dfreetype=${fc}`,
       ]).map((line) => `${line} [PATH=${h.deps}/bin:${env(h, 'PATH')}]`),
     );
-    expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe(
-      '#include <hb-ft.h>\n#include <fontconfig/fcfreetype.h>\n',
-    );
-    expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Wunused-but-set-variable',\n");
+    expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe('#include <hb-ft.h>\n');
+    expect(h.read(join(h.src, 'meson.build'))).toBe("    '-Werror=unused-but-set-variable',\n");
   });
   it('stays on 1.56 while GLib does on 2.86, and leaves out Apple', () => {
     expect(recipe('pango').versions).toEqual({ 'git-tags': '^(1\\.56\\.\\d+)$' });
@@ -840,11 +857,7 @@ describe('librsvg', () => {
       expect(setup).toContain(arg);
     }
     expect(setup).toContain('RUSTFLAGS=--remap-path-prefix=');
-    expect(h.read(join(h.src, 'meson.build'))).toBe(
-      platform.startsWith('linux-musl-')
-        ? "  foreach i: native_libs.stdout().replace('unwind', 'gcc_eh').split()\n"
-        : '  foreach i: native_libs.stdout().split()\n',
-    );
+    expect(h.read(join(h.src, 'meson.build'))).toBe('  foreach i: native_libs.stdout().split()\n');
   });
   it('is v3 builds only, for its Apache-2.0 crates, and not on Apple', () => {
     expect(recipe('librsvg').license).toContain('Apache-2.0');
@@ -853,21 +866,24 @@ describe('librsvg', () => {
   });
 });
 
-// Tesseract on Leptonica (zlib and PNG alone), cpu_features' NDK layer on Android.
+// Tesseract's native Autotools library on Leptonica (zlib and PNG alone).
 describe('tesseract', () => {
   it.each(platformsOf('leptonica'))('leptonica on %s', async (platform) => {
     const h = fake(platform);
     const win = platform.startsWith('win-');
+    const nativeArchive = `libleptonica-${h.base['VERSION']!}.dll`;
     put(
       join(h.src, 'src', 'CMakeLists.txt'),
       'if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX\n',
     );
     if (win) {
       put(pcPath(h, 'lept_Release'), 'Libs: -lleptonica\n');
+      put(join(h.deps, 'lib', nativeArchive), '!<arch>\n');
+      h.onRun = (call) => (call.command === 'file' ? 'current ar archive\n' : undefined);
     }
     await build(h, 'leptonica');
-    expect(commands(h)).toEqual(
-      cmakeLines(h, [
+    expect(commands(h)).toEqual([
+      ...cmakeLines(h, [
         '-DBUILD_PROG=OFF',
         '-DSW_BUILD=OFF',
         '-DENABLE_ZLIB=ON',
@@ -878,12 +894,16 @@ describe('tesseract', () => {
         '-DENABLE_WEBP=OFF',
         '-DENABLE_OPENJPEG=OFF',
       ]),
+      ...(win ? [`file -b ${h.deps}/lib/${nativeArchive}`] : []),
+    ]);
+    expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toBe(
+      'if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX\n',
     );
-    expect(
-      h
-        .read(join(h.src, 'src', 'CMakeLists.txt'))
-        .startsWith(win ? 'if(MINGW AND BUILD_SHARED_LIBS)' : 'if(MINGW)\n'),
-    ).toBe(true);
+    // Retain the native name for upstream's installed CMake target metadata.
+    const installedArchives = win
+      ? [nativeArchive, 'libleptonica.a'].map((name) => h.read(join(h.deps, 'lib', name)))
+      : [];
+    expect(installedArchives).toEqual(win ? ['!<arch>\n', '!<arch>\n'] : []);
     expect(h.files(h.deps).includes('lib/pkgconfig/lept.pc')).toBe(win);
   });
   it.each(platformsOf('tesseract'))('tesseract on %s', async (platform) => {
@@ -898,49 +918,48 @@ describe('tesseract', () => {
       '#include <numeric> // for std::inner_product\n',
     );
     h.onRun = (call) => {
-      if (call.command === 'cmake' && call.args[0] === '--install') {
-        put(pcPath(h, 'tesseract'), `Libs: -L\${libdir} -ltesseract55\nLibs.private:\n`);
+      if (call.command === 'make' && call.args.includes('install-libLTLIBRARIES')) {
+        put(
+          pcPath(h, 'tesseract'),
+          `Libs: -L\${libdir} -ltesseract\nLibs.private: -lpthread\nRequires.private: lept\n`,
+        );
       }
       return undefined;
     };
     await build(h, 'tesseract');
     expect(commands(h)).toEqual(
-      cmakeLines(h, [
-        '-DBUILD_TRAINING_TOOLS=OFF',
-        '-DBUILD_TESTS=OFF',
-        '-DGRAPHICS_DISABLED=ON',
-        '-DOPENMP_BUILD=OFF',
-        '-DDISABLE_CURL=ON',
-        '-DDISABLE_ARCHIVE=ON',
-        '-DDISABLE_TIFF=ON',
-        '-DENABLE_NATIVE=OFF',
-        '-DINSTALL_CONFIGS=OFF',
-        '-DENABLE_CCACHE=OFF',
-        '-DENABLE_PRECOMPILED_HEADERS=OFF',
-        ...(platform.startsWith('android-') ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`] : []),
-      ]),
+      [
+        'sh autogen.sh',
+        configureLine(h, [
+          '--disable-shared',
+          '--enable-static',
+          '--with-pic',
+          '--disable-graphics',
+          '--disable-doc',
+          '--without-archive',
+          '--without-curl',
+          '--disable-openmp',
+        ]),
+        'make -j4 libtesseract.la',
+        'make install-libLTLIBRARIES install-pkgincludeHEADERS install-pkgconfigDATA',
+      ].map(
+        (line) => `${line} [CXXFLAGS=${h.base['CXXFLAGS'] ?? ''} -include string -include cstdlib]`,
+      ),
     );
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      'set(LIB_Ws2_32 ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64.*|AARCH64.*")\n',
+      'check_leptonica_tiff_support()\nset(LIB_Ws2_32 Ws2_32)\nelseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64.*|AARCH64.*")\n',
     );
-    expect(h.read(join(h.src, 'src', 'viewer', 'scrollview.h'))).toBe(
-      '#include <cstdio>\n#include <string>\n',
+    expect(h.read(join(h.src, 'src', 'viewer', 'scrollview.h'))).toBe('#include <cstdio>\n');
+    expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toBe(
+      '#include <numeric> // for std::inner_product\n',
     );
-    expect(h.read(join(h.src, 'src', 'arch', 'simddetect.cpp'))).toContain('#include <cstdlib>\n');
     expect(h.read(pcPath(h, 'tesseract'))).toBe(
-      `Libs: -L\${libdir} -ltesseract55\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('linux-') ? ' -pthread' : ''}${platform.startsWith('win-') ? ' -lws2_32' : ''}\nRequires.private: lept\n`,
+      `Libs: -L\${libdir} -ltesseract\nLibs.private: ${cxxRuntime(platform)} -lm${platform.startsWith('linux-') ? ' -pthread' : ''}${platform.startsWith('win-') ? ' -lws2_32' : ''}${/^(osx|ios|maccatalyst)-/.test(platform) ? ' -framework Accelerate' : ''}\nRequires.private: lept\n`,
     );
   });
-  it.each(platformsOf('cpu-features'))('cpu-features on %s', async (platform) => {
-    const h = fake(platform);
-    await build(h, 'cpu-features');
-    expect(commands(h)).toEqual(
-      cmakeLines(h, ['-DBUILD_TESTING=OFF', '-DBUILD_EXECUTABLE=OFF', '-DENABLE_INSTALL=ON']),
-    );
-  });
-  it('is Apache-2.0, and takes cpu_features on Android only', () => {
+  it('is Apache-2.0 and uses native CPU detection without the CMake-only NDK adapter', () => {
     expect(recipe('tesseract').license).toBe('Apache-2.0');
-    expect(platformsOf('cpu-features')).toEqual(PLATFORMS.filter((p) => p.startsWith('android-')));
+    expect(recipe('tesseract').needs).toEqual([{ name: 'leptonica' }]);
   });
 });
 
@@ -949,9 +968,12 @@ describe('opencv', () => {
   it.each(platformsOf('opencv'))('%s', async (platform) => {
     const h = fake(platform);
     const android = platform.startsWith('android-');
+    const ios = platform.startsWith('ios-');
     const pc = `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm\n`;
     // not installed on Android: copied from the build folder
-    put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    if (!ios) {
+      put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    }
     put(
       join(h.src, 'CMakeLists.txt'),
       `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
@@ -968,20 +990,16 @@ describe('opencv', () => {
     );
     put(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'), 'if(MSVC OR IOS OR XROS)\n  return()\n');
     await build(h, 'opencv');
-    // no build, source or install folder recorded in the library
+    // Preserve upstream build information and data-search metadata.
     expect(h.read(join(h.src, 'cmake', 'OpenCVUtils.cmake'))).toBe(
-      'function(ocv_output_status msg)\n' +
-        `  string(REPLACE "\${CMAKE_BINARY_DIR}" "<build>" msg "\${msg}")\n` +
-        `  string(REPLACE "\${CMAKE_SOURCE_DIR}" "<source>" msg "\${msg}")\n` +
-        `  string(REPLACE "\${CMAKE_INSTALL_PREFIX}" "<prefix>" msg "\${msg}")\n` +
-        `  message(STATUS "\${msg}")\n`,
+      `function(ocv_output_status msg)\n  message(STATUS "\${msg}")\n`,
     );
     expect(h.read(join(h.src, 'modules', 'core', 'CMakeLists.txt'))).toBe(
-      '// install prefix not recorded\n#define OPENCV_BUILD_DIR \\"\\"\n',
+      `#define OPENCV_INSTALL_PREFIX \\"\${CMAKE_INSTALL_PREFIX}\\"\n#define OPENCV_BUILD_DIR \\"\${CMAKE_BINARY_DIR}\\"\n`,
     );
-    // and its .pc made for iOS too
+    // iOS gets engine packaging metadata; upstream intentionally skips its generator.
     expect(h.read(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'))).toBe(
-      'if(MSVC OR XROS)\n  return()\n',
+      'if(MSVC OR IOS OR XROS)\n  return()\n',
     );
     const setup = commands(h)[0]!;
     for (const arg of [
@@ -993,16 +1011,18 @@ describe('opencv', () => {
       expect(setup).toContain(arg);
     }
     expect(setup.includes('-DOPENCV_LIB_INSTALL_PATH=lib')).toBe(android);
-    // no build folder in its build information
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      'status("    C++ flags (Release):"    "(not recorded)")\n' +
-        '  status("    Linker flags (Debug):"   "(not recorded)")\n' +
+      `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
+        `  status("    Linker flags (Debug):"   \${CMAKE_EXE_LINKER_FLAGS} \${CMAKE_EXE_LINKER_FLAGS_DEBUG})\n` +
         `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
     );
     const win = platform.startsWith('win-') ? ' -lole32' : '';
-    expect(h.read(pcPath(h, 'opencv4'))).toBe(
-      `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm ${cxxRuntime(platform)}${win}\n`,
+    const installed = h.read(pcPath(h, 'opencv4'));
+    expect(installed).toContain(`Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\n`);
+    expect(installed).toContain(
+      `Libs.private: ${ios ? '-lz -lm' : '-ldl -lm'} ${cxxRuntime(platform)}${win}\n`,
     );
+    expect(installed.includes(`Cflags: -I\${includedir} -I\${includedir}/opencv4\n`)).toBe(ios);
   });
   it('is OpenCV 4 (the C API FFmpeg uses), Apache-2.0', () => {
     expect(recipe('opencv').versions).toEqual({ 'git-tags': '^(4\\.\\d+\\.\\d+)$' });

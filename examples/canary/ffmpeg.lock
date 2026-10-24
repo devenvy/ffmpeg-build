@@ -14,17 +14,16 @@ libraries:
   cairo: { version: 1.18.6, commit: 018b3424a10ecd37450360f21454ecf0f3007e17 }
   chromaprint: { version: 1.6.1, commit: aed8eba2202dd9d7b3b0a56c77904cc805490d72 }
   codec2: { version: 1.2.0, commit: 06d4c11e699b0351765f10398abb4f663a984f36 }
-  cpu-features: { version: 0.11.0, commit: 81d13c49649f0714dd41fb56bb246398b6584085 }
   cuda-nvcc: { version: 12.8.93, sha256: 9961b3484b6b71314063709a4f9529654f96782ad39e72bf1e00f070db8210d3 }
   cuda-runtime: { version: 12.8.90, sha256: 8d566b5fe745c46842dc16945cf36686227536decd2302c372be86da37faca68 }
   d3d12-headers: { version: 14.0.0, commit: 9b3dd0125792fe94d16cacdc596dbd42fca1b369 }
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
-  davs2: { version: 1.7, commit: b06d7585620f4e90a6d19a2926bb4e59793b8942 }
+  davs2: { version: 1.7, sha256: b697d0b376a1c7f7eda3a4cc6d29707c8154c4774358303653f0a9727f923cc8 }
   decklink-headers: 27a47e3872c58a25418701aadab448b9e6bedcd3
   fdk-aac: { version: 3.0.0, commit: a68a51aa45d86a43c7b228e3d45624af09dcdd8d }
   flex: { version: 2.6.4, sha256: e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995 }
   flite: { version: 2.2, commit: e9e2e37c329dbe98bfeb27a1828ef9a71fa84f88 }
-  fontconfig: { version: 2.18.3, commit: 0f236723a3c26bd9745e32ba2b3ee21e5f809295 }
+  fontconfig: { version: 2.15.0, commit: 72b9a48f57de6204d99ce1c217b5609ee92ece9b }
   freetype: { version: 2.14.3, commit: 0a0221a1347e2f1e07c395263540026e9a0aa7c7 }
   frei0r: { version: 3.6.0, commit: d63e2e3537ec9119d1376c3d8f021bc2bfe35470 }
   fribidi: { version: 1.0.17, commit: b93119f5fdc7ea47672cc304c1455ffa6dfe7536 }
@@ -109,7 +108,7 @@ libraries:
   nv-codec: { version: 13.1.15.0, commit: 0a6fba9a2820628b8103464f4c8753ee05838baa }
   oapv: { version: 0.3.0.0, commit: 9f6fd2a7369db90acec67d99fc57724f1136fb84 }
   onnxruntime: { version: 1.31.0, commit: 402979ac1bef89dcd55add41eaa7277c407599eb }
-  openal-soft: { version: 1.25.2, commit: b2c48f7718ef3fcf67921a8b6534c4914e328970 }
+  openal-soft: { version: 1.24.3, commit: dc7d7054a5b4f3bec1dc23a42fd616a0847af948 }
   opencl-headers: { version: 2026.05.29, commit: 6fe718c31a45fe25151362a72ef041c3a1047cbd }
   opencl-icd-loader: { version: 2026.05.29, commit: b7bd2803acc779c03d96588e9ca9e9568a18698a }
   opencolorio: { version: 2.6.0, commit: 10a43ec1df03d072ca9a9e2fb3f26e454b0900d8 }
@@ -163,7 +162,7 @@ libraries:
   x264: b35605ace3ddf7c1a5d67a2eb553f034aef41d55
   x265: { version: 4.3, commit: e9b88125dc21393b3fd8d68e98083bdfb89778a8 }
   xavs: fbecc4fb0d5cfd0d38f7604d4d35e546ff1502ab
-  xavs2: { version: 1.4, commit: eae1e8b9d12468059bdd7dee893508e470fa83d8 }
+  xavs2: { version: 1.4, sha256: 1e6d731cd64cb2a8940a0a3fd24f9c2ac3bb39357d802432a47bc20bad52c6ce }
   xcb-proto: { version: 1.17.0, sha256: 2c1bacd2110f4799f74de6ebb714b94cf6f80fb112316b1219480fd22562148c }
   xevd: { version: 0.8.0, commit: 8fa744e865e9bdb94a5d5da6a4ab18268cdc4bb4 }
   xeve: { version: 0.7.1, commit: fe229fec19e14907c60d65626ebd59f41517d9b3 }
@@ -175,4 +174,4 @@ libraries:
   zimg: { version: 3.0.6, commit: f819b14e8f39d1282400b0d9543e8ef73c1b2bbd }
   zix: { version: 0.8.2, commit: 96163e9e071548df1bc2fb3b373c573246e9c5f7 }
   zlib: { version: 1.3.2, commit: da607da739fa6047df13e66a2af6b8bec7c2a498 }
-  zvbi: { version: 0.2.45, commit: d3a5ee9f2b047bf16cd1ee5ccf6ec05ee75409d0 }
+  zvbi: { version: 0.2.46, commit: 34bb6f660c5c1bacd4a66cc7b22311e4ca3c1ab5 }

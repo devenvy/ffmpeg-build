@@ -27,7 +27,7 @@ build:
   # adds -lrt for linux* hosts only (Android's triple is one); Apple and Windows have none.
   after:
     - copy: { from: src/kvazaar.pc, to: '{deps}/lib/pkgconfig/kvazaar.pc' }
-    - replace-in-file: { path: '{deps}/lib/pkgconfig/kvazaar.pc', from: -lrt, to: '' }
+    - edit-pkg-config: { path: '{deps}/lib/pkgconfig/kvazaar.pc', libs-private: { remove: -lrt } }
       when: { platforms: [linux-*, android-*] }
   platforms:
     # On Windows, kvazaar.h declares its API __declspec(dllimport) by default, so a

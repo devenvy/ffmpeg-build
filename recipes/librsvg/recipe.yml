@@ -4,8 +4,8 @@ provides: rsvg
 # MPL-2.0 (cssparser, selectors), Unicode-3.0 (the ICU4X crates), BSD-3-Clause and three Apache-2.0-only crates
 # (nalgebra, simba, approx: its transforms' maths), which keep it out of version 2 builds. (The engine checks every
 # crate linked in against this when it builds, build.cargo below.)
-license: LGPL-2.1-or-later AND Apache-2.0 AND MPL-2.0 AND MIT AND Unicode-3.0 AND BSD-3-Clause
-license-files: [COPYING.LIB]
+license: LGPL-2.1-or-later AND Apache-2.0 AND MPL-2.0 AND MIT AND Unicode-3.0 AND BSD-3-Clause AND (Apache-2.0 WITH LLVM-exception) AND NCSA
+license-files: [COPYING.LIB, { recipe: LLVM-LICENSE.txt }]
 configure: [--enable-librsvg]
 needs: [cairo, pango, glib, libxml2, freetype, harfbuzz]
 source:
@@ -49,14 +49,12 @@ build:
   # the crates its meson has cargo cbuild compile in (librsvg-c, default features: no AVIF), fetched and checked
   # before the build, for THIRD-PARTY-NOTICES.txt and the sources archive. selectors (and, on win-x64,
   # winapi-x86_64-pc-windows-gnu, the import libraries winapi links) publish no licence file in their crates: the
-  # standard text of their licence (MPL-2.0; MIT among MIT/Apache-2.0). Its C API is rsvg_*: the rest of what its
-  # Rust objects define (its copy of Rust's standard library) gets librsvg's own names, so it links beside another
-  # Rust library (rav1e); the C libraries Rust bundled into it (cairo, GLib, ...) keep theirs
+  # standard text of their licence (MPL-2.0; MIT among MIT/Apache-2.0).
+  # Native archive symbols are preserved; no engine namespace transformation is applied.
   cargo:
     target: '{target}'
     package: librsvg-c
     standard-texts: [selectors, winapi-x86_64-pc-windows-gnu]
-    exports: [rsvg_*]
   args:
     [
       '{shared-args}',
@@ -85,16 +83,7 @@ build:
     linux-arm64: { vars: { target: aarch64-unknown-linux-gnu } }
     linux-musl-x64: { vars: { target: x86_64-unknown-linux-musl } }
     linux-musl-arm64: { vars: { target: aarch64-unknown-linux-musl } }
-    # Rust's musl targets name LLVM's libunwind among the libraries a static link needs, which Alpine's GCC hasn't
-    # got: GCC's own static unwinder (libgcc_eh, the same _Unwind_* API) instead, as for rav1e
-    'linux-musl-*':
-      before:
-        - replace-in-file:
-            {
-              path: meson.build,
-              from: 'foreach i: native_libs.stdout().split()',
-              to: "foreach i: native_libs.stdout().replace('unwind', 'gcc_eh').split()",
-            }
+    # Musl images provide the actual LLVM static unwinder named by Rust's native dependency query.
     linux-armhf:
       vars: { target: armv7-unknown-linux-gnueabihf }
       env:

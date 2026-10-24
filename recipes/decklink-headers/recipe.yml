@@ -7,29 +7,18 @@ license-files:
 configure:
   - --enable-decklink
   - '--extra-cxxflags=-I{deps}/include'
-  - '--enable-libklvanc': { platforms: [linux-x64, osx-*] }
+  - '--enable-libklvanc': { platforms: [linux-x64] }
 needs:
-  - libklvanc: { platforms: [linux-x64, osx-*] }
+  - libklvanc: { platforms: [linux-x64] }
 source: { git: https://github.com/MediaArea/decklink-sdk-headers.git }
 versions: { git-branch: main }
 # Desktop Video's system runtime is required; it is not bundled. No driver for musl or mobile platforms.
-platforms: [linux-x64, win-x64, osx-*]
+# The stock Mac SDK lacks IID_IUnknown required by FFmpeg's callbacks. Do not inject an alias.
+platforms: [linux-x64, win-x64]
 build:
   system: none
   vars: { sdk-platform: Linux }
   platforms:
-    'osx-*':
-      vars: { sdk-platform: Mac }
-      before:
-        # Current SDK headers omit the conventional COM IUnknown IID that FFmpeg compares in its callbacks.
-        - replace-in-file:
-            path: DeckLinkSDK/Mac/include/DeckLinkAPI.h
-            from: '#include <CoreFoundation/CFPlugInCOM.h>'
-            to: |
-              #include <CoreFoundation/CFPlugInCOM.h>
-              #ifndef IID_IUnknown
-              #define IID_IUnknown CFUUIDGetUUIDBytes(IUnknownUUID)
-              #endif
     'win-*':
       vars: { sdk-platform: Win }
       before:
@@ -48,7 +37,9 @@ build:
                   raise SystemExit('DeckLink needs widl from mingw-w64-tools')
               subprocess.check_call([widl, '-h', '-o', 'DeckLinkAPI.h', 'DeckLinkAPI.idl'])
               subprocess.check_call([widl, '-u', '-o', 'DeckLinkAPI_i.c', 'DeckLinkAPI.idl'])
-              pathlib.Path('DeckLinkAPI_v14_2_1.h').write_text('#include "DeckLinkAPI.h"\n')
+              # The main IDL includes the native v14.2.1 interfaces. Preserve its complete generated header
+              # byte-for-byte under FFmpeg's compatibility filename; add no declarations or forwarding code.
+              shutil.copyfile('DeckLinkAPI.h', 'DeckLinkAPI_v14_2_1.h')
           cwd: DeckLinkSDK/Win/include
   steps:
     - copy: { from: 'DeckLinkSDK/{sdk-platform}/include/*', into: '{deps}/include' }

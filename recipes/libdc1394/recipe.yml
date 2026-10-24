@@ -24,6 +24,7 @@ linkage:
       configure: ['--extra-ldflags=-Wl,--as-needed']
       vars:
         shared-mode: 'yes'
+        shared-libs: '-lraw1394 -lm'
         shared-arg: --enable-shared
         static-arg: --disable-static
         shared-ldflags: '+= -L{deps}/lib -Wl,-z,defs,--exclude-libs,libraw1394.a:libavc1394.a:librom1394.a'
@@ -40,17 +41,11 @@ build:
       static-arg: --enable-static,
       shared-ldflags: '+= -L{deps}/lib',
       shared-mode: '',
+      shared-libs: '',
     }
-  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '{shared-ldflags}' }
+  # Native Automake puts LIBS after its convenience archives, where their raw1394 and math references resolve.
+  env: { CPPFLAGS: '+= -I{deps}/include', LDFLAGS: '{shared-ldflags}', LIBS: '+= {shared-libs?}' }
   args: ['{shared-arg}', '{static-arg}', --with-pic, --disable-examples, --disable-sdltest]
-  before:
-    # The platform's -lraw1394 precedes the convenience archives. Repeat it at
-    # the dependency tail so a strict shared link can embed static raw1394.
-    - replace-in-file:
-        path: dc1394/Makefile.in
-        from: "\t$(USB_LIBADD) \\\n\tvendor/libdc1394-vendor.la"
-        to: "\t$(USB_LIBADD) \\\n\tvendor/libdc1394-vendor.la -lraw1394 -lm"
-      when: { set: '{shared-mode}' }
   after:
     - edit-pkg-config:
         {

@@ -80,14 +80,14 @@ describe('libtheora', () => {
   });
 });
 
-// TwoLAME's library and .pc from the release tarball; on Windows its header loses the dllimport that FFmpeg's plain
-// `-ltwolame` link can't satisfy.
+// TwoLAME's library and .pc from the release tarball, with its native static-consumer configuration on Windows.
 describe('twolame', () => {
   const header =
     '#  ifdef LIBTWOLAME_STATIC\n#   define TL_API\n#  else\n#   define TL_API __declspec(dllimport)\n';
   it.each(platformsOf('twolame'))('%s', async (platform) => {
     const h = fake(platform);
     put(join(h.deps, 'include', 'twolame.h'), header);
+    put(pcPath(h, 'twolame'), `Libs: -ltwolame\nCflags: -I\${includedir}\n`);
     await build(h, 'twolame');
     expect(commands(h)).toEqual([
       configureLine(h, ['--disable-shared', '--enable-static', '--with-pic', '--disable-sndfile']),
@@ -95,8 +95,11 @@ describe('twolame', () => {
       'make -C libtwolame install',
       'make install-pkgconfigDATA',
     ]);
-    expect(h.read(join(h.deps, 'include', 'twolame.h'))).toBe(
-      platform.startsWith('win-') ? header.replace('__declspec(dllimport)', '') : header,
+    expect(h.read(join(h.deps, 'include', 'twolame.h'))).toBe(header);
+    expect(h.read(pcPath(h, 'twolame'))).toContain(
+      platform.startsWith('win-')
+        ? `Cflags: -I\${includedir} -DLIBTWOLAME_STATIC\n`
+        : `Cflags: -I\${includedir}\n`,
     );
   });
   it('builds everywhere', () => {
@@ -110,8 +113,10 @@ describe('shine', () => {
     const h = fake(platform);
     const pkgConfig = join(h.src, 'shine.pc.in');
     put(pkgConfig, `Libs: -L\${libdir} -lm -lshine\n`);
+    put(pcPath(h, 'shine'), `Libs: -L\${libdir} -lm -lshine\n`);
     await build(h, 'shine');
-    expect(h.read(pkgConfig)).toBe(`Libs: -L\${libdir} -lshine\nLibs.private: -lm\n`);
+    expect(h.read(pkgConfig)).toBe(`Libs: -L\${libdir} -lm -lshine\n`);
+    expect(h.read(pcPath(h, 'shine'))).toBe(`Libs: -L\${libdir} -lshine\nLibs.private: -lm\n`);
     expect(commands(h)).toEqual(
       [
         'autoreconf -fi',
@@ -134,8 +139,7 @@ describe('liblc3', () => {
   });
 });
 
-// codec2's library alone, its codebook generator compiled for the build machine first and handed to the CMake as an
-// imported program (its own cross build of the generator inherits the target's compiler).
+// Codec2's native host generator gets a clean build environment; target configuration and install metadata stay native.
 describe('codec2', () => {
   it.each(platformsOf('codec2'))('%s', async (platform) => {
     const h = fake(platform);
@@ -147,12 +151,34 @@ describe('codec2', () => {
       join(h.src, 'CMakeLists.txt'),
       `if(WIN32)\n    install(SCRIPT \${CMAKE_BINARY_DIR}/cmake/GetDependencies.cmake)\nendif()\n`,
     );
+    put(
+      join(h.src, '_build', 'src', 'CMakeFiles', 'Export', 'native', 'codec2-config.cmake'),
+      'native install export\n',
+    );
+    put(
+      join(h.src, '_build', 'src', 'CMakeFiles', 'Export', 'native', 'codec2-config-release.cmake'),
+      'native Release export\n',
+    );
     await build(h, 'codec2');
-    const unset = ['CC', 'CFLAGS', 'CPPFLAGS', 'LDFLAGS', 'SDKROOT']
+    const unset = [
+      'AR',
+      'CC',
+      'CFLAGS',
+      'CMAKE_FIND_ROOT_PATH',
+      'CMAKE_PREFIX_PATH',
+      'CMAKE_TOOLCHAIN_FILE',
+      'CPPFLAGS',
+      'CXX',
+      'CXXFLAGS',
+      'LDFLAGS',
+      'PKG_CONFIG_LIBDIR',
+      'PKG_CONFIG_PATH',
+      'RANLIB',
+      'SDKROOT',
+    ]
       .filter((k) => h.base[k] !== undefined)
       .map((k) => `-${k}`);
     expect(commands(h)).toEqual([
-      `cc -O2 -o generate_codebook_host src/generate_codebook.c -lm${unset.length ? ` [${unset.join(' ')}]` : ''}`,
       [
         'cmake',
         '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
@@ -167,16 +193,28 @@ describe('codec2', () => {
         '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
         '-DUNITTEST=OFF',
         '-DLPCNET=OFF',
-        `-DGENERATE_CODEBOOK=${h.src}/generate_codebook_host`,
         ...h.context.toolchain.cmakeArgs,
       ].join(' '),
-      'cmake --build _build --target codec2 -j4',
-      'cmake --install _build',
+      `cmake --build _build --target codec2 -j4${unset.length ? ` [${unset.join(' ')}]` : ''}`,
+      ...(platform.startsWith('win-')
+        ? [
+            'cmake --install _build --component lib',
+            'cmake --install _build --component dev',
+            'cmake --install _build --component codec2_devel',
+          ]
+        : ['cmake --install _build']),
     ]);
     expect(h.read(join(h.src, 'src', 'CMakeLists.txt'))).toBe(
-      `if(DEFINED GENERATE_CODEBOOK)\n    add_executable(generate_codebook IMPORTED)\n    set_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION \${GENERATE_CODEBOOK})\nelseif(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)\n    include(ExternalProject)\n`,
+      'if(CMAKE_CROSSCOMPILING)\n    set(CMAKE_DISABLE_SOURCE_CHANGES OFF)\n    include(ExternalProject)\n',
     );
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('if(WIN32)\n    \nendif()\n');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
+      `if(WIN32)\n    install(SCRIPT \${CMAKE_BINARY_DIR}/cmake/GetDependencies.cmake)\nendif()\n`,
+    );
+    expect(h.files(h.deps)).toEqual(
+      platform.startsWith('win-')
+        ? ['lib/cmake/codec2/codec2-config-release.cmake', 'lib/cmake/codec2/codec2-config.cmake']
+        : [],
+    );
   });
 });
 
@@ -205,29 +243,29 @@ describe('libilbc', () => {
     ];
     put(join(h.src, 'CMakeLists.txt'), cmakeLists.join('\n'));
     h.onRun = (call) => {
-      if (call.command === 'cmake' && call.args[0] === '--install') {
-        put(join(h.deps, 'lib', 'libilbc.a'), '!<arch>\n');
-        put(join(h.deps, 'include', 'ilbc.h'), '');
-        put(join(h.deps, 'share', 'doc', 'libilbc', 'README.md'), '');
-        put(pcPath(h, 'libilbc'), `Name: libilbc\nLibs: -L\${libdir} -lilbc\n`);
+      if (call.command === 'cmake' && call.args[0] === '--build') {
+        put(join(h.src, '_build', 'libilbc.a'), '!<arch>\n');
+        put(join(h.src, 'ilbc.h'), '#include "ilbc_export.h"\n');
+        put(join(h.src, '_build', 'ilbc_export.h'), '/* native export header */\n');
+        put(join(h.src, '_build', 'libilbc.pc'), `Name: libilbc\nLibs: -L\${libdir} -lilbc\n`);
       }
       return undefined;
     };
     await build(h, 'libilbc');
-    expect(commands(h)).toEqual(cmakeLines(h, []));
-    // the platform's flags kept, the test programs neither built nor installed
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      [
-        `    set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Wextra")`,
-        `    set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -Wall -Wextra")`,
-        'add_executable(ilbc_test EXCLUDE_FROM_ALL modules/test.c)',
-        'add_executable(ilbc_test2 EXCLUDE_FROM_ALL iLBC_test2.c)',
-        'install(TARGETS ilbc',
-        '',
-      ].join('\n'),
+    const lines = commands(h);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('-DCMAKE_BUILD_TYPE=RelWithDebInfo');
+    expect(lines[0]).toContain(
+      `-DCMAKE_C_FLAGS_RELWITHDEBINFO=${h.context.env['CFLAGS'] ?? ''} -O2 -DNDEBUG`,
     );
+    expect(lines[0]).toContain(
+      `-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${h.context.env['CXXFLAGS'] ?? ''} -O2 -DNDEBUG`,
+    );
+    expect(lines[1]).toBe('cmake --build _build --target ilbc -j4');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(cmakeLists.join('\n'));
     expect(h.files(h.deps)).toEqual([
       'include/ilbc.h',
+      'include/ilbc_export.h',
       'lib/libilbc.a',
       'lib/pkgconfig/libilbc.pc',
     ]);
@@ -249,17 +287,15 @@ describe('libilbc', () => {
 });
 
 // Xvid's own configure in build/generic, only its static archive (mingw's xvidcore.a installed as libxvidcore.a),
-// and xvid.h, by hand; C17, and mingw's configure without -mno-cygwin.
+// and xvid.h, by hand; C17, with upstream's own configure handling the compiler's supported flags.
 describe('xvidcore', () => {
-  const nativeTail =
-    '\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n';
   it.each(platformsOf('xvidcore'))('%s', async (platform) => {
     const h = fake(platform);
     const archive = platform.startsWith('win-') ? 'xvidcore.a' : 'libxvidcore.a';
     put(join(h.src, 'build', 'generic', 'configure'), '\tSPECIFIC_CFLAGS="-mno-cygwin"\n');
     put(join(h.src, 'build', 'generic', '=build', archive), '!<arch>\n');
     put(join(h.src, 'src', 'xvid.h'), '/* xvid */\n');
-    put(join(h.src, 'src', 'encoder.c'), nativeTail);
+    put(join(h.src, 'src', 'encoder.c'), 'upstream encoder source\n');
     await build(h, 'xvidcore');
     const host = env(h, 'CROSS_HOST');
     const asm = ['osx-x64', 'maccatalyst-x64', 'android-x64'].includes(platform)
@@ -269,18 +305,14 @@ describe('xvidcore', () => {
       `build/generic$ ./configure --prefix=${h.deps}${host ? ` --host=${host}` : ''}${asm}${gnu17(h)}`,
       `build/generic$ make -j4 ${archive}${gnu17(h)}`,
     ]);
-    expect(h.read(join(h.src, 'build', 'generic', 'configure'))).toBe('\tSPECIFIC_CFLAGS=""\n');
-    expect(h.read(join(h.src, 'src', 'encoder.c'))).toContain('goto repeat;');
+    expect(h.read(join(h.src, 'build', 'generic', 'configure'))).toBe(
+      '\tSPECIFIC_CFLAGS="-mno-cygwin"\n',
+    );
+    expect(h.read(join(h.src, 'src', 'encoder.c'))).toBe('upstream encoder source\n');
     expect(h.files(h.deps)).toEqual(['include/xvid.h', 'lib/libxvidcore.a']);
   });
-  it('builds everywhere', () => {
-    expect(platformsOf('xvidcore')).toEqual(PLATFORMS);
-  });
-  it('rejects an unrecognized native EOF branch before compiling', async () => {
-    const h = fake('linux-x64');
-    put(join(h.src, 'src', 'encoder.c'), 'changed native EOF branch\n');
-    await expect(build(h, 'xvidcore')).rejects.toThrow(/replace-in-file/);
-    expect(commands(h)).toEqual([]);
+  it('omits Win-x64 where native configure retains the unsupported -mno-cygwin flag', () => {
+    expect(platformsOf('xvidcore')).toEqual(PLATFORMS.filter((p) => p !== 'win-x64'));
   });
 });
 
@@ -321,6 +353,10 @@ const x264Cross = (platform: string, h: Harness): string[] => {
 /** davs2 and xavs2: assembly only on glibc x86-64 Linux and Windows (on musl it crashes, on ARM it is missing). */
 const asmOff = (platform: string) =>
   /^(linux-x64|win-x64)$/.test(platform) ? [] : ['--disable-asm'];
+const incomingStack = (platform: string) =>
+  ['linux-x64', 'linux-musl-x64', 'win-x64'].includes(platform)
+    ? ['--extra-cflags=-mincoming-stack-boundary=4']
+    : [];
 const AVS2_PLATFORMS = [
   'linux-x64',
   'linux-arm64',
@@ -331,8 +367,7 @@ const AVS2_PLATFORMS = [
   'android-x64',
 ];
 
-// davs2's x264-style configure in build/linux, its version and endianness probe made to work in a shallow clone
-// with today's compilers, and the C++ runtime its .pc leaves out.
+// davs2's unchanged native configure/version scripts, selected compiler flags, and installed C++ runtime metadata.
 describe('davs2', () => {
   it('builds where its x86-64 assembly or plain C builds', () => {
     expect(platformsOf('davs2')).toEqual(AVS2_PLATFORMS);
@@ -359,17 +394,16 @@ describe('davs2', () => {
         '--enable-pic',
         ...x264Cross(platform, h),
         ...asmOff(platform),
+        ...incomingStack(platform),
       ].join(' ') + cxx,
       `build/linux$ make -j4 lib-static${cxx}`,
       `build/linux$ make install-lib-static${cxx}`,
     ]);
-    expect(h.read(join(h.src, 'version.sh'))).toBe('    VER_R=0\n');
-    const expectedStack =
-      platform === 'linux-x64'
-        ? stackProbe.replaceAll('boundary=5', 'boundary=4').replace('alignment=32', 'alignment=16')
-        : stackProbe;
+    expect(h.read(join(h.src, 'version.sh'))).toBe(
+      '    VER_R=`git rev-list --count origin/master`\n',
+    );
     expect(h.read(join(h.src, 'build', 'linux', 'configure'))).toBe(
-      `    elif false && !(strings | grep -q EGIB) ; then\n${expectedStack}`,
+      `    elif !(strings | grep -q EGIB) ; then\n${stackProbe}`,
     );
     expect(h.read(pcPath(h, 'davs2'))).toMatch(/\nLibs\.private: -l\S+\n$/);
   });
@@ -390,6 +424,7 @@ describe('xavs2', () => {
         '        CFLAGS="$CFLAGS -mpreferred-stack-boundary=5"\n' +
         '        stack_alignment=32\n',
     );
+    const upstreamConfigure = h.read(join(h.src, 'build', 'linux', 'configure'));
     await build(h, 'xavs2');
     expect(commands(h)).toEqual([
       [
@@ -401,15 +436,15 @@ describe('xavs2', () => {
         '--extra-cflags=-Wno-error=incompatible-pointer-types -std=gnu17',
         '--extra-asflags=-w-macro-params-legacy',
         ...asmOff(platform),
+        ...incomingStack(platform),
       ].join(' '),
       'build/linux$ make -j4 lib-static',
       'build/linux$ make install-lib-static',
     ]);
-    expect(h.read(join(h.src, 'version.sh'))).toBe('    VER_R=0\n');
-    const configure = h.read(join(h.src, 'build', 'linux', 'configure'));
-    expect(configure).toContain(
-      platform === 'linux-x64' ? 'stack_alignment=16' : 'stack_alignment=32',
+    expect(h.read(join(h.src, 'version.sh'))).toBe(
+      '    VER_R=`git rev-list --count origin/master`\n',
     );
+    expect(h.read(join(h.src, 'build', 'linux', 'configure'))).toBe(upstreamConfigure);
   });
 });
 
@@ -432,7 +467,7 @@ describe('xavs', () => {
       `./configure --prefix=${h.deps} --disable-asm --enable-pic${cross}`,
       'make -j4 libxavs.a',
     ]);
-    expect(h.read(join(h.src, 'configure'))).toBe('    DEVNULL="/dev/null"\n');
+    expect(h.read(join(h.src, 'configure'))).toBe('    DEVNULL="NUL"\n');
     expect(h.files(h.deps)).toEqual(['include/xavs.h', 'lib/libxavs.a']);
   });
   it('follows the mirror of r55, and ships its GPL notice', () => {
@@ -442,10 +477,12 @@ describe('xavs', () => {
   });
 });
 
-// uavs3d: CMake, 10-bit (which decodes 8-bit too).
+// uavs3d: native CMake 10-bit and the upstream Android ARM64 8-bit NDK module.
 describe('uavs3d', () => {
-  it('builds everywhere but win-arm64', () => {
-    expect(platformsOf('uavs3d')).toEqual(PLATFORMS.filter((p) => p !== 'win-arm64'));
+  it('omits unsupported Windows ARM64 and generic Android x64 producers', () => {
+    expect(platformsOf('uavs3d')).toEqual(
+      PLATFORMS.filter((p) => !['win-arm64', 'android-x64'].includes(p)),
+    );
   });
   it.each(platformsOf('uavs3d'))('%s', async (platform) => {
     const h = fake(platform);
@@ -456,22 +493,40 @@ describe('uavs3d', () => {
       join(h.src, 'source', 'decoder', 'uavs3d.c'),
       'printf("libuavs3d(%2d): %s_%s, %s\\n", BIT_DEPTH, VERSION_STR, VERSION_TYPE, VERSION_SHA1);\n',
     );
+    put(join(h.src, '_ndk', 'obj', 'local', 'arm64-v8a', 'libuavs3d.a'), '!<arch>\n');
+    put(join(h.src, 'source', 'decoder', 'uavs3d.h'), 'native public header\n');
     await build(h, 'uavs3d');
-    expect(commands(h)).toEqual(cmakeLines(h, ['-DCOMPILE_10BIT=1']));
+    expect(commands(h)).toEqual(
+      platform === 'android-arm64'
+        ? [
+            'sh ./version.sh',
+            `build/android/ndk/jni$ ${env(h, 'ANDROID_NDK_HOME')}/ndk-build ` +
+              `NDK_PROJECT_PATH=${h.src}/build/android/ndk APP_BUILD_SCRIPT=${h.src}/build/android/ndk/jni/Android.mk ` +
+              `NDK_APPLICATION_MK=${h.src}/build/android/ndk/jni/Application.mk APP_ABI=arm64-v8a ` +
+              `APP_PLATFORM=android-${env(h, 'API')} APP_MODULES=uavs3d-static APP_OPTIM=release ` +
+              `APP_CFLAGS=${env(h, 'CFLAGS')} -ffile-prefix-map=${h.src}=/work/src/uavs3d ` +
+              `NDK_OUT=${h.src}/_ndk/obj NDK_LIBS_OUT=${h.src}/_ndk/libs -j4 V=1`,
+          ]
+        : cmakeLines(h, ['-DCOMPILE_10BIT=1']).map((line) =>
+            line === 'cmake --build _build -j4' ? `${line} --target uavs3d` : line,
+          ),
+    );
     // its decoder program is left out of the build
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      `add_executable(uavs3dec EXCLUDE_FROM_ALL \${DIR_SRC_TEST})\n`,
+      `add_executable(uavs3dec \${DIR_SRC_TEST})\n`,
     );
-    // Android has no libpthread to link: neither the library nor its .pc names it there
-    expect(h.read(cmake)).toBe(
-      platform.startsWith('android-')
-        ? 'if(FALSE)\nif(FALSE)\n'
-        : 'if(CMAKE_USE_PTHREADS_INIT)\nif(CMAKE_USE_PTHREADS_INIT)\n',
+    expect(h.read(cmake)).toBe('if(CMAKE_USE_PTHREADS_INIT)\nif(CMAKE_USE_PTHREADS_INIT)\n');
+    expect(h.files(h.deps)).toEqual(
+      platform === 'android-arm64'
+        ? ['include/uavs3d.h', 'lib/libuavs3d.a', 'lib/pkgconfig/uavs3d.pc']
+        : [],
     );
+    const ndkPc = platform === 'android-arm64' ? h.read(pcPath(h, 'uavs3d')) : '';
+    expect(ndkPc).not.toContain('-lpthread');
   });
 });
 
-// XEVE and XEVD: no -Werror and no app; the static archive moved out of lib/<name>/, the shared library removed, and
+// XEVE and XEVD: native Release flags, library targets and install components; static archive moved out of lib/<name>/,
 // the .pc's extra -L dropped.
 describe.each(['xeve', 'xevd'])('%s', (name) => {
   it('builds everywhere but linux-armhf', () => {
@@ -497,9 +552,19 @@ describe.each(['xeve', 'xevd'])('%s', (name) => {
       return undefined;
     };
     await build(h, name);
-    expect(commands(h)).toEqual(cmakeLines(h, ['-DSET_PROF=MAIN']));
+    const configure = cmakeLines(h, [
+      '-DSET_PROF=MAIN',
+      '-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -Wno-error',
+      '-DCMAKE_MACOSX_BUNDLE=OFF',
+    ])[0]!;
+    expect(commands(h)).toEqual([
+      configure,
+      `cmake --build _build -j4 --target ${name} ${name}_dynamic`,
+      'cmake --install _build --component Libraries',
+      'cmake --install _build --component Development',
+    ]);
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      `set (CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Wno-pointer-sign")\n\n`,
+      `set (CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -Wall -Werror -Wno-pointer-sign")\nadd_subdirectory(app)\n`,
     );
     expect(h.files(h.deps)).toEqual([
       `include/${name}/${name}.h`,
@@ -519,9 +584,9 @@ describe('oapv', () => {
     expect(commands(h)).toEqual(
       cmakeLines(h, ['-DOAPV_BUILD_SHARED_LIB=OFF', '-DOAPV_BUILD_APPS=OFF', '-DENABLE_TESTS=OFF']),
     );
-    // XEVE defines the same NEON helper: renamed, so both link together
+    // Preserve upstream's helper; the planner rejects the conflicting ARM64 combination.
     expect(h.read(join(h.src, 'src', 'neon', 'oapv_sad_neon.c'))).toBe(
-      'int oapv_sad_16b_neon_8x2n(void);\n',
+      'int sad_16b_neon_8x2n(void);\n',
     );
   });
   it('takes 0.x releases only', () => {
@@ -544,10 +609,13 @@ describe('svt-jpegxs', () => {
       `Libs: -L\${libdir} -lSvtJpegxs\nLibs.private: ${platform.startsWith('android-') ? '' : '-lpthread '}-lm\n`,
     );
     expect(commands(h)).toEqual(
-      cmakeLines(h, ['-DBUILD_APPS=OFF', '-DBUILD_TESTING=OFF', '-DJPEGXS_LTO=OFF']),
+      cmakeLines(h, ['-DBUILD_APPS=OFF', '-DBUILD_TESTING=OFF', '-DJPEGXS_LTO=OFF']).map((line) =>
+        platform.startsWith('android-')
+          ? `${line} [PATH=${env(h, 'TOOLCHAIN')}/bin:${env(h, 'PATH')}]`
+          : line,
+      ),
     );
-    // the bare-named llvm-ar swap is skipped: the toolchain's archiver stays
-    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe('if(FALSE)\n');
+    expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(clang);
   });
   it('follows main, on every platform', () => {
     expect(recipe('svt-jpegxs').versions).toEqual({ 'git-branch': 'main' });
@@ -571,13 +639,7 @@ describe('lcevcdec', () => {
       return undefined;
     };
     await build(h, 'lcevcdec');
-    // win-x64's mingw-w64 doesn't declare SetThreadDescription: a header that does, included first
-    const compat = `${h.src}/_lcevc-compat.h`;
-    const win =
-      platform === 'win-x64'
-        ? [`-DCMAKE_C_FLAGS=-include ${compat}`, `-DCMAKE_CXX_FLAGS=-include ${compat}`]
-        : [];
-    expect(existsSync(compat)).toBe(platform === 'win-x64');
+    expect(h.files(h.src)).toEqual([]);
     expect(commands(h)).toEqual(
       cmakeLines(h, [
         '-DVN_SDK_EXECUTABLES=OFF',
@@ -590,7 +652,6 @@ describe('lcevcdec', () => {
         '-DVN_SDK_METRICS=OFF',
         '-DVN_SDK_SYSTEM_INSTALL=OFF',
         '-DVN_SDK_BUILD_DETAILS=OFF',
-        ...win,
       ]),
     );
     expect(existsSync(join(h.deps, 'licenses'))).toBe(false);
@@ -603,8 +664,8 @@ describe('lcevcdec', () => {
       ),
     );
   });
-  it('builds everywhere but win-arm64', () => {
-    expect(platformsOf('lcevcdec')).toEqual(PLATFORMS.filter((p) => p !== 'win-arm64'));
+  it('excludes Windows until the toolchain and source support native unpatched builds', () => {
+    expect(platformsOf('lcevcdec')).toEqual(PLATFORMS.filter((p) => !p.startsWith('win-')));
   });
   it('is under its own licence terms, kept out of GPL builds', () => {
     expect(recipe('lcevcdec').license).toBe('LicenseRef-LCEVCdec');
@@ -777,7 +838,7 @@ describe('rav1e', () => {
     expect(h.calls.at(-1)!.env['CARGO_NET_OFFLINE']).toBe('true');
     const calls = all.filter((c) => !/^(rustc|cargo (fetch|metadata|tree))( |$)/.test(c));
     expect(calls.at(-1)).toBe(
-      `cargo cinstall --release --locked --library-type=staticlib --target=${target} --prefix=${h.deps} --libdir=${h.deps}/lib --includedir=${h.deps}/include`,
+      `cargo cinstall --profile release-no-lto --locked --library-type=staticlib --target=${target} --prefix=${h.deps} --libdir=${h.deps}/lib --includedir=${h.deps}/include`,
     );
     // build scripts run here: compiled with this machine's compilers
     const last = h.calls.at(-1)!;
@@ -817,15 +878,13 @@ describe('rav1e', () => {
       cross.includes(platform),
     );
   });
-  it("swaps Rust's libunwind for GCC's unwinder on musl", async () => {
+  it("preserves Rust's native LLVM unwinder metadata on musl", async () => {
     const h = fake('linux-musl-x64');
     const pc = `Libs: -L\${libdir} -lrav1e -lunwind -lc\nLibs.private: -lunwind -lc -lunwind -lc\n`;
     put(pcPath(h, 'rav1e'), pc);
     fakeCargo(h, { name: 'rav1e', version: '0.8.1', license: 'BSD-2-Clause' }, []);
     await build(h, 'rav1e');
-    expect(h.read(pcPath(h, 'rav1e'))).toBe(
-      `Libs: -L\${libdir} -lrav1e -lc\nLibs.private: -lgcc_eh -lc\n`,
-    );
+    expect(h.read(pcPath(h, 'rav1e'))).toBe(pc);
   });
 });
 

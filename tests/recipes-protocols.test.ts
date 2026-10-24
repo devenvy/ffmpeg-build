@@ -79,14 +79,9 @@ describe('libzmq', () => {
     put(join(h.src, 'src', 'polling_util.hpp'), '#include <stdlib.h>\n#include <vector>\n');
     await build(h, 'libzmq');
     expect(h.read(join(h.src, 'src', 'polling_util.hpp'))).toBe(
-      `#include <stdlib.h>\n#include <vector>\n${platform === 'win-arm64' ? '#include <new>\n' : ''}`,
+      '#include <stdlib.h>\n#include <vector>\n',
     );
-    // llvm-mingw's arm64 build takes the clock_gettime path, which needs nsecs_per_usec on Windows too
-    expect(h.read(join(h.src, 'src', 'clock.cpp'))).toBe(
-      platform === 'win-arm64'
-        ? '#ifndef ZMQ_HAVE_WINDOWS\nconst uint64_t usecs_per_msec = 1000;\n#endif\nconst uint64_t nsecs_per_usec = 1000;\n'
-        : clock,
-    );
+    expect(h.read(join(h.src, 'src', 'clock.cpp'))).toBe(clock);
     const win = platform.startsWith('win-');
     expect(commands(h)).toEqual(
       cmakeLines(h, [
@@ -111,9 +106,9 @@ describe('libzmq', () => {
         `Requires.private: \nCflags: -I\${includedir} ${win ? ' -DZMQ_STATIC' : ''}\n`,
     );
   });
-  it('is MPL-2.0, and builds everywhere', () => {
+  it('is MPL-2.0, and excludes the Windows ARM64 source-incompatible build', () => {
     expect(recipe('libzmq').license).toBe('MPL-2.0');
-    expect(platformsOf('libzmq')).toEqual(PLATFORMS);
+    expect(platformsOf('libzmq')).toEqual(PLATFORMS.filter((platform) => platform !== 'win-arm64'));
   });
 });
 
@@ -163,10 +158,11 @@ describe('snappy', () => {
         '-DSNAPPY_BUILD_TESTS=OFF',
         '-DSNAPPY_BUILD_BENCHMARKS=OFF',
         '-DSNAPPY_INSTALL=ON',
+        '-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -Wno-error',
       ]),
     );
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      '  if(NOT CMAKE_CXX_FLAGS MATCHES "-Werror")\n    \n  endif()\n',
+      `  if(NOT CMAKE_CXX_FLAGS MATCHES "-Werror")\n    set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -Werror")\n  endif()\n`,
     );
   });
   it('is BSD-3-Clause, builds everywhere, and puts the C++ runtime on FFmpeg’s link', () => {
@@ -187,10 +183,7 @@ describe('libssh', () => {
     put(join(h.src, 'src', 'misc.c'), misc);
     await build(h, 'libssh');
     const android = platform.startsWith('android-');
-    // Bionic has no S_IWRITE (S_IWUSR's old name); Windows' _S_IWRITE stays
-    expect(h.read(join(h.src, 'src', 'misc.c'))).toBe(
-      android ? misc.replace('& S_IWRITE)', '& S_IWUSR)') : misc,
-    );
+    expect(h.read(join(h.src, 'src', 'misc.c'))).toBe(misc);
     expect(commands(h)).toEqual(
       cmakeLines(h, [
         '-DWITH_MBEDTLS=ON',
@@ -207,7 +200,13 @@ describe('libssh', () => {
         '-DCLIENT_TESTING=OFF',
         '-DSERVER_TESTING=OFF',
         // the NDK's toolchain file finds only in its sysroot, and Bionic's glob() lacks GLOB_TILDE
-        ...(android ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`, '-DHAVE_GLOB=0'] : []),
+        ...(android
+          ? [
+              `-DCMAKE_FIND_ROOT_PATH=${h.deps}`,
+              '-DHAVE_GLOB=0',
+              `-DCMAKE_C_FLAGS=${h.context.env['CFLAGS'] ?? ''} -D_BSD_SOURCE`,
+            ]
+          : []),
       ]),
     );
     expect(h.read(pcPath(h, 'libssh'))).toBe(
@@ -240,23 +239,26 @@ describe('mbedtls', () => {
         platform.startsWith('win-') ? 'Libs.private: -lbcrypt -lws2_32\n' : ''
       }`,
     );
-    expect(commands(h)).toEqual(
-      cmakeLines(h, [
+    expect(commands(h)).toEqual([
+      ...(platform.startsWith('win-')
+        ? []
+        : [
+            'python3 scripts/config.py set MBEDTLS_THREADING_C',
+            'python3 scripts/config.py set MBEDTLS_THREADING_PTHREAD',
+          ]),
+      ...cmakeLines(h, [
         '-DUSE_SHARED_MBEDTLS_LIBRARY=OFF',
         '-DUSE_STATIC_MBEDTLS_LIBRARY=ON',
         '-DENABLE_TESTING=OFF',
         '-DENABLE_PROGRAMS=OFF',
       ]),
-    );
-    expect(h.read(join(h.src, 'include', 'mbedtls', 'mbedtls_config.h'))).toBe(
-      platform.startsWith('win-')
-        ? CONFIG
-        : '//#define MBEDTLS_THREADING_ALT\n#define MBEDTLS_THREADING_PTHREAD\n#define MBEDTLS_THREADING_C\n',
-    );
+    ]);
+    // The harness stubs upstream's configuration tool; the engine itself must not edit the header.
+    expect(h.read(join(h.src, 'include', 'mbedtls', 'mbedtls_config.h'))).toBe(CONFIG);
   });
 });
 
-// librtmp's library and .pc from rtmpdump's Makefile with the platform's tools, static; GnuTLS for its encryption
+// librtmp's library and .pc from rtmpdump's Makefile with the platform's tools, static; native OpenSSL encryption
 // when the build has it, none otherwise.
 describe('librtmp', () => {
   /** rtmpdump's SYS: the system libraries its .pc names. */
@@ -270,10 +272,12 @@ describe('librtmp', () => {
     [p, false],
     [p, true],
   ]) as [string, boolean][];
-  it.each(cases)('%s, GnuTLS in deps: %s', async (platform, gnutls) => {
+  it.each(cases)('%s, OpenSSL in deps: %s', async (platform, openssl) => {
     const h = fake(platform);
-    if (gnutls) {
-      put(join(h.deps, 'lib', 'libgnutls.a'), '');
+    if (openssl) {
+      put(join(h.deps, 'lib', 'libssl.a'), '');
+      put(join(h.deps, 'lib', 'libcrypto.a'), '');
+      put(pcPath(h, 'openssl'), 'Name: OpenSSL\nLibs: -lssl -lcrypto\n');
     }
     put(join(h.deps, 'man', 'man3', 'librtmp.3'), '');
     const src = (f: string) => join(h.src, 'librtmp', f);
@@ -287,25 +291,18 @@ describe('librtmp', () => {
     put(src('handshake.h'), hmac);
     put(src('rtmp_sys.h'), '#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n');
     await build(h, 'librtmp');
-    expect(h.read(src('rtmp_sys.h'))).toBe(
-      platform === 'linux-x64'
-        ? '#include "ffb_tls_read.h"\n#define TLS_read(s,b,l)\tffb_gnutls_read(s,b,l)\n'
-        : '#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n',
-    );
-    // Nettle 4's digest functions take no length: a macro gives it to Nettle 3 only
-    expect(h.read(src('nettle_compat.h'))).toBe(
-      '#include <nettle/version.h>\n#if NETTLE_VERSION_MAJOR >= 4\n#define NETTLE_LENGTH_ARG(n)\n#else\n' +
-        '#define NETTLE_LENGTH_ARG(n) n,\n#endif\n',
-    );
+    expect(h.read(src('rtmp_sys.h'))).toBe('#define TLS_read(s,b,l)\tgnutls_record_recv(s,b,l)\n');
+    expect(h.files(join(h.src, 'librtmp'))).toEqual([
+      'handshake.h',
+      'hashswf.c',
+      'rtmp.c',
+      'rtmp_sys.h',
+    ]);
     expect(h.read(src('rtmp.c'))).toBe(
-      '#include <nettle/md5.h>\n#include "nettle_compat.h"\n' +
-        '#define MD5_Final(dig,ctx)\tmd5_digest(ctx,NETTLE_LENGTH_ARG(MD5_DIGEST_LENGTH)dig)\n',
+      '#include <nettle/md5.h>\n#define MD5_Final(dig,ctx)\tmd5_digest(ctx,MD5_DIGEST_LENGTH,dig)\n',
     );
     for (const f of ['hashswf.c', 'handshake.h']) {
-      expect(h.read(src(f)), f).toBe(
-        '#include <nettle/hmac.h>\n#include "nettle_compat.h"\n#define HMAC_finish(ctx, dig, dlen)\tdlen = ' +
-          'SHA256_DIGEST_LENGTH; hmac_sha256_digest(&ctx, NETTLE_LENGTH_ARG(SHA256_DIGEST_LENGTH) dig)\n',
-      );
+      expect(h.read(src(f)), f).toBe(hmac);
     }
     const host = h.context.env['CROSS_HOST'] ?? '';
     const tools = host ? `${host}-` : '';
@@ -313,7 +310,7 @@ describe('librtmp', () => {
       `CC=${h.context.env['CC'] ?? `${tools}gcc`}`,
       `AR=${h.context.env['AR'] ?? `${tools}ar`}`,
       `SYS=${sysOf(platform)}`,
-      `CRYPTO=${gnutls ? 'GNUTLS' : ''}`,
+      `CRYPTO=${openssl ? 'OPENSSL' : ''}`,
       'SHARED=no',
       `prefix=${h.deps}`,
       `XCFLAGS=-fPIC ${h.context.env['CFLAGS'] ?? ''} -I${h.deps}/include`,
@@ -324,10 +321,10 @@ describe('librtmp', () => {
     ]);
     expect(h.files(h.deps).filter((f) => f.startsWith('man/'))).toEqual([]);
   });
-  it('is LGPL-2.1-or-later, needs zlib and uses GnuTLS where the build allows it', () => {
+  it('is LGPL-2.1-or-later, needs zlib and uses native OpenSSL where the build allows it', () => {
     expect(recipe('librtmp').license).toBe('LGPL-2.1-or-later');
     expect(recipe('librtmp').needs).toEqual([{ name: 'zlib' }]);
-    expect(recipe('librtmp').uses).toEqual([{ name: 'gnutls' }]);
+    expect(recipe('librtmp').uses).toEqual([{ name: 'openssl' }]);
     expect(platformsOf('librtmp')).toEqual(PLATFORMS);
   });
 });
@@ -384,12 +381,19 @@ describe('libdvdread and libdvdnav', () => {
     const h = fake(platform);
     const header = join(h.src, 'src', 'dvdread', 'dvd_filesystem.h');
     put(header, '#elif defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n');
+    put(pcPath(h, 'dvdread'), `Cflags: -I\${includedir}\n`);
     await build(h, 'libdvdread');
-    expect(commands(h)).toEqual(mesonLines(h, ['-Denable_docs=false', '-Dlibdvdcss=disabled']));
-    // musl has no off64_t unless asked first: it takes the BSDs' typedef (its off_t is 64-bit)
-    expect(h.read(header)).toBe(
-      `#elif ${platform.startsWith('linux-musl-') ? 'defined(__linux__) || ' : ''}defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n`,
+    expect(commands(h)).toEqual(
+      mesonLines(h, ['-Denable_docs=false', '-Dlibdvdcss=disabled']).map((line) =>
+        platform.startsWith('linux-musl-') ? `${line} [CPPFLAGS= -D_LARGEFILE64_SOURCE]` : line,
+      ),
     );
+    expect(h.read(header)).toBe(
+      '#elif defined(__APPLE__) || defined(__FreeBSD__)\ntypedef off_t off64_t;\n',
+    );
+    const musl = platform.startsWith('linux-musl-');
+    expect((h.calls[0]!.env['CPPFLAGS'] ?? '').includes('-D_LARGEFILE64_SOURCE')).toBe(musl);
+    expect(h.read(pcPath(h, 'dvdread')).includes('-D_LARGEFILE64_SOURCE')).toBe(musl);
   });
   it.each(platformsOf('libdvdnav'))('libdvdnav %s', async (platform) => {
     const h = fake(platform);
@@ -458,10 +462,7 @@ describe('avisynth-headers', () => {
     const fatal = `        message(FATAL_ERROR "Invalid OS X arch name: \${osx_arch}")\n`;
     put(arch, fatal);
     await build(h, 'avisynth-headers');
-    // on macOS an architecture its list doesn't name (arm64) is taken as named
-    expect(h.read(arch)).toBe(
-      platform.startsWith('osx-') ? `        list(APPEND ARCH \${osx_arch})\n` : fatal,
-    );
+    expect(h.read(arch)).toBe(fatal);
     // its HEADERS_ONLY install, with the generated version.h (a target of its own) made first
     expect(commands(h)).toEqual([
       [
@@ -469,6 +470,12 @@ describe('avisynth-headers', () => {
         `-DCMAKE_INSTALL_PREFIX=${h.deps}`,
         '-DCMAKE_INSTALL_INCLUDEDIR=include -DHEADERS_ONLY=ON',
         ...h.context.toolchain.cmakeArgs,
+        ...(platform === 'osx-arm64'
+          ? [
+              '-DCMAKE_OSX_ARCHITECTURES=',
+              `-DCMAKE_C_FLAGS=${h.context.env['CFLAGS'] ?? ''} -arch arm64`,
+            ]
+          : []),
       ].join(' '),
       'cmake --build _build --target VersionGen',
       'cmake --install _build',

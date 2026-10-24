@@ -132,7 +132,7 @@ describe('kvazaar', () => {
       'make -j4 -C src libkvazaar.la',
       'make -C src install-libLTLIBRARIES install-includeHEADERS',
     ]);
-    const sedded = generated.replaceAll('-lrt', '');
+    const sedded = generated.replaceAll(' -lrt', '');
     expect(h.read(pcPath(h, 'kvazaar'))).toBe(
       platform.startsWith('win-') ? sedAppend(sedded, 'Cflags', '-DKVZ_STATIC_LIB') : sedded,
     );
@@ -258,20 +258,34 @@ describe('libva', () => {
     mkdirSync(join(h.src, 'va'));
     writeFileSync(join(h.src, 'va', 'meson.build'), "libva = shared_library('va')\n");
     await build(h, 'libva');
-    expect(commands(h)).toEqual(
-      mesonLines(h, [
-        '-Dwith_x11=no',
-        '-Dwith_glx=no',
-        '-Dwith_wayland=no',
-        '-Dwith_win32=no',
-        '-Ddisable_drm=false',
+    const driverDirs: Record<string, string> = {
+      'linux-x64': '/usr/lib/x86_64-linux-gnu/dri',
+      'linux-arm64': '/usr/lib/aarch64-linux-gnu/dri',
+      'linux-armhf': '/usr/lib/arm-linux-gnueabihf/dri',
+    };
+    expect(commands(h)).toEqual([
+      'autoreconf -fi',
+      configureLine(h, [
+        '--disable-shared',
+        '--enable-static',
+        '--with-pic',
+        '--enable-drm',
+        '--disable-x11',
+        '--disable-glx',
+        '--disable-wayland',
+        '--disable-docs',
+        '--sysconfdir=/etc',
+        `--with-drivers-path=${driverDirs[platform] ?? '/usr/lib/dri'}`,
       ]),
-    );
+      'make -j4',
+      'make install',
+    ]);
+    expect(h.read(join(h.src, 'va', 'meson.build'))).toBe("libva = shared_library('va')\n");
     expect(h.read(pcPath(h, 'libva'))).toBe(
       `Name: libva\nLibs: -L\${libdir} -lva\nLibs.private: -ldl\nCflags: -I\${includedir}\n`,
     );
     expect(h.read(pcPath(h, 'libva-drm'))).toBe(
-      `Name: libva-drm\nLibs: -L\${libdir} -lva-drm\nLibs.private: -ldl\nCflags: -I\${includedir}\n`,
+      `Name: libva-drm\nLibs: -L\${libdir} -lva-drm\nLibs.private: -ldl\nCflags: -I\${includedir}\nRequires.private: libdrm\n`,
     );
   });
   it('skips a .pc that was not installed', async () => {
@@ -284,7 +298,7 @@ describe('libva', () => {
 });
 
 describe('libvmaf', () => {
-  // win-arm64: sed -i "s/\bswap(/libsvm_swap(/g" libvmaf/src/svm.cpp; command -v xxd || exit 1;
+  // Native model prerequisites and metadata; the upstream libsvm implementation stays unchanged.
   // linux-x64|linux-musl-x64|win-x64|osx-x64|maccatalyst-x64|android-x64: nasm -v must say >= 2.14;
   // after: Libs.private gets ${CXX_RT} (or a line at the end)
   const x64 = [
@@ -319,11 +333,7 @@ describe('libvmaf', () => {
         'libvmaf',
       ),
     ]);
-    expect(h.read(join(h.src, 'libvmaf', 'src', 'svm.cpp'))).toBe(
-      platform === 'win-arm64'
-        ? 'template <class T> static inline void libsvm_swap(T& x, T& y) {}\n  libsvm_swap(a, b); std::libsvm_swap(c, d); myswap(e);\n'
-        : svm,
-    );
+    expect(h.read(join(h.src, 'libvmaf', 'src', 'svm.cpp'))).toBe(svm);
     expect(h.read(pcPath(h, 'libvmaf'))).toBe(sedAppend(pc, 'Libs.private', bashCxxRt(platform)));
   });
   it('fails without xxd, and with a nasm older than 2.14', async () => {
@@ -342,7 +352,7 @@ describe('libvmaf', () => {
 });
 
 describe('libmp3lame', () => {
-  // sed -i.bak '/lame_init_old/d' include/libmp3lame.sym; ios-*/maccatalyst-*: ac_cv_header_stdc=yes (unchanged)
+  // Use the upstream symbol list unchanged; current builds use LAME 4.0.
   it.each(platformsOf('libmp3lame'))('%s', async (platform) => {
     const h = fake(platform);
     mkdirSync(join(h.src, 'include'));
@@ -368,7 +378,9 @@ describe('libmp3lame', () => {
       `make -j4${env}`,
       `make install${env}`,
     ]);
-    expect(h.read(join(h.src, 'include', 'libmp3lame.sym'))).toBe('lame_init\nlame_close\n');
+    expect(h.read(join(h.src, 'include', 'libmp3lame.sym'))).toBe(
+      'lame_init\nlame_init_old\nlame_close\n',
+    );
     expect(h.files(h.src)).toEqual(['include/libmp3lame.sym']);
   });
   it("leaves 4.0's symbol file alone: it no longer lists lame_init_old", async () => {

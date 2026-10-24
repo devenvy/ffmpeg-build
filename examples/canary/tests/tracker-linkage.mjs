@@ -121,12 +121,11 @@ try {
   assert.equal(/NEEDED.*libsndfile\.so/.test(dynamic), bundledSndfile && sharedPulseCommon);
   for (const name of files.filter((file) => /^lib(modplug|openmpt)\.so(?:\.|$)/.test(file))) {
     const file = join(dirname(ffmpeg), name);
-    assert.doesNotMatch(run('readelf', ['-d', file]).toString(), /NEEDED.*libstdc\+\+/);
+    assert.match(run('readelf', ['-d', file]).toString(), /NEEDED.*libstdc\+\+\.so\.6/);
     const symbols = run('nm', ['-D', '--defined-only', file]).toString();
     if (name.startsWith('libopenmpt.')) {
-      // Its public C++ API shares compiler exception state with callers.
-      assert.match(symbols, /\b__cxa_get_globals\b/);
-      assert.doesNotMatch(symbols, /\b_Unwind_\w+/);
+      // The native shared compiler runtime supplies exception state and unwinding for SDK callers.
+      assert.doesNotMatch(symbols, /\b(?:__cxa_get_globals|_Unwind_\w+)\b/);
     } else {
       assert.doesNotMatch(symbols, /\b(?:_Z(?:St|N[KVO]?St|T[ISV]St)|__cxa_|_Unwind_)\w+/);
     }

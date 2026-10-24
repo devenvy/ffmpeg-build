@@ -16,23 +16,28 @@ linkage:
       vars:
         shared-mode: 'yes'
         shared-library-arg: '--default-library=shared'
+        pkg-config-args: [--native-file, ffb-pkg-config.ini]
         runtime-link-flags: '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
       runtime: ['lib/libharfbuzz*.so*']
 build:
-  vars: { shared-library-arg: [], runtime-link-flags: '', shared-mode: '' }
+  vars: { shared-library-arg: [], runtime-link-flags: '', shared-mode: '', pkg-config-args: [] }
   before:
-    # Native raster is part of the SDK. Its PNG dependency may be static even
-    # when FreeType is shared, so retain PNG's zlib closure in the native link.
-    - replace-in-file:
-        path: src/meson.build
-        from: 'raster_deps += [png_dep]'
-        to: 'raster_deps += [png_dep, zlib_dep]'
+    # Ask for complete package metadata without changing Meson's shared-first
+    # artifact selection. This native configuration applies only to Linux-x64 shared mode.
+    - write-file:
+        path: ffb-pkg-config.ini
+        text: |
+          [binaries]
+          pkg-config = ['pkg-config', '--static']
+          [built-in options]
+          prefer_static = false
       when: { set: '{shared-mode}' }
   env: { LDFLAGS: '+= {runtime-link-flags?}' }
   system: meson
   args:
     [
       '{shared-library-arg}',
+      '{pkg-config-args}',
       -Dtests=disabled,
       -Ddocs=disabled,
       -Dutilities=disabled,

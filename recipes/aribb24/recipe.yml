@@ -5,6 +5,7 @@ provides: aribb24
 license: LGPL-3.0-or-later
 license-files: [COPYING]
 configure: [--enable-libaribb24]
+needs: [libpng]
 source: { git: https://code.videolan.org/jeeb/aribb24.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
 platforms: all
@@ -18,30 +19,14 @@ linkage:
       runtime: ['lib/libaribb24.so*']
 build:
   # aribb24: ARIB STD-B24 caption decoding (Japanese broadcast captions; LGPL-3.0-or-later), static, for FFmpeg's
-  # libaribb24 decoder (found through aribb24.pc); FFmpeg's class version3, so v3 builds only. It would take libpng
-  # (to write DRCS glyphs out as PNG files, which FFmpeg never asks for) from whatever the build has, and 1.0.4's
-  # configure insists on it: the check goes, and the configure script is made after that (not by `bootstrap:`, which
-  # runs first).
+  # libaribb24 decoder (found through aribb24.pc); FFmpeg's class version3, so v3 builds only. Keep upstream's PNG
+  # support for DRCS glyph export and its pkg-config dependency closure.
   system: autotools
   # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
-  env: { CFLAGS: '+= -O2' }
+  env: { CFLAGS: '+= -O2', LIBS: '+= -lm' }
   vars: { shared-arg: --disable-shared, static-arg: --enable-static, shared-mode: '' }
   args: ['{shared-arg}', '{static-arg}', --with-pic]
   before:
-    # The static FFmpeg link supplies libm, but the DSO must own that dependency
-    # for correct eager resolution of glibc's IFUNC math functions.
-    - replace-in-file:
-        path: Makefile.am
-        from: 'libaribb24_la_LIBADD = $(PNG_LIBS)'
-        to: "libaribb24_la_LIBADD = $(PNG_LIBS) -lm\nlibaribb24_la_LDFLAGS = -Wl,-z,defs"
-      when: { set: '{shared-mode}' }
-    - replace-in-file:
-        {
-          path: configure.ac,
-          from: 'PKG_CHECK_MODULES\(PNG, "libpng", \[[^\]]*\], \[\]\)',
-          to: '',
-          regex: true,
-        }
     - [autoreconf, -fi]
   after:
     - run:

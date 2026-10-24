@@ -2,7 +2,6 @@
 // library's own arguments, `--host=<triple>` last and only when cross-compiling. Nothing else is a default: the
 // scripts differed in --libdir, --with-pic and their order.
 import { rmSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -100,7 +99,6 @@ describe.each(Object.keys(OLD))('%s configures as its build.sh did', (name) => {
         throw new Error('stop');
       }
     }; // only the configure line
-    h.write(join(h.src, 'include', 'libmp3lame.sym'), 'lame_init_old\n'); // libmp3lame edits it first
     await expect(build(h, name)).rejects.toThrow('stop');
     const configure = h.calls.find((c) => c.command === './configure')!;
     const host = h.context.env['CROSS_HOST'];
