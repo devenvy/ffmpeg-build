@@ -35,6 +35,12 @@ build:
   # C17: its `typedef int bool` is an error under C23, newer GCCs' default
   env: { CFLAGS: '+= -std=gnu17' }
   steps:
+    # Return the final converted P frame, and pack its first B frame through the
+    # existing flush path. Preserve unpacked output and expose EOF on the next call.
+    - replace-in-file:
+        path: src/encoder.c
+        from: "\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n"
+        to: "\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t\tgoto done;\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tif (pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED)\n\t\t\t\t\t\tgoto repeat;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n"
     # mingw: a Cygwin-era flag that today's GCC rejects
     - replace-in-file:
         {

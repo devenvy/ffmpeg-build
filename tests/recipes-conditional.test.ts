@@ -76,10 +76,13 @@ function seedWhisper(h: Harness, platform: string, loader: boolean, backend: str
 }
 
 describe('srt', () => {
+  const source = 'namespace UDT\n{\n\nint startup()\n{\n    return srt::CUDT::startup();\n}\n';
+  const seedSrt = (h: Harness) => put(join(h.src, 'srtcore', 'api.cpp'), source);
   it.each(['.so', '.so.16'])(
     'keeps encryption with shared mbedTLS %s and removes absolute link inputs',
     async (suffix) => {
       const h = fake('linux-x64');
+      seedSrt(h);
       put(join(h.deps, 'lib', `libmbedcrypto${suffix}`));
       put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
       writeFileSync(
@@ -102,12 +105,14 @@ describe('srt', () => {
   for (const mbedtls of [true, false]) {
     it.each(platformsOf('srt'))(`%s ${mbedtls ? 'with' : 'without'} mbedTLS`, async (platform) => {
       const h = fake(platform);
+      seedSrt(h);
       if (mbedtls) {
         put(join(h.deps, 'lib', 'libmbedcrypto.a'));
       }
       put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
       writeFileSync(pcPath(h, 'srt'), installed(h));
       await build(h, 'srt');
+      expect(h.read(join(h.src, 'srtcore', 'api.cpp'))).toContain('return srt::CUDT::socket();');
       const encryption = mbedtls
         ? [
             '-DENABLE_ENCRYPTION=ON',
@@ -154,6 +159,7 @@ describe('srt', () => {
     '%s: strips -lgcc_s wherever it stands, or finds none (llvm-mingw)',
     async (platform, pc, want) => {
       const h = fake(platform);
+      seedSrt(h);
       put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\nHaiCrypt_Create');
       writeFileSync(pcPath(h, 'srt'), pc);
       await build(h, 'srt');
@@ -162,12 +168,20 @@ describe('srt', () => {
   );
   it('fails when the encryption layer is not in the archive', async () => {
     const h = fake('linux-x64');
+    seedSrt(h);
     put(join(h.deps, 'lib', 'libmbedcrypto.a'));
     put(join(h.deps, 'lib', 'libsrt.a'), '!<arch>\n');
     writeFileSync(pcPath(h, 'srt'), 'Libs.private: -lm\n');
     await expect(build(h, 'srt')).rejects.toThrow(/HaiCrypt layer is not in the archive/);
     rmSync(join(h.deps, 'lib', 'libsrt.a'));
+    seedSrt(h);
     await expect(build(h, 'srt')).rejects.toThrow(/no libsrt\*\.a found/);
+  });
+  it('rejects an unrecognized legacy namespace before building', async () => {
+    const h = fake('linux-x64');
+    put(join(h.src, 'srtcore', 'api.cpp'), 'namespace changed {}\n');
+    await expect(build(h, 'srt')).rejects.toThrow(/replace-in-file/);
+    expect(commands(h)).toEqual([]);
   });
 });
 

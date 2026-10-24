@@ -8,6 +8,7 @@ import { fixDnnThreadLifecycle } from './ffmpeg-dnn.ts';
 import { fixLv2FeatureTermination } from './ffmpeg-lv2.ts';
 import { fixMetalAutorelease } from './ffmpeg-metal.ts';
 import { fixTorchBackend } from './ffmpeg-torch.ts';
+import { fixXvidDelayedFrames } from './ffmpeg-xvid.ts';
 import { run, step } from './run.ts';
 import { beforeFfmpeg } from './toolchain.ts';
 
@@ -109,6 +110,9 @@ export async function buildFfmpeg(
   }
   if (fixLv2FeatureTermination(dir, ffmpeg.configure)) {
     step('LV2: backported upstream feature-array NULL termination');
+  }
+  if (fixXvidDelayedFrames(dir, ffmpeg.configure)) {
+    step('Xvid: repaired delayed-frame draining and packet metadata');
   }
   if (fixDnnThreadLifecycle(dir, ffmpeg.configure)) {
     step('DNN thread lifecycle corrected: only join threads after successful creation');

@@ -251,12 +251,15 @@ describe('libilbc', () => {
 // Xvid's own configure in build/generic, only its static archive (mingw's xvidcore.a installed as libxvidcore.a),
 // and xvid.h, by hand; C17, and mingw's configure without -mno-cygwin.
 describe('xvidcore', () => {
+  const nativeTail =
+    '\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n';
   it.each(platformsOf('xvidcore'))('%s', async (platform) => {
     const h = fake(platform);
     const archive = platform.startsWith('win-') ? 'xvidcore.a' : 'libxvidcore.a';
     put(join(h.src, 'build', 'generic', 'configure'), '\tSPECIFIC_CFLAGS="-mno-cygwin"\n');
     put(join(h.src, 'build', 'generic', '=build', archive), '!<arch>\n');
     put(join(h.src, 'src', 'xvid.h'), '/* xvid */\n');
+    put(join(h.src, 'src', 'encoder.c'), nativeTail);
     await build(h, 'xvidcore');
     const host = env(h, 'CROSS_HOST');
     const asm = ['osx-x64', 'maccatalyst-x64', 'android-x64'].includes(platform)
@@ -267,10 +270,17 @@ describe('xvidcore', () => {
       `build/generic$ make -j4 ${archive}${gnu17(h)}`,
     ]);
     expect(h.read(join(h.src, 'build', 'generic', 'configure'))).toBe('\tSPECIFIC_CFLAGS=""\n');
+    expect(h.read(join(h.src, 'src', 'encoder.c'))).toContain('goto repeat;');
     expect(h.files(h.deps)).toEqual(['include/xvid.h', 'lib/libxvidcore.a']);
   });
   it('builds everywhere', () => {
     expect(platformsOf('xvidcore')).toEqual(PLATFORMS);
+  });
+  it('rejects an unrecognized native EOF branch before compiling', async () => {
+    const h = fake('linux-x64');
+    put(join(h.src, 'src', 'encoder.c'), 'changed native EOF branch\n');
+    await expect(build(h, 'xvidcore')).rejects.toThrow(/replace-in-file/);
+    expect(commands(h)).toEqual([]);
   });
 });
 

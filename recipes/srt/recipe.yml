@@ -54,6 +54,25 @@ build:
     # -lmbedcrypto to resolve.
     'win-*': { vars: { mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto -lbcrypt } }
   before:
+    # The installed legacy udt.h declares both constructor forms, but 1.5.7 omits
+    # this forwarder. Preserve the primary C API and the existing inline overload.
+    - replace-in-file:
+        path: srtcore/api.cpp
+        from: |
+          namespace UDT
+          {
+
+          int startup()
+        to: |
+          namespace UDT
+          {
+
+          SRTSOCKET socket()
+          {
+              return srt::CUDT::socket();
+          }
+
+          int startup()
     - vars: { enclib: mbedtls, encryption: [-DENABLE_ENCRYPTION=ON, -DUSE_ENCLIB=mbedtls] }
       when: { exists: '{deps}/lib/libmbedcrypto.*' }
     # On the Android NDK toolchain, find_library only searches CMAKE_FIND_ROOT_PATH (pointed at the
