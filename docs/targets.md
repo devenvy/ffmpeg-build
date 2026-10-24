@@ -726,13 +726,17 @@ caller-owned buffers without a device. Actual decoding and encoding require
 a supported Rockchip SoC and kernel driver.
 
 V4L libraries retain static defaults and offer a bundled shared choice on Linux x64
-through `link: { v4l-utils: shared }`. On Linux x64 both modes ship the independent
-`ov511-decomp` and `ov518-decomp` decoder programs beside the runtime; their GPL-2.0-only
-and BSD-2-Clause notices are included separately from the LGPL-linked libraries.
-Upstream's fork/pipe protocol remains intact. Owner-relative paths replace the
-build-machine paths, including when the library is embedded statically inside FFmpeg.
-Other platforms retain their existing static behavior. Software conversion fixtures
-exercise both helpers, but physical V4L camera capture remains untested.
+through `link: { v4l-utils: shared }`. Device plugins are disabled in both modes.
+The native OV511/OV518 conversion path requires independent system programs at
+`/usr/lib/libv4l/ov511-decomp` and `/usr/lib/libv4l/ov518-decomp`. The engine preserves
+that upstream contract and does not bundle relocated helper executables. Alpine's
+`v4l-utils-libs` supplies these paths; other distributions may use different directories,
+so package installation alone is not guaranteed to satisfy this particular native path.
+Ordinary software conversions do not need those helpers. The separate programs are
+GPL-2.0-only with BSD-2-Clause utility code; the linked libraries retain LGPL licensing.
+SDK checks cover RGB conversion, RDS, absent devices, actual system-helper dispatch or
+clean missing-helper failure, and the source-built decoder programs' exact bytes and EOF.
+The tests install nothing globally. Physical V4L camera capture remains untested.
 
 On macOS arm64, Vulkan can link the native MoltenVK archive directly into FFmpeg,
 without a separate loader or ICD manifest. This is the static default. To bundle

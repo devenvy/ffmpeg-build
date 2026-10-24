@@ -71,39 +71,48 @@ describe('v4l-utils', () => {
     const meson = join(h.src, 'meson.build');
     put(meson, "    dep_argp = cc.find_library('argp')\ndep_intl = dependency('intl')\n");
     const header = join(h.deps, 'include', 'libv4l2.h');
-    put(header, '#ifdef LIBV4L_HAVE_POSIX_IOCTL\n');
-    put(pcPath(h, 'libv4l2'), 'Cflags: -I/include\n');
+    h.onRun = (call) => {
+      if (call.command === 'meson' && call.args[0] === 'install') {
+        put(
+          join(h.src, '_stage', 'usr', 'include', 'libv4l2.h'),
+          '#ifdef LIBV4L_HAVE_POSIX_IOCTL\n',
+        );
+        put(
+          join(h.src, '_stage', 'usr', 'lib', 'pkgconfig', 'libv4l2.pc'),
+          'prefix=/usr\nCflags: -I/include\n',
+        );
+      }
+      return undefined;
+    };
     await build(h, 'v4l-utils');
     // on musl, the installed header declares the POSIX ioctl libv4l2 was built with
     expect(h.read(header)).toBe('#ifdef LIBV4L_HAVE_POSIX_IOCTL\n');
     expect(h.read(pcPath(h, 'libv4l2'))).toBe(
       platform.startsWith('linux-musl-')
-        ? 'Cflags: -I/include -DLIBV4L_HAVE_POSIX_IOCTL\n'
-        : 'Cflags: -I/include\n',
+        ? `prefix=${h.deps}\nCflags: -I/include -DLIBV4L_HAVE_POSIX_IOCTL\n`
+        : `prefix=${h.deps}\nCflags: -I/include\n`,
     );
-    // argp is only the tools', libintl only libdvbv5's, and musl's C library has neither
+    // Supply native configure prerequisites without rewriting upstream's checks.
     expect(h.read(meson)).toBe(
-      "    dep_argp = cc.find_library('argp', required : false)\ndep_intl = dependency('intl', required : false)\n",
+      "    dep_argp = cc.find_library('argp')\ndep_intl = dependency('intl')\n",
     );
-    expect(commands(h)).toEqual([
-      ...(platform === 'linux-x64'
-        ? [
-            "python3 -c import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'v4l-utils', 'prepare-shared.py'), run_name='__main__')",
-          ]
-        : []),
-      ...mesonLines(h, [
-        '-Dauto_features=disabled',
-        '-Dv4l-utils=false',
-        '-Dv4l-plugins=false',
-        '-Dv4l-wrappers=false',
-        '-Ddoxygen-doc=disabled',
-      ]),
-      ...(platform === 'linux-x64'
-        ? [
-            `python3 -c import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'v4l-utils', 'check-public-api.py'), run_name='__main__') ${h.deps} gcc `,
-          ]
-        : []),
-    ]);
+    expect(commands(h)).toEqual(
+      [
+        ...mesonLines(h, [
+          '--prefix=/usr',
+          '-Dauto_features=disabled',
+          '-Dv4l-utils=false',
+          '-Dv4l-plugins=false',
+          '-Dv4l-wrappers=false',
+          '-Ddoxygen-doc=disabled',
+        ]),
+        ...(platform === 'linux-x64'
+          ? [
+              `python3 -c import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'v4l-utils', 'check-public-api.py'), run_name='__main__') ${h.deps} gcc `,
+            ]
+          : []),
+      ].map((line) => `${line} [DESTDIR=${h.src}/_stage]`),
+    );
   });
 });
 

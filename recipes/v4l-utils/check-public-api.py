@@ -1,8 +1,9 @@
-"""Exercise every native library and relocated independent decoder process."""
+"""Exercise relocated native libraries and the upstream fixed helper-path contract."""
 import os
 from pathlib import Path
 import shlex
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -22,7 +23,19 @@ for name in ['ov511-decomp', 'ov518-decomp']:
     native = lib / 'libv4l' / name
     if not native.is_file():
         raise SystemExit('Missing native independent decoder: ' + str(native))
-    shutil.copy2(native, lib / name)
+# Exercise the source-built programs directly without installing anything globally.
+fixtures = [
+    ('ov511-decomp', 32, 16, 768, 'ffffffffffffffff40400000400000400000400000400000400000400000400000400000400000400000400000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'),
+    ('ov518-decomp', 16, 8, 192, 'ffffffffffffffff28a0028affffffff01010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101'),
+]
+for name, width, height, size, hexadecimal in fixtures:
+    payload = bytes.fromhex(hexadecimal)
+    packet = struct.pack('<iiii', width, height, 0, len(payload)) + payload
+    response = struct.pack('<i', size) + bytes([128]) * size
+    decoded = subprocess.run([str(lib / 'libv4l' / name)], input=packet * 2,
+                             capture_output=True, timeout=30)
+    if decoded.returncode != 0 or decoded.stderr or decoded.stdout != response * 2:
+        raise SystemExit('Native decoder framing/EOF failed: ' + name + ': ' + repr(decoded))
 sdk = Path('ffb-sdk')
 sdk.mkdir(exist_ok=True)
 compile_environment = dict(os.environ)
@@ -42,26 +55,18 @@ with tempfile.TemporaryDirectory(prefix='ffb-v4l-relocated-') as temporary:
     for component in components:
         for source in lib.glob(component + '.so*'):
             shutil.copy2(source, relocated / source.name, follow_symlinks=False)
-    for name in ['ov511-decomp', 'ov518-decomp']:
-        shutil.copy2(lib / name, relocated / name)
     arguments = [str((sdk / 'v4l-api').resolve())]
     if not shared:
         shutil.copy2(owner, relocated / owner.name)
         arguments.append(str(relocated / owner.name))
     environment = dict(compile_environment, LD_LIBRARY_PATH=str(relocated), LD_BIND_NOW='1')
+    for suffix in ['511', '518']:
+        environment['FFB_V4L_OV' + suffix] = '1' if os.access('/usr/lib/libv4l/ov' + suffix + '-decomp', os.X_OK) else '0'
     subprocess.run(arguments, check=True, timeout=30,
                    env=environment, cwd='/')
-    # The same public program must fail when its owning runtime lacks its
-    # helpers, even though the original native prefix still has working ones.
-    for name in ['ov511-decomp', 'ov518-decomp']:
-        (relocated / name).unlink()
-    failure = subprocess.run(arguments, timeout=30,
-                             env=environment, cwd='/', capture_output=True)
-    if failure.returncode == 0:
-        raise SystemExit('Conversion silently used an unbundled decoder program')
 if shared:
     for component in components:
         dynamic = subprocess.check_output(['readelf', '-d', str(lib / (component + '.so.0'))], text=True)
         if '[' + component + '.so.0]' not in dynamic:
             raise SystemExit('Native V4L ABI changed: ' + component)
-print('V4L: complete native library inventory and owner-relative independent decoder relocation passed')
+print('V4L: native decoder bytes/EOF, relocated software conversion and fixed system-helper contract passed')
