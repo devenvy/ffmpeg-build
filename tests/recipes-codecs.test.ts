@@ -878,15 +878,13 @@ describe('rav1e', () => {
       cross.includes(platform),
     );
   });
-  it("swaps Rust's libunwind for GCC's unwinder on musl", async () => {
+  it("preserves Rust's native LLVM unwinder metadata on musl", async () => {
     const h = fake('linux-musl-x64');
     const pc = `Libs: -L\${libdir} -lrav1e -lunwind -lc\nLibs.private: -lunwind -lc -lunwind -lc\n`;
     put(pcPath(h, 'rav1e'), pc);
     fakeCargo(h, { name: 'rav1e', version: '0.8.1', license: 'BSD-2-Clause' }, []);
     await build(h, 'rav1e');
-    expect(h.read(pcPath(h, 'rav1e'))).toBe(
-      `Libs: -L\${libdir} -lrav1e -lc\nLibs.private: -lgcc_eh -lc\n`,
-    );
+    expect(h.read(pcPath(h, 'rav1e'))).toBe(pc);
   });
 });
 

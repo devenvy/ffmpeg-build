@@ -13,9 +13,11 @@ COPY --from=toolchain /usr/share/aclocal/nls.m4 /usr/share/aclocal/nls.m4
 # bash, jq and GNU findutils/coreutils/tar/sed/grep for the driver (BusyBox lacks find -printf and friends);
 # xxd for libvmaf's built-in models; python3 for meson. Alpine's own glslc is new enough (probed below).
 RUN apk add --no-cache \
-      bash autoconf automake libtool gettext musl-libintl build-base cmake curl diffutils gperf git linux-headers m4 meson nasm ninja \
+      bash autoconf automake libtool gettext musl-libintl llvm-libunwind-static build-base cmake curl diffutils gperf git linux-headers m4 meson nasm ninja \
       patchelf perl pkgconf xz yasm xxd glslang shaderc jq python3 tar findutils coreutils sed grep
 RUN autopoint --version \
+ && apk info --who-owns /usr/lib/libunwind.a \
+ && test -s /usr/lib/libunwind.a && test ! -e /usr/lib/libunwind.so \
  && test -s /usr/share/gettext/archive.dir.tar.xz \
  && printf '#include <libintl.h>\nint main(void) { bindtextdomain("ffb", "."); return dgettext("ffb", "ok") == 0; }\n' | cc -x c - -o /tmp/gettext-probe \
  && /tmp/gettext-probe && rm -f /tmp/gettext-probe

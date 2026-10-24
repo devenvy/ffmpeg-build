@@ -857,11 +857,7 @@ describe('librsvg', () => {
       expect(setup).toContain(arg);
     }
     expect(setup).toContain('RUSTFLAGS=--remap-path-prefix=');
-    expect(h.read(join(h.src, 'meson.build'))).toBe(
-      platform.startsWith('linux-musl-')
-        ? "  foreach i: native_libs.stdout().replace('unwind', 'gcc_eh').split()\n"
-        : '  foreach i: native_libs.stdout().split()\n',
-    );
+    expect(h.read(join(h.src, 'meson.build'))).toBe('  foreach i: native_libs.stdout().split()\n');
   });
   it('is v3 builds only, for its Apache-2.0 crates, and not on Apple', () => {
     expect(recipe('librsvg').license).toContain('Apache-2.0');

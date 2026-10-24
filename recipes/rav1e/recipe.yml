@@ -2,8 +2,8 @@ name: rav1e
 provides: rav1e
 # rav1e's own licence (and the Alliance for Open Media patent licence it comes with), and its crates': MIT, or MIT
 # among their choices (the engine checks every crate linked in against this when it builds, build.cargo below)
-license: BSD-2-Clause AND MIT
-license-files: [LICENSE, PATENTS]
+license: BSD-2-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) AND NCSA
+license-files: [LICENSE, PATENTS, { recipe: LLVM-LICENSE.txt }]
 # Like XEVE, it needs more stack than musl gives FFmpeg's encoder thread by default (128 KiB): every musl build asks
 # for glibc's 8 MiB (platforms.yml)
 configure: [--enable-librav1e]
@@ -79,14 +79,7 @@ build:
     linux-arm64: { vars: { target: aarch64-unknown-linux-gnu } }
     linux-musl-x64: { vars: { target: x86_64-unknown-linux-musl } }
     linux-musl-arm64: { vars: { target: aarch64-unknown-linux-musl } }
-    # Rust's musl targets unwind with LLVM's libunwind, which they name in the .pc but Alpine's GCC doesn't have; GCC's
-    # own static unwinder (libgcc_eh) provides the same _Unwind_* API
-    'linux-musl-*':
-      after:
-        # (it names -lunwind -lc in both Libs and Libs.private)
-        - edit-pkg-config: { path: '{deps}/lib/pkgconfig/rav1e.pc', libs: { remove: -lunwind } }
-        - edit-pkg-config:
-            { path: '{deps}/lib/pkgconfig/rav1e.pc', libs-private: { set: -lgcc_eh -lc } }
+    # Musl images provide Rust's native LLVM static unwinder; retain cargo-c's library names.
     linux-armhf:
       vars: { target: armv7-unknown-linux-gnueabihf }
       env:

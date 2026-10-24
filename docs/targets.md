@@ -64,6 +64,11 @@ Linux uses libc's native gettext implementation, including musl's catalog suppor
 GLib's proxy-libintl English-message stubs remain static dependencies on Windows,
 Apple platforms and Android, where this build needs a separate gettext provider.
 
+Rust libraries on musl use the toolchain's native LLVM static unwinder. The Alpine images provide
+`llvm-libunwind-static`; native builds need that archive too. Rav1e's pkg-config metadata and librsvg's dependency
+discovery retain the upstream `unwind` name. The runtime's complete upstream licence notice is included with both
+recipes. This static runtime does not add a shared library installation requirement to FFmpeg executables.
+
 On Windows, `vulkan-shim` supports static linking only, matching upstream's
 build. The shim loads the system Vulkan loader at run time, so FFmpeg can start
 and process on the CPU without a Vulkan driver. GPU processing requires an
