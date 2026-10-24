@@ -78,6 +78,7 @@ build:
         - '{CC|gcc}'
       when: { set: '{shared-mode}' }
   before:
+    - [autopoint, --force]
     - [autoreconf, -fi]
   platforms:
     'android-*':

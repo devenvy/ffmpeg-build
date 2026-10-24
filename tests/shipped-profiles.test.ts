@@ -1466,7 +1466,7 @@ describe('filter and processing libraries', () => {
     'libffi',
     'pcre2',
     'zlib',
-    ...(p.startsWith('linux-') && !p.startsWith('linux-musl-') ? [] : ['proxy-libintl']),
+    ...(p.startsWith('linux-') ? [] : ['proxy-libintl']),
     ...(/^(osx|ios|maccatalyst)-/.test(p) ? ['libiconv'] : []),
   ];
   /** cairo and what it needs: GLib, pixman, libpng, FreeType and Fontconfig on Linux and Android, FreeType on iOS. */
@@ -2058,11 +2058,7 @@ describe('audio device libraries', () => {
     pulse: {
       platforms: linuxAll,
       recipe: 'pulseaudio',
-      recipes: (p) => [
-        'libsndfile',
-        ...(p.startsWith('linux-musl-') ? ['proxy-libintl'] : []),
-        'pulseaudio',
-      ],
+      recipes: () => ['libsndfile', 'pulseaudio'],
       flags: ['--enable-libpulse'],
       runtime: () => ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so'],
     },

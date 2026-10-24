@@ -5,7 +5,7 @@ needs:
   - zlib
   - pcre2
   - libffi
-  - { proxy-libintl: { platforms: [linux-musl-*, win-*, osx-*, ios-*, maccatalyst-*, android-*] } }
+  - { proxy-libintl: { platforms: [win-*, osx-*, ios-*, maccatalyst-*, android-*] } }
   - { libiconv: { platforms: [osx-*, ios-*, maccatalyst-*] } }
 source:
   {

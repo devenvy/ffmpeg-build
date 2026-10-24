@@ -22,16 +22,24 @@ build:
   vars:
     cc: gcc
     cxx: g++
+    python: '{JACK_PYTHON|python3}'
     # glibc thread cancellation must share its system unwinder, including inside FFmpeg's shared libraries.
     runtime-link-flags: '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a'
   env:
     LDFLAGS: '+= {runtime-link-flags}'
   platforms:
     'linux-armhf': { vars: { cc: arm-linux-gnueabihf-gcc, cxx: arm-linux-gnueabihf-g++ } }
+  before:
+    # The toolchain can select a compatible interpreter without changing its global Python.
+    - [
+        '{python}',
+        -c,
+        "import sys; sys.exit('JACK 1.9.22 requires Python 3.11 or earlier for its bundled Waf') if sys.version_info >= (3, 12) else None",
+      ]
   steps:
     # Run the release's unchanged Waf with its supported Python (3.11 or earlier, providing imp).
     - run:
-        - python3
+        - '{python}'
         - ./waf
         - configure
         - '--prefix={deps}'
@@ -49,5 +57,5 @@ build:
         - --db=no
         - --doxygen=no
       env: { CC: '{cc}', CXX: '{cxx}' }
-    - [python3, ./waf, build, '-j{jobs}']
-    - [python3, ./waf, install]
+    - ['{python}', ./waf, build, '-j{jobs}']
+    - ['{python}', ./waf, install]

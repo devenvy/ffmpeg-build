@@ -467,19 +467,6 @@ targets:
     with: [opencl, lcevc-dec]
     tests: [tests/compute-linkage.sh]
     link: { lcevcdec: shared }
-  linux-musl-x64-proxy-shared-lgplv2:
-    platform: linux-musl-x64
-    license: lgplv2
-    ffmpeg: '9'
-    with: [cairo]
-    link: { proxy-libintl: shared }
-    tests: [tests/proxy-libintl-linkage.sh]
-  linux-musl-x64-proxy-static-lgplv2:
-    platform: linux-musl-x64
-    license: lgplv2
-    ffmpeg: '9'
-    with: [cairo]
-    tests: [tests/proxy-libintl-linkage.sh]
   osx-arm64-iconv-shared-lgplv2:
     platform: osx-arm64
     license: lgplv2

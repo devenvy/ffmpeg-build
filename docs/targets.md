@@ -60,11 +60,9 @@ Latin-9 subtitle conversion and native GNU conversion/error/callback APIs are
 checked; this uses the bundled GNU library rather than Apple's system library.
 Other Apple platforms and Windows retain their existing static recipes.
 
-On musl Linux x64, proxy-libintl offers static and bundled shared modes, defaulting
-to static. It remains GLib's native English-message stub, without translation
-catalog loading. The shared library preserves its mutable text domain and public
-data; native tests also cover GLib's context/plural wrappers and rendered pixels.
-This library is not a replacement for arbitrary system gettext installations.
+Linux uses libc's native gettext implementation, including musl's catalog support.
+GLib's proxy-libintl English-message stubs remain static dependencies on Windows,
+Apple platforms and Android, where this build needs a separate gettext provider.
 
 On Windows, `vulkan-shim` supports static linking only, matching upstream's
 build. The shim loads the system Vulkan loader at run time, so FFmpeg can start
@@ -353,7 +351,8 @@ the distribution built Vorbis. The receipt distinguishes the omitted reference b
 PulseAudio uses its native shared client, bundling `libpulse.so.0` and its private `libpulsecommon` beside FFmpeg.
 Its upstream Meson build does not offer static clients. It connects to the recipient's PulseAudio or pipewire-pulse
 server and reads that system's client configuration; server modules remain server-side. Native gettext support
-uses libc on glibc and the source-built proxy-libintl dependency on musl.
+uses libc on both glibc and musl. The musl toolchain keeps musl's native libintl header alongside the gettext
+bootstrap tools; the proxy gettext header must not override libc's API in these builds.
 
 OpenSSL, LibreSSL and mbedTLS default to static linking and offer bundled shared libraries on Linux x64.
 Select one TLS backend per target; OpenSSL and LibreSSL use overlapping header and library names.

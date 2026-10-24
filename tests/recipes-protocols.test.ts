@@ -200,10 +200,14 @@ describe('libssh', () => {
         '-DCLIENT_TESTING=OFF',
         '-DSERVER_TESTING=OFF',
         // the NDK's toolchain file finds only in its sysroot, and Bionic's glob() lacks GLOB_TILDE
-        ...(android ? [`-DCMAKE_FIND_ROOT_PATH=${h.deps}`, '-DHAVE_GLOB=0'] : []),
-      ]).map((line) =>
-        android ? `${line} [CFLAGS=${h.context.env['CFLAGS'] ?? ''} -D_BSD_SOURCE]` : line,
-      ),
+        ...(android
+          ? [
+              `-DCMAKE_FIND_ROOT_PATH=${h.deps}`,
+              '-DHAVE_GLOB=0',
+              `-DCMAKE_C_FLAGS=${h.context.env['CFLAGS'] ?? ''} -D_BSD_SOURCE`,
+            ]
+          : []),
+      ]),
     );
     expect(h.read(pcPath(h, 'libssh'))).toBe(
       `Name: libssh\nLibs: -L\${libdir} -lssh\nLibs.private: -lmbedcrypto\nCflags: -I\${includedir}\n`,

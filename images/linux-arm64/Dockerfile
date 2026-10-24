@@ -6,6 +6,9 @@ FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.16-1@sha
 FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.18.1-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node
 FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.16-1@sha256:b873ffc316ffe8a154e3dc4872871de2ebd170db4876c8bbd983d42ff320001e
 COPY --from=node /usr/local/ /usr/local/
+# JACK's unchanged bundled Waf imports imp, removed in Python 3.12.
+ENV JACK_PYTHON=/opt/python/cp311-cp311/bin/python3.11
+RUN test -x "$JACK_PYTHON" && "$JACK_PYTHON" -c 'import imp'
 
 # vim-common supplies xxd (libvmaf's built-in models silently vanish without it).
 RUN dnf -y install --setopt=install_weak_deps=False \

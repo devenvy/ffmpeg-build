@@ -58,8 +58,9 @@ build:
     # passes: without glob (an Include line then names one file, not a pattern). Bionic
     # exposes S_IWRITE under its native BSD feature selection, which libssh's ssh_dir_writeable needs.
     'android-*':
-      args: ['-DCMAKE_FIND_ROOT_PATH={deps}', -DHAVE_GLOB=0]
-      env: { CFLAGS: '+= -D_BSD_SOURCE' }
+      # Pass the feature selection directly: the NDK initializes CMake's C flags itself.
+      args:
+        ['-DCMAKE_FIND_ROOT_PATH={deps}', -DHAVE_GLOB=0, '-DCMAKE_C_FLAGS={CFLAGS|} -D_BSD_SOURCE']
   after:
     # libssh.pc names libssh alone: its static library needs mbedTLS's crypto library after it
     - edit-pkg-config:

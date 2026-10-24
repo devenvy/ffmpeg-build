@@ -238,6 +238,7 @@ describe('zvbi', () => {
     const gettext = `${env(h, 'HOMEBREW_PREFIX') || '/opt/homebrew'}/opt/gettext`;
     expect(commands(h)).toEqual(
       [
+        'autopoint --force',
         'autoreconf -fi',
         configureLine(h, [
           '--disable-shared',
@@ -532,8 +533,8 @@ describe('GLib', () => {
     expect(ini.includes(`objc = '${env(h, 'CC')}'`)).toBe(objc);
     expect(ini.includes(`'-I${h.deps}/include']`)).toBe(objc);
   });
-  it('takes proxy-libintl wherever the C library is not glibc, GNU libiconv on Apple, and 2.86', () => {
-    const noGettext = PLATFORMS.filter((p) => !/^linux-(x64|arm64|armhf)$/.test(p));
+  it('takes proxy-libintl outside Linux and GNU libiconv on Apple', () => {
+    const noGettext = PLATFORMS.filter((p) => !p.startsWith('linux-'));
     expect(platformsOf('proxy-libintl')).toEqual(noGettext);
     expect(recipe('glib').needs).toEqual([
       { name: 'zlib' },
@@ -541,7 +542,7 @@ describe('GLib', () => {
       { name: 'libffi' },
       {
         name: 'proxy-libintl',
-        platforms: ['linux-musl-*', 'win-*', 'osx-*', 'ios-*', 'maccatalyst-*', 'android-*'],
+        platforms: ['win-*', 'osx-*', 'ios-*', 'maccatalyst-*', 'android-*'],
       },
       { name: 'libiconv', platforms: ['osx-*', 'ios-*', 'maccatalyst-*'] },
     ]);

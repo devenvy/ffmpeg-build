@@ -171,10 +171,7 @@ describe('pulseaudio', () => {
   });
   it('is the client library alone, on libsndfile, shipped with its libpulsecommon', () => {
     expect(recipe('pulseaudio').license).toBe('LGPL-2.1-or-later');
-    expect(recipe('pulseaudio').needs).toEqual([
-      { name: 'libsndfile' },
-      { name: 'proxy-libintl', platforms: ['linux-musl-*'] },
-    ]);
+    expect(recipe('pulseaudio').needs).toEqual([{ name: 'libsndfile' }]);
     expect(platformsOf('pulseaudio')).toEqual(LINUX);
     expect(recipe('pulseaudio').linkage!.modes.shared!.runtime).toEqual([
       { value: 'lib/libpulse.so*' },
@@ -205,8 +202,15 @@ describe('libsndfile', () => {
 });
 
 describe('jack2', () => {
-  it.each(platformsOf('jack2'))('%s', async (platform) => {
-    const h = fake(platform);
+  it.each(
+    platformsOf('jack2').flatMap((platform) =>
+      ['python3', '/opt/python/cp311-cp311/bin/python3.11'].map(
+        (python) => [platform, python] as const,
+      ),
+    ),
+  )('%s with %s', async (platform, python) => {
+    const h = harness(platform, { env: { JACK_PYTHON: python } });
+    made.push(h);
     const context = join(h.src, 'waflib', 'Context.py');
     put(context, 'import os, re, imp, sys\n\tmodule = imp.new_module(WSCRIPT_FILE)\n');
     const common = join(h.src, 'common', 'wscript');
@@ -230,8 +234,12 @@ describe('jack2', () => {
     const musl = `LDFLAGS= ${privateRuntime}`;
     expect(commands(h)).toEqual([
       withEnv(
+        `${python} -c import sys; sys.exit('JACK 1.9.22 requires Python 3.11 or earlier for its bundled Waf') if sys.version_info >= (3, 12) else None`,
+        musl,
+      ),
+      withEnv(
         [
-          'python3 ./waf configure',
+          `${python} ./waf configure`,
           `--prefix=${h.deps} --libdir=${h.deps}/lib`,
           '--autostart=none --alsa=no --firewire=no --iio=no --portaudio=no --winmme=no --celt=no --opus=no',
           '--samplerate=no --systemd=no --db=no --doxygen=no',
@@ -240,8 +248,8 @@ describe('jack2', () => {
         `CXX=${cross}g++`,
         musl,
       ),
-      withEnv('python3 ./waf build -j4', musl),
-      withEnv('python3 ./waf install', musl),
+      withEnv(`${python} ./waf build -j4`, musl),
+      withEnv(`${python} ./waf install`, musl),
     ]);
   });
   it('ships libjack (LGPL-2.1-or-later) on Linux', () => {

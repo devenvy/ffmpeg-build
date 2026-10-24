@@ -3,7 +3,7 @@ provides: pulse
 license: LGPL-2.1-or-later
 license-files: [LICENSE, LGPL]
 configure: [--enable-libpulse]
-needs: [libsndfile, { proxy-libintl: { platforms: [linux-musl-*] } }]
+needs: [libsndfile]
 source:
   { url: 'https://www.freedesktop.org/software/pulseaudio/releases/pulseaudio-{version}.tar.xz' }
 versions:
@@ -31,7 +31,7 @@ build:
         CPPFLAGS: '+= -I{deps}/include'
         LDFLAGS: '+= -L{deps}/lib -Wl,-z,stack-size=8388608'
   steps:
-    # Preserve upstream's shared targets and NLS configuration. Musl gets the actual gettext API dependency.
+    # Preserve upstream's shared targets and NLS configuration. Both glibc and musl supply gettext in libc.
     - - meson
       - setup
       - _build
