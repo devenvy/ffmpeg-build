@@ -5,7 +5,8 @@ license-files: [LICENSE]
 # FFmpeg finds it with a plain -lquirc probe (no pkg-config); the library calls the maths library (sqrt)
 configure: [--enable-libquirc, --extra-libs=-lm]
 source: { git: https://github.com/dlbeer/quirc, ref: 'v{version}' }
-versions: { git-tags: '^v(\d+\.\d+)$' }
+# The native object list below is reviewed against this release's LIB_OBJ.
+versions: { git-tags: '^v(1\.2)$' }
 platforms: all
 linkage:
   default: static
@@ -14,26 +15,45 @@ linkage:
     shared:
       platforms: [linux-x64]
       vars:
-        library-type: SHARED
-        shared-properties: "\nset_target_properties(quirc PROPERTIES VERSION {version} SOVERSION {version})\ntarget_link_libraries(quirc PRIVATE m)"
-        shared-install: ' LIBRARY DESTINATION lib'
-        shared-link-arg: -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs
+        static-mode: ''
+        shared-mode: yes
+        library-file: 'libquirc.so.{version}'
       runtime: ['lib/libquirc.so*']
 build:
-  # quirc: QR code recognition (ISC), static, for FFmpeg's quirc filter. Its own Makefile runs the host's ar and
-  # ranlib and asks pkg-config for SDL and OpenCV (its demos): its four library sources are built with a CMakeLists
-  # written here instead, which cross-compiles like any other.
-  system: cmake
-  # Upstream emits .so.1.2 without a SONAME. Shared builds use the complete
-  # upstream release as the engine's conservative ABI name, not a stable major.
-  vars: { library-type: STATIC, shared-properties: '', shared-install: '', shared-link-arg: [] }
-  args: ['{shared-link-arg}']
+  # Native Makefile object rules; its archive rule hardcodes host tools, so execute the same native
+  # archive sequence with the selected cross AR/RANLIB. No source edits or substitute build description.
+  system: none
+  vars:
+    tools: ''
+    static-mode: yes
+    shared-mode: ''
+    library-file: libquirc.a
+    objects: [lib/decode.o, lib/identify.o, lib/quirc.o, lib/version_db.o]
   before:
-    - write-file:
-        path: CMakeLists.txt
-        text: |
-          cmake_minimum_required(VERSION 3.5)
-          project(quirc C)
-          add_library(quirc {library-type} lib/decode.c lib/identify.c lib/quirc.c lib/version_db.c){shared-properties}
-          install(TARGETS quirc ARCHIVE DESTINATION lib{shared-install})
-          install(FILES lib/quirc.h DESTINATION include)
+    - vars: { tools: '{host}-' }
+      when: { set: '{host}' }
+    - vars:
+        make-args:
+          ['CC={CC|{tools}gcc}', 'CFLAGS=-O2 -fPIC {CFLAGS|}', 'SDL_CFLAGS=', 'OPENCV_CFLAGS=']
+  steps:
+    - [make, '-j{jobs}', '{make-args}', '{objects}']
+    - remove: { path: libquirc.a }
+      when: { set: '{static-mode}' }
+    - run: ['{AR|{tools}ar}', cru, libquirc.a, '{objects}']
+      when: { set: '{static-mode}' }
+    - run: ['{RANLIB|{tools}ranlib}', libquirc.a]
+      when: { set: '{static-mode}' }
+    # Upstream's shared target honors LDFLAGS but sets no SONAME. Use the complete release version as
+    # the packaging ABI name through its native linker flags, without changing its Makefile.
+    - run:
+        [
+          make,
+          libquirc.so,
+          '{make-args}',
+          'LDFLAGS={LDFLAGS|} -Wl,-soname,libquirc.so.{version} -Wl,-z,defs',
+        ]
+      when: { set: '{shared-mode}' }
+    - copy: { from: '{library-file}', into: '{deps}/lib' }
+    - copy: { from: '{library-file}', to: '{deps}/lib/libquirc.so' }
+      when: { set: '{shared-mode}' }
+    - copy: { from: lib/quirc.h, into: '{deps}/include' }

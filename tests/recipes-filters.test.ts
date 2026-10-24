@@ -18,6 +18,8 @@ import {
   platformsOf,
   recipe,
 } from './recipe-harness.ts';
+import { runRecipe } from '../src/build/library.ts';
+import { linkedRecipe } from '../src/linkage.ts';
 import { PLATFORMS } from '../src/platforms.ts';
 
 import type * as RunModule from '../src/build/run.ts';
@@ -154,17 +156,58 @@ describe('libqrencode', () => {
   });
 });
 
-// quirc's four library sources, built by a CMakeLists written for them.
+// Quirc's native object rules and cross archiver, with no authored build-system adapter.
 describe('quirc', () => {
+  it('packages native shared output without changing bytes or invoking the host archiver', async () => {
+    const h = fake('linux-x64');
+    put(join(h.src, 'lib', 'quirc.h'), '/* native public header */\n');
+    const native = 'native shared library bytes';
+    h.onRun = (call) => {
+      if (call.command === 'make' && call.args.includes('libquirc.so')) {
+        put(join(h.src, `libquirc.so.${h.base['VERSION']!}`), native);
+      }
+      return undefined;
+    };
+    await runRecipe(
+      h.context,
+      {
+        name: 'quirc',
+        version: h.base['VERSION']!,
+        build: linkedRecipe(recipe('quirc'), 'shared').build,
+      },
+      h.src,
+    );
+    expect(h.calls).toHaveLength(2);
+    expect(h.calls[1]!.args).toContain(
+      `LDFLAGS=${env(h, 'LDFLAGS')} -Wl,-soname,libquirc.so.${h.base['VERSION']!} -Wl,-z,defs`,
+    );
+    expect(h.read(join(h.deps, 'lib', 'libquirc.so'))).toBe(native);
+    expect(h.read(join(h.deps, 'lib', `libquirc.so.${h.base['VERSION']!}`))).toBe(native);
+    expect(h.files(h.src)).not.toContain('CMakeLists.txt');
+  });
   it.each(platformsOf('quirc'))('%s', async (platform) => {
     const h = fake(platform);
+    const makefile = 'LIB_OBJ = lib/decode.o lib/identify.o lib/quirc.o lib/version_db.o\n';
+    put(join(h.src, 'Makefile'), makefile);
+    put(join(h.src, 'lib', 'quirc.h'), '/* native public header */\n');
+    h.onRun = (call) => {
+      if (call.args[0] === 'cru') {
+        put(join(h.src, 'libquirc.a'), '!<arch>\n');
+      }
+      return undefined;
+    };
     await build(h, 'quirc');
-    expect(commands(h)).toEqual(cmakeLines(h, []));
-    const lists = h.read(join(h.src, 'CMakeLists.txt'));
-    expect(lists).toContain(
-      'add_library(quirc STATIC lib/decode.c lib/identify.c lib/quirc.c lib/version_db.c)',
-    );
-    expect(lists).toContain('install(FILES lib/quirc.h DESTINATION include)');
+    const tools = h.context.env['CROSS_HOST'] ? `${h.context.env['CROSS_HOST']}-` : '';
+    const objects = 'lib/decode.o lib/identify.o lib/quirc.o lib/version_db.o';
+    expect(commands(h)).toEqual([
+      `make -j4 CC=${h.context.env['CC'] ?? `${tools}gcc`} CFLAGS=-O2 -fPIC ${h.context.env['CFLAGS'] ?? ''} SDL_CFLAGS= OPENCV_CFLAGS= ${objects}`,
+      `${h.context.env['AR'] ?? `${tools}ar`} cru libquirc.a ${objects}`,
+      `${h.context.env['RANLIB'] ?? `${tools}ranlib`} libquirc.a`,
+    ]);
+    expect(h.read(join(h.src, 'Makefile'))).toBe(makefile);
+    expect(h.files(h.src)).not.toContain('CMakeLists.txt');
+    expect(h.read(join(h.deps, 'include', 'quirc.h'))).toBe('/* native public header */\n');
+    expect(h.read(join(h.deps, 'lib', 'libquirc.a'))).toBe('!<arch>\n');
   });
 });
 

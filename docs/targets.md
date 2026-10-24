@@ -788,8 +788,10 @@ Linux x64, keyed by `fdk-aac`, `oapv`, `svt-jpegxs` and `quirc`. Static remains
 the default. The shared FDK library preserves its complete installed C SDK while
 keeping internal DSP symbols private; it also works beside the independently
 prefixed MPEG-H decoder. OpenAPV retains the supported 0.x API. Quirc's bundled
-library uses an engine-defined full-version SONAME (`libquirc.so.1.2` for 1.2);
-this makes no compatibility promise about separately installed distro libraries.
+library uses an engine-defined full-version SONAME (`libquirc.so.1.2` for 1.2).
+Its native Makefile accepts that linker flag. The recipe uses the unchanged native object rules and the selected
+cross archiver, preserving the release's four-object list and public header without an authored CMake adapter.
+The full-version name identifies the bundled release.
 These choices use the same existing license checks as their static versions.
 `link: { uavs3d: shared }` bundles the AVS3 decoder on Linux x64. Static remains
 the default. The shared library exposes the complete installed C SDK while
