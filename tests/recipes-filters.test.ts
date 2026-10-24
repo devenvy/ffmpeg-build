@@ -968,9 +968,12 @@ describe('opencv', () => {
   it.each(platformsOf('opencv'))('%s', async (platform) => {
     const h = fake(platform);
     const android = platform.startsWith('android-');
+    const ios = platform.startsWith('ios-');
     const pc = `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm\n`;
     // not installed on Android: copied from the build folder
-    put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    if (!ios) {
+      put(android ? join(h.src, '_build', 'unix-install', 'opencv4.pc') : pcPath(h, 'opencv4'), pc);
+    }
     put(
       join(h.src, 'CMakeLists.txt'),
       `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
@@ -987,20 +990,16 @@ describe('opencv', () => {
     );
     put(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'), 'if(MSVC OR IOS OR XROS)\n  return()\n');
     await build(h, 'opencv');
-    // no build, source or install folder recorded in the library
+    // Preserve upstream build information and data-search metadata.
     expect(h.read(join(h.src, 'cmake', 'OpenCVUtils.cmake'))).toBe(
-      'function(ocv_output_status msg)\n' +
-        `  string(REPLACE "\${CMAKE_BINARY_DIR}" "<build>" msg "\${msg}")\n` +
-        `  string(REPLACE "\${CMAKE_SOURCE_DIR}" "<source>" msg "\${msg}")\n` +
-        `  string(REPLACE "\${CMAKE_INSTALL_PREFIX}" "<prefix>" msg "\${msg}")\n` +
-        `  message(STATUS "\${msg}")\n`,
+      `function(ocv_output_status msg)\n  message(STATUS "\${msg}")\n`,
     );
     expect(h.read(join(h.src, 'modules', 'core', 'CMakeLists.txt'))).toBe(
-      '// install prefix not recorded\n#define OPENCV_BUILD_DIR \\"\\"\n',
+      `#define OPENCV_INSTALL_PREFIX \\"\${CMAKE_INSTALL_PREFIX}\\"\n#define OPENCV_BUILD_DIR \\"\${CMAKE_BINARY_DIR}\\"\n`,
     );
-    // and its .pc made for iOS too
+    // iOS gets engine packaging metadata; upstream intentionally skips its generator.
     expect(h.read(join(h.src, 'cmake', 'OpenCVGenPkgconfig.cmake'))).toBe(
-      'if(MSVC OR XROS)\n  return()\n',
+      'if(MSVC OR IOS OR XROS)\n  return()\n',
     );
     const setup = commands(h)[0]!;
     for (const arg of [
@@ -1012,16 +1011,18 @@ describe('opencv', () => {
       expect(setup).toContain(arg);
     }
     expect(setup.includes('-DOPENCV_LIB_INSTALL_PATH=lib')).toBe(android);
-    // no build folder in its build information
     expect(h.read(join(h.src, 'CMakeLists.txt'))).toBe(
-      'status("    C++ flags (Release):"    "(not recorded)")\n' +
-        '  status("    Linker flags (Debug):"   "(not recorded)")\n' +
+      `status("    C++ flags (Release):"    \${CMAKE_CXX_FLAGS} \${CMAKE_CXX_FLAGS_RELEASE})\n` +
+        `  status("    Linker flags (Debug):"   \${CMAKE_EXE_LINKER_FLAGS} \${CMAKE_EXE_LINKER_FLAGS_DEBUG})\n` +
         `status("    Version control:" \${OPENCV_VCSVERSION})\n`,
     );
     const win = platform.startsWith('win-') ? ' -lole32' : '';
-    expect(h.read(pcPath(h, 'opencv4'))).toBe(
-      `Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\nLibs.private: -ldl -lm ${cxxRuntime(platform)}${win}\n`,
+    const installed = h.read(pcPath(h, 'opencv4'));
+    expect(installed).toContain(`Libs: -L\${libdir} -lopencv_imgproc -lopencv_core\n`);
+    expect(installed).toContain(
+      `Libs.private: ${ios ? '-lz -lm' : '-ldl -lm'} ${cxxRuntime(platform)}${win}\n`,
     );
+    expect(installed.includes(`Cflags: -I\${includedir} -I\${includedir}/opencv4\n`)).toBe(ios);
   });
   it('is OpenCV 4 (the C API FFmpeg uses), Apache-2.0', () => {
     expect(recipe('opencv').versions).toEqual({ 'git-tags': '^(4\\.\\d+\\.\\d+)$' });

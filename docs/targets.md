@@ -295,6 +295,12 @@ exception counts; a partial private standard-library map also broke exit-time te
 archives remain hidden. Other supported platforms retain their existing static recipes.
 OpenColorIO is unavailable on the current Windows MinGW toolchains: its released source uses an MSVC-only stream
 constructor. Linux, macOS and Android retain their native builds.
+
+OpenCV retains its upstream build information and data-search behavior. Its native binaries can contain producer
+paths in diagnostic text and search metadata. Apple staging reports those strings for targets containing OpenCV;
+machine-local library loads and invalid RPATHs remain errors. Portability needs relocation and SDK runtime checks,
+not an absence of path strings. Native SDK probes cover build information, owned sample-file discovery, pixels and
+allocator lifetime. iOS uses engine-generated pkg-config packaging metadata because upstream omits that file.
 The same native C++ ABI boundary preserves caller-owned allocation in pystring, SRT, Rubber Band and
 Tesseract. Maintained SDK checks exercise replacement new/delete with both static and dynamic C++ callers;
 returned heap strings must belong to the caller's allocator. Tesseract's SDK also retains its independent
