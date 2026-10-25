@@ -1508,7 +1508,7 @@ describe('filter and processing libraries', () => {
       ships: { filters: ['sofalizer'] },
     },
     bs2b: {
-      platforms: ['linux-x64', 'linux-armhf'],
+      platforms: PLATFORMS,
       recipe: 'libbs2b',
       recipes: () => ['libbs2b', 'libsndfile'],
       flags: ['--enable-libbs2b'],

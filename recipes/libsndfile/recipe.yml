@@ -4,8 +4,8 @@ license-files: [COPYING]
 source:
   url: 'https://github.com/libsndfile/libsndfile/releases/download/{version}/libsndfile-{version}.tar.xz'
 versions: { git-tags: '^(\d+\.\d+\.\d+)$', repo: https://github.com/libsndfile/libsndfile }
-# where PulseAudio's client library builds
-platforms: [linux-*]
+# PulseAudio uses it at runtime; BS2B's native configure also requires it.
+platforms: all
 linkage:
   default: static
   modes:

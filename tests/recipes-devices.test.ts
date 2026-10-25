@@ -197,7 +197,7 @@ describe('libsndfile', () => {
     );
   });
   it('builds where PulseAudio does', () => {
-    expect(platformsOf('libsndfile')).toEqual(platformsOf('pulseaudio'));
+    expect(platformsOf('libsndfile')).toEqual(PLATFORMS);
   });
 });
 

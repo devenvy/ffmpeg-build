@@ -59,6 +59,9 @@ projects support. An FFmpeg configure flag alone does not establish support for 
   evidence that the upstream combination works.
 - Use upstream build procedures and supported options, compiler/linker flags and configuration tools. Normal
   generated configuration, cross-compilation files, installation/staging and package metadata handling belong here.
+  GNU's `config.guess`/`config.sub` auxiliary tools may be refreshed byte-for-byte from installed Autotools for
+  current target triples. Keep the project's distributed configure and Makefile inputs unchanged; this is not
+  permission to edit those inputs or maintain replacement build logic.
 - Do not add or carry patches to FFmpeg or dependencies, including source/header edits, upstream build-script edits,
   injected compatibility code or backports of fixes awaiting an upstream release. Do not use `replace-in-file`,
   scripts, generated replacement files, forks or another mechanism to work around this rule. Patches that an

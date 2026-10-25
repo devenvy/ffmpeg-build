@@ -112,7 +112,7 @@ describe('libmysofa', () => {
   });
 });
 
-// libbs2b's untouched release configuration, with its real libsndfile check and only library targets.
+// libbs2b's release configuration and real libsndfile dependency, with GNU auxiliary-tool refresh only.
 describe('libbs2b', () => {
   it.each(platformsOf('libbs2b'))('%s', async (platform) => {
     const h = fake(platform);
@@ -123,7 +123,9 @@ describe('libbs2b', () => {
     );
     const upstream = h.read(join(h.src, 'configure.ac'));
     await build(h, 'libbs2b');
-    expect(commands(h)).toEqual(
+    expect(commands(h)[0]).toContain('libbs2b');
+    expect(commands(h)[0]).toContain('prepare-build-tools.py');
+    expect(commands(h).slice(1)).toEqual(
       [
         configureLine(h, [
           '--disable-shared',
@@ -140,7 +142,7 @@ describe('libbs2b', () => {
   });
   it('is MIT, from the release tarball', () => {
     expect(recipe('libbs2b').license).toBe('MIT');
-    expect(platformsOf('libbs2b')).toEqual(['linux-x64', 'linux-armhf']);
+    expect(platformsOf('libbs2b')).toEqual(PLATFORMS);
     expect(recipe('libbs2b').needs).toEqual([{ name: 'libsndfile' }]);
   });
 });

@@ -64,7 +64,8 @@ for (const name of components) {
         assert.ok(symbols.includes(api), `Missing native public entry point: ${api}`);
       }
       assert.deepEqual(
-        symbols.filter((symbol) => symbol.includes('6google8protobuf')),
+        // TensorFlow-owned helpers may legitimately take Protobuf parameters.
+        symbols.filter((symbol) => /^_Z(?:NK?|T[VIS]N)6google8protobuf/.test(symbol)),
         [],
       );
     }
