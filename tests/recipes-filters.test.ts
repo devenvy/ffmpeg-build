@@ -822,8 +822,8 @@ describe('cairo', () => {
   });
 });
 
-// Pango on cairo, HarfBuzz and FriBidi, with GLib's glib-mkenums from deps, the platform's fonts, and two small
-// source fixes (a missing include; a warning newer clangs make an error). Not on Apple.
+// Pango uses its unchanged sources and GLib's native enum generator. Windows ARM64
+// keeps the generated parent-class warning visible without treating it as an error.
 describe('pango', () => {
   it.each(platformsOf('pango'))('%s', async (platform) => {
     const h = fake(platform);
@@ -845,6 +845,7 @@ describe('pango', () => {
         '-Dcairo=enabled',
         `-Dfontconfig=${fc}`,
         `-Dfreetype=${fc}`,
+        ...(platform === 'win-arm64' ? ['-Dc_args=-Wno-error=unused-but-set-global'] : []),
       ]).map((line) => `${line} [PATH=${h.deps}/bin:${env(h, 'PATH')}]`),
     );
     expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe('#include <hb-ft.h>\n');

@@ -55,8 +55,10 @@ build:
   # Its enum sources come from GLib's glib-mkenums, a program for the build machine: a cross build finds the Python
   # script GLib installed in deps (else Meson would fall back to building GLib again, as a subproject).
   env: { PATH: '{deps}/bin:{PATH}' }
-  # Preserve upstream's includes and warning policy; verify each native toolchain unchanged.
+  # LLVM's unused-but-set-global warning also covers GLib's generated parent-class
+  # variable. Keep that diagnostic visible without promoting it to an error.
   platforms:
     'linux-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'android-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'win-*': { args: [-Dfontconfig=disabled, -Dfreetype=disabled] }
+    win-arm64: { args: ['-Dc_args=-Wno-error=unused-but-set-global'] }
