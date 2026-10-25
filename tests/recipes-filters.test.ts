@@ -845,7 +845,7 @@ describe('pango', () => {
         '-Dcairo=enabled',
         `-Dfontconfig=${fc}`,
         `-Dfreetype=${fc}`,
-        ...(platform === 'win-arm64' ? ['-Dc_args=-Wno-error=unused-but-set-global'] : []),
+        ...(platform === 'win-arm64' ? ['-Dc_args=-Xclang -Wno-error=unused-but-set-global'] : []),
       ]).map((line) => `${line} [PATH=${h.deps}/bin:${env(h, 'PATH')}]`),
     );
     expect(h.read(join(h.src, 'pango', 'pangofc-fontmap.c'))).toBe('#include <hb-ft.h>\n');
