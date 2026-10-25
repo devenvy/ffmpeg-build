@@ -17,7 +17,7 @@ import { gunzipSync } from 'node:zlib';
 
 const ARGUMENT_OFFSET = 2;
 const [target, dist] = process.argv.slice(ARGUMENT_OFFSET);
-assert.match(target, /^android-x64-ocr-(?:8|9)-lgplv3$/);
+assert.match(target, /^android-x64-ocr-(?:(?:8|9)-)?lgplv3$/);
 assert.ok(dist);
 const checks = dirname(fileURLToPath(import.meta.url));
 const REMOTE = '/data/local/tmp/ffb-ocr-sdk';
