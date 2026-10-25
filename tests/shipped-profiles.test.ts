@@ -1232,7 +1232,7 @@ describe('codec libraries', () => {
     },
     // FFmpeg's class gpl
     xvid: {
-      platforms: PLATFORMS.filter((p) => p !== 'win-x64'),
+      platforms: PLATFORMS,
       recipes: ['xvidcore'],
       flags: ['--enable-libxvid', '--extra-libs=-lm'],
       licenses: GPL,

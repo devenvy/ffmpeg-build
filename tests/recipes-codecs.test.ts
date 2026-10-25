@@ -301,18 +301,27 @@ describe('xvidcore', () => {
     const asm = ['osx-x64', 'maccatalyst-x64', 'android-x64'].includes(platform)
       ? ' --disable-assembly'
       : '';
-    expect(commands(h)).toEqual([
-      `build/generic$ ./configure --prefix=${h.deps}${host ? ` --host=${host}` : ''}${asm}${gnu17(h)}`,
-      `build/generic$ make -j4 ${archive}${gnu17(h)}`,
-    ]);
+    const crossClang = platform === 'win-x64';
+    expect(commands(h).some((command) => command.includes('check-gnu-compiler.py'))).toBe(
+      crossClang,
+    );
+    const cflags = crossClang
+      ? ` [CC=x86_64-w64-mingw32-clang --sysroot=/usr/x86_64-w64-mingw32 -rtlib=libgcc CFLAGS=${env(h, 'CFLAGS')} -std=gnu17]`
+      : gnu17(h);
+    const nativeConfigure = expect.stringContaining(`--prefix=${h.deps} --host=${host}${cflags}`);
+    const configure = crossClang
+      ? nativeConfigure
+      : `build/generic$ ./configure --prefix=${h.deps}${host ? ` --host=${host}` : ''}${asm}${cflags}`;
+    expect(commands(h)[0]).toEqual(configure);
+    expect(commands(h).slice(1)).toEqual([`build/generic$ make -j4 ${archive}${gnu17(h)}`]);
     expect(h.read(join(h.src, 'build', 'generic', 'configure'))).toBe(
       '\tSPECIFIC_CFLAGS="-mno-cygwin"\n',
     );
     expect(h.read(join(h.src, 'src', 'encoder.c'))).toBe('upstream encoder source\n');
     expect(h.files(h.deps)).toEqual(['include/xvid.h', 'lib/libxvidcore.a']);
   });
-  it('omits Win-x64 where native configure retains the unsupported -mno-cygwin flag', () => {
-    expect(platformsOf('xvidcore')).toEqual(PLATFORMS.filter((p) => p !== 'win-x64'));
+  it('retains the published platforms with native compiler selection', () => {
+    expect(platformsOf('xvidcore')).toEqual(PLATFORMS);
   });
 });
 
