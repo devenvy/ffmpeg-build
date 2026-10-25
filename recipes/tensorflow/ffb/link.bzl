@@ -20,7 +20,7 @@ def _impl(target, ctx):
                 })
             rows.append({"owner": str(item.owner), "libraries": libraries,
                          "flags": item.user_link_flags,
-                         "additional_inputs": [f.path for f in item.additional_inputs.to_list()]})
+                         "additional_inputs": [f.path for f in item.additional_inputs]})
     output = ctx.actions.declare_file(ctx.label.name + ".ffb-link.json")
     ctx.actions.write(output, json.encode(rows))
     return [OutputGroupInfo(
