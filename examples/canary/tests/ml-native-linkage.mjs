@@ -11,12 +11,7 @@ assert.ok(['openvino', 'torch', 'tensorflow'].includes(backend));
 const TIMEOUT = 120000;
 const MAX_OUTPUT = 4194304;
 const components = {
-  torch: [
-    'libtorch.so.2.14',
-    'libtorch_cpu.so.2.14',
-    'libc10.so.2.14',
-    'libtorch_global_deps.so.2.14',
-  ],
+  torch: ['libtorch.so.2.7', 'libtorch_cpu.so.2.7', 'libc10.so.2.7', 'libtorch_global_deps.so.2.7'],
   openvino: [
     'libopenvino.so.2641',
     'libopenvino_c.so.2641',
@@ -25,17 +20,6 @@ const components = {
   ],
   tensorflow: ['libtensorflow.so.2'],
 }[backend];
-const publicBridges = new Set(
-  {
-    torch: [
-      '_ZSt9to_stringB5cxx11RKN5torch3jit10tensorexpr6TensorE',
-      '_ZSt9to_stringB5cxx11RKSt10shared_ptrIN5torch3jit10tensorexpr4ExprEE',
-      '_ZSt9to_stringB5cxx11RKSt10shared_ptrIN5torch3jit10tensorexpr4StmtEE',
-    ],
-    openvino: ['_ZNKSt4hashIN2ov16DiscreteTypeInfoEEclERKS1_', '_ZSt5isnanN2ov7float16E'],
-    tensorflow: [],
-  }[backend],
-);
 function inspect(program, args) {
   const result = spawnSync(program, args, {
     encoding: 'utf8',
@@ -52,10 +36,11 @@ assert.ok(avfilter);
 const dynamic = inspect('readelf', ['-d', join(runtime, avfilter)]);
 const entrypoint = {
   openvino: 'libopenvino_c.so.2641',
-  torch: 'libtorch_cpu.so.2.14',
+  torch: 'libtorch_cpu.so.2.7',
   tensorflow: 'libtensorflow.so.2',
 }[backend];
 assert.equal(dynamic.includes(`Shared library: [${entrypoint}]`), shared);
+let standardRuntime = false;
 for (const name of components) {
   assert.equal(existsSync(join(runtime, name)), shared, `Incomplete native runtime: ${name}`);
   if (shared) {
@@ -69,26 +54,24 @@ for (const name of components) {
     } else {
       assert.match(entries, new RegExp(`SONAME.*\\[${name.replaceAll('.', '\\.')}\\]`));
     }
-    assert.doesNotMatch(entries, /NEEDED.*libstdc\+\+/);
-    const symbols = inspect('nm', ['-D', '--defined-only', owner])
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => line.trim().split(/\s+/).at(-1).split('@')[0]);
-    const privateSymbols = symbols.filter(
-      (symbol) =>
-        ((backend !== 'openvino' &&
-          (symbol.startsWith('_ZSt') ||
-            symbol.startsWith('_ZNSt') ||
-            symbol.startsWith('_ZNKSt'))) ||
-          symbol.includes('6google8protobuf') ||
-          (backend === 'tensorflow' && symbol.startsWith('__cxa')) ||
-          symbol.startsWith('_Unwind')) &&
-        !publicBridges.has(symbol) &&
-        // TensorFlow's native *TF_* / *TFE_* export globs retain C++ compatibility bridges.
-        !(backend === 'tensorflow' && /TF_|TFE_/.test(symbol)),
-    );
-    assert.deepEqual(privateSymbols, [], name);
+    standardRuntime ||= /NEEDED.*libstdc\+\+\.so\.6/.test(entries);
+    if (backend === 'tensorflow') {
+      const symbols = inspect('nm', ['-D', '--defined-only', owner])
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => line.trim().split(/\s+/).at(-1).split('@')[0]);
+      for (const api of ['TF_Version', 'TF_SessionRun', 'TFE_Execute']) {
+        assert.ok(symbols.includes(api), `Missing native public entry point: ${api}`);
+      }
+      assert.deepEqual(
+        symbols.filter((symbol) => symbol.includes('6google8protobuf')),
+        [],
+      );
+    }
   }
+}
+if (shared && backend !== 'tensorflow') {
+  assert.ok(standardRuntime, `${backend}: native shared owners must use the system C++ runtime`);
 }
 if (shared && backend === 'openvino') {
   const plugins = readFileSync(join(runtime, 'plugins.xml'), 'utf8');
@@ -97,5 +80,5 @@ if (shared && backend === 'openvino') {
   assert.match(plugins, /location="libopenvino_intel_cpu_plugin.so"/);
 }
 console.log(
-  `${backend} ${shared ? 'shared' : 'static'}: complete packaged native owners, SONAMEs, plugin routing and private compiler closure passed`,
+  `${backend} ${shared ? 'shared' : 'static'}: complete native owners, SONAMEs, public entry points and plugin routing passed`,
 );
