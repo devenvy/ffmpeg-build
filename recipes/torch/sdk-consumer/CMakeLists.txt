@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(ffb_torch_installed_sdk LANGUAGES CXX)
+find_package(Torch REQUIRED CONFIG)
+add_executable(torch-sdk ../public-api.cpp)
+set_target_properties(torch-sdk PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+target_compile_options(torch-sdk PRIVATE -UNDEBUG)
+target_link_libraries(torch-sdk PRIVATE "${TORCH_LIBRARIES}")

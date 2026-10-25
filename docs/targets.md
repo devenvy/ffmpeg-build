@@ -17,9 +17,8 @@ Static mode uses separate linker metadata for its native archive closure without
 Torch CPU inference offers static and bundled shared modes on Linux x64,
 with static as the default. Select `link: { torch: shared }` to ship its four
 native Torch, Torch CPU, c10 and global-dependency libraries. Its installed
-C++ API preserves the native compiler exception ABI across library boundaries;
-private standard-library instantiations and Protobuf stay inside their owners.
-The system unwinder remains shared. SDK checks cover typed errors, callbacks,
+C++ API preserves the native compiler exception ABI across library boundaries.
+Shared mode uses the system C++ runtime and unwinder. SDK checks cover typed errors, callbacks,
 tensors and retained external-buffer ownership; cross-library exception tests
 also cover nested catches and retained rethrows.
 

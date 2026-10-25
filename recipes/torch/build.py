@@ -9,7 +9,7 @@ import sys
 src = Path.cwd()
 deps = Path(os.environ['DEPS_DIR'])
 shared = len(sys.argv) > 1 and sys.argv[1] == 'shared'
-if os.environ['VERSION'] != '2.14.1':
+if os.environ['VERSION'] != '2.7.1':
     raise SystemExit('Review the Torch CPU dependency inventory before changing versions')
 
 def run(args, cwd=None, env=None):
@@ -17,22 +17,22 @@ def run(args, cwd=None, env=None):
     subprocess.run(list(map(str, args)), cwd=cwd, env=env, check=True)
 
 submodules = {
-    'pybind11': '97bf890db679505a14dfe547a5e77bb2bd05dc90',
-    'protobuf': 'f0dc78d7e6e331b8c6bb2d5283e06aa26883ca7c',
-    'cpuinfo': 'bc3c01e230c6974283e4b89421cfb0e232435589',
-    'pthreadpool': 'a56dcd79c699366e7ac6466792c3025883ff7704',
+    'pybind11': 'a2e59f0e7065404b44dfe92a28aca47ba1378dc4',
+    'protobuf': 'd1eca4e4b421cd2997495c4b4e65cea6be4e9b8a',
+    'cpuinfo': '1e83a2fdd3102f65c6f1fb602c1b320486218a99',
+    'pthreadpool': '4fe0e1e183925bf8cfa6aae24237e724a96479b8',
     'FP16': '4dfe081cf6bcd15db339cf2680b9281b8451eeb3',
     'psimd': '072586a71b55b7f8c584153d223e95687148a900',
-    'sleef': '5a1d179df9cf652951b59010a2d2075372d67f68',
-    'fmt': 'c0330b746600bfd91dbacb88837da5a16f947ba5',
-    'pocketfft': '0fa0ef591e38c2758e3184c6c23e497b9f732ffa',
-    'flatbuffers': 'a2cd1ea3b6d3fee220106b5fed3f7ce8da9eb757',
-    'nlohmann': '55f93686c01528224f448c19128836e7df245f72',
-    'kineto': '15f4784a3471d4db8b31720d528f2f57cd2b1f40',
-    'onnx': 'e709452ef2bbc1d113faf678c24e6d3467696e83',
+    'sleef': '56e1f79cb140fb9326d612d0be06b5250565cade',
+    'fmt': '123913715afeb8a437e6388b4473fcc4753e1c9a',
+    'pocketfft': '9d3ab05a7fffbc71a492bc6a17be034e83e8f0fe',
+    'flatbuffers': '01834de25e4bf3975a9a00e816292b1ad0fe184b',
+    'nlohmann': '87cda1d6646592ac5866dc703c8e1839046a6806',
+    'kineto': 'a054a4be0db117c579a21747debf19c863631f26',
+    'onnx': 'b8baa8446686496da4cc8fda09f2b6fe65c2a02c',
+    'eigen': '3147391d946bb4b6c68edd901f2add6ac1f31f8c',
 }
-run(['git', 'submodule', 'update', '--init', '--depth', '1', '--jobs', '4', '--'] +
-    ['third_party/' + name for name in submodules])
+run(['git', 'submodule', 'update', '--init', '--recursive', '--depth', '1', '--jobs', '4'])
 for name, commit in submodules.items():
     actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=src / 'third_party' / name, text=True).strip()
     if actual != commit:
@@ -59,13 +59,6 @@ venv = src / '_python'
 run(['python3', '-m', 'venv', '--without-pip', venv])
 python = venv / 'bin/python'
 env = dict(os.environ, PYTHONPATH=':'.join(paths))
-prebuild = src / 'cmake/PreBuildSteps.cmake'
-text = prebuild.read_text()
-check = 'if(NOT DEFINED USE_SYSTEM_LIBS OR NOT USE_SYSTEM_LIBS)'
-replacement = 'if(FALSE) # FFB: the selected CPU submodules were fetched above'
-if check not in text and replacement not in text:
-    raise SystemExit('Torch submodule-presence check changed upstream')
-prebuild.write_text(text.replace(check, replacement, 1))
 build = src / '_build'
 install = src / '_install'
 off = ['BUILD_SHARED_LIBS', 'BUILD_PYTHON', 'BUILD_TEST', 'BUILD_BINARY', 'USE_CUDA',
@@ -76,22 +69,20 @@ off = ['BUILD_SHARED_LIBS', 'BUILD_PYTHON', 'BUILD_TEST', 'BUILD_BINARY', 'USE_C
 shared_args = []
 if shared:
     off.remove('BUILD_SHARED_LIBS')
-    private_map = src / 'ffb-private-cxx.map'
-    # These explicitly public std overloads print native tensor-expression SDK objects.
-    bridges = ['_ZSt9to_stringB5cxx11RKN5torch3jit10tensorexpr6TensorE',
-               '_ZSt9to_stringB5cxx11RKSt10shared_ptrIN5torch3jit10tensorexpr4ExprEE',
-               '_ZSt9to_stringB5cxx11RKSt10shared_ptrIN5torch3jit10tensorexpr4StmtEE']
-    private_map.write_text('{ global: ' + '; '.join(bridges) + '; *; local: _ZSt*; _ZNSt*; _ZNKSt*; _ZTVSt*; _ZTISt*; _ZTSSt*; _ZTVNSt*; _ZTINSt*; _ZTSNSt*; *6google8protobuf*; };\n')
     shared_args = ['-DBUILD_SHARED_LIBS=ON', '-DHAVE_SOVERSION=ON',
-                   '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs -Wl,--version-script=' + str(private_map)]
+                   '-DCMAKE_SHARED_LINKER_FLAGS=-shared-libgcc -pthread -Wl,-z,defs']
 run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
      '-DCMAKE_INSTALL_PREFIX=' + str(install), '-DBLAS=Eigen',
+     '-DGLIBCXX_USE_CXX11_ABI=1', '-DTORCH_BUILD_VERSION=2.7.1',
+     '-DCMAKE_DISABLE_FIND_PACKAGE_BLAS=ON',
      '-DPython_EXECUTABLE=' + str(python), '-DINTERN_DISABLE_ONNX=OFF',
      '-DCAFFE2_LINK_LOCAL_PROTOBUF=' + ('ON' if shared else 'OFF'), '-DBUILD_CUSTOM_PROTOBUF=ON'] +
     ['-D' + name + '=OFF' for name in off] + shared_args, env=env)
 run(['cmake', '--build', build, '--parallel', os.environ['JOBS']], env=env)
 run(['cmake', '--install', build], env=env)
+# Preserve native archive names, SDK headers and CMake exports together.
+shutil.copytree(install, deps, dirs_exist_ok=True, symlinks=True)
 if shared:
     # Preserve every native CPU DSO; fail if this reviewed inventory changes.
     runtime = list((install / 'lib').glob('*.so*'))
@@ -101,27 +92,24 @@ if shared:
         raise SystemExit('Review complete native Torch CPU runtime inventory: ' + repr(components))
     lib = deps / 'lib'
     lib.mkdir(parents=True, exist_ok=True)
-    for path in runtime:
-        shutil.copy2(path, lib / path.name, follow_symlinks=False)
-    shutil.copytree(install / 'include', deps / 'include', dirs_exist_ok=True)
     pc = lib / 'pkgconfig'
     pc.mkdir(exist_ok=True)
     (pc / 'torch.pc').write_text('prefix=' + str(deps) + '''
 Name: torch
 Description: Native shared CPU TorchScript runtime
-Version: 2.14.1
-Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++20
+Version: 2.7.1
+Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=1
 Libs: -L${prefix}/lib -ltorch -ltorch_cpu -lc10
-Libs.private: -l:libstdc++.a -lm -ldl -lpthread
+Libs.private: -lstdc++ -lm -ldl -lpthread
 ''')
-    run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps])
+    run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps, 'shared'])
     sys.exit(0)
 inventory = src / '_ffb_inventory'
 inventory.mkdir(exist_ok=True)
 (inventory / 'main.cpp').write_text('int main() { return 0; }\n')
 (inventory / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.20)
 project(ffb_inventory LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 find_package(Torch REQUIRED CONFIG NO_DEFAULT_PATH PATHS "${TORCH_PREFIX}/share/cmake/Torch")
 add_executable(ffb_torch_inventory main.cpp)
 target_link_libraries(ffb_torch_inventory PRIVATE "${TORCH_LIBRARIES}")
@@ -133,7 +121,6 @@ tokens = tokens[tokens.index('ffb_torch_inventory') + 1:]
 lib = deps / 'lib'
 lib.mkdir(parents=True, exist_ok=True)
 libs = []
-copied = []
 whole = False
 for token in tokens + [str(build / 'lib/libonnx.a'), str(build / 'lib/libonnx_proto.a')]:
     if token == '-Wl,--whole-archive':
@@ -147,21 +134,21 @@ for token in tokens + [str(build / 'lib/libonnx.a'), str(build / 'lib/libonnx_pr
         relative = path.resolve().relative_to(src.resolve())
         name = 'libffb_torch_' + '_'.join(relative.parts)
         shutil.copy2(path, lib / name)
-        copied.append(lib / name)
         libs.append('-l:' + name)
     elif token.startswith('-l') or token == '-pthread':
         libs.append(token)
 if whole or not libs:
     raise SystemExit('Incomplete Torch static CMake closure')
-run([sys.executable, Path(os.environ['RECIPES']) / 'torch/isolate-protobuf.py',
-     deps / 'share/ffmpeg-build/torch-protobuf-symbols.map', *dict.fromkeys(copied)])
-shutil.copytree(install / 'include', deps / 'include', dirs_exist_ok=True)
+closure = ['-Wl,--as-needed', '-Wl,--start-group', *libs,
+           '-l:libstdc++.a', '-l:libgcc.a', '-l:libgcc_eh.a',
+           '-lm', '-ldl', '-lpthread', '-lrt', '-Wl,--end-group']
+(lib / 'ffb-torch-static.rsp').write_text(shlex.join(closure) + '\n')
 pc = lib / 'pkgconfig'
 pc.mkdir(exist_ok=True)
 (pc / 'torch.pc').write_text('prefix=' + str(deps) + '''
 Name: torch
 Description: Static CPU TorchScript runtime
-Version: 2.14.1
-Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++20
-Libs: -L${prefix}/lib -Wl,--as-needed -Wl,--start-group ''' + ' '.join(libs) +
-    ' -l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a -lm -ldl -lpthread -lrt -Wl,--end-group\n')
+Version: 2.7.1
+Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=1
+Libs: -L${prefix}/lib ''' + shlex.join(closure) + '\n')
+run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps, 'static'])

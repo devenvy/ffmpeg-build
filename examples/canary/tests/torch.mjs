@@ -8,7 +8,8 @@ const FRAME_COUNT = 3;
 const REPETITIONS = 3;
 const work = mkdtempSync(join(tmpdir(), 'ffb-torch-'));
 const model = join(work, 'relu.pt');
-// Locally authored, parameterless TorchScript module: forward(x) returns torch.relu(x).
+// Owned TorchScript module: forward(x) returns torch.relu(x), with one CPU parameter
+// for stock FFmpeg's device discovery. Regenerate with generate-torch-model.py.
 // Positive RGB frames pass through unchanged. No pretrained weights or third-party model.
 writeFileSync(
   model,
