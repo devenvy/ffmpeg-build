@@ -1,4 +1,4 @@
-"""Install TensorFlow's actual static closure without losing kernel registrations."""
+"""Package native TensorFlow link inputs without modifying their bytes or symbols."""
 import hashlib
 import json
 import os
@@ -14,11 +14,13 @@ def install(source, deps, shared=False):
     if shared:
         install_shared(source, deps)
         return
-    rows = json.loads((source / 'bazel-bin/ffb/c_api_static.ffb-link.json').read_text())
+    rows = json.loads((source / '.ffb_inputs/native-link-closure.json').read_text())
     archives = {}
     for row in rows:
         if set(row['flags']) - ALLOWED_FLAGS:
             raise SystemExit('Review new TensorFlow link flags: ' + str(row['flags']))
+        if row.get('additional_inputs'):
+            raise SystemExit('Review additional native TensorFlow linker inputs: ' + repr(row['additional_inputs']))
         for item in row['libraries']:
             if not item['archive']:
                 raise SystemExit('Review non-archive TensorFlow static link input')
@@ -27,34 +29,34 @@ def install(source, deps, shared=False):
         raise SystemExit('TensorFlow static registration closure is missing')
     lib = deps / 'lib'
     lib.mkdir(parents=True, exist_ok=True)
-    object_file = source / '_ffb-kernels.o'
-    response = source / '_ffb-kernels.rsp'
-    forced = [source / path for path, always in archives.items() if always]
-    args = ['-r', '--whole-archive', *map(str, forced), '--no-whole-archive', '-o', str(object_file)]
-    response.write_text('\n'.join(shlex.quote(arg) for arg in args) + '\n')
-    linker = source / ('bazel-' + source.name) / 'external/llvm18_linux_x86_64/bin/ld.lld'
-    subprocess.run([str(linker), '@' + str(response)], check=True)
-    kernel_archive = lib / 'libffb_tensorflow_kernels.a'
-    subprocess.run(shlex.split(os.environ.get('AR', 'ar')) + ['rcs', str(kernel_archive), str(object_file)], check=True)
-    names = [kernel_archive.name]
+    regular = []
+    arguments = ['-Wl,--start-group']
     for path, always in archives.items():
-        if always:
-            continue
         name = 'libffb_tensorflow_' + hashlib.sha256(path.encode()).hexdigest()[:20] + '.a'
         shutil.copy2(source / path, lib / name)
-        names.append(name)
-    mapping = deps / 'share/ffmpeg-build/tensorflow-private-symbols.map'
-    subprocess.run([sys.executable, str(Path(__file__).with_name('isolate-private.py')),
-                    str(mapping), *[str(lib / name) for name in names]], check=True)
-    (lib / 'libtensorflow.a').write_text('GROUP (\n' + '\n'.join('-l:' + name for name in names) +
-        '\n-l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a -lm -ldl -lpthread -lrt\n)\n')
+        if always:
+            arguments.extend(['-Wl,--whole-archive', '-l:' + name, '-Wl,--no-whole-archive'])
+        else:
+            regular.append('-l:' + name)
+            arguments.append('-l:' + name)
+    if not regular:
+        raise SystemExit('Review empty native TensorFlow ordinary archive closure')
+    flags = list(dict.fromkeys(flag for row in rows for flag in row['flags']))
+    arguments.extend(['-l:libstdc++.a', '-l:libgcc.a', '-l:libgcc_eh.a',
+                      *flags, '-lm', '-ldl', '-lpthread', '-lrt', '-Wl,--end-group'])
+    # FFmpeg probes plain -ltensorflow. Only ordinary archives appear here: native
+    # alwayslink archives occur once in the response file, avoiding duplicate objects.
+    (lib / 'libtensorflow.a').write_text('GROUP (\n' + '\n'.join(regular) + '\n)\n')
+    (lib / 'ffb-tensorflow-static.rsp').write_text(shlex.join(arguments) + '\n')
 
     # Capture the transitive C API headers with the target C compiler. Do not
     # install the C++ SDK or depend on private Bazel include paths at FFmpeg link time.
     external = source / ('bazel-' + source.name) / 'external'
     roots = [source, external / 'xla', external / 'tsl']
     probe = source / '_ffb-c-api.c'
-    probe.write_text('#include <tensorflow/c/c_api.h>\n')
+    headers = ['tensorflow/c/c_api.h', 'tensorflow/c/c_api_experimental.h',
+               'tensorflow/c/eager/c_api.h', 'tensorflow/c/eager/c_api_experimental.h']
+    probe.write_text(''.join('#include <' + name + '>\n' for name in headers))
     dependencies = source / '_ffb-c-api.d'
     subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + ['-MM', '-MF', str(dependencies),
                    '-MT', 'c_api', *['-I' + str(root) for root in roots], str(probe)], check=True)
@@ -79,7 +81,7 @@ def install(source, deps, shared=False):
     inventory.write_text(json.dumps(rows, indent=2) + '\n')
 
 def install_shared(source, deps):
-    inventory = source / 'bazel-bin/tensorflow/ffb/c_api_shared_inventory.ffb-link.json'
+    inventory = source / '.ffb_inputs/native-link-closure.json'
     rows = json.loads(inventory.read_text())
     if not rows or not any(row['libraries'] for row in rows):
         raise SystemExit('Native TensorFlow shared closure inventory is empty')

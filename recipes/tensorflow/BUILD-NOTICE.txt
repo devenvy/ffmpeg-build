@@ -8,17 +8,18 @@ from engine-captured inputs is tested with both networking and Bazel repository
 downloads disabled. Source input records distinguish recipe-generated replay
 metadata from upstream checksum pins.
 
-The static closure is collected from Bazel CcInfo. Always-linked kernel archives
-are folded with the pinned LLVM linker so their registrations survive FFmpeg's
-static link. Runtime notices follow the actual C API owner closure, including
+The static closure is collected from the existing native Bazel targets' CcInfo.
+Native archives are copied unchanged. A compiler response file preserves the
+upstream alwayslink registration policy without merging or rewriting objects.
+Runtime notices follow the actual C API owner closure, including
 header-only dependencies. BoringSSL's original OpenSSL/SSLeay terms remain in
 the aggregate; the recipe therefore uses the existing LGPLv3/nonfree gate.
 
-In static mode, private Protobuf, oneDNN and Xbyak symbols and COMDAT groups are
-consistently renamed throughout the closure, preserving the public C API. This keeps other
-selected ML backends from binding to TensorFlow's incompatible internal copies.
+Static symbols and COMDAT groups remain unchanged. Incompatible combinations
+require supported native configurations or explicit composition restrictions.
 Shared mode preserves the upstream native export policy, including its public
 TF/TFE C++ compatibility bridges, in one monolithic Graph/Eager library.
+Its compiler-runtime selection remains native; no upstream toolchain helper is edited.
 
 DUCC's FFT subset selects its BSD alternative; zstd and Highway select BSD;
 JsonCpp selects MIT. Their full source notices and the applicable per-file

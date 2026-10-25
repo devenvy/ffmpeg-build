@@ -84,23 +84,19 @@ custom = source / 'ffb'
 custom.mkdir(exist_ok=True)
 for name in ['BUILD.bazel', 'link.bzl']:
     shutil.copy2(recipe / 'ffb' / name, custom / name)
-if shared:
-    shared_inventory = source / 'tensorflow/ffb'
-    shared_inventory.mkdir(exist_ok=True)
-    shutil.copy2(recipe / 'ffb/BUILD.shared.bazel', shared_inventory / 'BUILD.bazel')
-for name in ['inputs.json', 'replay.py', 'restore.py', 'build.py', 'export.py', 'native-link.py', 'native-toolchain.py', 'isolate-private.py', 'notices.py',
+for name in ['inputs.json', 'replay.py', 'restore.py', 'build.py', 'export.py', 'native-link.py', 'notices.py',
              'validate.c', 'validate-eager.c', 'public-headers.cpp', 'check-public-api.py', 'OOURA-PERMISSION.txt', 'README.md']:
     shutil.copy2(recipe / name, inputs / name)
 module('replay').build(source, shared)
 module('export').install(source, deps, shared)
 consumer = source / '_ffb-c-api-check'
 run(shlex.split(os.environ.get('CC', 'cc')) + ['-I' + str(deps / 'include'),
-    recipe / 'validate.c', '-L' + str(deps / 'lib'), '-ltensorflow', '-o', consumer])
+    recipe / 'validate.c', '-L' + str(deps / 'lib'), '-ltensorflow',
+    *([] if shared else ['@' + str(deps / 'lib/ffb-tensorflow-static.rsp')]), '-o', consumer])
 runtime_environment = dict(os.environ, LD_LIBRARY_PATH=str(deps / 'lib'),
                            TF_NUM_INTRAOP_THREADS='2', TF_NUM_INTEROP_THREADS='2')
 subprocess.run([str(consumer), str(inputs / 'authored-relu.pb')], check=True, env=runtime_environment)
-if shared:
-    run([sys.executable, recipe / 'check-public-api.py', deps])
+run([sys.executable, recipe / 'check-public-api.py', deps, 'shared' if shared else 'static'])
 module('notices').collect(source, pins, shared)
 
 # Mirror choices belong to the preserved recipe input catalog. The engine inventory records
@@ -111,12 +107,13 @@ known = {entry['path'] for entry in records}
 metadata = [source / path for path in pins['cacheIds']]
 metadata += [custom / 'BUILD.bazel', custom / 'link.bzl']
 if shared:
-    metadata += [shared_inventory / 'BUILD.bazel', inputs / 'native-shared-link.json']
+    metadata += [inputs / 'native-shared-link.json']
 metadata += [go / name for name in ['BUILD.bazel', 'ROOT', 'REPO.bazel']]
-metadata += [inputs / name for name in ['inputs.json', 'replay.py', 'build.py', 'export.py', 'native-link.py', 'native-toolchain.py',
-                                     'restore.py', 'isolate-private.py', 'notices.py', 'validate.c', 'validate-eager.c',
+metadata += [inputs / name for name in ['inputs.json', 'replay.py', 'build.py', 'export.py', 'native-link.py',
+                                     'restore.py', 'notices.py', 'validate.c', 'validate-eager.c',
                                      'public-headers.cpp', 'check-public-api.py', 'build-mode.txt', 'OOURA-PERMISSION.txt', 'README.md',
                                      'resolved-current.bzl', 'authored-relu.pb']]
+metadata += [inputs / 'native-link-closure.json']
 metadata += [inputs / name for name in module('replay').PATCHES]
 for path in metadata:
     relative = str(path.relative_to(source))

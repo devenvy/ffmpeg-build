@@ -15,7 +15,7 @@ writeFileSync(
   model,
   Buffer.from(readFileSync(new URL('torch-model.base64', import.meta.url), 'utf8'), 'base64'),
 );
-const run = (filter, earlyCutoff) => {
+const run = (filter, earlyCutoff, reject = false) => {
   const result = spawnSync(
     process.env.FFMPEG,
     [
@@ -34,6 +34,12 @@ const run = (filter, earlyCutoff) => {
     ],
     { encoding: 'utf8', timeout: 30000 },
   );
+  assert.equal(result.error, undefined, result.error?.message);
+  assert.equal(result.signal, null, result.stderr);
+  if (reject) {
+    assert.notEqual(result.status, 0, 'An invalid Torch model must fail cleanly');
+    return [];
+  }
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.split('\n').filter((line) => line.startsWith('0,'));
 };
@@ -49,7 +55,16 @@ try {
       assert.deepEqual(actual, expected);
     }
   }
-  console.log('Torch CPU inference passed natural EOF and repeated early-cutoff cleanup');
+  assert.deepEqual(
+    run(`format=rgb24,trim=end_frame=0,dnn_processing=dnn_backend=torch:model=${model}`, false),
+    [],
+  );
+  const invalid = join(work, 'invalid.pt');
+  writeFileSync(invalid, 'owned invalid Torch model');
+  run(`format=rgb24,dnn_processing=dnn_backend=torch:model=${invalid}`, false, true);
+  console.log(
+    'Torch CPU inference passed natural EOF, early cutoff, empty-input and invalid-model cleanup',
+  );
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

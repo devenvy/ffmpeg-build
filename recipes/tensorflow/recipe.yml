@@ -19,7 +19,8 @@ platforms: [linux-x64]
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      configure: ['--extra-libs=@{deps}/lib/ffb-tensorflow-static.rsp']
     shared:
       platforms: [linux-x64]
       vars: { build-mode: shared }

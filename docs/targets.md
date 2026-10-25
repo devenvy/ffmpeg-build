@@ -26,12 +26,11 @@ TensorFlow CPU inference offers static and bundled shared modes on Linux x64,
 with static as the default. Select `link: { tensorflow: shared }` to ship its
 native monolithic C runtime. The Graph and Eager APIs use the same native owner;
 the shared mode does not require a separate TensorFlow framework library.
-It embeds the pinned C++ compiler archives and requires the system's compatible `libgcc_s.so.1` unwinder.
+Shared mode retains the upstream compiler-runtime selection and requires compatible system runtime libraries.
 
 Rav1e defaults to static linking and offers a bundled shared mode on Linux x64.
 It uses cargo-c's native versioned C library and preserves all 37 public C API
-functions. Its private Rust implementation remains hidden; the existing static
-archive isolation is retained. Rav1e and librsvg can be selected independently:
+functions. Native archive symbols are preserved. Rav1e and librsvg can be selected independently:
 the verification matrix decodes an owned SVG and encodes it to AV1 in the same
 FFmpeg process, including both shared libraries and each mixed Rust combination.
 Additional authored frames check decoder reconstruction and complete encoder

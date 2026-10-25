@@ -92,9 +92,8 @@ def archive_notices(path):
 
 def collect(source, pins, shared=False):
     external = source / ('bazel-' + source.name) / 'external'
-    runtime = {**RUNTIME, **(SHARED_RUNTIME if shared else {})}
-    inventory = 'tensorflow/ffb/c_api_shared_inventory' if shared else 'ffb/c_api_static'
-    rows = json.loads((source / ('bazel-bin/' + inventory + '.ffb-link.json')).read_text())
+    runtime = {**RUNTIME, **SHARED_RUNTIME}
+    rows = json.loads((source / '.ffb_inputs/native-link-closure.json').read_text())
     if not rows or not any(row['libraries'] for row in rows):
         raise SystemExit('TensorFlow linked-runtime inventory is empty')
     for row in rows:
@@ -124,8 +123,8 @@ def collect(source, pins, shared=False):
     chunks.append(section('fft2d/author-distribution-clarification', permission.read_bytes()))
     chunks.append(
         '\nGCC COMPILER RUNTIME: GPL-3.0-or-later WITH GCC-exception-3.1\n'
-        'The native shared build links libstdc++.a and libstdc++fs.a from the pinned GCC 8 sysroot.\n'
-        'The static build also embeds its compiler runtime when linked into FFmpeg.\n'
+        'The static build embeds its compiler runtime when linked into FFmpeg.\n'
+        'Shared mode preserves the upstream compiler-runtime selection without forcing static C++ archives.\n'
         'Upstream GCC 8.4.0 texts below supplement the binary sysroot, whose distributor\n'
         'did not include a package manifest or complete package copyright notices.\n'
         'These upstream texts do not claim to recover that missing distributor metadata.\n')

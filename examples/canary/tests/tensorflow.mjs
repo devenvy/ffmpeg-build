@@ -14,7 +14,7 @@ writeFileSync(
   model,
   Buffer.from(readFileSync(new URL('tensorflow-model.base64', import.meta.url), 'utf8'), 'base64'),
 );
-const run = (filter, earlyCutoff) => {
+const run = (filter, earlyCutoff, reject = false) => {
   const result = spawnSync(
     process.env.FFMPEG,
     [
@@ -33,6 +33,12 @@ const run = (filter, earlyCutoff) => {
     ],
     { encoding: 'utf8', timeout: 30000 },
   );
+  assert.equal(result.error, undefined, result.error?.message);
+  assert.equal(result.signal, null, result.stderr);
+  if (reject) {
+    assert.notEqual(result.status, 0, 'An invalid TensorFlow model must fail cleanly');
+    return [];
+  }
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.split('\n').filter((line) => line.startsWith('0,'));
 };
@@ -48,7 +54,23 @@ try {
       assert.deepEqual(actual, expected);
     }
   }
-  console.log('TensorFlow CPU inference passed natural EOF and repeated early-cutoff cleanup');
+  assert.deepEqual(
+    run(
+      `format=rgb24,trim=end_frame=0,dnn_processing=dnn_backend=tensorflow:model=${model}:input=x:output=y`,
+      false,
+    ),
+    [],
+  );
+  const invalid = join(work, 'invalid.pb');
+  writeFileSync(invalid, 'owned invalid TensorFlow model');
+  run(
+    `format=rgb24,dnn_processing=dnn_backend=tensorflow:model=${invalid}:input=x:output=y`,
+    false,
+    true,
+  );
+  console.log(
+    'TensorFlow CPU inference passed natural EOF, early cutoff, empty-input and invalid-model cleanup',
+  );
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

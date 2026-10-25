@@ -3,11 +3,30 @@ import os
 import json
 from pathlib import Path
 import shutil
-import runpy
 import subprocess
 
 PATCHES = ['generated.patch', 'build.patch', 'mathextras.patch',
            'toolchains.patch', 'zstd.patch', 'lit_test.patch']
+
+# Existing upstream library targets supply their own CcInfo and registration policy.
+NATIVE_TARGETS = ['//tensorflow/c:c_api', '//tensorflow/core:tensorflow']
+SHARED_TARGETS = ['//tensorflow/c:c_api_experimental', '//tensorflow/c/eager:c_api',
+                  '//tensorflow/c/eager:c_api_experimental',
+                  '//tensorflow/core:distributed_tensorflow_dependencies']
+
+
+def inventory(source, targets):
+    rows = []
+    seen = set()
+    for target in targets:
+        package, name = target.removeprefix('//').split(':')
+        path = source / 'bazel-bin' / package / (name + '.ffb-link.json')
+        for row in json.loads(path.read_text()):
+            key = json.dumps(row, sort_keys=True)
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
+    (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps(rows, indent=2) + '\n')
 
 def resources():
     memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
@@ -48,13 +67,8 @@ def build(source, shared=False):
     prepare_llvm(source)
     jobs, ram_mb = resources()
     executable = [inputs / 'bazel-7.7.0', '--output_user_root=' + str(source.parent / '_tensorflow-bazel')]
-    compiler = runpy.run_path(str(Path(__file__).with_name('native-toolchain.py')))
-    output_base = Path(subprocess.check_output(list(map(str, executable + ['info', 'output_base'])),
-                                              cwd=source, text=True).strip())
-    # A reused Bazel root must restore the native helper before a static build;
-    # the shared-only archive selection must never leak into another mode.
-    compiler['select'](output_base, shared)
-    target = '//tensorflow:libtensorflow.so.2.21.0' if shared else '//ffb:c_api_static'
+    target = '//tensorflow:libtensorflow.so.2.21.0'
+    native_targets = NATIVE_TARGETS + SHARED_TARGETS
     options = ['--config=monolithic', '--config=nogcp',
                '--config=nonccl', '--define=with_xla_support=false',
                '--repo_env=USE_PYWRAP_RULES=', '--repo_env=HERMETIC_PYTHON_VERSION=3.12',
@@ -67,8 +81,8 @@ def build(source, shared=False):
                '--experimental_repository_resolved_file=' + str(inputs / 'resolved-current.bzl'),
                '--jobs=' + str(jobs), '--local_ram_resources=' + str(ram_mb)]
     if shared:
-        options += ['--linkopt=-static-libstdc++', '--linkopt=-shared-libgcc', '--linkopt=-pthread']
-    targets = [target, '//tensorflow/ffb:c_api_shared_inventory'] if shared else [target]
+        options += ['--linkopt=-shared-libgcc', '--linkopt=-pthread']
+    targets = [target, *native_targets] if shared else native_targets
     def shared_query():
         query = executable + ['aquery', 'mnemonic("CppLink", ' + target + ')', *options, '--output=jsonproto']
         result = subprocess.check_output(list(map(str, query)), cwd=source, text=True)
@@ -80,21 +94,16 @@ def build(source, shared=False):
         # compiling its artifacts. Inventory/schema errors must fail before
         # the expensive source build, while all offline pins stay enforced.
         shared_query()
-        # A fresh repository first materializes during analysis. That first
-        # query is provisional: reanalyze after the strict source adaptation.
-        if not compiler['select'](output_base, True):
-            raise SystemExit('Native compiler-runtime repository was not materialized')
-        shared_query()
-        compiler['verify'](json.loads((inputs / 'native-shared-link.json').read_text()))
-        run(executable + ['build', '//tensorflow/ffb:c_api_shared_inventory', *options,
+        run(executable + ['build', *native_targets, *options,
                          '--aspects=//ffb:link.bzl%link_inventory', '--output_groups=ffb_inventory'], source)
+        inventory(source, native_targets)
         run(['python3', Path(__file__).with_name('native-link.py'), source], source)
     command = executable + ['build', *targets, *options,
                             '--aspects=//ffb:link.bzl%link_inventory', '--output_groups=+ffb_link']
     run(command, source)
+    inventory(source, native_targets)
     if shared:
         shared_query()
-        compiler['verify'](json.loads((inputs / 'native-shared-link.json').read_text()))
 
 if __name__ == '__main__':
     source = Path(__file__).resolve().parent.parent

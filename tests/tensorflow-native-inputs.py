@@ -1,9 +1,12 @@
 """Bazel 7's real path-fragment shape and strict native closure rejection."""
 import importlib.util
+import json
 from pathlib import Path
+import shlex
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.dont_write_bytecode = True
 
@@ -11,9 +14,9 @@ path = Path(__file__).resolve().parents[1] / 'recipes/tensorflow/native-link.py'
 spec = importlib.util.spec_from_file_location('native_link', path)
 native = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(native)
-spec = importlib.util.spec_from_file_location('native_toolchain', path.with_name('native-toolchain.py'))
-compiler = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(compiler)
+spec = importlib.util.spec_from_file_location('native_export', path.with_name('export.py'))
+exporter = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(exporter)
 
 
 def fixture():
@@ -84,38 +87,53 @@ class NativeInventory(unittest.TestCase):
             native.audit(fixture(), [])
 
 
-class NativeCompilerRuntime(unittest.TestCase):
-    def test_mode_changes_restore_the_shared_bazel_repository(self):
+class NativeStaticPackaging(unittest.TestCase):
+    def test_archive_bytes_and_registration_scope_survive_packaging(self):
         with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary)
-            self.assertFalse(compiler.select(base, True))
-            helper = base / 'external/rules_ml_toolchain/third_party/rules_cc_toolchain/features/features.bzl'
-            helper.parent.mkdir(parents=True)
-            helper.write_text('prefix\n' + compiler.ORIGINAL + 'suffix\n')
-            for shared in [True, True, False, False, True]:
-                self.assertTrue(compiler.select(base, shared))
-                expected = compiler.STATIC if shared else compiler.ORIGINAL
-                self.assertEqual(helper.read_text(), 'prefix\n' + expected + 'suffix\n')
-            helper.write_text(compiler.ORIGINAL + compiler.ORIGINAL)
-            with self.assertRaisesRegex(SystemExit, 'Review native'):
-                compiler.select(base, True)
-            helper.write_text('unreviewed new helper')
-            with self.assertRaisesRegex(SystemExit, 'Review native'):
-                compiler.select(base, True)
+            source = Path(temporary) / 'source'
+            deps = Path(temporary) / 'installed'
+            (source / '.ffb_inputs').mkdir(parents=True)
+            paths = ['bazel-out/owned.a', 'bazel-out/registrations.a']
+            payloads = [b'!<arch>\nnative ordinary bytes\n', b'!<arch>\nnative registration bytes\n']
+            for name, payload in zip(paths, payloads):
+                target = source / name
+                target.parent.mkdir(exist_ok=True)
+                target.write_bytes(payload)
+            rows = [{'flags': ['-lm'], 'additional_inputs': [], 'libraries': [
+                {'archive': paths[0], 'alwayslink': False},
+                {'archive': paths[1], 'alwayslink': True},
+            ]}]
+            (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps(rows))
+            header = source / 'tensorflow/c/c_api.h'
+            header.parent.mkdir(parents=True)
+            header.write_text('/* owned header */\n')
 
-    def test_actual_link_requires_exact_archives_and_shared_unwinder(self):
-        required = ['-l:libstdc++.a', '-l:libstdc++fs.a', '-lgcc_s']
-        def query(arguments):
-            return {'actions': [{'mnemonic': 'CppLink', 'arguments': arguments}]}
-        compiler.verify(query(required))
-        for flag in required:
-            with self.subTest(missing=flag), self.assertRaisesRegex(SystemExit, r'exact C\+\+'):
-                compiler.verify(query([item for item in required if item != flag]))
-        for flag in ['-lstdc++', '-lstdc++fs', '-l:libstdc++.so', '-static-libgcc']:
-            with self.subTest(forbidden=flag), self.assertRaisesRegex(SystemExit, r'exact C\+\+'):
-                compiler.verify(query(required + [flag]))
-        with self.assertRaisesRegex(SystemExit, 'one native'):
-            compiler.verify({'actions': []})
+            def dependencies(arguments, **unused):
+                Path(arguments[arguments.index('-MF') + 1]).write_text('c_api: ' + shlex.quote(header.as_posix()) + '\n')
+
+            with patch.object(exporter.subprocess, 'run', side_effect=dependencies):
+                exporter.install(source, deps)
+            archives = list((deps / 'lib').glob('libffb_tensorflow_*.a'))
+            self.assertCountEqual([archive.read_bytes() for archive in archives], payloads)
+            arguments = shlex.split((deps / 'lib/ffb-tensorflow-static.rsp').read_text())
+            self.assertNotIn(str(source), ' '.join(arguments))
+            forced = arguments.index('-Wl,--whole-archive')
+            self.assertEqual(arguments[forced + 2], '-Wl,--no-whole-archive')
+            registration = next(archive.name for archive in archives if archive.read_bytes() == payloads[1])
+            self.assertEqual(arguments[forced + 1], '-l:' + registration)
+            self.assertNotIn(registration, (deps / 'lib/libtensorflow.a').read_text())
+            self.assertGreater(arguments.index('-l:libstdc++.a'), forced + 2)
+            self.assertEqual((deps / 'include/tensorflow/c/c_api.h').read_bytes(), header.read_bytes())
+
+    def test_unhandled_linker_inputs_fail_before_packaging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            (source / '.ffb_inputs').mkdir()
+            (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps([
+                {'flags': [], 'additional_inputs': ['unhandled.lds'], 'libraries': []},
+            ]))
+            with self.assertRaisesRegex(SystemExit, 'additional native'):
+                exporter.install(source, source / 'installed')
 
 
 if __name__ == '__main__':
