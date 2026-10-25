@@ -31,13 +31,7 @@ linkage:
     static: {}
     shared:
       platforms: [linux-x64]
-      vars:
-        {
-          build-mode: shared,
-          static-define: '',
-          runtime-name: 'openvino_c -lopenvino',
-          shared-check: '1',
-        }
+      vars: { build-mode: shared, runtime-libs: '-lopenvino_c -lopenvino' }
       runtime:
         [
           'lib/libopenvino.so*',
@@ -48,28 +42,19 @@ linkage:
         ]
 build:
   system: none
-  vars:
-    {
-      build-mode: static,
-      static-define: '-DOPENVINO_STATIC_LIBRARY',
-      runtime-name: openvino,
-      shared-check: '',
-    }
+  vars: { build-mode: static, runtime-libs: '-l:ffb-openvino-cpu.ld' }
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'build.py'), run_name='__main__')"
         - '{build-mode}'
-    - pkg-config:
-        name: openvino
-        description: OpenVINO static CPU runtime with IR frontend
-        version: '{version}'
-        cflags: '-I{deps}/include {static-define}'
-        libs: '-L{deps}/lib -l{runtime-name}'
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/openvino.pc'
+        libs: { set: '-L${libdir} {runtime-libs}' }
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'check-public-api.py'), run_name='__main__')"
         - '{deps}'
-      when: { set: '{shared-check}' }
+        - '{build-mode}'

@@ -27,7 +27,7 @@ for PTX compilation; native builds need a compatible compiler at `/usr/bin/g++`.
 
 The opt-in `decklink` option needs Blackmagic Desktop Video installed on the machine running FFmpeg, plus compatible
 hardware. The build includes only the SDK's headers and dispatch code; the driver and Desktop Video runtime remain
-system dependencies. It is available in nonfree builds on Linux x64, Windows x64 and macOS. On Linux and macOS it
+system dependencies. It is available in nonfree builds on Linux x64 and Windows x64. On Linux it
 also builds static libklvanc for VANC output; Windows builds omit that extension.
 `gcrypt` and `libtls` are opt-in static alternatives on Linux x64. `gcrypt` uses libgcrypt and libgpg-error for
 encrypted RTMP; omit `gmp` when testing it because FFmpeg prefers GMP when both are enabled. `libtls` selects

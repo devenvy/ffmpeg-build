@@ -10,8 +10,9 @@ with static as the default. Select `link: { openvino: shared }` to ship its
 native C and C++ runtimes, IR frontend, CPU plugin and relative plugin registry.
 The installed public APIs and native library ownership are retained. This mode
 includes the CPU implementation; GPU plugins require separate support.
-Its embedded C++ runtime retains the full native ABI so caller exceptions, streams and teardown share
-the correct state. Ten reviewed private dependency archives remain hidden; the system unwinder stays shared.
+Shared mode uses the system C++ runtime; recipients need a compatible `libstdc++.so.6`.
+Both modes retain the complete native installed C/C++ headers and CMake SDK.
+Static mode uses separate linker metadata for its native archive closure without changing those archives.
 
 Torch CPU inference offers static and bundled shared modes on Linux x64,
 with static as the default. Select `link: { torch: shared }` to ship its four
