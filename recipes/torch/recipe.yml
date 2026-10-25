@@ -39,6 +39,15 @@ linkage:
       # Stock FFmpeg uses a plain -ltorch probe, not torch.pc. Preserve the native
       # CMake whole-archive registration closure with a compiler response file.
       configure: ['--extra-libs=@{deps}/lib/ffb-torch-static.rsp']
+      conflicts-link:
+        tensorflow:
+          modes: [static]
+          platforms: [linux-x64]
+          reason: 'These libraries retain incompatible native Protobuf runtimes. Select shared for either owner.'
+        onnxruntime:
+          modes: [static]
+          platforms: [linux-x64]
+          reason: 'These libraries retain incompatible native Protobuf runtimes. Select shared for either owner.'
     shared:
       platforms: [linux-x64]
       vars: { build-mode: shared }

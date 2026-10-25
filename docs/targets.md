@@ -28,6 +28,12 @@ native monolithic C runtime. The Graph and Eager APIs use the same native owner;
 the shared mode does not require a separate TensorFlow framework library.
 Shared mode retains the upstream compiler-runtime selection and requires compatible system runtime libraries.
 
+The pinned Torch, TensorFlow and ONNX Runtime builds use Protobuf 3.13.0, 6.31.1 and 6.33.6 respectively.
+Their native static runtimes have overlapping symbols and incompatible ABIs. A build may select at most one
+of these three as static; choose `shared` for the others. Each still defaults to static when selected alone.
+The planner rejects the incompatible static pairs. Combined native shared owners are verified separately;
+the engine does not rename their Protobuf symbols or change upstream implementation code.
+
 Rav1e defaults to static linking and offers a bundled shared mode on Linux x64.
 It uses cargo-c's native versioned C library and preserves all 37 public C API
 functions. Native archive symbols are preserved. Rav1e and librsvg can be selected independently:

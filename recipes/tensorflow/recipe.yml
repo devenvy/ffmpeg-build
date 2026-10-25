@@ -21,6 +21,11 @@ linkage:
   modes:
     static:
       configure: ['--extra-libs=@{deps}/lib/ffb-tensorflow-static.rsp']
+      conflicts-link:
+        onnxruntime:
+          modes: [static]
+          platforms: [linux-x64]
+          reason: 'These libraries retain incompatible native Protobuf runtimes. Select shared for either owner.'
     shared:
       platforms: [linux-x64]
       vars: { build-mode: shared }
