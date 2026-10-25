@@ -81,6 +81,11 @@ run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
     ['-D' + name + '=OFF' for name in off] + shared_args, env=env)
 run(['cmake', '--build', build, '--parallel', os.environ['JOBS']], env=env)
 run(['cmake', '--install', build], env=env)
+if not shared:
+    # TorchConfig searches these native names, but the top-level static install
+    # omits the ONNX archives built by its own dependency targets.
+    for name in ['libonnx.a', 'libonnx_proto.a']:
+        shutil.copy2(build / 'lib' / name, install / 'lib' / name)
 # Preserve native archive names, SDK headers and CMake exports together.
 shutil.copytree(install, deps, dirs_exist_ok=True, symlinks=True)
 if shared:

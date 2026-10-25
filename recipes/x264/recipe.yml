@@ -20,15 +20,18 @@ build:
   # Ported from devenvy/ffmpeg scripts/deps/libx264.sh. Its own configure (not autotools): the cross arguments are the
   # platform's, below.
   system: none
-  vars: { link-args: [--enable-static, --disable-shared] }
+  vars: { link-args: [--enable-static, --disable-shared], windows-cross: [] }
+  before:
+    - vars: { windows-cross: ['--cross-prefix={CROSS_PREFIX}-'] }
+      when: { platforms: [win-*], unset: '{MSYSTEM?}' }
   steps:
     - [./configure, '--prefix={deps}', '{link-args}', --enable-pic, --disable-cli, '{args}']
     - [make, '-j{jobs}']
     - [make, install]
   platforms:
     linux-armhf: { args: [--cross-prefix=arm-linux-gnueabihf-, --host=arm-linux-gnueabihf] }
-    win-x64: { args: ['--cross-prefix={CROSS_PREFIX}-', --host=x86_64-w64-mingw32] }
-    win-arm64: { args: ['--cross-prefix={CROSS_PREFIX}-', --host=aarch64-w64-mingw32] }
+    win-x64: { args: ['{windows-cross}', --host=x86_64-w64-mingw32] }
+    win-arm64: { args: ['{windows-cross}', --host=aarch64-w64-mingw32] }
     android-arm64: { args: [--host=aarch64-linux-android, '--sysroot={TOOLCHAIN}/sysroot'] }
     android-x64: { args: [--host=x86_64-linux-android, '--sysroot={TOOLCHAIN}/sysroot'] }
     # arm64 assembles x264's .S files with CLANG, so the platform must reach the assembler

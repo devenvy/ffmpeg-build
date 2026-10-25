@@ -74,4 +74,10 @@ build:
     c-flags: -DCMAKE_C_FLAGS=-static-libgcc -O2
     cxx-flags: -DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2
   platforms:
-    'win-*': { vars: { system-libs: -lole32 -lgdi32 -luuid -lstdc++ } }
+    'win-*':
+      vars:
+        system-libs: -lole32 -lgdi32 -luuid -lstdc++
+        # Parse the real SDK before the dispatcher's legacy CRT macros. New MinGW
+        # stralign.h uses wcscpy_s in an expression; upstream's macro is a statement.
+        # This is a compiler preinclude, with no SDK or dispatcher source changes.
+        cxx-flags: -DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2 -DNOMINMAX -include windows.h

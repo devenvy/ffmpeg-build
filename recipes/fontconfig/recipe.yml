@@ -29,9 +29,11 @@ linkage:
       platforms: [linux-x64]
       vars:
         default-library: '--default-library=shared'
+        shared-mode: 'yes'
+        shared-link-args: ['-Dc_link_args=-Wl,--push-state,--no-as-needed,-lm,--pop-state']
       runtime: ['lib/libfontconfig*.so*']
 build:
-  vars: { default-library: --default-library=static }
+  vars: { default-library: --default-library=static, shared-mode: '', shared-link-args: [] }
   # fontconfig: system font discovery so drawtext can pick fonts by name (HPND-sell-variant), static. Ported from
   # devenvy/ffmpeg scripts/deps/fontconfig.sh.
   #
@@ -80,6 +82,10 @@ build:
       - -Dtools=disabled
       - -Dcache-build=disabled
       - -Dnls=disabled
+      # FreeType's static PNG dependency needs libm. Keep native package
+      # discovery so independently selected shared dependencies remain shared.
+      - '{shared-link-args}'
+      - --wrap-mode=nofallback
       - '{meson-cross-args}'
     - [meson, compile, -C, _build, -j, '{jobs}']
     - run: [meson, install, -C, _build]

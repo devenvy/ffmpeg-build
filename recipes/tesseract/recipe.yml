@@ -18,7 +18,7 @@ linkage:
         shared-mode: 'yes'
         shared-arg: --enable-shared
         static-arg: --disable-static
-        link-args: ['LDFLAGS={LDFLAGS|} -static-libstdc++ -shared-libgcc -Wl,-z,defs']
+        link-args: ['LDFLAGS={LDFLAGS|} -shared-libgcc -Wl,-z,defs']
       runtime: ['lib/libtesseract.so*']
 build:
   # Tesseract: OCR (Apache-2.0, so v3 builds only), static, for FFmpeg's ocr filter (found through tesseract.pc, by

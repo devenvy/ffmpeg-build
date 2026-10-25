@@ -685,12 +685,13 @@ export function beforeFfmpeg(
           '-l:libwinpthread.a',
         );
       }
-      if (text.includes('-Wl,-Bstatic')) {
-        return text;
-      }
-      return text
-        .replaceAll('-lpthread', '-Wl,-Bstatic -lpthread -Wl,-Bdynamic')
-        .replaceAll('-lstdc++', '-Wl,-Bstatic -lstdc++ -Wl,-Bdynamic');
+      // An existing static scope may cover only one token. Explicit archive
+      // names keep later -Bdynamic scopes from selecting compiler runtime DLLs.
+      return removeLibrary(
+        removeLibrary(text, /-l(?:win)?pthread/, '-l:libwinpthread.a'),
+        /-lstdc\+\+/,
+        '-l:libstdc++.a',
+      );
     });
   }
   // a native Windows build (MSYS2) compiles for the machine it runs on: no cross compiler, prefix or toolchain names

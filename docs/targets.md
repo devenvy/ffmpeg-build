@@ -157,6 +157,7 @@ Physical drives, CSS and protected regions are not covered by these image tests.
 Tesseract uses its native Autotools build and CPU detection, including Android's libc APIs.
 It no longer needs the CMake-only `cpu-features` adapter or a separate selection for that dependency.
 Its Linux shared library keeps Autotools' native `libtesseract.so.5` SONAME.
+It uses the system `libstdc++.so.6` and `libgcc_s.so.1`; recipients need compatible C++ runtimes.
 The Android OCR verification runner checks owned text, unchanged pixels and filter EOF using an FFmpeg SDK
 consumer. Fresh native verification is required after changing build systems; previous patched runs do not establish it.
 On Linux x64, Leptonica and Tesseract retain static defaults and offer bundled
@@ -784,7 +785,10 @@ SRT, librist, ZeroMQ and RabbitMQ-C offer static and bundled shared modes on
 Linux x64, keyed by `srt`, `librist`, `libzmq` and `rabbitmq-c`. Static remains
 the default. SRT's installed C++ SDK preserves native compiler ABI preemption
 while its C++ runtime is embedded in the library; ZeroMQ retains its installed C API. The
-common system unwinder remains shared for thread cancellation. SRT and librist
+common system unwinder remains shared for thread cancellation.
+SRT's C API creates sockets: native SRT 1.5.7 declares its legacy `UDT::socket()` constructor
+without providing a definition. Its other tested C++ stream-ID and logging APIs remain available.
+SRT and librist
 use the selected pinned mbedTLS where the target's license permits it;
 other targets retain clear transport. RabbitMQ-C retains its existing plain
 AMQP support. The canary tests use isolated local peers and a disposable broker.

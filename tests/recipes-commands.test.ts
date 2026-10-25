@@ -305,7 +305,7 @@ describe('libvpx', () => {
       ['make', 'install', `DIST_DIR=${h.deps}`],
     ]);
     for (const call of h.calls) {
-      expect(call.env).toEqual(crossPrefix ? { CROSS: crossPrefix } : {});
+      expect(call.env).toEqual({ CROSS: crossPrefix });
     }
   });
 });
@@ -783,7 +783,7 @@ describe('libvpl', () => {
         '-DBUILD_SHARED_LIBS=OFF',
         '-DBUILD_TESTS=OFF',
         '-DCMAKE_C_FLAGS=-static-libgcc -O2',
-        '-DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2',
+        `-DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -O2${platform.startsWith('win-') ? ' -DNOMINMAX -include windows.h' : ''}`,
       ],
       ['cmake', '--build', '_build', '-j4'],
       ['cmake', '--install', '_build'],
@@ -867,7 +867,7 @@ describe('fontconfig', () => {
     await build(h, 'fontconfig');
     expect(commands(h)).toEqual([
       [
-        'meson setup _build --prefix=/usr --libdir=/usr/lib --sysconfdir=/etc --localstatedir=/var --default-library=static --buildtype=release -Ddoc=disabled -Dtests=disabled -Dtools=disabled -Dcache-build=disabled -Dnls=disabled',
+        'meson setup _build --prefix=/usr --libdir=/usr/lib --sysconfdir=/etc --localstatedir=/var --default-library=static --buildtype=release -Ddoc=disabled -Dtests=disabled -Dtools=disabled -Dcache-build=disabled -Dnls=disabled --wrap-mode=nofallback',
         ...h.context.toolchain.mesonArgs,
       ].join(' '),
       'meson compile -C _build -j 4',

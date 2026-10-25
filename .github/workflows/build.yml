@@ -239,11 +239,15 @@ jobs:
       - name: expose the Actions cache to buildx
         if: runner.os == 'Linux' && matrix.in == 'docker'
         uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - id: library-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ffmpeg-build
-          key: ${{ matrix.cacheKey }}
-          restore-keys: ffmpeg-build-libs-${{ matrix.platform }}-
+          key: ${{ matrix.cacheKey }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ matrix.cacheKey }}-
+            ${{ matrix.cacheKey }}
+            ffmpeg-build-libs-${{ matrix.platform }}-
       # before the build: staging runs the x86_64 programs it made (without Rosetta it only names their architecture)
       - name: Rosetta (x86_64 builds run under it on Apple silicon)
         if: runner.os == 'macOS' && endsWith(matrix.platform, '-x64')
@@ -280,6 +284,14 @@ jobs:
           OUT: ${{ runner.temp }}/dist
           MATRIX_TARGET: ${{ matrix.target }}
         run: ffmpeg-build build --target "${MATRIX_TARGET}" --in here --out "$(cygpath -m "${OUT}")"
+      # Each library entry is committed only after its build succeeds. Retain
+      # those entries even when a later library or FFmpeg fails.
+      - name: retain completed library builds
+        if: always() && steps.library-cache.outputs.cache-primary-key != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ffmpeg-build
+          key: ${{ steps.library-cache.outputs.cache-primary-key }}
       # Testing (docs/building.md): every build its build runner can run must run there (--must-run); the test job
       # runs the rest
       - name: qemu for 32-bit ARM (linux-armhf runs in a Debian armhf container)

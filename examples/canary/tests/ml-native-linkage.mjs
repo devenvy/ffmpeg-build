@@ -55,12 +55,14 @@ for (const name of components) {
       assert.match(entries, new RegExp(`SONAME.*\\[${name.replaceAll('.', '\\.')}\\]`));
     }
     standardRuntime ||= /NEEDED.*libstdc\+\+\.so\.6/.test(entries);
-    if (backend === 'tensorflow') {
+    if (['tensorflow', 'torch'].includes(backend)) {
       const symbols = inspect('nm', ['-D', '--defined-only', owner])
         .split('\n')
         .filter((line) => line.trim())
         .map((line) => line.trim().split(/\s+/).at(-1).split('@')[0]);
-      for (const api of ['TF_Version', 'TF_SessionRun', 'TFE_Execute']) {
+      const apiNames =
+        backend === 'tensorflow' ? ['TF_Version', 'TF_SessionRun', 'TFE_Execute'] : [];
+      for (const api of apiNames) {
         assert.ok(symbols.includes(api), `Missing native public entry point: ${api}`);
       }
       assert.deepEqual(

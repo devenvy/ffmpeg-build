@@ -5,3 +5,4 @@ ffmpeg:
 libraries:
   dav1d: { version: 1.5.4, commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7 }
   opus: { version: 1.6.1, commit: 22244de5a79bd1d6d623c32e72bf1954b56235be }
+  x265: { version: 4.3, commit: e9b88125dc21393b3fd8d68e98083bdfb89778a8 }

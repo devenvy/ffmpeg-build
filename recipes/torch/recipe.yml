@@ -26,7 +26,7 @@ license-files:
   - { recipe: BUILD-NOTICE.txt }
 configure:
   - --enable-libtorch
-  - '--extra-cxxflags=-I{deps}/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1'
+  - '--extra-cxxflags=-I{deps}/include -I{deps}/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1'
 source: { git: https://github.com/pytorch/pytorch.git, ref: 'v{version}' }
 # Update build.py's reviewed dependency inventory with the version.
 # Stock FFmpeg 8/9 probes use C++17; newer Torch requires an upstream change there.

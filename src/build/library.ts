@@ -97,6 +97,16 @@ type When =
     }
   | undefined;
 
+/** Libtool needs an MSYS2 absolute prefix; filesystem operations keep their native Windows paths. */
+function autotoolsPrefix(context: BuildContext, env: NodeJS.ProcessEnv): string {
+  if (context.buildPlan.setup !== 'windows' || !env['MSYSTEM']) {
+    return context.depsDir;
+  }
+  return context.depsDir
+    .replace(/^([A-Za-z]):[\\/]/, (_whole, drive: string) => `/${drive.toLowerCase()}/`)
+    .replaceAll('\\', '/');
+}
+
 /** What one recipe's build sees while it runs: its folders, the platform's toolchain, and its variables. */
 class RecipeScope {
   readonly vars = new Map<string, Value>();
@@ -745,7 +755,7 @@ export async function runRecipe(
     // --libdir, --with-pic, ...) differed from library to library, so each recipe's args: say it
     const configure = [
       `./${build['configure-script'] ?? 'configure'}`,
-      `--prefix=${context.depsDir}`,
+      `--prefix=${autotoolsPrefix(context, env)}`,
       ...args(),
       ...(env['CROSS_HOST'] ? [`--host=${env['CROSS_HOST']}`] : []),
     ];

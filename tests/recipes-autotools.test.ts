@@ -30,6 +30,48 @@ function fake(platform: string): Harness {
 }
 
 describe('the standard autotools configure line', () => {
+  it.each([
+    ['C:/FFmpeg SDK/deps', 'UCRT64', '/c/FFmpeg SDK/deps'],
+    ['D:\\FFmpeg SDK\\deps', 'CLANG64', '/d/FFmpeg SDK/deps'],
+    ['\\\\server\\share\\deps', 'UCRT64', '//server/share/deps'],
+    ['/c/ffmpeg/deps', 'UCRT64', '/c/ffmpeg/deps'],
+    ['C:/FFmpeg SDK/deps', '', 'C:/FFmpeg SDK/deps'],
+  ])('uses a valid MSYS2 prefix for %s (%s)', async (directory, msystem, expected) => {
+    const h = fake('win-x64');
+    h.context.depsDir = directory;
+    h.context.env['MSYSTEM'] = msystem;
+    delete h.context.env['CROSS_HOST'];
+    const parsed = recipeSchema.parse({
+      name: 'sample',
+      license: 'MIT',
+      'license-files': ['COPYING'],
+      source: { git: 'g' },
+      versions: { 'git-tags': '^(.*)$' },
+      platforms: 'all',
+      build: { system: 'autotools' },
+    });
+    await runRecipe(h.context, { version: '1.2.3', build: parsed.build }, h.src);
+    expect(h.calls[0]!.args[0]).toBe(`--prefix=${expected}`);
+    expect(h.context.depsDir).toBe(directory);
+  });
+
+  it('keeps non-Windows configure paths independent of a host MSYSTEM variable', async () => {
+    const h = fake('linux-x64');
+    h.context.depsDir = 'C:/FFmpeg SDK/deps';
+    h.context.env['MSYSTEM'] = 'UCRT64';
+    const parsed = recipeSchema.parse({
+      name: 'sample',
+      license: 'MIT',
+      'license-files': ['COPYING'],
+      source: { git: 'g' },
+      versions: { 'git-tags': '^(.*)$' },
+      platforms: 'all',
+      build: { system: 'autotools' },
+    });
+    await runRecipe(h.context, { version: '1.2.3', build: parsed.build }, h.src);
+    expect(h.calls[0]!.args[0]).toBe('--prefix=C:/FFmpeg SDK/deps');
+  });
+
   it('is ./configure --prefix=<deps> <args> [--host=<host>]', async () => {
     for (const platform of ['linux-x64', 'win-arm64']) {
       const h = fake(platform);
