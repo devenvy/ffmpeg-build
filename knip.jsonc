@@ -4,7 +4,6 @@
   // src/build/modules.ts) and the engine's own scripts (run by hand or by its workflows)
   "entry": ["src/build/worker.ts", "scripts/*.ts"],
   "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
-  // system tools some tests, the Apple checks and the MSYS2 check (cygpath) call when the machine has them;
-  // g++ checks private Torch archives; cc checks the GnuTLS socket-read adapter
-  "ignoreBinaries": ["arch", "lipo", "mkfifo", "jq", "cygpath", "^g\\+\\+$", "cc"],
+  // system tools some tests, the Apple checks and the MSYS2 check (cygpath) call when the machine has them
+  "ignoreBinaries": ["arch", "lipo", "mkfifo", "jq", "cygpath"],
 }

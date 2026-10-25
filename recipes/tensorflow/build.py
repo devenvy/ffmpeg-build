@@ -63,13 +63,8 @@ for marker in pins['cacheIds']:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b'')
 (inputs / 'bazel-7.7.0').chmod(0o755)
+module('restore').prepare_go(source, pins['files'])
 go = inputs / 'go-sdk'
-go.mkdir(exist_ok=True)
-go_pin = next(entry for entry in pins['files'] if entry['repository'] == 'go-sdk-build-tool')
-run(['tar', '-xf', source / go_pin['path'], '-C', go, '--strip-components=1'])
-shutil.copy2(recipe / 'go-sdk/BUILD.bazel', go / 'BUILD.bazel')
-for name in ['ROOT', 'REPO.bazel']:
-    (go / name).write_bytes(b'')
 
 llvm = source / 'third_party/ffb_llvm'
 if not (llvm / '.git').exists():
@@ -113,7 +108,7 @@ metadata += [inputs / name for name in ['inputs.json', 'replay.py', 'build.py', 
                                      'restore.py', 'notices.py', 'validate.c', 'validate-eager.c',
                                      'public-headers.cpp', 'check-public-api.py', 'build-mode.txt', 'OOURA-PERMISSION.txt', 'README.md',
                                      'resolved-current.bzl', 'authored-relu.pb']]
-metadata += [inputs / 'native-link-closure.json']
+metadata += [inputs / 'native-link-closure.json', inputs / 'go-sdk-template.json']
 metadata += [inputs / name for name in module('replay').PATCHES]
 for path in metadata:
     relative = str(path.relative_to(source))

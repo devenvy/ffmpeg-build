@@ -5,6 +5,9 @@ shared mode through the native monolithic C runtime. It preserves the exact Baze
 repository inputs, binary build tools, upstream-owned LLVM build patches and replay
 helpers. Engine metadata reads the existing native Bazel targets; it does not
 replace them or edit their sources. Tool inputs are labelled separately from linked runtime libraries.
+The Go toolchain configuration is rendered from the verified upstream rules_go
+SDK template with its native platform substitutions; the engine carries no copy
+of that build description. Its template origin and checksum are retained.
 The installed API includes Graph/session and Eager entry points. Experimental
 headers contain C++ declarations and are checked separately with a C++ compiler;
 the stable Graph and Eager runtime probes compile as C.

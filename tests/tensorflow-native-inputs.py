@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import zipfile
 
 sys.dont_write_bytecode = True
 
@@ -17,6 +18,9 @@ spec.loader.exec_module(native)
 spec = importlib.util.spec_from_file_location('native_export', path.with_name('export.py'))
 exporter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(exporter)
+spec = importlib.util.spec_from_file_location('native_restore', path.with_name('restore.py'))
+restorer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(restorer)
 
 
 def fixture():
@@ -85,6 +89,23 @@ class NativeInventory(unittest.TestCase):
     def test_empty_link_inventory_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'empty'):
             native.audit(fixture(), [])
+
+
+class NativeSDKTemplate(unittest.TestCase):
+    def test_native_platform_substitutions_preserve_template_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / 'rules-go.zip'
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                bundle.writestr('go/private/BUILD.sdk.bazel', b'{goos}\n{goarch}\n{exe}\n{rules_go_repo_name}\n')
+            self.assertEqual(restorer.sdk_build(archive), b'linux\namd64\n\nio_bazel_rules_go\n')
+
+    def test_changed_native_template_requires_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / 'rules-go.zip'
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                bundle.writestr('go/private/BUILD.sdk.bazel', b'changed template\n')
+            with self.assertRaisesRegex(SystemExit, 'native rules_go SDK template'):
+                restorer.sdk_build(archive)
 
 
 class NativeStaticPackaging(unittest.TestCase):
