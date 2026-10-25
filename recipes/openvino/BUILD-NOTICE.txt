@@ -10,6 +10,8 @@ own CMake consumer target and copied under packaging archive names without
 changing their contents or symbols. A separate ffb-openvino-cpu.ld GROUP script
 provides FFmpeg's static closure, including its C++ runtime. The native
 libopenvino.a and other SDK archives retain their names and contents.
+Upstream generates pkg-config metadata only for shared builds; static C API
+consumers receive packaging metadata with the native static interface definition.
 
 The opt-in native shared CPU mode explicitly builds the C/C++
 runtime, dynamically loaded CPU plugin and IR frontend. Native plugins.xml

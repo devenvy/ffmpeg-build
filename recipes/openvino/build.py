@@ -33,7 +33,8 @@ if shared:
 run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
      '-DCMAKE_INSTALL_PREFIX=' + str(deps), '-DCMAKE_INSTALL_LIBDIR=lib',
-     '-DCMAKE_INSTALL_INCLUDEDIR=include', '-DCPACK_GENERATOR=CONAN', '-DENABLE_PKGCONFIG_GEN=ON',
+     '-DCMAKE_INSTALL_INCLUDEDIR=include', '-DCPACK_GENERATOR=CONAN',
+     '-DENABLE_PKGCONFIG_GEN=' + ('ON' if shared else 'OFF'),
      '-DBUILD_SHARED_LIBS=' + ('ON' if shared else 'OFF'), '-DTHREADING=SEQ', '-DENABLE_INTEL_CPU=ON',
      '-DENABLE_OV_IR_FRONTEND=ON'] + ['-D' + name + '=OFF' for name in off] + shared_args)
 # Building this target also builds its runtime/plugin/frontend dependencies,
