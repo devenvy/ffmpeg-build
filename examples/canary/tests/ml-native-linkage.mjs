@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { unexpectedProtobufExports } from './ml-native-symbols.ts';
+
 const ffmpeg = process.env.FFMPEG;
 assert.ok(ffmpeg);
 const runtime = dirname(ffmpeg);
@@ -56,19 +58,24 @@ for (const name of components) {
     }
     standardRuntime ||= /NEEDED.*libstdc\+\+\.so\.6/.test(entries);
     if (['tensorflow', 'torch'].includes(backend)) {
-      const symbols = inspect('nm', ['-D', '--defined-only', owner])
+      const definitions = inspect('nm', ['-D', '--defined-only', owner])
         .split('\n')
         .filter((line) => line.trim())
-        .map((line) => line.trim().split(/\s+/).at(-1).split('@')[0]);
+        .map((line) => {
+          const fields = line.trim().split(/\s+/);
+          const [type, symbol] = fields.slice(1);
+          return { name: symbol.split('@')[0], type };
+        });
+      const symbols = definitions.map((definition) => definition.name);
       const apiNames =
         backend === 'tensorflow' ? ['TF_Version', 'TF_SessionRun', 'TFE_Execute'] : [];
       for (const api of apiNames) {
         assert.ok(symbols.includes(api), `Missing native public entry point: ${api}`);
       }
       assert.deepEqual(
-        // TensorFlow-owned helpers may legitimately take Protobuf parameters.
-        symbols.filter((symbol) => /^_Z(?:NK?|T[VIS]N)6google8protobuf/.test(symbol)),
+        unexpectedProtobufExports(backend, name, definitions),
         [],
+        `${backend} ${name}: unexpected native Protobuf export (including its nm type)`,
       );
     }
   }

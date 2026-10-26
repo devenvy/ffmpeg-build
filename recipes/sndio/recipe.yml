@@ -5,7 +5,10 @@ license-files: [LICENSE]
 configure: [--enable-sndio]
 needs: [alsa-lib]
 source: { url: 'https://sndio.org/sndio-{version}.tar.gz' }
-versions: { listing: 'https://sndio.org/', files: '^sndio-(\d+\.\d+\.\d+)\.tar\.gz$' }
+# 1.11 removes --without-libbsd and requires libbsd on Linux. Keep the native
+# 1.10 compatibility implementation until the BSD dependency stack is supported.
+# The homepage lists only the newest release; the official Git tags retain 1.10.
+versions: { repo: 'https://sndio.org/git/sndio', git-tags: '^v(1\.10\.\d+)$' }
 platforms: [linux-*]
 linkage:
   default: static

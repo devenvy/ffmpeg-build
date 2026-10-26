@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 import sys
@@ -13,9 +14,13 @@ flags = shlex.split(subprocess.check_output(
 subprocess.run([*shlex.split(compiler), str(Path(os.environ['RECIPES'], 'libplacebo', 'public-api.c')),
                 *flags, '-lm', '-o', output], check=True, env=environment)
 subprocess.run([output], check=True, timeout=30, env=environment)
-library = library_dir / 'libplacebo.so.360'
+config = Path(deps, 'include', 'libplacebo', 'config.h').read_text()
+api = re.search(r'^\s*#\s*define\s+PL_API_VER\s+(\d+)\b', config, re.MULTILINE)
+assert api, 'libplacebo installed no PL_API_VER in config.h'
+soname = f'libplacebo.so.{api.group(1)}'
+library = library_dir / soname
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
-assert '[libplacebo.so.360]' in dynamic and 'libstdc++.so' not in dynamic, dynamic
+assert f'[{soname}]' in dynamic and 'libstdc++.so' not in dynamic, dynamic
 assert 'libvulkan.so' not in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', library], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}

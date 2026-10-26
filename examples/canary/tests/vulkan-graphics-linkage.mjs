@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const ffmpeg = process.env.FFMPEG;
@@ -66,7 +66,9 @@ if (existsSync(join(folder, 'libvulkan.so.1'))) {
 }
 const libraries = [
   ['libshaderc_shared.so.1', 'shaderc_'],
-  ['libplacebo.so.360', 'pl_'],
+  ...readdirSync(folder)
+    .filter((name) => /^libplacebo\.so\.\d+$/.test(name))
+    .map((name) => [name, 'pl_']),
 ];
 for (const [name, prefix] of libraries) {
   const path = join(folder, name);
