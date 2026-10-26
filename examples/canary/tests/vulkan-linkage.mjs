@@ -5,6 +5,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { assertVulkanLoaderTrace } from './vulkan-loader-trace.ts';
+
 const ffmpeg = process.env.FFMPEG;
 assert.ok(ffmpeg);
 const TIMEOUT = 300000;
@@ -29,13 +31,6 @@ const run = (args, env = {}) => {
   return result;
 };
 const shared = readdirSync(dirname(ffmpeg)).some((name) => /^libvulkan\.so/.test(name));
-const loader = (debug) => {
-  if (shared) {
-    assert.match(debug, /calling init: \/runtime\/libvulkan\.so/);
-  } else {
-    assert.doesNotMatch(debug, /calling init: .*\/libvulkan\.so/);
-  }
-};
 const hardware = run(['-hwaccels']).stdout.toString();
 const hasVulkan = /\bvulkan\b/.test(hardware);
 if (hasVulkan) {
@@ -68,7 +63,7 @@ if (hasVulkan) {
   }
   assert.ok(difference / reference.length < MAX_PIXEL_ERROR);
   const debug = result.stderr.toString();
-  loader(debug);
+  assertVulkanLoaderTrace(debug, { shared, required: true, runtime: dirname(ffmpeg) });
   assert.match(debug, /llvmpipe|lavapipe/i);
   console.log(
     `Vulkan -> libplacebo -> CPU: frames, pixels and ${shared ? 'shared' : 'static'} loader passed`,
@@ -126,7 +121,12 @@ if (/\bwhisper\b/.test(filters)) {
     }
     assert.match(debug, /run transcription at 0 ms, 48000\/48000 samples/);
     assert.match(debug, /48000 samples/);
-    loader(debug);
+    // CPU-only inference need not initialize an optional loader shipped with the dependencies.
+    assertVulkanLoaderTrace(debug, {
+      shared,
+      required: hasVulkan || !cpuOnly,
+      runtime: dirname(ffmpeg),
+    });
     console.log(
       `Whisper ${cpuOnly ? 'CPU' : 'Vulkan0'} real-model inference and ${hasVulkan ? 'concurrent libplacebo' : 'Whisper-only component selection'} passed`,
     );
