@@ -1,5 +1,5 @@
 2026-10-22: devenvy/ffmpeg-build builds TensorFlow's CPU Graph and Eager C APIs
-from source, with static default and native shared mode. GPU, NCCL, Python runtime distribution and dynamically
+from source using its native shared owner. GPU, NCCL, Python runtime distribution and dynamically
 loaded kernel modules are disabled. No pretrained model is shipped.
 
 The recipe pins Bazel, all fetched repository inputs and its nested LLVM source.
@@ -8,14 +8,14 @@ from engine-captured inputs is tested with both networking and Bazel repository
 downloads disabled. Source input records distinguish recipe-generated replay
 metadata from upstream checksum pins.
 
-The static closure is collected from the existing native Bazel targets' CcInfo.
-Native archives are copied unchanged. A compiler response file preserves the
-upstream alwayslink registration policy without merging or rewriting objects.
+The native Graph/Eager shared library is installed unchanged. Static FFmpeg
+integration is not offered: its native alwayslink registration closure cannot
+be scoped to one owner through stock FFmpeg's transitive link flags.
 Runtime notices follow the actual C API owner closure, including
 header-only dependencies. BoringSSL's original OpenSSL/SSLeay terms remain in
 the aggregate; the recipe therefore uses the existing LGPLv3/nonfree gate.
 
-Static symbols and COMDAT groups remain unchanged. Incompatible combinations
+Upstream symbols and export policies remain unchanged. Incompatible combinations
 require supported native configurations or explicit composition restrictions.
 Shared mode preserves the upstream native export policy, including its public
 TF/TFE C++ compatibility bridges, in one monolithic Graph/Eager library.

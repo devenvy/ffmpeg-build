@@ -8,16 +8,16 @@ integrations are disabled through native CMake options. Desktop BLAS=Eigen
 selects upstream's scalar fallback with external BLAS discovery disabled; this
 does not claim to enable the mobile-only EigenBLAS implementation.
 
-The static closure follows upstream's CMake consumer target, retaining native
-whole-archive registration semantics. Original archives, headers and CMake SDK
-are preserved; packaging metadata also names unchanged copies of the closure.
+The complete headers and CMake SDK are preserved from the native shared build.
 No symbols, source files or native export policies are rewritten.
 
-Shared mode retains native Torch, Torch-CPU, c10 and global-dependencies owners.
+This engine offers the native shared Torch, Torch-CPU, c10 and global-dependencies owners.
 The native CAFFE2_LINK_LOCAL_PROTOBUF option controls bundled Protobuf linkage.
 Shared mode uses the system C++ runtime and unwinder. Recipients need compatible
-system libraries; static mode remains the default.
+system libraries. Static FFmpeg integration is not offered: its native registration
+closure cannot be scoped to one owner through stock FFmpeg's transitive link flags.
 
 FFmpeg's stock Torch wrapper requires a model parameter to discover its device.
-Use a compatible TorchScript model with at least one parameter. Backend cleanup
-and concurrent static combinations must pass the maintained runtime checks.
+Use a compatible TorchScript model with at least one parameter and nireq=1.
+Both async modes are checked through natural EOF, early cutoff, empty input and
+invalid-model cleanup. Combined backends must preserve their native dependency owners.
