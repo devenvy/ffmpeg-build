@@ -63,7 +63,7 @@ if (hasVulkan) {
   }
   assert.ok(difference / reference.length < MAX_PIXEL_ERROR);
   const debug = result.stderr.toString();
-  assertVulkanLoaderTrace(debug, { shared, required: true });
+  assertVulkanLoaderTrace(debug, { shared, required: true, runtime: dirname(ffmpeg) });
   assert.match(debug, /llvmpipe|lavapipe/i);
   console.log(
     `Vulkan -> libplacebo -> CPU: frames, pixels and ${shared ? 'shared' : 'static'} loader passed`,
@@ -122,7 +122,11 @@ if (/\bwhisper\b/.test(filters)) {
     assert.match(debug, /run transcription at 0 ms, 48000\/48000 samples/);
     assert.match(debug, /48000 samples/);
     // CPU-only inference need not initialize an optional loader shipped with the dependencies.
-    assertVulkanLoaderTrace(debug, { shared, required: hasVulkan || !cpuOnly });
+    assertVulkanLoaderTrace(debug, {
+      shared,
+      required: hasVulkan || !cpuOnly,
+      runtime: dirname(ffmpeg),
+    });
     console.log(
       `Whisper ${cpuOnly ? 'CPU' : 'Vulkan0'} real-model inference and ${hasVulkan ? 'concurrent libplacebo' : 'Whisper-only component selection'} passed`,
     );
