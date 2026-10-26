@@ -3,9 +3,9 @@
 # An arm64 image: it runs natively on an arm64 host and under qemu on an x64 one, as upstream builds it on arm64
 # runners. Artifacts link libgcc and libstdc++ statically, so they run on any musl system. The library cache keys on
 # this image's Docker ID.
-FROM --platform=linux/arm64 mirror.gcr.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS toolchain
-FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.20.0-alpine3.23@sha256:0388af2af070cd4736a1567cfed02469ba117848845b4165d87a333edb53d2ca AS node
-FROM --platform=linux/arm64 mirror.gcr.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM --platform=linux/arm64 mirror.gcr.io/library/alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS toolchain
+FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.22.1-alpine3.23@sha256:0468540aa58203ff9e40c2aab3907c52644ab818af6176b1c70a026137dc92a2 AS node
+FROM --platform=linux/arm64 mirror.gcr.io/library/alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 COPY --from=node /usr/local/ /usr/local/
 
 # bash, jq and GNU findutils/coreutils/tar/sed/grep for the driver (BusyBox lacks find -printf and friends);
