@@ -1,7 +1,9 @@
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <exception>
 #include <opencv2/core.hpp>
+#include <opencv2/core/utility.hpp>
 #include <opencv2/core/core_c.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/imgproc_c.h>
@@ -53,6 +55,23 @@ static void legacy_c_api(void) {
   assert(!input && !output);
 }
 int main(void) {
+  assert(cv::getBuildInformation().find("General configuration for OpenCV") != std::string::npos);
+  const auto data = cv::tempfile(".txt");
+  FILE *written = std::fopen(data.c_str(), "w");
+  assert(written);
+  assert(std::fputs("owned OpenCV data\n", written) >= 0);
+  assert(std::fclose(written) == 0);
+  const auto separator = data.find_last_of("/\\");
+  assert(separator != std::string::npos);
+  cv::samples::addSamplesDataSearchPath(data.substr(0, separator));
+  const auto found = cv::samples::findFile(data.substr(separator + 1), true, true);
+  FILE *read = std::fopen(found.c_str(), "r");
+  assert(read);
+  char content[32] = {};
+  assert(std::fgets(content, sizeof(content), read));
+  assert(std::strcmp(content, "owned OpenCV data\n") == 0);
+  assert(std::fclose(read) == 0);
+  assert(std::remove(data.c_str()) == 0);
   legacy_c_api();
   TrackedAllocator owner;
   {

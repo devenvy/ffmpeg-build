@@ -1,7 +1,7 @@
 name: mpeghdec
 provides: mpeghdec
 license: FDK-MPEG-H
-license-files: [LICENSE.txt, { recipe: BUILD-NOTICE.txt }]
+license-files: [LICENSE.txt]
 configure: [--enable-libmpeghdec]
 source: { git: https://github.com/Fraunhofer-IIS/mpeghdec.git, ref: 'r{version}' }
 # r4.0.1 isolates the internal symbols shared with static fdk-aac.
@@ -10,7 +10,12 @@ platforms: all
 linkage:
   default: static
   modes:
-    static: {}
+    static:
+      conflicts-link:
+        fdk-aac:
+          modes: [static]
+          platforms: [linux-armhf]
+          reason: 'Upstream libraries both define schur_div on ARM hard-float. Omit either mpeghdec or fdk-aac on this platform.'
     shared:
       platforms: [linux-x64]
       vars:
@@ -32,12 +37,6 @@ build:
       -Dmpeghdec_SYMBOL_PREFIX=ON,
     ]
   before:
-    # Upstream has no SONAME; use the engine's conservative full-version convention.
-    - replace-in-file:
-        path: src/CMakeLists.txt
-        from: "add_library(mpeghdec)\n"
-        to: "add_library(mpeghdec)\nset_target_properties(mpeghdec PROPERTIES VERSION {version} SOVERSION {version})\n"
-      when: { set: '{shared-mode}' }
     - run:
         - python3
         - -c
@@ -60,16 +59,14 @@ build:
         - '{deps}'
         - '{src}/ffb-sdk'
         - '{CC|gcc}'
-        - '{version}'
       when: { set: '{shared-mode}' }
   vars:
     { cxx-runtime: -lstdc++, consumer-flags: -DMPEGHDEC_STATIC=1, shared-args: [], shared-mode: '' }
   platforms:
-    linux-armhf:
-      # Upstream's generated prefix header misses this C++ symbol on 32-bit ARM (long differs from x64).
-      env: { CXXFLAGS: '+= -Dschur_div=_mpeghdec_schur_div' }
-    'osx-*,ios-*,maccatalyst-*':
+    'osx-*': &apple-runtime
       vars: { cxx-runtime: -lc++ }
+    'ios-*': *apple-runtime
+    'maccatalyst-*': *apple-runtime
     win-arm64:
       vars: { cxx-runtime: '-l:libc++.a' }
     'linux-musl-*':

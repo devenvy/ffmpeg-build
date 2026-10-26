@@ -6,10 +6,26 @@
 name: Toolchains
 on:
   pull_request:
-    paths: ['platforms/**', 'images/**', 'platforms.yml', 'src/build/**']
+    paths:
+      [
+        'platforms/**',
+        'images/**',
+        'platforms.yml',
+        'src/build/**',
+        'examples/native/**',
+        'examples/test-builds/**',
+      ]
   push:
     branches: [main]
-    paths: ['platforms/**', 'images/**', 'platforms.yml', 'src/build/**']
+    paths:
+      [
+        'platforms/**',
+        'images/**',
+        'platforms.yml',
+        'src/build/**',
+        'examples/native/**',
+        'examples/test-builds/**',
+      ]
   workflow_dispatch:
 
 permissions: {}

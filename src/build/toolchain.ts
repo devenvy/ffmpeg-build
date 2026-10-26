@@ -660,7 +660,7 @@ export function beforeFfmpeg(
     depsDir: string;
     env: NodeJS.ProcessEnv;
   },
-  ffmpegDir: string,
+  _ffmpegDir: string,
   flags: readonly string[],
 ): string[] {
   const { setup, platform } = context.buildPlan;
@@ -685,12 +685,13 @@ export function beforeFfmpeg(
           '-l:libwinpthread.a',
         );
       }
-      if (text.includes('-Wl,-Bstatic')) {
-        return text;
-      }
-      return text
-        .replaceAll('-lpthread', '-Wl,-Bstatic -lpthread -Wl,-Bdynamic')
-        .replaceAll('-lstdc++', '-Wl,-Bstatic -lstdc++ -Wl,-Bdynamic');
+      // An existing static scope may cover only one token. Explicit archive
+      // names keep later -Bdynamic scopes from selecting compiler runtime DLLs.
+      return removeLibrary(
+        removeLibrary(text, /-l(?:win)?pthread/, '-l:libwinpthread.a'),
+        /-lstdc\+\+/,
+        '-l:libstdc++.a',
+      );
     });
   }
   // a native Windows build (MSYS2) compiles for the machine it runs on: no cross compiler, prefix or toolchain names
@@ -734,20 +735,6 @@ export function beforeFfmpeg(
       `--extra-cxxflags=${setting('CXXFLAGS')}`,
       `--extra-ldflags=${setting('LDFLAGS')}`,
     );
-    if (platform.startsWith('maccatalyst-')) {
-      const path = join(ffmpegDir, 'libavcodec', 'videotoolbox.c');
-      let text = readFileSync(path, 'utf8');
-      if (!text.includes('TARGET_OS_MACCATALYST')) {
-        text = text.replace(
-          /^#if TARGET_OS_IPHONE$/m,
-          '#if TARGET_OS_MACCATALYST\n    /* Mac Catalyst: no OpenGL(ES) interop (patched by ffmpeg-build). */\n#elif TARGET_OS_IPHONE',
-        );
-        if (!text.includes('#if TARGET_OS_MACCATALYST')) {
-          throw new Error('videotoolbox.c Mac Catalyst patch did not apply');
-        }
-        writeFileSync(path, text);
-      }
-    }
   }
   return out;
 }

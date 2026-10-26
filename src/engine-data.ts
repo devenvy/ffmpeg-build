@@ -374,6 +374,21 @@ function crossCheck(
       for (const error of linkRequirementErrors(recipe, choice['requires-link'] ?? {}, recipes)) {
         errors.push(`${label}: linkage.modes.${mode}.requires-link: ${error}`);
       }
+      for (const [peer, conflict] of Object.entries(choice['conflicts-link'] ?? {})) {
+        const location = `${label}: linkage.modes.${mode}.conflicts-link.${peer}`;
+        checkPatterns(location, conflict.platforms);
+        if (!recipes.has(peer)) {
+          errors.push(`${location}: no recipes/${peer}`);
+        } else {
+          errors.push(
+            ...conflict.modes
+              .filter(
+                (peerMode) => !Object.hasOwn(recipes.get(peer)!.linkage?.modes ?? {}, peerMode),
+              )
+              .map((peerMode) => `${location}: ${peer} does not declare ${peerMode} linking`),
+          );
+        }
+      }
       for (const entry of choice.configure ?? []) {
         checkPatterns(`${label}: linkage.modes.${mode}.configure`, entry.platforms);
       }

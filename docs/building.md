@@ -27,7 +27,7 @@ for PTX compilation; native builds need a compatible compiler at `/usr/bin/g++`.
 
 The opt-in `decklink` option needs Blackmagic Desktop Video installed on the machine running FFmpeg, plus compatible
 hardware. The build includes only the SDK's headers and dispatch code; the driver and Desktop Video runtime remain
-system dependencies. It is available in nonfree builds on Linux x64, Windows x64 and macOS. On Linux and macOS it
+system dependencies. It is available in nonfree builds on Linux x64 and Windows x64. On Linux it
 also builds static libklvanc for VANC output; Windows builds omit that extension.
 `gcrypt` and `libtls` are opt-in static alternatives on Linux x64. `gcrypt` uses libgcrypt and libgpg-error for
 encrypted RTMP; omit `gmp` when testing it because FFmpeg prefers GMP when both are enabled. `libtls` selects
@@ -362,13 +362,17 @@ deleted (the entry only, never a path it names) and the library built again.
 
 ### TorchScript CPU inference
 
-`with: [torch]` enables FFmpeg's Torch DNN backend on linux-x64 with a static,
-source-built CPU-only PyTorch runtime. It includes TorchScript model loading;
+`with: [torch]` enables FFmpeg's Torch DNN backend on linux-x64 with a bundled,
+source-built shared CPU-only PyTorch runtime. It includes TorchScript model loading;
 Python, GPU runtimes, distributed execution, and pretrained models are not shipped.
 The build uses pinned source dependencies and source-only Python generators.
-Models must be compatible with the selected PyTorch version. The canary runs a
-locally authored parameterless ReLU model through both natural end of input and
-early output termination.
+Stock FFmpeg cannot scope Torch's static registration closure to one shared library,
+so this integration offers shared linking only. Models must match the selected PyTorch
+version and contain a parameter for the backend's device discovery. Set `nireq=1` in
+the DNN filter; the backend allocates one request, and its automatic count can race
+during teardown. For example, `dnn_processing=dnn_backend=torch:nireq=1:model=model.pt`.
+The canary checks an owned CPU ReLU model in both async modes through natural EOF,
+early output termination, empty input and invalid-model cleanup.
 
 ### Supplemental source inputs
 

@@ -17,8 +17,10 @@ deps = Path(os.environ['DEPS_DIR'])
 inputs = source / '.ffb_inputs'
 inputs.mkdir(exist_ok=True)
 pins = json.loads((recipe / 'inputs.json').read_text())
-shared = len(sys.argv) > 1 and sys.argv[1] == 'shared'
-(inputs / 'build-mode.txt').write_text('shared\n' if shared else 'static\n')
+shared = True
+if len(sys.argv) > 1 and sys.argv[1] != 'shared':
+    raise SystemExit('Only native shared TensorFlow integration is supported')
+(inputs / 'build-mode.txt').write_text('shared\n')
 if os.environ['VERSION'] != pins['tensorflow']:
     raise SystemExit('Review TensorFlow inputs and runtime notices before changing versions')
 
@@ -63,13 +65,8 @@ for marker in pins['cacheIds']:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b'')
 (inputs / 'bazel-7.7.0').chmod(0o755)
+module('restore').prepare_go(source, pins['files'])
 go = inputs / 'go-sdk'
-go.mkdir(exist_ok=True)
-go_pin = next(entry for entry in pins['files'] if entry['repository'] == 'go-sdk-build-tool')
-run(['tar', '-xf', source / go_pin['path'], '-C', go, '--strip-components=1'])
-shutil.copy2(recipe / 'go-sdk/BUILD.bazel', go / 'BUILD.bazel')
-for name in ['ROOT', 'REPO.bazel']:
-    (go / name).write_bytes(b'')
 
 llvm = source / 'third_party/ffb_llvm'
 if not (llvm / '.git').exists():
@@ -84,23 +81,19 @@ custom = source / 'ffb'
 custom.mkdir(exist_ok=True)
 for name in ['BUILD.bazel', 'link.bzl']:
     shutil.copy2(recipe / 'ffb' / name, custom / name)
-if shared:
-    shared_inventory = source / 'tensorflow/ffb'
-    shared_inventory.mkdir(exist_ok=True)
-    shutil.copy2(recipe / 'ffb/BUILD.shared.bazel', shared_inventory / 'BUILD.bazel')
-for name in ['inputs.json', 'replay.py', 'restore.py', 'build.py', 'export.py', 'native-link.py', 'native-toolchain.py', 'isolate-private.py', 'notices.py',
+for name in ['inputs.json', 'replay.py', 'restore.py', 'build.py', 'export.py', 'native-link.py', 'notices.py',
              'validate.c', 'validate-eager.c', 'public-headers.cpp', 'check-public-api.py', 'OOURA-PERMISSION.txt', 'README.md']:
     shutil.copy2(recipe / name, inputs / name)
 module('replay').build(source, shared)
 module('export').install(source, deps, shared)
 consumer = source / '_ffb-c-api-check'
 run(shlex.split(os.environ.get('CC', 'cc')) + ['-I' + str(deps / 'include'),
-    recipe / 'validate.c', '-L' + str(deps / 'lib'), '-ltensorflow', '-o', consumer])
+    recipe / 'validate.c', '-L' + str(deps / 'lib'), '-ltensorflow',
+    '-o', consumer])
 runtime_environment = dict(os.environ, LD_LIBRARY_PATH=str(deps / 'lib'),
                            TF_NUM_INTRAOP_THREADS='2', TF_NUM_INTEROP_THREADS='2')
 subprocess.run([str(consumer), str(inputs / 'authored-relu.pb')], check=True, env=runtime_environment)
-if shared:
-    run([sys.executable, recipe / 'check-public-api.py', deps])
+run([sys.executable, recipe / 'check-public-api.py', deps])
 module('notices').collect(source, pins, shared)
 
 # Mirror choices belong to the preserved recipe input catalog. The engine inventory records
@@ -110,13 +103,13 @@ records = [{key: entry[key] for key in ['path', 'sha256', 'origin', 'kind', 'rep
 known = {entry['path'] for entry in records}
 metadata = [source / path for path in pins['cacheIds']]
 metadata += [custom / 'BUILD.bazel', custom / 'link.bzl']
-if shared:
-    metadata += [shared_inventory / 'BUILD.bazel', inputs / 'native-shared-link.json']
+metadata += [inputs / 'native-shared-link.json']
 metadata += [go / name for name in ['BUILD.bazel', 'ROOT', 'REPO.bazel']]
-metadata += [inputs / name for name in ['inputs.json', 'replay.py', 'build.py', 'export.py', 'native-link.py', 'native-toolchain.py',
-                                     'restore.py', 'isolate-private.py', 'notices.py', 'validate.c', 'validate-eager.c',
+metadata += [inputs / name for name in ['inputs.json', 'replay.py', 'build.py', 'export.py', 'native-link.py',
+                                     'restore.py', 'notices.py', 'validate.c', 'validate-eager.c',
                                      'public-headers.cpp', 'check-public-api.py', 'build-mode.txt', 'OOURA-PERMISSION.txt', 'README.md',
                                      'resolved-current.bzl', 'authored-relu.pb']]
+metadata += [inputs / 'native-link-closure.json', inputs / 'go-sdk-template.json']
 metadata += [inputs / name for name in module('replay').PATCHES]
 for path in metadata:
     relative = str(path.relative_to(source))

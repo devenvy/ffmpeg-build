@@ -135,8 +135,7 @@ platforms:
         --enable-cross-compile,
         --target-os=darwin,
         --arch=aarch64,
-        --enable-hwaccel=h264_videotoolbox,
-        --enable-hwaccel=hevc_videotoolbox,
+        --disable-videotoolbox,
       ]
   maccatalyst-x64:
     image: macos
@@ -150,8 +149,7 @@ platforms:
         --enable-cross-compile,
         --target-os=darwin,
         --arch=x86_64,
-        --enable-hwaccel=h264_videotoolbox,
-        --enable-hwaccel=hevc_videotoolbox,
+        --disable-videotoolbox,
       ]
   ios-sim-arm64:
     image: macos

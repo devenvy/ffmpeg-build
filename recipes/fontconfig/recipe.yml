@@ -12,8 +12,11 @@ source:
     ref: '{version}',
     mirror: https://github.com/fontconfig/fontconfig.git,
   }
-# x.y.9x tags are development snapshots for the next minor.
-versions: { git-tags: '^(\d+\.\d+\.(?:\d|[0-8]\d))$' }
+# Pango 1.56 uses FcFreeTypeQueryAll from fontconfig.h; the released 2.15 series still declares it there.
+# Select a compatible native font stack instead of adding headers to Pango's sources.
+versions: { git-tags: '^(2\.15\.\d+)$', repo: https://github.com/fontconfig/fontconfig.git }
+notes:
+  '>=2.16.0': 'The current Pango 1.56 integration selects the unmodified Fontconfig 2.15 release series; newer font stacks need full unpatched consumer and SDK verification.'
 # Not on Windows (needs a runtime fonts.conf for no real gain: libass uses DirectWrite, drawtext uses fontfile=), iOS
 # or Mac Catalyst. On Android only for Pango (librsvg's text), which requires it there; Android has no fonts.conf of
 # its own, so an application names its fonts with FONTCONFIG_FILE.
@@ -26,9 +29,11 @@ linkage:
       platforms: [linux-x64]
       vars:
         default-library: '--default-library=shared'
+        shared-mode: 'yes'
+        shared-link-args: ['-Dc_link_args=-Wl,--push-state,--no-as-needed,-lm,--pop-state']
       runtime: ['lib/libfontconfig*.so*']
 build:
-  vars: { default-library: --default-library=static }
+  vars: { default-library: --default-library=static, shared-mode: '', shared-link-args: [] }
   # fontconfig: system font discovery so drawtext can pick fonts by name (HPND-sell-variant), static. Ported from
   # devenvy/ffmpeg scripts/deps/fontconfig.sh.
   #
@@ -77,6 +82,10 @@ build:
       - -Dtools=disabled
       - -Dcache-build=disabled
       - -Dnls=disabled
+      # FreeType's static PNG dependency needs libm. Keep native package
+      # discovery so independently selected shared dependencies remain shared.
+      - '{shared-link-args}'
+      - --wrap-mode=nofallback
       - '{meson-cross-args}'
     - [meson, compile, -C, _build, -j, '{jobs}']
     - run: [meson, install, -C, _build]
@@ -87,27 +96,9 @@ build:
           message: 'fontconfig DESTDIR install produced no /usr tree under {src}/_stage',
         }
     - copy: { from: '{src}/_stage/usr', to: '{deps}', recursive: true, preserve: true }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/fontconfig.pc',
-          from: '^prefix=.*',
-          to: 'prefix={deps}',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/fontconfig.pc',
-          from: '^libdir=.*',
-          to: 'libdir={deps}/lib',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/fontconfig.pc',
-          from: '^includedir=.*',
-          to: 'includedir={deps}/include',
-          regex: true,
-        }
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/fontconfig.pc'
+        variables: { prefix: '{deps}', libdir: '{deps}/lib', includedir: '{deps}/include' }
     - check:
         {
           file: '{deps}/lib/pkgconfig/fontconfig.pc',

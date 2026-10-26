@@ -54,6 +54,6 @@ int main(int argc, char **argv) {
     TF_DeleteSessionOptions(options);
     TF_DeleteGraph(graph);
     TF_DeleteStatus(status);
-    puts("Static TensorFlow C API CPU ReLU inference passed");
+    puts("TensorFlow C API CPU ReLU inference passed");
     return 0;
 }

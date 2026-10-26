@@ -71,7 +71,7 @@ def audit(query, rows):
 
 def validate(source):
     query = json.loads((source / '.ffb_inputs/native-shared-link.json').read_text())
-    rows = json.loads((source / 'bazel-bin/tensorflow/ffb/c_api_shared_inventory.ffb-link.json').read_text())
+    rows = json.loads((source / '.ffb_inputs/native-link-closure.json').read_text())
     actual = audit(query, rows)
     print(f'Native TensorFlow shared link: all {len(actual)} actual archive/object inputs are recorded', flush=True)
 

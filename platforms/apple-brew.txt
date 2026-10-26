@@ -16,6 +16,7 @@ coreutils
 findutils
 gnu-sed
 gnu-tar
+gettext
 gperf
 grep
 libtool

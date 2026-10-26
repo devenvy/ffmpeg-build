@@ -1,15 +1,17 @@
 // `ffmpeg-build recipe-check`: the throwaway folder it writes (one target per platform and option, locked at the seed
 // lock's versions), the plan CI turns into its matrix, and the library-only builds.
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { writeEngine } from './helpers.ts';
+import { runTargetBuild } from '../src/commands/build.ts';
 import { runRecipeCheck } from '../src/commands/recipe-check.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { formatFolderLock, readFolderLock } from '../src/lockfile.ts';
+import { loadFolder } from '../src/targets.ts';
 
 const recipe = (name: string, extra = '', platforms = 'all') =>
   `name: ${name}\nlicense: MIT\nsource: { git: https://example.com/${name} }\nversions: { git-tags: '^v(.*)$' }\nplatforms: ${platforms}\n${extra}`;
@@ -64,6 +66,33 @@ const lookedUp = async (): Promise<never> => {
 const offline = { fetch: lookedUp, pinSource: { commitOf: lookedUp, sha256Of: lookedUp } };
 
 describe('ffmpeg-build recipe-check', () => {
+  it('allows an assigned library-only build from a generated folder with repeated Apple slices', async () => {
+    const { data, seed, dir } = setup();
+    await runRecipeCheck(data, ['a'], { plan: true, lock: seed, dir }, offline);
+    appendFileSync(
+      join(dir, 'ffmpeg-build.yml'),
+      '  another-catalyst-recipe: { platform: maccatalyst-x64, license: nonfree, ffmpeg: 9, with: [a] }\n',
+    );
+    const opened = loadFolder(dir);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      throw new Error(opened.errors.join('\n'));
+    }
+    const options = { out: join(dir, 'dist'), dryRun: true };
+    const libraries = await runTargetBuild(opened.folder, 'linux-x64-a', data, {
+      ...options,
+      only: ['a'],
+    });
+    expect(libraries).toMatchObject({
+      exitCode: 0,
+      output: 'would build a for linux-x64, without FFmpeg',
+    });
+    expect(opened.folder.libraryOnly).toBeUndefined();
+    await expect(runTargetBuild(opened.folder, 'linux-x64-a', data, options)).rejects.toThrow(
+      /xcframework/i,
+    );
+  });
+
   it('writes a folder of check targets, locked at the seed lock, and plans one CI job per platform', async () => {
     const { data, seed, dir } = setup();
     const r = await runRecipeCheck(

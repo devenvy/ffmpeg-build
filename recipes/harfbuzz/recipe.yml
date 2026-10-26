@@ -16,23 +16,16 @@ linkage:
       vars:
         shared-mode: 'yes'
         shared-library-arg: '--default-library=shared'
-        runtime-link-flags: '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
+        runtime-link-flags: '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a -Wl,--push-state,--no-as-needed,-lm,-lz,--pop-state'
       runtime: ['lib/libharfbuzz*.so*']
 build:
   vars: { shared-library-arg: [], runtime-link-flags: '', shared-mode: '' }
-  before:
-    # Native raster is part of the SDK. Its PNG dependency may be static even
-    # when FreeType is shared, so retain PNG's zlib closure in the native link.
-    - replace-in-file:
-        path: src/meson.build
-        from: 'raster_deps += [png_dep]'
-        to: 'raster_deps += [png_dep, zlib_dep]'
-      when: { set: '{shared-mode}' }
   env: { LDFLAGS: '+= {runtime-link-flags?}' }
   system: meson
   args:
     [
       '{shared-library-arg}',
+      --wrap-mode=nofallback,
       -Dtests=disabled,
       -Ddocs=disabled,
       -Dutilities=disabled,

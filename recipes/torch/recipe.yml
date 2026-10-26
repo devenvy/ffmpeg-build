@@ -24,18 +24,22 @@ license-files:
   - third_party/ffb_python/packaging/LICENSE.APACHE
   - third_party/ffb_python/packaging/LICENSE.BSD
   - { recipe: BUILD-NOTICE.txt }
-configure: [--enable-libtorch]
+configure:
+  - --enable-libtorch
+  - '--extra-cxxflags=-I{deps}/include -I{deps}/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1'
 source: { git: https://github.com/pytorch/pytorch.git, ref: 'v{version}' }
 # Update build.py's reviewed dependency inventory with the version.
-versions: { git-tags: '^v(2\.14\.1)$' }
+# Stock FFmpeg 8/9 probes use C++17; newer Torch requires an upstream change there.
+versions: { git-tags: '^v(2\.7\.1)$' }
 platforms: [linux-x64]
 linkage:
-  default: static
+  # Stock FFmpeg's plain-library probe cannot scope Torch's native static
+  # whole-archive registration closure to libavfilter. Global flags duplicate
+  # those owners in unrelated FFmpeg DSOs; use the native shared CPU SDK.
+  default: shared
   modes:
-    static: {}
     shared:
       platforms: [linux-x64]
-      vars: { build-mode: shared }
       runtime:
         [
           'lib/libtorch.so*',
@@ -45,10 +49,8 @@ linkage:
         ]
 build:
   system: none
-  vars: { build-mode: static }
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'torch', 'build.py'), run_name='__main__')"
-        - '{build-mode}'

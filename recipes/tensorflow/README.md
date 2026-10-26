@@ -1,17 +1,21 @@
 # TensorFlow CPU Graph and Eager APIs
 
-This recipe is CPU-only on Linux x64, defaults to static, and offers a bundled
-shared mode through the native monolithic C runtime. It preserves the exact Bazel
-repository inputs, binary build tools, authored target, patches and replay
-helpers. Tool inputs are labelled separately from linked runtime libraries.
+This recipe is CPU-only on Linux x64 and uses the bundled native monolithic
+shared C runtime. It preserves the exact Bazel
+repository inputs, binary build tools, upstream-owned LLVM build patches and replay
+helpers. Engine metadata reads the existing native Bazel targets; it does not
+replace them or edit their sources. Tool inputs are labelled separately from linked runtime libraries.
+The Go toolchain configuration is rendered from the verified upstream rules_go
+SDK template with its native platform substitutions; the engine carries no copy
+of that build description. Its template origin and checksum are retained.
 The installed API includes Graph/session and Eager entry points. Experimental
 headers contain C++ declarations and are checked separately with a C++ compiler;
 the stable Graph and Eager runtime probes compile as C.
-In static mode, private Protobuf, oneDNN and Xbyak symbols,
-including local COMDAT signatures, are renamed throughout the static closure so
-other selected ML backends can retain their own versions. The mapping is kept in
-`share/ffmpeg-build/tensorflow-private-symbols.map`; offline export repeats this step.
-Shared mode retains the native TensorFlow export script and SONAME without a
+Static integration is not offered: FFmpeg propagates forced registration inputs
+through its shared-library dependencies, so global flags or forced-object linker
+scripts cannot establish one TensorFlow owner. The engine does not alter upstream
+sources or supply archive adapters to work around this boundary.
+The build retains the native TensorFlow export script and SONAME without a
 separate framework library. Its actual native link inputs must all appear in
 the captured CcInfo inventory before compilation begins and again on export.
 The runtime licence gate is LGPLv3/nonfree because its actual closure includes
@@ -22,8 +26,9 @@ embedded tool notices and identifies omissions in upstream tool distributions;
 it does not claim that their package notice collections are complete. In
 particular, the upstream sysroot lacks a package manifest and complete notices,
 and Python's install-only archive lacks its full dependency notice collection.
-`runtime.txt` includes pinned GCC 8.4.0 copyright and exception texts for the
-statically linked compiler runtime. These supplement the sysroot's missing
+`runtime.txt` includes pinned GCC 8.4.0 copyright and exception texts as compiler-runtime
+notice supplements. The build retains upstream's compiler-runtime
+selection instead of forcing static C++ archives. These notices supplement the sysroot's missing
 distributor metadata; the GCC runtime exception adds no build licence restriction.
 
 ## Offline reconstruction

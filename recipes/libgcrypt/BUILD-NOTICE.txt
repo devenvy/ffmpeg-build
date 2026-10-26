@@ -1,5 +1,0 @@
-Libgcrypt build modification, 2026-10-21
-
-The bundled jitter RNG's four internal SHA3 entry points are compiled with
-the _gcry_jent_ prefix. This avoids collisions with LibreSSL when both
-libraries are linked statically into FFmpeg. The public libgcrypt API is unchanged.

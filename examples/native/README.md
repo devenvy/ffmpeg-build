@@ -1,10 +1,11 @@
 # Native builds
 
-The engine's test of native builds (`build: in: here`): the same small targets as `examples/test-builds` (dav1d and
-Opus, lgplv3, FFmpeg 9), built with each runner's own toolchain instead of a pinned Docker image.
+The engine's test of native builds (`build: in: here`): dav1d and Opus with FFmpeg 9,
+built with each runner's own toolchain instead of a pinned Docker image.
 
 - `linux-x64-lgplv3` builds with the Linux runner's distribution compilers.
-- `win-x64-lgplv3` builds on a Windows runner, in MSYS2's MinGW environment.
+- `win-x64-gplv3` also builds x265 on a Windows runner in MSYS2's MinGW environment.
+  Its owned HEVC encode/decode test exercises a C++ dependency; archive validation rejects compiler-runtime DLL imports.
 
 The `build:` section in `ffmpeg-build.yml` says where and how each platform builds; `ffmpeg-build check` refuses a
 combination that can't work (see [targets](../../docs/targets.md#some-targets-at-a-time-and-where-they-build)).

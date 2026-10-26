@@ -12,13 +12,11 @@ versions:
     files: '^pulseaudio-(\d+\.\d+)\.tar\.xz$',
   }
 platforms: [linux-*]
-# Both modes speak the native protocol served by PulseAudio and pipewire-pulse; server modules stay server-side.
+# Native Meson targets build shared clients; server modules stay server-side.
 linkage:
-  default: static
+  default: shared
   modes:
-    static: { runtime: [] }
     shared:
-      vars: { default-library: --default-library=shared }
       runtime: ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so']
 build:
   # PulseAudio's client library (LGPL-2.1-or-later), for FFmpeg's pulse input and output devices: no server, no
@@ -26,39 +24,14 @@ build:
   # libsndfile in statically. The system's client configuration (/etc/pulse/client.conf), not the build's; installed
   # are the libraries, headers and .pc files (meson's runtime and devel tags), not the configuration or completions.
   system: none
-  vars: { default-library: --default-library=static }
   platforms:
     # shipped on musl: they ask for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml)
-    'linux-musl-*': { env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608' } }
+    'linux-musl-*':
+      env:
+        CPPFLAGS: '+= -I{deps}/include'
+        LDFLAGS: '+= -L{deps}/lib -Wl,-z,stack-size=8388608'
   steps:
-    # no translations (none are installed: the images have no gettext), so no <libintl.h>, which musl hasn't got:
-    # its meson.build turns NLS on whatever it finds
-    - replace-in-file: { path: meson.build, from: "cdata.set('ENABLE_NLS', 1)", to: '' }
-    # library() preserves shared mode and permits a PIC static client/private-common closure.
-    - replace-in-file:
-        {
-          path: src/meson.build,
-          from: "libpulsecommon = shared_library('pulsecommon-' + pa_version_major_minor,",
-          to: "libpulsecommon = library('pulsecommon-' + pa_version_major_minor,",
-        }
-    - replace-in-file:
-        {
-          path: src/pulse/meson.build,
-          from: "libpulse = shared_library('pulse',",
-          to: "libpulse = library('pulse',",
-        }
-    - replace-in-file:
-        {
-          path: src/pulse/meson.build,
-          from: "libpulse_simple = shared_library('pulse-simple',",
-          to: "libpulse_simple = library('pulse-simple',",
-        }
-    - replace-in-file:
-        {
-          path: src/pulse/meson.build,
-          from: "libpulse_mainloop_glib = shared_library('pulse-mainloop-glib',",
-          to: "libpulse_mainloop_glib = library('pulse-mainloop-glib',",
-        }
+    # Preserve upstream's shared targets and NLS configuration. Both glibc and musl supply gettext in libc.
     - - meson
       - setup
       - _build
@@ -66,7 +39,7 @@ build:
       - '--prefix={deps}'
       - --libdir=lib
       - --buildtype=release
-      - '{default-library}'
+      - --default-library=shared
       - -Db_staticpic=true
       - --sysconfdir=/etc
       - --localedir=/usr/share/locale

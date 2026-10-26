@@ -1,33 +1,23 @@
-2026-10-21: devenvy/ffmpeg-build builds the TorchScript CPU runtime statically.
-Python, GPU backends, distributed inference, external BLAS, OpenMP, oneDNN,
-XNNPACK and profiling integrations are disabled. Python is a build tool only;
-its pinned generator dependencies are fetched as source repositories and kept
-in the source archive. No Python runtime or vendor Torch binary is shipped.
+devenvy/ffmpeg-build uses PyTorch 2.7.1's native CMake CPU build and complete
+recursive source checkout. This release supports the C++17 configure probes in
+stock FFmpeg 8 and 9. Python is a build tool only; its pinned generator sources
+are retained. No Python runtime, GPU runtime or pretrained model is shipped.
 
-The generic upstream submodule-presence check is disabled after fetching and
-checking the reviewed CPU dependency set; it otherwise requires disabled GPU
-dependencies too. Actual CMake dependency checks remain enabled.
+Distributed inference, external BLAS, OpenMP, oneDNN, XNNPACK and profiling
+integrations are disabled through native CMake options. Desktop BLAS=Eigen
+selects upstream's scalar fallback with external BLAS discovery disabled; this
+does not claim to enable the mobile-only EigenBLAS implementation.
 
-The static closure follows upstream's CMake consumer target, with its omitted
-ONNX serialization archives added. The Torch/Torch-CPU archives retain their
-whole-archive registration semantics. C++ is linked statically.
+The complete headers and CMake SDK are preserved from the native shared build.
+No symbols, source files or native export policies are rewritten.
 
-2026-10-22: opt-in shared CPU builds retain the complete native Torch,
-Torch-CPU, c10 and global-dependencies DSO owner set and native versioned ABI.
-Upstream CAFFE2_LINK_LOCAL_PROTOBUF is enabled for shared builds, keeping
-Protobuf static/private with upstream visibility/header adaptations. Public
-c10/ATen/Torch C++ interfaces remain native; compiler standard-library
-instantiations are hidden with private static C++ and a common system unwinder.
+This engine offers the native shared Torch, Torch-CPU, c10 and global-dependencies owners.
+The native CAFFE2_LINK_LOCAL_PROTOBUF option controls bundled Protobuf linkage.
+Shared mode uses the system C++ runtime and unwinder. Recipients need compatible
+system libraries. Static FFmpeg integration is not offered: its native registration
+closure cannot be scoped to one owner through stock FFmpeg's transitive link flags.
 
-Torch's private Protobuf symbols and references take an ffb_torch_ prefix
-throughout its static closure, including local COMDAT group signatures, so
-they coexist with other DNN runtimes' own
-Protobuf versions. Public Torch symbols and ordinary C++ runtime symbols keep
-their names. LTO archives are rejected. The deterministic transformation map
-is retained in the library cache as share/ffmpeg-build/torch-protobuf-symbols.map.
-
-FFmpeg's Torch configure probe uses C++20 and this pkg-config closure. Its
-request count is corrected to the one request actually allocated, preventing
-early shutdown from destroying a model while inference is running. The device
-comes from the configured model device, allowing parameterless models. DNN's
-common cleanup joins only threads whose creation succeeded.
+FFmpeg's stock Torch wrapper requires a model parameter to discover its device.
+Use a compatible TorchScript model with at least one parameter and nireq=1.
+Both async modes are checked through natural EOF, early cutoff, empty input and
+invalid-model cleanup. Combined backends must preserve their native dependency owners.

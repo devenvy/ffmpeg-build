@@ -2,7 +2,6 @@ import {
   accessSync,
   constants,
   cpSync,
-  existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -25,6 +24,7 @@ import { type CrateInventory, crateLicenseProblems, discoverCrates, keepCrates }
 import { fetchSource, keepGitSource, sourceRecord, type SourceRecord } from './fetch.ts';
 import {
   editPcField,
+  editPcVariables,
   expandArgs,
   expandText,
   globPaths,
@@ -34,10 +34,8 @@ import {
   versionAtLeast,
 } from './recipe-ops.ts';
 import { run, step } from './run.ts';
-import { isolateRustArchive } from './rust-archive.ts';
 import { keepSupplementalSources } from './supplemental-sources.ts';
 import { platformMatches } from '../platforms.ts';
-import { readFileIfPresent } from '../read-file.ts';
 import { cxxRuntime, type Toolchain } from './toolchain.ts';
 import { PC_FIELDS, type Recipe } from '../schema/engine.ts';
 
@@ -99,6 +97,16 @@ type When =
     }
   | undefined;
 
+/** Libtool needs an MSYS2 absolute prefix; filesystem operations keep their native Windows paths. */
+function autotoolsPrefix(context: BuildContext, env: NodeJS.ProcessEnv): string {
+  if (context.buildPlan.setup !== 'windows' || !env['MSYSTEM']) {
+    return context.depsDir;
+  }
+  return context.depsDir
+    .replace(/^([A-Za-z]):[\\/]/, (_whole, drive: string) => `/${drive.toLowerCase()}/`)
+    .replaceAll('\\', '/');
+}
+
 /** What one recipe's build sees while it runs: its folders, the platform's toolchain, and its variables. */
 class RecipeScope {
   readonly vars = new Map<string, Value>();
@@ -108,20 +116,11 @@ class RecipeScope {
   readonly src: string;
   readonly version: string;
   readonly args: readonly string[];
-  /** The recipe's name, for messages ('' when the caller doesn't say). */
-  readonly name: string;
-  constructor(
-    context: BuildContext,
-    src: string,
-    version: string,
-    args: readonly string[],
-    name = '',
-  ) {
+  constructor(context: BuildContext, src: string, version: string, args: readonly string[]) {
     this.context = context;
     this.src = src;
     this.version = version;
     this.args = args;
-    this.name = name;
   }
 
   private builtin(name: string): Value | undefined {
@@ -377,30 +376,6 @@ async function runStep(item: BuildStep, scope: RecipeScope, env: NodeJS.ProcessE
       cwd: resolve(src, item.cwd ?? '.'),
       env: scope.environment(env, item.env, item.unset),
     });
-  } else if ('replace-in-file' in item) {
-    const operation = item['replace-in-file'];
-    const path = scope.path(operation.path);
-    if (operation.optional && !existsSync(path)) {
-      return;
-    }
-    const from = scope.text(operation.from);
-    const to = scope.text(operation.to);
-    const text = readFileSync(path, 'utf8');
-    const pattern = operation.regex ? new RegExp(from, 'gm') : undefined;
-    // an edit that changes nothing is a recipe out of step with its source (upstream moved the text): it fails,
-    // unless the recipe says the edit is optional
-    if (!(pattern ? pattern.test(text) : text.includes(from))) {
-      if (operation.optional) {
-        return;
-      }
-      throw new Error(
-        `${scope.name ? `${scope.name}: ` : ''}replace-in-file found nothing to replace in ${operation.path}: ${
-          pattern ? `the pattern ${from} doesn't match it` : `${from} isn't in it`
-        } (the source changed? update the recipe's edit, or make it optional: true if it may find nothing)`,
-      );
-    }
-    // (a global regex's replace starts from the beginning whatever test() left in lastIndex)
-    writeFileSync(path, pattern ? text.replace(pattern, to) : text.replaceAll(from, to));
   } else if ('copy' in item) {
     const operation = item.copy;
     const sources = operation.from.flatMap((from) => {
@@ -468,31 +443,36 @@ async function runStep(item: BuildStep, scope: RecipeScope, env: NodeJS.ProcessE
     );
   } else if ('edit-pkg-config' in item) {
     const operation = item['edit-pkg-config'];
-    const path = scope.path(operation.path);
-    const found = readFileIfPresent(path);
-    if (found === undefined) {
-      if (operation.optional) {
-        return;
-      }
+    const paths = globPaths(scope.path(operation.path));
+    if (!paths.length && !operation.optional) {
       throw new Error(`edit-pkg-config: there is no ${operation.path}`);
     }
-    let text = found;
     const value = (v: string | undefined): string | undefined =>
       v === undefined ? undefined : scope.text(v);
-    for (const field of Object.keys(PC_FIELDS) as (keyof typeof PC_FIELDS)[]) {
-      const edit = operation[field];
-      if (edit) {
-        text = editPcField(text, field, {
-          append: value(edit.append),
-          prepend: value(edit.prepend),
-          add: value(edit.add),
-          set: value(edit.set),
-          remove: value(edit.remove),
-          missing: edit.missing,
-        });
+    for (const path of paths) {
+      let text = editPcVariables(
+        readFileSync(path, 'utf8'),
+        Object.fromEntries(
+          Object.entries(operation.variables ?? {}).map(([name, raw]) => [name, value(raw)]),
+        ),
+      );
+      for (const field of Object.keys(PC_FIELDS) as (keyof typeof PC_FIELDS)[]) {
+        const edit = operation[field];
+        if (edit) {
+          text = editPcField(text, field, {
+            append: value(edit.append),
+            prepend: value(edit.prepend),
+            add: value(edit.add),
+            set: value(edit.set),
+            remove: value(edit.remove),
+            tokens: edit.tokens,
+            removeLibraryPaths: edit['remove-library-paths'],
+            missing: edit.missing,
+          });
+        }
       }
+      writeFileSync(path, text);
     }
-    writeFileSync(path, text);
   } else if ('vars' in item) {
     scope.setVars(item.vars);
   } else if ('find' in item) {
@@ -670,13 +650,7 @@ export async function runRecipe(
 ): Promise<{ crates?: CrateInventory }> {
   const build = library.build;
   const extra = additions(build, context.buildPlan.platform);
-  const scope = new RecipeScope(
-    context,
-    src,
-    library.version,
-    [...build.args, ...extra.args],
-    library.name,
-  );
+  const scope = new RecipeScope(context, src, library.version, [...build.args, ...extra.args]);
   scope.setVars(build.vars ?? {});
   for (const values of extra.vars) {
     scope.setVars(values);
@@ -730,8 +704,32 @@ export async function runRecipe(
       ],
       { cwd: src, env },
     );
-    await run('cmake', ['--build', '_build', `-j${context.jobs}`], { cwd: src, env });
-    await run('cmake', ['--install', '_build'], { cwd: src, env });
+    const targets = scope.argv(build['build-targets'] ?? []);
+    await run(
+      'cmake',
+      [
+        '--build',
+        '_build',
+        `-j${context.jobs}`,
+        ...(targets.length ? ['--target', ...targets] : []),
+      ],
+      { cwd: src, env },
+    );
+    for (const component of scope.argv(build['install-components'] ?? [''])) {
+      await run(
+        'cmake',
+        [
+          '--install',
+          '_build',
+          ...scope.argv(build['install-args'] ?? []),
+          ...(component ? ['--component', component] : []),
+        ],
+        {
+          cwd: src,
+          env,
+        },
+      );
+    }
   } else if (build.system === 'meson') {
     const source = build['source-dir'] ?? '.';
     await run(
@@ -757,7 +755,7 @@ export async function runRecipe(
     // --libdir, --with-pic, ...) differed from library to library, so each recipe's args: say it
     const configure = [
       `./${build['configure-script'] ?? 'configure'}`,
-      `--prefix=${context.depsDir}`,
+      `--prefix=${autotoolsPrefix(context, env)}`,
       ...args(),
       ...(env['CROSS_HOST'] ? [`--host=${env['CROSS_HOST']}`] : []),
     ];
@@ -807,33 +805,6 @@ function checkRestoredCrates(
   }
 }
 
-/**
- * A Rust library's static libraries (what it installed under lib/), each with its own names for its copy of Rust
- * (rust-archive.ts), so it links beside another Rust library. Before the cache keeps them.
- */
-export async function isolateRustLibraries(
-  context: BuildContext,
-  library: Pick<PlannedLibrary, 'name' | 'build'>,
-  installed: readonly string[],
-): Promise<void> {
-  const exports = library.build.cargo?.exports;
-  if (!exports) {
-    return;
-  }
-  for (const file of installed.filter((f) => /^lib\/[^/]+\.a$/.test(f))) {
-    const renamed = await isolateRustArchive(join(context.depsDir, file), {
-      library: library.name,
-      exports,
-      env: context.env,
-      platform: context.buildPlan.platform,
-      work: context.work,
-    });
-    if (renamed) {
-      step(`${library.name}: ${file}'s copy of Rust under its own names (${renamed} symbols)`);
-    }
-  }
-}
-
 export async function buildLibrary(
   context: BuildContext,
   library: PlannedLibrary,
@@ -868,7 +839,6 @@ export async function buildLibrary(
       cause: error,
     });
   }
-  await isolateRustLibraries(context, library, changedFiles(before, listing(depsDir)));
   copyLicenses(
     library.name,
     library.version,

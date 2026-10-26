@@ -186,6 +186,27 @@ describe('pkg-config files', () => {
       noPrivate,
     );
   });
+
+  it('normalizes complete pkg-config linker tokens without changing other libraries or fields', () => {
+    const metadata =
+      'Libs.private: /old/lib/libmbedcrypto.a /old/lib/libmbedcrypto.so.16 -lmbedcrypto /old/lib/libmbedcryptography.a\nCflags: -DKEEP\n';
+    expect(
+      editPcField(metadata, 'libs-private', {
+        removeLibraryPaths: ['mbedcrypto'],
+        missing: 'skip',
+      }),
+    ).toBe('Libs.private:   -lmbedcrypto /old/lib/libmbedcryptography.a\nCflags: -DKEEP\n');
+    expect(
+      editPcField(
+        'Libs.private: -l-lpthread -l-pthread -pthread\nCflags: -l-pthread\n',
+        'libs-private',
+        {
+          tokens: { '-l-lpthread': '-lpthread', '-l-pthread': '-pthread' },
+          missing: 'skip',
+        },
+      ),
+    ).toBe('Libs.private: -lpthread -pthread -pthread\nCflags: -l-pthread\n');
+  });
 });
 
 describe('small pieces', () => {
@@ -311,14 +332,13 @@ describe('declared steps', () => {
     ]);
   });
 
-  it('copies, moves, removes, replaces and writes files', async () => {
+  it('copies, moves, removes and writes native configuration files', async () => {
     const h = fake('linux-x64');
     for (const [path, text] of [
       ['a.c', 'a'],
       ['b.c', 'b'],
       ['b.h', 'h'],
       ['LICENSES/MIT', 'mit'],
-      ['x.sym', 'one\nlame_init_old\nthree\n'],
     ] as const) {
       mkdirSync(join(h.src, path, '..'), { recursive: true });
       writeFileSync(join(h.src, path), text);
@@ -341,18 +361,9 @@ describe('declared steps', () => {
         },
         { remove: { path: '{deps}/lib/libshaderc_shared.*' } },
         {
-          'replace-in-file': {
-            path: 'x.sym',
-            from: '^[^\\n]*lame_init_old[^\\n]*\\n',
-            to: '',
-            regex: 'true',
-          },
-        },
-        { 'replace-in-file': { path: 'missing.pc', from: 'a', to: 'b', optional: 'true' } },
-        {
           'write-file': {
-            path: '{src}/compat/Windows.h',
-            text: '#pragma once\n#include <windows.h>\n',
+            path: '{src}/config/native.ini',
+            text: '[properties]\nneeds_exe_wrapper = true\n',
           },
         },
       ],
@@ -364,8 +375,9 @@ describe('declared steps', () => {
       'src/k/b.c',
       'src/k/b.h',
     ]);
-    expect(h.read(join(h.src, 'x.sym'))).toBe('one\nthree\n');
-    expect(h.read(join(h.src, 'compat', 'Windows.h'))).toBe('#pragma once\n#include <windows.h>\n');
+    expect(h.read(join(h.src, 'config', 'native.ini'))).toBe(
+      '[properties]\nneeds_exe_wrapper = true\n',
+    );
   });
 
   it('finds, reads and checks', async () => {
@@ -474,65 +486,25 @@ describe('declared steps', () => {
     ).rejects.toThrow('EISDIR');
   });
 
-  it('fails a text edit whose text or pattern is not in the file, naming the recipe, file and pattern', async () => {
-    const h = fake('linux-x64');
-    writeFileSync(join(h.src, 'config.h'), '#define DB "/usr/share"\n');
-    const edit = async (step: Record<string, unknown>) =>
-      runRecipe(
-        h.context,
-        {
-          name: 'lensfun',
-          version: '1',
-          build: parse({ system: 'none', steps: [{ 'replace-in-file': step }] }).build,
-        },
-        h.src,
+  it.each([
+    ['shell', { shell: 'make' }],
+    ['replace-in-file', { 'replace-in-file': { path: 'config.h', from: '1', to: '2' } }],
+  ])(
+    'refuses a removed or unknown %s operation in an older build plan',
+    async (_name, operation) => {
+      const h = fake('linux-x64');
+      writeFileSync(join(h.src, 'config.h'), '#define VALUE 1\n');
+      const build = {
+        ...parse({ system: 'none', steps: [['true']] }).build,
+        steps: [operation],
+      } as never;
+      await expect(runRecipe(h.context, { version: '1', build }, h.src)).rejects.toThrow(
+        "a build step this engine doesn't know",
       );
-    await expect(edit({ path: 'config.h', from: '#define DB "$X"', to: 'y' })).rejects.toThrow(
-      'lensfun: replace-in-file found nothing to replace in config.h: #define DB "$X" isn\'t in it',
-    );
-    await expect(
-      edit({ path: 'config.h', from: '^#define DB (\\d+)$', to: 'y', regex: 'true' }),
-    ).rejects.toThrow(
-      "lensfun: replace-in-file found nothing to replace in config.h: the pattern ^#define DB (\\d+)$ doesn't match it",
-    );
-    // the file untouched, and an edit that matches still made
-    expect(h.read(join(h.src, 'config.h'))).toBe('#define DB "/usr/share"\n');
-    await edit({ path: 'config.h', from: '/usr/share', to: '/opt' });
-    expect(h.read(join(h.src, 'config.h'))).toBe('#define DB "/opt"\n');
-  });
-
-  it('lets an optional text edit find no file, or nothing to replace', async () => {
-    const h = fake('linux-x64');
-    writeFileSync(join(h.src, 'a.pc'), 'Libs: -lpthread\n');
-    await runBuild(h, {
-      system: 'none',
-      steps: [
-        { 'replace-in-file': { path: 'missing.pc', from: 'a', to: 'b', optional: 'true' } },
-        {
-          'replace-in-file': {
-            path: 'a.pc',
-            from: '-l(-l?pthread)',
-            to: '$1',
-            regex: 'true',
-            optional: 'true',
-          },
-        },
-      ],
-    });
-    expect(h.read(join(h.src, 'a.pc'))).toBe('Libs: -lpthread\n');
-  });
-
-  it("refuses a step it does not know, such as an old plan's shell:", async () => {
-    const h = fake('linux-x64');
-    const build = {
-      ...parse({ system: 'none', steps: [['true']] }).build,
-      steps: [{ shell: 'make' }],
-    } as never;
-    await expect(runRecipe(h.context, { version: '1', build }, h.src)).rejects.toThrow(
-      "a build step this engine doesn't know",
-    );
-    expect(h.calls).toEqual([]);
-  });
+      expect(h.calls).toEqual([]);
+      expect(h.read(join(h.src, 'config.h'))).toBe('#define VALUE 1\n');
+    },
+  );
 
   it('writes and edits .pc files', async () => {
     const h = fake('android-arm64');
@@ -576,5 +548,32 @@ describe('declared steps', () => {
       `Libs: -L\${libdir} -la\nCflags: -I\${includedir} -DA\nLibs.private: -lc++ -llog\n`,
     );
     expect(existsSync(join(h.deps, 'lib', 'pkgconfig', 'none.pc'))).toBe(false);
+  });
+
+  it('relocates pkg-config variables across staged metadata and retains unrelated fields', async () => {
+    const h = fake('linux-x64');
+    const original = `prefix=/usr\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nLibs: -L\${libdir} -la\nCflags.private: -DSTATIC\n`;
+    for (const name of ['a', 'b']) {
+      writeFileSync(join(h.deps, 'lib', 'pkgconfig', `${name}.pc`), original);
+    }
+    writeFileSync(join(h.src, 'upstream.h'), 'unchanged upstream header\n');
+    await runBuild(h, {
+      system: 'none',
+      steps: [
+        {
+          'edit-pkg-config': {
+            path: '{deps}/lib/pkgconfig/*.pc',
+            variables: { prefix: '{deps}' },
+            'cflags-private': { remove: '-DSTATIC' },
+          },
+        },
+      ],
+    });
+    for (const name of ['a', 'b']) {
+      expect(h.read(join(h.deps, 'lib', 'pkgconfig', `${name}.pc`))).toBe(
+        `prefix=${h.deps}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nLibs: -L\${libdir} -la\nCflags.private:\n`,
+      );
+    }
+    expect(h.read(join(h.src, 'upstream.h'))).toBe('unchanged upstream header\n');
   });
 });

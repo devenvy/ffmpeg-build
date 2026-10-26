@@ -8,14 +8,13 @@
 
 int main() {
   assert(UDT::startup() == 0);
-  const SRTSOCKET socket = UDT::socket();
+  const SRTSOCKET socket = srt_create_socket();
   assert(socket != UDT::INVALID_SOCK);
-  const SRTSOCKET legacy_socket = UDT::socket(AF_INET, SOCK_DGRAM, 0);
+  // Native 1.5.7 declares the legacy UDT constructor without defining it.
+  // Create sockets through its supported C API, as FFmpeg does.
   const SRTSOCKET c_socket = srt_create_socket();
-  assert(legacy_socket != UDT::INVALID_SOCK && c_socket != UDT::INVALID_SOCK);
-  assert(UDT::getsockstate(legacy_socket) == SRTS_INIT);
+  assert(c_socket != UDT::INVALID_SOCK);
   assert(srt_getsockstate(c_socket) == SRTS_INIT);
-  assert(UDT::close(legacy_socket) == 0);
   assert(srt_close(c_socket) == 0);
   const std::string stream = "ffb-installed-cxx-sdk";
   assert(srt::setstreamid(socket, stream));

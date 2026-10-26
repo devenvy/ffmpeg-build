@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # patchelf for the $ORIGIN rpath; xxd for libvmaf's built-in models; qemu-user to run what was built (check_stage).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       crossbuild-essential-armhf qemu-user \
-      build-essential cmake nasm autoconf automake libtool pkg-config gperf m4 perl python3 python3-pip python3-venv \
+      build-essential cmake nasm autoconf automake libtool gettext autopoint pkg-config gperf m4 perl python3 python3-pip python3-venv \
       git curl ca-certificates xz-utils bzip2 jq xxd file unzip patch patchelf \
  && rm -rf /var/lib/apt/lists/*
 # meson/ninja pinned as in the other images.
@@ -20,9 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY <<'EOF' /tmp/meson-requirements.txt
 meson==1.12.1 --hash=sha256:930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8b02
 ninja==1.13.2 --hash=sha256:65a24341b5ac09fcadcc37082660be40a94174e51a937fabf6e2cae26225fa2c --hash=sha256:d775a5e43e9088f507a6250d57fcf5678eb31268c545feb5064ffeee33735622
+# libaribcaption 1.1.2 requires CMake >=3.28; Debian bookworm supplies 3.25.
+# These are native x86-64/AArch64 build tools used to cross-compile ARM libraries.
+cmake==3.31.10 --hash=sha256:2f766bb46367e5e0559fa33184653754bce044583a06014dcaebf8e6dff8a1f1 --hash=sha256:a4a5615f31f692c9b9aa8b365704e4b76172348af6fa40e16fea3f118bb01194
 EOF
 RUN python3 -m venv /opt/meson && /opt/meson/bin/pip install --no-cache-dir --require-hashes --only-binary :all: -r /tmp/meson-requirements.txt \
- && ln -sf /opt/meson/bin/meson /usr/local/bin/meson && ln -sf /opt/meson/bin/ninja /usr/local/bin/ninja
+ && ln -sf /opt/meson/bin/meson /usr/local/bin/meson && ln -sf /opt/meson/bin/ninja /usr/local/bin/ninja \
+ && ln -sf /opt/meson/bin/cmake /usr/local/bin/cmake \
+ && ln -sf /opt/meson/bin/ctest /usr/local/bin/ctest \
+ && ln -sf /opt/meson/bin/cpack /usr/local/bin/cpack
 
 # glslc (Vulkan shader compiler) from the pinned shaderc -- the distro's predates Vulkan 1.4, and FFmpeg's Vulkan filters
 # and whisper's ggml-vulkan shaders need it at build time. Upstream 03_install_packages.sh builds it the same way.

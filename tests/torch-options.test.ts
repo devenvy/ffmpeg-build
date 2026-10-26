@@ -28,7 +28,7 @@ describe('Torch CPU backend', () => {
       }
     },
   );
-  it.each(['8', '9'])('%s offers opt-in static TorchScript inference', (major) => {
+  it.each(['8', '9'])('%s offers opt-in native TorchScript inference', (major) => {
     const parsed = parseProfileText(
       `name: t\nffmpeg: ${major}\nplatforms: [linux-x64]\nlicense: lgplv3\nwith: [torch]\n`,
       't.yml',

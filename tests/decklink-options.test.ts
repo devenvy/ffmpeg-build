@@ -20,7 +20,7 @@ const planOn = (major: string, platform: string, license: string) => {
 
 describe('DeckLink', () => {
   it.each(['8', '9'])('%s enables the device and VANC where its runtime exists', (major) => {
-    for (const platform of ['linux-x64', 'osx-arm64', 'osx-x64']) {
+    for (const platform of ['linux-x64']) {
       const plan = planOn(major, platform, 'nonfree');
       expect(plan.errors).toEqual([]);
       expect(plan.cells[0]!.recipes).toEqual(
@@ -39,6 +39,17 @@ describe('DeckLink', () => {
       '--extra-cxxflags=-I/native/deps/include',
     );
   });
+
+  it.each(['osx-arm64', 'osx-x64'])(
+    'omits the unsupported stock SDK/FFmpeg callback combination on %s',
+    (platform) => {
+      for (const major of ['8', '9']) {
+        const plan = planOn(major, platform, 'nonfree');
+        expect(plan.cells.flatMap((cell) => cell.options)).not.toContain('decklink');
+        expect(configureFlags(data, plan.cells[0]!)).not.toContain('--enable-decklink');
+      }
+    },
+  );
 
   it.each(['lgplv2', 'lgplv3', 'gplv2', 'gplv3'])('cannot enter a %s build', (license) => {
     expect(planOn('9', 'linux-x64', license).cells.flatMap((c) => c.options)).not.toContain(

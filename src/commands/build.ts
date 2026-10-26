@@ -303,11 +303,13 @@ function onlyLibraries(data: EngineData, cell: CellPlan, only: string[]): string
 }
 
 export async function runTargetBuild(
-  folder: Folder,
+  inputFolder: Folder,
   name: string,
   data: EngineData,
   options: { out: string; dryRun?: boolean; only?: string[]; in?: BuildIn; host?: Host },
 ): Promise<Result> {
+  // Library checks do not produce FFmpeg frameworks or combine Apple slices.
+  const folder: Folder = options.only?.length ? { ...inputFolder, libraryOnly: true } : inputFolder;
   const t = folder.targets.find((x) => x.name === name);
   if (!t) {
     throw new FolderError(

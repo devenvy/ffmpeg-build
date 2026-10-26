@@ -1,18 +1,23 @@
-2026-10-21: devenvy/ffmpeg-build builds OpenVINO's C API, CPU plugin and
+devenvy/ffmpeg-build uses OpenVINO's native CMake build for its C API, CPU plugin and
 IR model frontend as static libraries. GPU/NPU devices, Python, JavaScript,
 network model downloads and other model frontends are disabled. Convert
 models to OpenVINO IR before using them with this build. CPU threading is
 sequential and does not require a system OpenMP or TBB runtime.
 
-The static dependency closure is obtained from OpenVINO's own CMake consumer
-target and bundled under private archive names with a relocatable GNU ld
-GROUP script. This preserves its plugin registry and circular references.
-The C++ runtime is also linked statically. Source code is unchanged.
+The complete native headers and CMake SDK are installed through upstream's
+common-library layout. The static dependency closure is obtained from its
+own CMake consumer target and copied under packaging archive names without
+changing their contents or symbols. A separate ffb-openvino-cpu.ld GROUP script
+provides FFmpeg's static closure, including its C++ runtime. The native
+libopenvino.a and other SDK archives retain their names and contents.
+Upstream generates pkg-config metadata only for shared builds; static C API
+consumers receive packaging metadata with the native static interface definition.
 
-2026-10-22: the opt-in native shared CPU mode explicitly builds the C/C++
+The opt-in native shared CPU mode explicitly builds the C/C++
 runtime, dynamically loaded CPU plugin and IR frontend. Native plugins.xml
 generation is enabled and its relative registry ships beside the libraries.
-The C API header no longer requests static imports in that mode. C++ remains
-statically embedded with its native public ABI and the common system unwinder; public C++ owner interfaces
-between the root, frontend and plugin are retained. CPU threading remains
-sequential and the same other devices/frontends remain disabled.
+Its native interface definitions and pkg-config metadata are preserved. The
+shared libraries use the system C++ runtime and common unwinder. SDK probes
+compile against installed CMake targets and headers, including full CPU/IR
+inference, public type bridges and exception ownership. CPU threading remains
+sequential. No upstream source or build file is edited.

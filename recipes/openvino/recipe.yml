@@ -34,9 +34,9 @@ linkage:
       vars:
         {
           build-mode: shared,
-          static-define: '',
-          runtime-name: 'openvino_c -lopenvino',
-          shared-check: '1',
+          runtime-libs: '-lopenvino_c -lopenvino',
+          static-mode: '',
+          shared-mode: yes,
         }
       runtime:
         [
@@ -51,9 +51,9 @@ build:
   vars:
     {
       build-mode: static,
-      static-define: '-DOPENVINO_STATIC_LIBRARY',
-      runtime-name: openvino,
-      shared-check: '',
+      runtime-libs: '-l:ffb-openvino-cpu.ld',
+      static-mode: yes,
+      shared-mode: '',
     }
   steps:
     - run:
@@ -61,15 +61,24 @@ build:
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'build.py'), run_name='__main__')"
         - '{build-mode}'
+    # Upstream intentionally generates pkg-config metadata only for shared builds.
+    # Static C API consumers use packaging metadata for the unchanged native closure.
     - pkg-config:
-        name: openvino
-        description: OpenVINO static CPU runtime with IR frontend
+        file: openvino
+        name: OpenVINO
+        description: Static OpenVINO CPU and IR C API runtime
         version: '{version}'
-        cflags: '-I{deps}/include {static-define}'
-        libs: '-L{deps}/lib -l{runtime-name}'
+        libs: '{runtime-libs}'
+        libs-private: -ldl -lm -lpthread -lrt
+        cflags: -DOPENVINO_STATIC_LIBRARY
+      when: { set: '{static-mode}' }
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/openvino.pc'
+        libs: { set: '-L${libdir} {runtime-libs}' }
+      when: { set: '{shared-mode}' }
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'openvino', 'check-public-api.py'), run_name='__main__')"
         - '{deps}'
-      when: { set: '{shared-check}' }
+        - '{build-mode}'

@@ -9,7 +9,11 @@ configure: [--enable-openal]
 # On Linux, link the selected ALSA recipe instead of silently loading the system's libasound.so.2.
 needs: [{ alsa-lib: { platforms: [linux-*] } }]
 source: { git: https://github.com/kcat/openal-soft.git, ref: '{version}' }
-versions: { git-tags: '^(\d+\.\d+\.\d+)$' }
+# The released 1.24 series uses C++17 without 1.25's invalid smart-pointer member-function address.
+# Use a compatible upstream release rather than backporting 7f9c6de1162b1d4604b9a2f8bcd6c53021566221.
+versions: { git-tags: '^(1\.24\.\d+)$' }
+notes:
+  '>=1.25.0': 'This recipe selects the unmodified 1.24 release series; the 1.25 smart-pointer range expression fails with the Windows ARM64 toolchain. Revisit after an upstream release includes 7f9c6de1162b1d4604b9a2f8bcd6c53021566221 and full builds pass.'
 # where its capture reaches the system's audio and is checked: Linux, Windows and macOS. Not linux-armhf: its CMake
 # (Debian's 3.25) lacks the BUILD_LOCAL_INTERFACE (3.26) OpenAL Soft's CMakeLists.txt links its {fmt} with.
 platforms: [linux-x64, linux-arm64, linux-musl-*, win-*, osx-*]
@@ -23,14 +27,13 @@ linkage:
         library-type: -DLIBTYPE=SHARED
         shared-args:
           [
-            -DALSOFT_STATIC_STDCXX=ON,
-            '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs,--exclude-libs,libasound.a',
+            '-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -shared-libgcc -Wl,-z,defs,--exclude-libs,libasound.a:libstdc++.a:libsupc++.a',
           ]
         shared-mode: 'yes'
       runtime: ['lib/libopenal.so*']
 build:
   # OpenAL Soft, static, for FFmpeg's openal input device (capture). No utilities, examples, tests, sample
-  # configuration, HRTF data or presets, and no C++20 modules. Backends: linked ALSA (and OSS) on Linux;
+  # configuration, HRTF data or presets. Backends: linked ALSA (and OSS) on Linux;
   # WASAPI, DirectSound and WinMM on Windows; Core Audio on macOS. A C++ library: its .pc gets the
   # C++ runtime a static link needs.
   system: cmake
@@ -48,7 +51,6 @@ build:
       -DALSOFT_INSTALL_EXAMPLES=OFF,
       -DALSOFT_INSTALL_UTILS=OFF,
       -DALSOFT_UPDATE_BUILD_VERSION=OFF,
-      -DALSOFT_ENABLE_MODULES=OFF,
       -DALSOFT_BACKEND_PIPEWIRE=OFF,
       -DALSOFT_BACKEND_PULSEAUDIO=OFF,
       -DALSOFT_BACKEND_JACK=OFF,
@@ -58,6 +60,9 @@ build:
       -DALSOFT_BACKEND_SDL3=OFF,
     ]
   platforms:
+    # LLVM-MinGW's newer libc++ no longer exposes C allocation declarations transitively to the bundled fmt.
+    win-arm64:
+      env: { CXXFLAGS: '+= -include stdlib.h' }
     'linux-*':
       args: [-DALSOFT_REQUIRE_ALSA=ON, -DALSOFT_DLOPEN=OFF]
       after:
@@ -71,15 +76,6 @@ build:
               path: '{deps}/lib/pkgconfig/openal.pc',
               libs-private: { add: -lole32 -lshell32 -luuid },
             }
-  before:
-    # alc.cpp passes &EffectSlotCluster::operator* (a std::unique_ptr's) to views::transform, which a newer libc++
-    # (llvm-mingw's, win-arm64) can't deduce: a lambda dereferences the same
-    - replace-in-file:
-        {
-          path: alc/alc.cpp,
-          from: 'std::views::transform(&ContextBase::EffectSlotCluster::operator*)',
-          to: 'std::views::transform([](auto &cluster) -> auto& { return *cluster; })',
-        }
   after:
     - edit-pkg-config:
         { path: '{deps}/lib/pkgconfig/openal.pc', libs-private: { append: '{cxx-runtime}' } }

@@ -34,18 +34,11 @@ build:
       -DBUILD_TESTING=OFF,
       -DJPEGXS_LTO=OFF,
     ]
-  before:
-    # with clang on Unix (Android's NDK) its CMake swaps in llvm-ar and llvm-ranlib by bare name, for LTO, which aren't
-    # on PATH: the toolchain's own archiver stays
-    - replace-in-file:
-        {
-          path: CMakeLists.txt,
-          from: 'if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND UNIX AND NOT APPLE)',
-          to: if(FALSE),
-        }
   platforms:
     # Android's C library has the threads; there is no libpthread to link
     'android-*':
+      # Upstream invokes LLVM's archiver by name; expose the NDK's native tools.
+      env: { PATH: '{TOOLCHAIN}/bin:{PATH}' }
       after:
         - edit-pkg-config:
             { path: '{deps}/lib/pkgconfig/SvtJpegxs.pc', libs-private: { remove: -lpthread } }

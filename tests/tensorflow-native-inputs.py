@@ -1,9 +1,14 @@
 """Bazel 7's real path-fragment shape and strict native closure rejection."""
 import importlib.util
+import json
+import os
 from pathlib import Path
+import shlex
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+import zipfile
 
 sys.dont_write_bytecode = True
 
@@ -11,9 +16,12 @@ path = Path(__file__).resolve().parents[1] / 'recipes/tensorflow/native-link.py'
 spec = importlib.util.spec_from_file_location('native_link', path)
 native = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(native)
-spec = importlib.util.spec_from_file_location('native_toolchain', path.with_name('native-toolchain.py'))
-compiler = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(compiler)
+spec = importlib.util.spec_from_file_location('native_export', path.with_name('export.py'))
+exporter = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(exporter)
+spec = importlib.util.spec_from_file_location('native_restore', path.with_name('restore.py'))
+restorer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(restorer)
 
 
 def fixture():
@@ -84,38 +92,73 @@ class NativeInventory(unittest.TestCase):
             native.audit(fixture(), [])
 
 
-class NativeCompilerRuntime(unittest.TestCase):
-    def test_mode_changes_restore_the_shared_bazel_repository(self):
+class NativeSDKTemplate(unittest.TestCase):
+    def test_native_platform_substitutions_preserve_template_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary)
-            self.assertFalse(compiler.select(base, True))
-            helper = base / 'external/rules_ml_toolchain/third_party/rules_cc_toolchain/features/features.bzl'
-            helper.parent.mkdir(parents=True)
-            helper.write_text('prefix\n' + compiler.ORIGINAL + 'suffix\n')
-            for shared in [True, True, False, False, True]:
-                self.assertTrue(compiler.select(base, shared))
-                expected = compiler.STATIC if shared else compiler.ORIGINAL
-                self.assertEqual(helper.read_text(), 'prefix\n' + expected + 'suffix\n')
-            helper.write_text(compiler.ORIGINAL + compiler.ORIGINAL)
-            with self.assertRaisesRegex(SystemExit, 'Review native'):
-                compiler.select(base, True)
-            helper.write_text('unreviewed new helper')
-            with self.assertRaisesRegex(SystemExit, 'Review native'):
-                compiler.select(base, True)
+            archive = Path(temporary) / 'rules-go.zip'
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                bundle.writestr('go/private/BUILD.sdk.bazel', b'{goos}\n{goarch}\n{exe}\n{rules_go_repo_name}\n')
+            self.assertEqual(restorer.sdk_build(archive), b'linux\namd64\n\nio_bazel_rules_go\n')
 
-    def test_actual_link_requires_exact_archives_and_shared_unwinder(self):
-        required = ['-l:libstdc++.a', '-l:libstdc++fs.a', '-lgcc_s']
-        def query(arguments):
-            return {'actions': [{'mnemonic': 'CppLink', 'arguments': arguments}]}
-        compiler.verify(query(required))
-        for flag in required:
-            with self.subTest(missing=flag), self.assertRaisesRegex(SystemExit, r'exact C\+\+'):
-                compiler.verify(query([item for item in required if item != flag]))
-        for flag in ['-lstdc++', '-lstdc++fs', '-l:libstdc++.so', '-static-libgcc']:
-            with self.subTest(forbidden=flag), self.assertRaisesRegex(SystemExit, r'exact C\+\+'):
-                compiler.verify(query(required + [flag]))
-        with self.assertRaisesRegex(SystemExit, 'one native'):
-            compiler.verify({'actions': []})
+    def test_changed_native_template_requires_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / 'rules-go.zip'
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                bundle.writestr('go/private/BUILD.sdk.bazel', b'changed template\n')
+            with self.assertRaisesRegex(SystemExit, 'native rules_go SDK template'):
+                restorer.sdk_build(archive)
+
+
+class NativeSharedPackaging(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'The native Linux SDK uses ELF SONAME symlinks')
+    def test_native_owner_bytes_headers_and_soname_links_survive_packaging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / 'source'
+            deps = Path(temporary) / 'installed'
+            (source / '.ffb_inputs').mkdir(parents=True)
+            target = source / 'bazel-bin/tensorflow/libtensorflow.so.2.21.0'
+            target.parent.mkdir(parents=True)
+            payload = b'\x7fELF owned native shared bytes\n'
+            target.write_bytes(payload)
+            rows = [{'flags': ['-lm'], 'additional_inputs': [], 'libraries': [
+                {'archive': 'bazel-out/owned.a', 'alwayslink': True},
+            ]}]
+            (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps(rows))
+            header = source / 'tensorflow/c/c_api.h'
+            header.parent.mkdir(parents=True)
+            header.write_text('/* owned header */\n')
+
+            def dependencies(arguments, **unused):
+                if '-MF' in arguments:
+                    Path(arguments[arguments.index('-MF') + 1]).write_text('c_api: ' + shlex.quote(header.as_posix()) + '\n')
+                else:
+                    self.assertTrue(arguments[1].endswith('native-link.py'))
+
+            with patch.object(exporter.subprocess, 'run', side_effect=dependencies):
+                exporter.install(source, deps)
+            self.assertEqual((deps / 'lib/libtensorflow.so.2.21.0').read_bytes(), payload)
+            self.assertEqual(os.readlink(deps / 'lib/libtensorflow.so.2'), 'libtensorflow.so.2.21.0')
+            self.assertEqual(os.readlink(deps / 'lib/libtensorflow.so'), 'libtensorflow.so.2')
+            self.assertFalse(list((deps / 'lib').glob('*.a')))
+            self.assertFalse(list((deps / 'lib').glob('*.rsp')))
+            self.assertEqual((deps / 'include/tensorflow/c/c_api.h').read_bytes(), header.read_bytes())
+            self.assertEqual(json.loads((deps / 'share/ffmpeg-build/tensorflow-shared-closure.json').read_text()), rows)
+
+    def test_empty_native_owner_inventory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            (source / '.ffb_inputs').mkdir()
+            (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps([
+                {'flags': [], 'additional_inputs': [], 'libraries': []},
+            ]))
+            with self.assertRaisesRegex(SystemExit, 'shared closure inventory is empty'):
+                exporter.install(source, source / 'installed')
+
+    def test_static_integration_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            with self.assertRaisesRegex(SystemExit, 'Static TensorFlow integration'):
+                exporter.install(source, source / 'installed', False)
 
 
 if __name__ == '__main__':

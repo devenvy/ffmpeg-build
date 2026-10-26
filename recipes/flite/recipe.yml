@@ -11,7 +11,8 @@ license-files: [COPYING]
 configure: [--enable-libflite, --extra-libs=-lm]
 source: { git: https://github.com/festvox/flite, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+)$' }
-platforms: all
+# The published release hardcodes obsolete Windows compilers and a non-emitted MinGW snprintf helper.
+platforms: [linux-*, osx-*, ios-*, maccatalyst-*, android-*]
 linkage:
   default: static
   modes:
@@ -28,14 +29,12 @@ build:
   # English voices it ships (awb, kal, kal16, rms, slt, and the time voice), which FFmpeg links in whole. No audio
   # output (FFmpeg takes the samples) and no sockets.
   #
-  # - Its configure is autoconf's, generated; for mingw and Android it sets CC, AR and RANLIB to toolchains of its day
-  #   (i386-mingw32-gcc, the NDK's old GCC): those lines go, so the platform's are used.
+  # - The current Android --host triples canonicalize to linux-android and use upstream's native Linux branch,
+  #   without entering its obsolete android* compiler branch.
   # - Only the libraries: its Makefile also builds the flite programs and tools (whenever it thinks it isn't cross
   #   compiling, which it always does), some of which don't compile for Android, and docs; its install wants the
   #   programs. The libraries and headers are installed by hand (the headers in include/flite, as its install does).
-  # - Its headers define snprintf as an MSVC workaround (an `__inline` function that GCC and clang never emit) on any
-  #   _WIN32: not on mingw, which has snprintf.
-  system: autotools
+  system: none
   vars:
     library-arg: --disable-shared
     library-files: 'build/*/lib/libflite*.a'
@@ -43,29 +42,13 @@ build:
   # the platform's CFLAGS take the place of configure's default -g -O2: optimized as upstream builds it
   env: { CFLAGS: '+= -O2' }
   args: ['{library-arg}', --with-pic, --with-audio=none, --disable-sockets]
-  install-targets: []
-  before:
-    - replace-in-file:
-        {
-          path: configure,
-          from: '^\s*(CC|RANLIB|AR|NM)="\$\{(MINGWPREF|ANDROIDBIN)\}[^"]*"\s*$',
-          to: '',
-          regex: true,
-        }
-    - replace-in-file:
-        {
-          path: Makefile,
-          from: 'BUILD_DIRS = include src lang doc',
-          to: 'BUILD_DIRS = include src lang',
-        }
-    - replace-in-file:
-        { path: Makefile, from: 'HOST_ONLY_DIRS = tools main', to: 'HOST_ONLY_DIRS =' }
-    - replace-in-file:
-        {
-          path: include/cst_file.h,
-          from: "#ifdef _WIN32\n#define snprintf c99_snprintf",
-          to: "#if defined(_WIN32) && !defined(__MINGW32__)\n#define snprintf c99_snprintf",
-        }
+  steps:
+    - [./configure, '--prefix={deps}', '{args}', '--host={host?}']
+    # Select native library subdirectories in order; command-line BUILD_DIRS overrides would also alter recursion
+    # inside src and lang, so leave upstream's Makefiles unchanged.
+    - [make, -C, include, '-j{jobs}']
+    - [make, -C, src, '-j{jobs}']
+    - [make, -C, lang, '-j{jobs}']
   after:
     - copy: { from: 'include/*.h', into: '{deps}/include/flite' }
     # Native targets supply every voice/language/core dependency and serialize

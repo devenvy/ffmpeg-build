@@ -54,25 +54,6 @@ build:
     # -lmbedcrypto to resolve.
     'win-*': { vars: { mbedtls-libs: -lmbedtls -lmbedx509 -lmbedcrypto -lbcrypt } }
   before:
-    # The installed legacy udt.h declares both constructor forms, but 1.5.7 omits
-    # this forwarder. Preserve the primary C API and the existing inline overload.
-    - replace-in-file:
-        path: srtcore/api.cpp
-        from: |
-          namespace UDT
-          {
-
-          int startup()
-        to: |
-          namespace UDT
-          {
-
-          SRTSOCKET socket()
-          {
-              return srt::CUDT::socket();
-          }
-
-          int startup()
     - vars: { enclib: mbedtls, encryption: [-DENABLE_ENCRYPTION=ON, -DUSE_ENCLIB=mbedtls] }
       when: { exists: '{deps}/lib/libmbedcrypto.*' }
     # On the Android NDK toolchain, find_library only searches CMAKE_FIND_ROOT_PATH (pointed at the
@@ -116,13 +97,9 @@ build:
     # "-lmbedtls -lmbedx509 -lmbedcrypto" at the END of FFmpeg's link (EXTRA_LIBS, from mbedtls.sh); a recipe can't touch
     # FFmpeg's link line, so the same -l libs replace the .a paths here, after -lsrt. Order high-level -> low so the
     # inter-mbedTLS deps resolve left-to-right (tls -> x509 -> crypto).
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/srt.pc',
-          from: '[^\s]*/libmbed(tls|x509|crypto)\.(a|so(\.[0-9]+)*)(?=\s|$)',
-          to: '',
-          regex: true,
-        }
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/srt.pc'
+        libs-private: { remove-library-paths: [mbedtls, mbedx509, mbedcrypto], missing: skip }
       when: { exists: '{deps}/lib/libmbedcrypto.*' }
     - edit-pkg-config:
         {
@@ -136,17 +113,8 @@ build:
     # it defeats -static-libgcc (versioned _Unwind_* references that no archive can satisfy). srt.pc is the offender, so
     # it is stripped here, wherever it stands in the line (mid-line or last, so each edit may find nothing; on
     # llvm-mingw's win-arm64 there is no -lgcc_s at all).
-    - replace-in-file:
-        { path: '{deps}/lib/pkgconfig/srt.pc', from: ' -lgcc_s ', to: ' ', optional: true }
-      when: { platforms: ['win-*', 'linux-musl-*'] }
-    - replace-in-file:
-        {
-          path: '{deps}/lib/pkgconfig/srt.pc',
-          from: ' -lgcc_s$',
-          to: '',
-          regex: true,
-          optional: true,
-        }
+    - edit-pkg-config:
+        { path: '{deps}/lib/pkgconfig/srt.pc', libs-private: { remove: -lgcc_s, missing: skip } }
       when: { platforms: ['win-*', 'linux-musl-*'] }
     # libsrt is C++. srt.pc's Libs.private already lists the C++ runtime on GNU toolchains; upstream also appended it to
     # FFmpeg's EXTRA_LIBS (libstdc++ on GNU/mingw, libc++ on Apple/NDK, -l:libstdc++.a on musl, -l:libc++.a on

@@ -165,7 +165,6 @@ describe('profiles/devenvy.yml', () => {
       '--enable-vaapi',
       '--enable-version3',
       '--enable-vulkan',
-      '--enable-vulkan-static',
       '--enable-whisper',
       '--enable-zlib',
       '--extra-cflags=-I/opt/ffmpeg-build/deps/include',
@@ -176,13 +175,13 @@ describe('profiles/devenvy.yml', () => {
     ]);
   });
 
-  it("builds today's published linux-x64 lgplv3 options with a static Vulkan loader", () => {
+  it("builds today's published linux-x64 lgplv3 options with the upstream shared Vulkan loader", () => {
     expect([...verifyNames(data, linux('lgplv3'))].sort()).toEqual(
-      [...PUBLISHED_LGPLV3_LINUX_X64, 'VULKAN_STATIC'].sort(),
+      [...PUBLISHED_LGPLV3_LINUX_X64].sort(),
     );
   });
 
-  it('restores the published configure and verify sets with the shared Vulkan override', () => {
+  it('keeps the same configure and verify sets with an explicit shared Vulkan selection', () => {
     const cell = linux('lgplv3');
     const shared = { ...cell, linkages: { ...cell.linkages, 'vulkan-loader': 'shared' as const } };
     expect(configureFlags(data, shared)).toEqual(
@@ -284,6 +283,16 @@ describe('profiles/devenvy.yml', () => {
         c.cell.platform === 'linux-x64' && c.cell.license === 'lgplv3' && c.cell.series === '9',
     )!;
     expect(linuxOnly.options).not.toContain('videotoolbox');
+  });
+
+  it('keeps Catalyst software builds without the unsupported VideoToolbox framework', () => {
+    for (const c of cells.filter((entry) => entry.cell.platform.startsWith('maccatalyst-'))) {
+      expect(c.options).not.toContain('videotoolbox');
+      const flags = configureFlags(data, c);
+      expect(flags).toContain('--disable-videotoolbox');
+      expect(flags).not.toContain('--enable-hwaccel=h264_videotoolbox');
+      expect(flags).not.toContain('--enable-hwaccel=hevc_videotoolbox');
+    }
   });
 
   // ffmpeg.exe's embedded configure line in the published 9.0.2.3 win-x64 lgplv3 artifact, minus --prefix and --extra-*
@@ -1298,7 +1307,7 @@ describe('codec libraries', () => {
       ships: { encoders: ['libxavs2'] },
     },
     uavs3d: {
-      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      platforms: PLATFORMS.filter((p) => !['win-arm64', 'android-x64'].includes(p)),
       recipes: ['uavs3d'],
       flags: ['--enable-libuavs3d'],
       licenses: ALL,
@@ -1334,7 +1343,7 @@ describe('codec libraries', () => {
     },
     // its COPYING's terms keep it out of GPL builds
     'lcevc-dec': {
-      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
+      platforms: PLATFORMS.filter((p) => !p.startsWith('win-')),
       recipes: ['lcevcdec'],
       flags: ['--enable-liblcevc-dec'],
       licenses: ['lgplv2', 'lgplv3', 'nonfree'],
@@ -1457,7 +1466,7 @@ describe('filter and processing libraries', () => {
     'libffi',
     'pcre2',
     'zlib',
-    ...(p.startsWith('linux-') && !p.startsWith('linux-musl-') ? [] : ['proxy-libintl']),
+    ...(p.startsWith('linux-') ? [] : ['proxy-libintl']),
     ...(/^(osx|ios|maccatalyst)-/.test(p) ? ['libiconv'] : []),
   ];
   /** cairo and what it needs: GLib, pixman, libpng, FreeType and Fontconfig on Linux and Android, FreeType on iOS. */
@@ -1501,7 +1510,7 @@ describe('filter and processing libraries', () => {
     bs2b: {
       platforms: PLATFORMS,
       recipe: 'libbs2b',
-      recipes: () => ['libbs2b'],
+      recipes: () => ['libbs2b', 'libsndfile'],
       flags: ['--enable-libbs2b'],
       licenses: ALL,
       ships: { filters: ['bs2b'] },
@@ -1523,7 +1532,7 @@ describe('filter and processing libraries', () => {
       ships: { filters: ['quirc'] },
     },
     flite: {
-      platforms: PLATFORMS,
+      platforms: PLATFORMS.filter((p) => !p.startsWith('win-')),
       recipe: 'flite',
       recipes: () => ['flite'],
       flags: ['--enable-libflite', '--extra-libs=-lm'],
@@ -1543,7 +1552,7 @@ describe('filter and processing libraries', () => {
     aribb24: {
       platforms: PLATFORMS,
       recipe: 'aribb24',
-      recipes: () => ['aribb24'],
+      recipes: () => ['aribb24', 'libpng', 'zlib'],
       flags: ['--enable-libaribb24'],
       licenses: V3,
       ships: { decoders: ['libaribb24'] },
@@ -1610,7 +1619,7 @@ describe('filter and processing libraries', () => {
     },
     // not iOS or Mac Catalyst (their missing macOS APIs); macOS once FFmpeg's VERSION file is out of the way (#41)
     opencolorio: {
-      platforms: PLATFORMS.filter((p) => /^(linux|osx|win|android)-/.test(p)),
+      platforms: PLATFORMS.filter((p) => /^(linux|osx|android)-/.test(p)),
       recipe: 'opencolorio',
       recipes: () => [
         'imath',
@@ -1658,14 +1667,7 @@ describe('filter and processing libraries', () => {
     tesseract: {
       platforms: PLATFORMS,
       recipe: 'tesseract',
-      recipes: (p) =>
-        [
-          'leptonica',
-          'libpng',
-          'tesseract',
-          'zlib',
-          ...(p.startsWith('android-') ? ['cpu-features'] : []),
-        ].sort(),
+      recipes: () => ['leptonica', 'libpng', 'tesseract', 'zlib'].sort(),
       flags: ['--enable-libtesseract'],
       licenses: V3,
       ships: { filters: ['ocr'] },
@@ -1782,7 +1784,7 @@ describe('protocol and I/O libraries', () => {
     }
   > = {
     zmq: {
-      platforms: PLATFORMS,
+      platforms: PLATFORMS.filter((p) => p !== 'win-arm64'),
       recipe: 'libzmq',
       recipes: () => ['libzmq'],
       flags: () => ['--enable-libzmq'],
@@ -1839,7 +1841,7 @@ describe('protocol and I/O libraries', () => {
       ships: { protocols: ['libssh'] },
       auto: true,
     },
-    // lgplv2 first: no GnuTLS (nettle's licence), so plain rtmp
+    // lgplv2 first: the OpenSSL dependency is excluded by this profile, so plain rtmp.
     rtmp: {
       platforms: PLATFORMS,
       recipe: 'librtmp',
@@ -1991,14 +1993,14 @@ describe('protocol and I/O libraries', () => {
     }
   });
 
-  it('encrypts rtmp with GnuTLS where the build may take it, and goes without elsewhere', () => {
+  it('selects native OpenSSL for rtmp only on eligible platforms and licences', () => {
     const recipesOf = (platform: string, license: string) =>
       [...planOn(platform, license, 'rtmp').cells[0]!.recipes].sort();
-    const gnutls = ['gmp', 'gnutls', 'librtmp', 'libtasn1', 'nettle', 'zlib'];
+    const openssl = ['librtmp', 'openssl', 'zlib'];
     for (const platform of ['linux-x64', 'linux-musl-arm64', 'android-arm64', 'maccatalyst-x64']) {
-      expect(recipesOf(platform, 'gplv2'), platform).toEqual(gnutls);
-      expect(recipesOf(platform, 'lgplv3'), platform).toEqual(gnutls);
-      // nettle (LGPL-3.0-or-later OR GPL-2.0-or-later) can't go into lgplv2: no GnuTLS
+      expect(recipesOf(platform, 'gplv2'), platform).toEqual(['librtmp', 'zlib']);
+      expect(recipesOf(platform, 'lgplv3'), platform).toEqual(openssl);
+      // OpenSSL's Apache-2.0 licence requires a version3 profile under the existing policy.
       expect(recipesOf(platform, 'lgplv2'), platform).toEqual(['librtmp', 'zlib']);
     }
     for (const platform of ['win-x64', 'osx-arm64', 'ios-arm64']) {
@@ -2051,14 +2053,14 @@ describe('audio device libraries', () => {
       recipe: 'pulseaudio',
       recipes: () => ['libsndfile', 'pulseaudio'],
       flags: ['--enable-libpulse'],
-      runtime: () => [],
+      runtime: () => ['lib/libpulse.so*', 'lib/pulseaudio/libpulsecommon-*.so'],
     },
     jack: {
-      platforms: linuxAll,
+      platforms: ['linux-x64', 'linux-arm64', 'linux-armhf'],
       recipe: 'jack2',
       recipes: () => ['jack2'],
       flags: ['--enable-libjack'],
-      runtime: () => [],
+      runtime: () => ['lib/libjack.so*'],
     },
     // static, on the selected ALSA library
     sndio: {
@@ -2341,15 +2343,6 @@ describe("Apple's capture device and Core Image", () => {
       flags: ['--enable-coreimage', '--enable-appkit'],
       ships: { filters: ['coreimage', 'coreimagesrc'] },
     },
-    metal: {
-      platforms: macos,
-      flags: ['--enable-metal', '--enable-videotoolbox'],
-      ships: {
-        filters: ['yadif_videotoolbox'],
-        hwaccels: ['videotoolbox'],
-        encoders: ['h264_videotoolbox', 'hevc_videotoolbox'],
-      },
-    },
   };
   const OPTIONS = Object.keys(where);
   const text = (platform: string, license: string, options: string) =>
@@ -2411,10 +2404,10 @@ describe("Apple's capture device and Core Image", () => {
     expect(flags('avfoundation').filter((f) => /appkit|coreimage/.test(f))).toEqual([]);
   });
 
-  it('enables Metal only on macOS, with its upstream ownership fix applied during the build', () => {
+  it('does not offer Metal while supported releases require a runtime fix', () => {
     for (const major of ['8', '9']) {
-      expect(data.ffmpeg.get(major)!.options['metal']!.builtin).toBe(true);
-      expect(data.ffmpeg.get(major)!['auto-components']).toContain('metal');
+      expect(data.ffmpeg.get(major)!.options['metal']).toBeUndefined();
+      expect(data.ffmpeg.get(major)!['auto-components']).not.toContain('metal');
     }
   });
 

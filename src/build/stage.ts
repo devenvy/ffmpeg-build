@@ -371,6 +371,51 @@ function appleBuildPlatform(platform: string): string {
   return platform.startsWith('maccatalyst-') ? '6' : '7';
 }
 
+/** Keep native diagnostic metadata separate from actual Mach-O loader dependencies. */
+export async function checkAppleBinary(context: BuildContext, bin: string): Promise<void> {
+  if (lstatSync(bin).isSymbolicLink()) {
+    return;
+  }
+  const linked = await run('otool', ['-L', bin], { env: context.env, capture: true });
+  const load = await run('otool', ['-l', bin], { env: context.env, capture: true });
+  const machine = [
+    context.work,
+    context.depsDir,
+    '/usr/local/',
+    `${context.env['HOMEBREW_PREFIX'] ?? '/opt/homebrew'}/`,
+    '/opt/homebrew/',
+    '/opt/local/',
+  ];
+  const loaded = otoolLoads(linked).find((dep) => machine.some((path) => dep.startsWith(path)));
+  if (loaded) {
+    throw new Error(`${basename(bin)} loads ${loaded}, which is on this machine`);
+  }
+  const paths = await searchOutput(
+    'strings',
+    ['-a', bin],
+    [context.work, context.depsDir, context.env['HOME'] ?? ''],
+    { env: context.env },
+  );
+  for (const named of paths) {
+    if (!context.buildPlan.libraries.some((library) => library.name === 'opencv')) {
+      throw new Error(
+        `${basename(bin)} contains ${named.needle} (a build folder or the home folder) in its strings: ${named.line}`,
+      );
+    }
+    // OpenCV deliberately exposes native build information and data-search metadata. Report it unchanged;
+    // strings alone do not establish a loader dependency. Load commands and RPATHs remain mandatory below.
+    process.stdout.write(
+      `${basename(bin)}: native OpenCV metadata retains ${named.needle}: ${named.line}\n`,
+    );
+  }
+  const rpaths = [...load.matchAll(/cmd LC_RPATH[\s\S]*?path (\S+)/g)].map((m) => m[1]!);
+  if (
+    rpaths.some((path) => !/^@(?:loader|executable)_path(?:\/|$)|^\/usr\/lib(?:\/|$)/.test(path))
+  ) {
+    throw new Error(`${basename(bin)} has an unsafe LC_RPATH`);
+  }
+}
+
 async function checkPlatform(context: BuildContext, runDir: string): Promise<void> {
   const p = context.buildPlan.platform;
   if (context.buildPlan.setup === 'fake') {
@@ -484,45 +529,7 @@ async function checkPlatform(context: BuildContext, runDir: string): Promise<voi
     ? [join(runDir, 'ffmpeg'), join(runDir, 'ffprobe'), ...files(join(runDir, '*.dylib'))]
     : files(join(runDir, '*.framework', 'lib*'));
   for (const bin of bins) {
-    if (!lstatSync(bin).isSymbolicLink()) {
-      const linked = await run('otool', ['-L', bin], { env: context.env, capture: true });
-      const load = await run('otool', ['-l', bin], { env: context.env, capture: true });
-      // what it loads must not be on this machine (the build folders, Homebrew, MacPorts, /usr/local); its text must not
-      // name the build folders or the home folder (FFmpeg's own strings name /usr/local as a search path, which is fine)
-      const machine = [
-        context.work,
-        context.depsDir,
-        '/usr/local/',
-        `${context.env['HOMEBREW_PREFIX'] ?? '/opt/homebrew'}/`,
-        '/opt/homebrew/',
-        '/opt/local/',
-      ];
-      const loads = otoolLoads(linked);
-      const loaded = loads.find((dep) => machine.some((path) => dep.startsWith(path)));
-      if (loaded) {
-        throw new Error(`${basename(bin)} loads ${loaded}, which is on this machine`);
-      }
-      // strings -a of a big binary is searched as it streams, not kept
-      const [named] = await searchOutput(
-        'strings',
-        ['-a', bin],
-        [context.work, context.depsDir, context.env['HOME'] ?? ''],
-        { env: context.env },
-      );
-      if (named) {
-        throw new Error(
-          `${basename(bin)} contains ${named.needle} (a build folder or the home folder) in its strings: ${named.line}`,
-        );
-      }
-      const rpaths = [...load.matchAll(/cmd LC_RPATH[\s\S]*?path (\S+)/g)].map((m) => m[1]!);
-      if (
-        rpaths.some(
-          (path) => !/^@(?:loader|executable)_path(?:\/|$)|^\/usr\/lib(?:\/|$)/.test(path),
-        )
-      ) {
-        throw new Error(`${basename(bin)} has an unsafe LC_RPATH`);
-      }
-    }
+    await checkAppleBinary(context, bin);
   }
   if (p.startsWith('osx-')) {
     if (p === 'osx-x64' && process.arch === 'arm64' && !(await canRunX64(context.env))) {

@@ -7,8 +7,11 @@ import { packageRoot } from '../src/paths.ts';
 const data = loadEngineData(packageRoot);
 
 describe('TensorFlow native C and eager runtime linking', () => {
-  it('retains static defaults and bounds shared mode to the verified native platform', () => {
-    expect(linkagePlan(data, ['tensorflow'], 'linux-x64').modes['tensorflow']).toBe('static');
+  it('uses the native shared owner and rejects unsupported static FFmpeg integration', () => {
+    expect(linkagePlan(data, ['tensorflow'], 'linux-x64').modes['tensorflow']).toBe('shared');
+    expect(
+      linkagePlan(data, ['tensorflow'], 'linux-x64', { tensorflow: 'static' }).errors,
+    ).toHaveLength(1);
     expect(linkagePlan(data, ['tensorflow'], 'linux-x64', { tensorflow: 'shared' }).errors).toEqual(
       [],
     );

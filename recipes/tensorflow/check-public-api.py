@@ -24,7 +24,7 @@ subprocess.run([output], timeout=120, check=True, env=environment)
 library = deps / 'lib/libtensorflow.so.2.21.0'
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
 assert '[libtensorflow.so.2]' in dynamic, dynamic
-assert 'libtensorflow_framework' not in dynamic and 'libstdc++.so' not in dynamic, dynamic
+assert 'libtensorflow_framework' not in dynamic, dynamic
 assert 'libgcc_s.so.1' in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', library], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}

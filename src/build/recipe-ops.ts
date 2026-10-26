@@ -196,6 +196,8 @@ export interface PcFieldEdit {
   add?: string | undefined;
   set?: string | undefined;
   remove?: string | undefined;
+  tokens?: Record<string, string> | undefined;
+  removeLibraryPaths?: readonly string[] | undefined;
   missing: 'end' | 'after-libs' | 'skip';
 }
 
@@ -215,7 +217,12 @@ export function editPcField(
   const lines = text.split('\n');
   const isField = (line: string) => line.startsWith(`${label}:`);
   if (!lines.some(isField)) {
-    if (edit.remove !== undefined || edit.missing === 'skip') {
+    if (
+      edit.remove !== undefined ||
+      edit.tokens ||
+      edit.removeLibraryPaths ||
+      edit.missing === 'skip'
+    ) {
       return text;
     }
     const line = `${label}: ${edit.set ?? edit.append ?? edit.prepend ?? words(edit.add!).join(' ')}`;
@@ -251,6 +258,28 @@ export function editPcField(
       if (edit.add !== undefined) {
         return toAdd.length ? `${line} ${toAdd.join(' ')}` : line;
       }
+      if (edit.tokens) {
+        const tokens = edit.tokens;
+        const content = line
+          .slice(label.length + 1)
+          .replace(/\S+/g, (word) => (Object.hasOwn(tokens, word) ? tokens[word]! : word));
+        return `${label}:${content}`;
+      }
+      if (edit.removeLibraryPaths) {
+        const names = edit.removeLibraryPaths;
+        return line.replace(/\S+/g, (word) => {
+          const path = word.replaceAll('\\', '/');
+          const filename = path.slice(path.lastIndexOf('/') + 1);
+          const matches =
+            path.includes('/') &&
+            names.some((name) =>
+              new RegExp(`^lib${escaped(name)}\\.(?:a|so(?:\\.[0-9]+)*|dylib|dll\\.a)$`).test(
+                filename,
+              ),
+            );
+          return matches ? '' : word;
+        });
+      }
       let out = line;
       for (const word of words(edit.remove!)) {
         out = out.replace(new RegExp(`[ \\t]+${escaped(word)}(?=[ \\t]|$)`, 'g'), '');
@@ -258,6 +287,31 @@ export function editPcField(
       return out;
     })
     .join('\n');
+}
+
+/** Relocate existing installation variables in .pc metadata, preserving all other content. */
+export function editPcVariables(
+  text: string,
+  variables: Record<string, string | undefined>,
+): string {
+  const pending = new Set(Object.keys(variables).filter((key) => variables[key] !== undefined));
+  const output = text
+    .split('\n')
+    .map((line) => {
+      const separator = line.indexOf('=');
+      const name = line.slice(0, separator).trim();
+      const value = Object.hasOwn(variables, name) ? variables[name] : undefined;
+      if (separator === -1 || value === undefined) {
+        return line;
+      }
+      pending.delete(name);
+      return `${name}=${value}`;
+    })
+    .join('\n');
+  if (pending.size) {
+    throw new Error(`pkg-config metadata has no installation variable: ${[...pending].join(', ')}`);
+  }
+  return output;
 }
 
 /** True when `version` is at least `min` (numeric parts, as sort -V). */

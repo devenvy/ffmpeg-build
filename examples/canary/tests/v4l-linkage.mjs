@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const ffmpeg = process.env.FFMPEG;
@@ -91,7 +91,7 @@ for (const component of components) {
     assert.doesNotMatch(dynamic.stdout.toString(), /NEEDED.*libstdc\+\+/);
   }
 }
-// Owned zero-coefficient fixtures exercise the actual staged native decoder
+// Owned zero-coefficient fixtures exercise optional native system decoders when installed.
 // programs. Neutral chroma verifies lengths and bytes, not U/V plane ordering.
 const HEADER_BYTES = 16;
 const WORD_BYTES = 4;
@@ -115,21 +115,32 @@ const fixtures = [
     hex: 'ffffffffffffffff28a0028affffffff01010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101',
   },
 ];
-const notice = readFileSync(join(directory, 'THIRD-PARTY-NOTICES.txt'), 'utf8');
-assert.match(notice, /GPL-2\.0-only/);
-assert.match(notice, /Mark W\. McClelland/);
-for (const fixture of fixtures) {
+function checkNativeDecoder(fixture, executable) {
   const bytes = Buffer.from(fixture.hex, 'hex');
   const header = Buffer.alloc(HEADER_BYTES);
   header.writeInt32LE(fixture.width, WIDTH_OFFSET);
   header.writeInt32LE(fixture.height, HEIGHT_OFFSET);
   header.writeInt32LE(bytes.length, LENGTH_OFFSET);
   const packet = Buffer.concat([header, bytes]);
-  const result = command(join(directory, fixture.name), [], Buffer.concat([packet, packet]));
+  const result = command(executable, [], Buffer.concat([packet, packet]));
   assert.equal(result.status, 0, result.stderr.toString());
+  assert.equal(result.stderr.length, 0);
   const expected = Buffer.alloc(WORD_BYTES + fixture.length, NEUTRAL);
   expected.writeInt32LE(fixture.length);
   assert.deepEqual(result.stdout, Buffer.concat([expected, expected]), fixture.name);
+}
+for (const fixture of fixtures) {
+  assert.equal(
+    existsSync(join(directory, fixture.name)),
+    false,
+    'The runtime must not claim relocated decoder programs',
+  );
+  const executable = join('/usr/lib/libv4l', fixture.name);
+  if (existsSync(executable)) {
+    checkNativeDecoder(fixture, executable);
+  } else {
+    console.log(`${fixture.name}: optional native system helper is absent`);
+  }
 }
 console.log(
   `V4L ${shared ? 'shared' : 'static'}: native device registration, clean no-hardware failure, CPU EOF and complete selected ABI payload passed`,

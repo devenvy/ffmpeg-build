@@ -28,11 +28,12 @@ build:
   # filter (found through libmysofa.pc). The SOFA file itself is the user's (sofalizer's sofa= option); the sample
   # files the library installs are left out.
   #
-  # - Its static library is position-independent only when BUILD_SHARED_LIBS is on, which the engine turns off: it
-  #   goes into FFmpeg's shared libraries, so it always is.
+  # - Native Release compiler flags provide PIC even though the static target disables CMake's automatic PIC flag.
+  # - Configure a fixed runtime prefix and relocate with CMake's native install --prefix, without header changes.
   # - Its .pc's Libs.private is filled in a subdirectory's scope and comes out empty: zlib and libm, which a static
   #   link needs, are written there.
   system: cmake
+  install-args: [--prefix, '{deps}']
   vars: { static-arg: -DBUILD_STATIC_LIBS=ON, math-arg: -DMATH=m, shared-args: [], shared-mode: '' }
   # - It looks for libm with find_library, which a cross toolchain file that searches only deps doesn't find
   #   (linux-armhf): named outright (Windows' build sets it empty itself).
@@ -44,26 +45,15 @@ build:
       -DCODE_COVERAGE=OFF,
       -DADDRESS_SANITIZE=OFF,
       '{math-arg}',
+      -DCMAKE_INSTALL_PREFIX=/usr,
+      '-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -fPIC',
     ]
-  before:
-    # (the property and its value are on two lines upstream: matched across them)
-    - replace-in-file:
-        {
-          path: src/CMakeLists.txt,
-          from: 'POSITION_INDEPENDENT_CODE\s+\$\{BUILD_SHARED_LIBS\}',
-          to: 'POSITION_INDEPENDENT_CODE ON',
-          regex: true,
-        }
-    # mysofa_load(NULL) opens <install prefix>/share/libmysofa/default.sofa, which would put the deps folder in the
-    # library (the staged-binary check refused it on Apple) and names a file the build doesn't ship: the system's
-    # place for it instead (where Linux distributions' libmysofa packages put it)
-    - replace-in-file:
-        {
-          path: src/config.h.in,
-          from: '#define CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}"',
-          to: '#define CMAKE_INSTALL_PREFIX "/usr"',
-        }
   after:
+    - edit-pkg-config:
+        {
+          path: '{deps}/lib/pkgconfig/libmysofa.pc',
+          variables: { libdir: '{deps}/lib', includedir: '{deps}/include' },
+        }
     - run:
         - python3
         - -c

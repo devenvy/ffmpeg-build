@@ -9,6 +9,8 @@ configure: [--enable-libxvid, --extra-libs=-lm]
 source: { url: 'https://downloads.xvid.com/downloads/xvidcore-{version}.tar.gz' }
 versions:
   { listing: 'https://downloads.xvid.com/downloads/', files: '^xvidcore-(\d+\.\d+\.\d+)\.tar\.gz$' }
+# Linux cross-builds use the available Clang with the existing GNU MinGW sysroot.
+# Its real numeric version is understood by upstream's configure; native MSYS2 keeps its compiler.
 platforms: all
 linkage:
   default: static
@@ -25,7 +27,14 @@ build:
   # installed by hand (the Makefile's install wants both). mingw names the archive xvidcore.a, which -lxvidcore
   # doesn't find: it is installed as libxvidcore.a.
   system: none
-  vars: { archive: libxvidcore.a, shared-library: '' }
+  vars:
+    archive: libxvidcore.a
+    shared-library: ''
+    cross-clang: ''
+    clang-cc: 'x86_64-w64-mingw32-clang --sysroot=/usr/x86_64-w64-mingw32 -rtlib=libgcc'
+  before:
+    - vars: { cross-clang: yes }
+      when: { platforms: [win-x64], unset: '{MSYSTEM?}' }
   platforms:
     'win-*': { vars: { archive: xvidcore.a } }
     # x86-64 assembly only where it links into position-independent code without text relocations
@@ -35,21 +44,19 @@ build:
   # C17: its `typedef int bool` is an error under C23, newer GCCs' default
   env: { CFLAGS: '+= -std=gnu17' }
   steps:
-    # Return the final converted P frame, and pack its first B frame through the
-    # existing flush path. Preserve unpacked output and expose EOF on the next call.
-    - replace-in-file:
-        path: src/encoder.c
-        from: "\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n"
-        to: "\t\t\t\tif ((pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED) && pEnc->bframenum_tail==0) {\n\t\t\t\t\tcall_plugins(pEnc, pEnc->current, &pEnc->sOriginal, XVID_PLG_AFTER, NULL, NULL, stats);\n\t\t\t\t\tgoto done;\n\t\t\t\t}else{\n\t\t\t\t\tpEnc->flush_bframes = 1;\n\t\t\t\t\tif (pEnc->mbParam.global_flags & XVID_GLOBAL_PACKED)\n\t\t\t\t\t\tgoto repeat;\n\t\t\t\t\tgoto done;\n\t\t\t\t}\n"
-    # mingw: a Cygwin-era flag that today's GCC rejects
-    - replace-in-file:
-        {
-          path: build/generic/configure,
-          from: 'SPECIFIC_CFLAGS="-mno-cygwin"',
-          to: 'SPECIFIC_CFLAGS=""',
-        }
     - run: ['./configure', '--prefix={deps}', '--host={host?}', '{args}']
       cwd: build/generic
+      when: { unset: '{cross-clang}' }
+    - run:
+        - python3
+        - -c
+        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'xvidcore', 'check-gnu-compiler.py'), run_name='__main__')"
+        - '--prefix={deps}'
+        - '--host={host?}'
+        - '{args}'
+      cwd: build/generic
+      env: { CC: '{clang-cc}' }
+      when: { set: '{cross-clang}' }
     - run: [make, '-j{jobs}', '{archive}']
       cwd: build/generic
     - copy: { from: 'build/generic/=build/{archive}', to: '{deps}/lib/libxvidcore.a' }

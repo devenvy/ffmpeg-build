@@ -7,8 +7,15 @@ import { packageRoot } from '../src/paths.ts';
 const data = loadEngineData(packageRoot);
 
 describe('Torch native CPU runtime linking', () => {
-  it('retains static defaults and bounds the shared owner to Linux x64', () => {
-    expect(linkagePlan(data, ['torch'], 'linux-x64').modes['torch']).toBe('static');
+  it('passes both native SDK header roots to the stock FFmpeg C++ probe', () => {
+    expect(data.recipes.get('torch')!.configure.map((entry) => entry.value)).toContain(
+      '--extra-cxxflags=-I{deps}/include -I{deps}/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1',
+    );
+  });
+
+  it('uses the native shared owner and rejects unsupported static FFmpeg integration', () => {
+    expect(linkagePlan(data, ['torch'], 'linux-x64').modes['torch']).toBe('shared');
+    expect(linkagePlan(data, ['torch'], 'linux-x64', { torch: 'static' }).errors).toHaveLength(1);
     expect(linkagePlan(data, ['torch'], 'linux-x64', { torch: 'shared' }).errors).toEqual([]);
     expect(linkagePlan(data, ['torch'], 'linux-arm64', { torch: 'shared' }).errors).toHaveLength(1);
   });

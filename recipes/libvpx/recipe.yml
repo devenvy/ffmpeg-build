@@ -24,41 +24,47 @@ build:
   # devenvy/ffmpeg scripts/deps/libvpx.sh. Its own configure: the platform names the --target, and cross toolchains
   # reach it through CROSS (configure, make and make install all see it).
   system: none
-  vars: { shared-arg: --disable-shared, static-arg: --enable-static }
+  vars: { shared-arg: --disable-shared, static-arg: --enable-static, tool-prefix: '' }
+  before:
+    - vars: { tool-prefix: '' }
+      when: { platforms: [win-*], set: '{MSYSTEM?}' }
   steps:
-    - - ./configure
-      - '--prefix={deps}'
-      - '{shared-arg}'
-      - '{static-arg}'
-      - --enable-vp8
-      - --enable-vp9
-      - --enable-vp9-highbitdepth
-      - --disable-examples
-      - --disable-tools
-      - --disable-docs
-      - --disable-unit-tests
-      - --enable-pic
-      - '{args}'
-    # libvpx compiles its configure line into the library (vpx_codec_build_config); name the deps folder as the
-    # container builds do, never a folder of this machine's (a native build's work folder)
-    - replace-in-file: { path: vpx_config.c, from: '{deps}', to: /opt/ffmpeg-build/deps }
-    - [make, '-j{jobs}']
-    - [make, install]
+    - run:
+        - ./configure
+        - --prefix=/opt/ffmpeg-build/deps
+        - '{shared-arg}'
+        - '{static-arg}'
+        - --enable-vp8
+        - --enable-vp9
+        - --enable-vp9-highbitdepth
+        - --disable-examples
+        - --disable-tools
+        - --disable-docs
+        - --disable-unit-tests
+        - --enable-pic
+        - '{args}'
+      env: { CROSS: '{tool-prefix}' }
+    - run: [make, '-j{jobs}']
+      env: { CROSS: '{tool-prefix}' }
+    # Native DIST_DIR controls the installation root independently of the compiled configure prefix.
+    - run: [make, install, 'DIST_DIR={deps}']
+      env: { CROSS: '{tool-prefix}' }
+    - edit-pkg-config: { path: '{deps}/lib/pkgconfig/vpx.pc', variables: { prefix: '{deps}' } }
   platforms:
     linux-armhf:
       {
         args: [--target=armv7-linux-gcc, --extra-cflags=-mfpu=neon],
-        env: { CROSS: arm-linux-gnueabihf- },
+        vars: { tool-prefix: arm-linux-gnueabihf- },
       }
     win-x64:
       {
         args: [--target=x86_64-win64-gcc, --extra-cflags=-static-libgcc],
-        env: { CROSS: '{CROSS_PREFIX}-' },
+        vars: { tool-prefix: '{CROSS_PREFIX}-' },
       }
     # libvpx's arm64-win64-gcc target covers any GCC-style driver, llvm-mingw's clang
     # included. This builds a static .a, so the runtime-linkage flags that matter live on
     # FFmpeg's own link.
-    win-arm64: { args: [--target=arm64-win64-gcc], env: { CROSS: '{CROSS_PREFIX}-' } }
+    win-arm64: { args: [--target=arm64-win64-gcc], vars: { tool-prefix: '{CROSS_PREFIX}-' } }
     android-arm64: { args: [--target=arm64-android-gcc, --extra-cflags=-fPIC] }
     android-x64: { args: [--target=x86_64-android-gcc, --extra-cflags=-fPIC] }
     # NOT arm64-darwin-gcc: libvpx treats arm*-darwin-* as iOS and injects

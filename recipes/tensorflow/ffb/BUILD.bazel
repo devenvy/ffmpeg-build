@@ -1,7 +1,3 @@
 
-cc_library(
-    name = "c_api_static",
-    deps = ["//tensorflow/c:c_api", "//tensorflow/core:tensorflow"],
-    linkstatic = True,
-    alwayslink = True,
-)
+# This package provides only metadata inspection, never a replacement build target.
+exports_files(["link.bzl"])

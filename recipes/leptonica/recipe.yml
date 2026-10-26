@@ -17,7 +17,6 @@ linkage:
         shared-args:
           [
             -DBUILD_SHARED_LIBS=ON,
-            -DCMAKE_C_VISIBILITY_PRESET=hidden,
             '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs,--exclude-libs,libpng16.a:libpng.a:libz.a',
           ]
       runtime: ['lib/libleptonica.so*']
@@ -27,12 +26,6 @@ build:
   # No programs.
   system: cmake
   vars: { shared-mode: '', shared-args: [] }
-  before:
-    - replace-in-file:
-        path: src/environ.h
-        from: "  #else  /* non-Windows specifics */\n    #define LEPT_DLL\n"
-        to: "  #else  /* non-Windows specifics */\n    #define LEPT_DLL __attribute__((visibility(\"default\")))\n"
-      when: { set: '{shared-mode}' }
   args:
     [
       '{shared-args}',
@@ -51,15 +44,14 @@ build:
     # and mingw's library is given a DLL's suffix (libleptonica-<version>.dll) even when static, which -lleptonica
     # doesn't find.
     'win-*':
-      before:
-        - replace-in-file:
-            {
-              path: src/CMakeLists.txt,
-              from: "if(MINGW)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX",
-              to: "if(MINGW AND BUILD_SHARED_LIBS)\n  set_target_properties(\n    leptonica PROPERTIES SUFFIX",
-            }
       after:
         - move: { from: '{deps}/lib/pkgconfig/lept_Release.pc', to: '{deps}/lib/pkgconfig/lept.pc' }
+        - check:
+            output: [file, -b, '{deps}/lib/libleptonica-{version}.dll']
+            matches: archive
+            message: Leptonica's native Windows static artifact is not an archive
+        # Keep the native filename for its installed CMake targets; add the conventional archive name for -l.
+        - copy: { from: '{deps}/lib/libleptonica-{version}.dll', to: '{deps}/lib/libleptonica.a' }
   after:
     - run:
         - python3

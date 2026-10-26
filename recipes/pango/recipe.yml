@@ -29,7 +29,8 @@ linkage:
       requires-link: { glib: [shared], cairo: [shared], fontconfig: [shared], harfbuzz: [shared] }
       vars:
         shared-mode: 'yes'
-        shared-args: [--default-library=shared, '-Dc_link_args=-Wl,-z,defs -lm']
+        shared-args:
+          [--default-library=shared, '-Dc_link_args=-Wl,-z,defs,--exclude-libs,libfribidi.a -lm']
       runtime: ['lib/libpango-1.0.so*', 'lib/libpangoft2-1.0.so*', 'lib/libpangocairo-1.0.so*']
 build:
   # Pango: text layout (LGPL-2.0-or-later), static, for librsvg's text. On cairo, with HarfBuzz and FriBidi, and the
@@ -54,33 +55,11 @@ build:
   # Its enum sources come from GLib's glib-mkenums, a program for the build machine: a cross build finds the Python
   # script GLib installed in deps (else Meson would fall back to building GLib again, as a subproject).
   env: { PATH: '{deps}/bin:{PATH}' }
-  # Its Fontconfig font map calls FcFreeTypeQueryAll, declared in fontconfig/fcfreetype.h, which 1.56 doesn't include
-  # (older Fontconfig headers brought it in by the way): included.
-  before:
-    - write-file: { path: '{src}/ffb-public-api.map', text: '{ global: pango_*; local: *; };' }
-      when: { set: '{shared-mode}' }
-    # Restrict only the native libraries: configure-test executables must retain
-    # the external SDK symbols their dependency DSOs reference.
-    - run:
-        - python3
-        - -c
-        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'pango', 'patch-shared.py'), run_name='__main__')"
-      when: { set: '{shared-mode}' }
-    - replace-in-file:
-        {
-          path: pango/pangofc-fontmap.c,
-          from: "#include <hb-ft.h>\n",
-          to: "#include <hb-ft.h>\n#include <fontconfig/fcfreetype.h>\n",
-        }
-    # newer clangs (llvm-mingw's) put -Wunused-but-set-global under -Wunused-but-set-variable, and GObject's type
-    # macros trip it; Pango makes that warning an error: a warning again
-    - replace-in-file:
-        {
-          path: meson.build,
-          from: "'-Werror=unused-but-set-variable',",
-          to: "'-Wunused-but-set-variable',",
-        }
+  # LLVM's unused-but-set-global warning covers GLib's generated parent-class variable.
+  # -Xclang passes this native frontend option after the project's driver warning flags,
+  # so the later upstream parent-group -Werror cannot override it. Keep the warning visible.
   platforms:
     'linux-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'android-*': { args: [-Dfontconfig=enabled, -Dfreetype=enabled] }
     'win-*': { args: [-Dfontconfig=disabled, -Dfreetype=disabled] }
+    win-arm64: { args: ['-Dc_args=-Xclang -Wno-error=unused-but-set-global'] }

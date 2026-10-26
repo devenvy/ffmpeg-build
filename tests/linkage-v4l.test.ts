@@ -17,7 +17,7 @@ describe('Native V4L library and decoder process packaging', () => {
     ).toHaveLength(1);
   });
 
-  it('keeps separately executed decoder program licenses explicit', () => {
+  it('uses native system helper paths instead of claiming relocated bundled executables', () => {
     const recipe = data.recipes.get('v4l-utils')!;
     expect(recipe.license).toBe('LGPL-2.1-or-later');
     expect(recipe.notes?.['>=1.32.0']).toContain('GPL-2.0-only');
@@ -26,8 +26,8 @@ describe('Native V4L library and decoder process packaging', () => {
       { value: 'lib/libv4l2.so*' },
       { value: 'lib/libv4lconvert.so*' },
       { value: 'lib/libv4l2rds.so*' },
-      { value: 'lib/ov511-decomp' },
-      { value: 'lib/ov518-decomp' },
     ]);
+    expect(recipe.linkage?.modes.static?.runtime).toBeUndefined();
+    expect(recipe.notes?.['>=1.32.0']).toContain('/usr/lib/libv4l');
   });
 });

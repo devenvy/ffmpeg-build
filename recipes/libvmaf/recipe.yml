@@ -5,7 +5,8 @@ license-files: [LICENSE]
 configure: [--enable-libvmaf]
 source: { git: https://github.com/Netflix/vmaf, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
-platforms: all
+# llvm-mingw's libc++ exposes an upstream libsvm swap ambiguity on Windows ARM64. No source rename is carried.
+platforms: [linux-*, win-x64, osx-*, ios-*, maccatalyst-*, android-*]
 linkage:
   default: static
   modes:
@@ -39,18 +40,6 @@ build:
         - -c
         - "import os, shutil; shutil.copyfile(os.path.join(os.environ['RECIPES'], 'libvmaf', 'exports.map'), 'ffb-public-api.map')"
       when: { set: '{shared-mode}' }
-    # libvmaf bundles libsvm, whose src/svm.cpp defines a global
-    #   template <class T> static inline void swap(T&, T&)
-    # Because svm_node lives in the global namespace, ADL makes that a candidate alongside
-    # std::swap wherever libc++ calls swap() unqualified inside <vector>, and every
-    # std::vector<svm_node>::push_back instantiation fails with "call to 'swap' is ambiguous".
-    # libstdc++ does not trip it (its internals qualify the call), which is why only llvm-mingw
-    # sees this. Rename libsvm's helper and its 26 call sites together -- they are all its own,
-    # svm.cpp pulls in no std::swap of its own. Verified by cross-building libvmaf v3.2.0 for
-    # aarch64-w64-mingw32 with and without the rename.
-    - replace-in-file:
-        { path: libvmaf/src/svm.cpp, from: '\bswap\(', to: 'libsvm_swap(', regex: true }
-      when: { platforms: [win-arm64] }
     # -Dbuilt_in_models=true is a REQUEST, not a guarantee: libvmaf's meson treats xxd as
     # `required: false` and emits the model sources only inside `if xxd.found()`, with no failure
     # branch. Without xxd the library builds cleanly, the FFmpeg filter still registers, and every

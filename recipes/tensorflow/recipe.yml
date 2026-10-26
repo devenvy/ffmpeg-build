@@ -13,24 +13,22 @@ license-files:
   - { recipe: BUILD-NOTICE.txt }
 configure: [--enable-libtensorflow]
 source: { git: https://github.com/tensorflow/tensorflow.git, ref: 'v{version}' }
-# Review inputs.json, the actual static owner closure and its notices together.
+# Review inputs.json, the native shared owner closure and its notices together.
 versions: { git-tags: '^v(2\.21\.0)$' }
 platforms: [linux-x64]
 linkage:
-  default: static
+  # Native alwayslink registration objects must stay in their monolithic owner.
+  # Stock FFmpeg propagates force-link dependency flags across shared objects.
+  default: shared
   modes:
-    static: {}
     shared:
       platforms: [linux-x64]
-      vars: { build-mode: shared }
       runtime: ['lib/libtensorflow.so*']
 build:
   system: none
-  vars: { build-mode: static }
   source-inventory: ffb-source-inputs.json
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'tensorflow', 'build.py'), run_name='__main__')"
-        - '{build-mode}'

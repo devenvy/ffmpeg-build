@@ -2,13 +2,6 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { fetchSource, sourceRecord, type SourceRecord } from './fetch.ts';
-import { fixCdioNaturalEof } from './ffmpeg-cdio.ts';
-import { fixDashStaticEof } from './ffmpeg-dash.ts';
-import { fixDnnThreadLifecycle } from './ffmpeg-dnn.ts';
-import { fixLv2FeatureTermination } from './ffmpeg-lv2.ts';
-import { fixMetalAutorelease } from './ffmpeg-metal.ts';
-import { fixTorchBackend } from './ffmpeg-torch.ts';
-import { fixXvidDelayedFrames } from './ffmpeg-xvid.ts';
 import { run, step } from './run.ts';
 import { beforeFfmpeg } from './toolchain.ts';
 
@@ -38,24 +31,6 @@ export function unshadowVersionHeader(dir: string, setup: string): boolean {
     );
   }
   rmSync(version);
-  return true;
-}
-
-/** FFmpeg 9.0.2 uses a switch-only attribute between libtls error labels; keep FFmpeg 8 and corrected sources. */
-export function fixLibtlsFallthrough(dir: string, flags: readonly string[]): boolean {
-  if (!flags.includes('--enable-libtls')) {
-    return false;
-  }
-  const path = join(dir, 'libavformat', 'tls_libtls.c');
-  const before = readFileSync(path, 'utf8');
-  const after = before.replace(
-    '    av_fallthrough;\nfail:\n',
-    '    /* ffmpeg-build 2026-10-21: error labels need no switch fallthrough attribute. */\nfail:\n',
-  );
-  if (after === before) {
-    return false;
-  }
-  writeFileSync(path, after);
   return true;
 }
 
@@ -95,30 +70,6 @@ export async function buildFfmpeg(
   }
   if (unshadowVersionHeader(dir, context.buildPlan.setup)) {
     step("VERSION removed: it would shadow libc++'s <version> (RELEASE gives the same version)");
-  }
-  if (fixLibtlsFallthrough(dir, ffmpeg.configure)) {
-    step('libtls: removed invalid switch fallthrough attribute between error labels');
-  }
-  if (fixDashStaticEof(dir, ffmpeg.configure)) {
-    step('Keep static DASH representation EOF independent of stream selection');
-  }
-  if (fixCdioNaturalEof(dir, ffmpeg.configure)) {
-    step('Bound CDIO reads to audio sectors and handle natural EOF');
-  }
-  if (fixMetalAutorelease(dir, ffmpeg.configure)) {
-    step('Metal: backported upstream autorelease-pool ownership fix');
-  }
-  if (fixLv2FeatureTermination(dir, ffmpeg.configure)) {
-    step('LV2: backported upstream feature-array NULL termination');
-  }
-  if (fixXvidDelayedFrames(dir, ffmpeg.configure)) {
-    step('Xvid: repaired delayed-frame draining and packet metadata');
-  }
-  if (fixDnnThreadLifecycle(dir, ffmpeg.configure)) {
-    step('DNN thread lifecycle corrected: only join threads after successful creation');
-  }
-  if (fixTorchBackend(dir, ffmpeg.configure)) {
-    step('Torch: modern static probe, parameterless models and request cleanup corrected');
   }
   const install = join(context.work, 'install');
   const env = {

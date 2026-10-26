@@ -78,7 +78,8 @@ export function linkagePlan(
     }
   }
   for (const [name, mode] of Object.entries(modes)) {
-    const requirements = data.recipes.get(name)!.linkage!.modes[mode]!['requires-link'] ?? {};
+    const choice = data.recipes.get(name)!.linkage!.modes[mode]!;
+    const requirements = choice['requires-link'] ?? {};
     for (const [provider, requirement] of Object.entries(requirements)) {
       if (Array.isArray(requirement) || platformMatches(platform, requirement.platforms)) {
         const allowed = Array.isArray(requirement) ? requirement : requirement.modes;
@@ -88,6 +89,18 @@ export function linkagePlan(
             `link: ${name} ${mode} requires ${provider} linking as ${allowed.join(' or ')} (selected ${selected ?? 'absent'})`,
           );
         }
+      }
+    }
+    for (const [peer, conflict] of Object.entries(choice['conflicts-link'] ?? {})) {
+      const selected = modes[peer];
+      if (
+        selected &&
+        conflict.modes.includes(selected) &&
+        platformMatches(platform, conflict.platforms)
+      ) {
+        errors.push(
+          `link: ${name} ${mode} conflicts with ${peer} ${selected} on ${platform}: ${conflict.reason}`,
+        );
       }
     }
   }

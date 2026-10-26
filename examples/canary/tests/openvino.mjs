@@ -33,4 +33,12 @@ const actual = run(
 );
 assert.equal(actual.length, FRAME_COUNT);
 assert.deepEqual(actual, expected);
-console.log('OpenVINO CPU inference preserved all three RGB test frames through natural EOF');
+assert.deepEqual(
+  run(
+    `format=rgb24,trim=end_frame=0,dnn_processing=dnn_backend=openvino:model=${model}:input=x:output=relu:options=layout=nchw`,
+  ),
+  [],
+);
+console.log(
+  'OpenVINO CPU inference preserved all three RGB frames through natural EOF and clean empty-input shutdown',
+);

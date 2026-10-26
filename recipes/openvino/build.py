@@ -1,8 +1,7 @@
 """Build the CPU C API with its native static closure or shared plugin owner."""
 import os
 from pathlib import Path
-import re
-import runpy
+import shlex
 import shutil
 import subprocess
 import sys
@@ -28,36 +27,33 @@ off = ['ENABLE_INTEL_GPU', 'ENABLE_INTEL_NPU', 'ENABLE_PROXY', 'ENABLE_AUTO',
        'ENABLE_KLEIDIAI_FOR_CPU', 'CMAKE_COMPILE_WARNING_AS_ERROR']
 shared_args = []
 if shared:
-    native_link = runpy.run_path(str(Path(os.environ['RECIPES']) / 'openvino/native-link.py'))
-    native_link['prepare'](src)
-    private_flags = '-static-libstdc++ -shared-libgcc -pthread -Wl,-z,defs'
-    shared_args = ['-DENABLE_PLUGINS_XML=ON', '-DCMAKE_SHARED_LINKER_FLAGS=' + private_flags,
-                   '-DCMAKE_MODULE_LINKER_FLAGS=' + private_flags]
+    native_flags = '-shared-libgcc -pthread -Wl,-z,defs'
+    shared_args = ['-DENABLE_PLUGINS_XML=ON', '-DCMAKE_SHARED_LINKER_FLAGS=' + native_flags,
+                   '-DCMAKE_MODULE_LINKER_FLAGS=' + native_flags]
 run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
+     '-DCMAKE_INSTALL_PREFIX=' + str(deps), '-DCMAKE_INSTALL_LIBDIR=lib',
+     '-DCMAKE_INSTALL_INCLUDEDIR=include', '-DCPACK_GENERATOR=CONAN',
+     '-DENABLE_PKGCONFIG_GEN=' + ('ON' if shared else 'OFF'),
      '-DBUILD_SHARED_LIBS=' + ('ON' if shared else 'OFF'), '-DTHREADING=SEQ', '-DENABLE_INTEL_CPU=ON',
      '-DENABLE_OV_IR_FRONTEND=ON'] + ['-D' + name + '=OFF' for name in off] + shared_args)
-if shared:
-    native_link['audit'](build / 'build.ninja', os.environ['VERSION'])
 # Building this target also builds its runtime/plugin/frontend dependencies,
 # while excluding upstream's documentation executables and sample extensions.
 targets = ['openvino_c', 'openvino_intel_cpu_plugin', 'openvino_ir_frontend'] if shared else ['openvino_c']
 run(['cmake', '--build', build, '--target', *targets, '--parallel', os.environ['JOBS']])
+# OpenVINO's native common-library layout preserves its complete headers, archives and CMake SDK.
+# Components exclude samples/tools that were not built; no vendor file is rewritten.
+for component in (['core', 'core_dev', 'cpu', 'ir'] if shared else ['core', 'core_dev']):
+    run(['cmake', '--install', build, '--component', component])
 if shared:
-    runtime = list((src / 'bin').rglob('libopenvino*.so*'))
+    lib = deps / 'lib'
+    runtime = list(lib.glob('libopenvino*.so*'))
     expected = {'libopenvino', 'libopenvino_c', 'libopenvino_ir_frontend', 'libopenvino_intel_cpu_plugin'}
     actual = {path.name.split('.so')[0] for path in runtime}
     if actual != expected:
         raise SystemExit('Review complete native OpenVINO CPU runtime inventory: ' + repr(actual))
-    lib = deps / 'lib'
-    lib.mkdir(parents=True, exist_ok=True)
-    for path in runtime:
-        shutil.copy2(path, lib / path.name, follow_symlinks=False)
-    configurations = list((src / 'bin').rglob('plugins.xml'))
-    if len(configurations) != 1:
-        raise SystemExit('Expected one native CPU plugin registry: ' + repr(configurations))
-    shutil.copy2(configurations[0], lib / 'plugins.xml')
-    shutil.copytree(src / 'src/bindings/c/include/openvino', deps / 'include/openvino', dirs_exist_ok=True)
+    if not (lib / 'plugins.xml').is_file():
+        raise SystemExit('Native install omitted the CPU plugin registry')
     sys.exit(0)
 inventory.mkdir(exist_ok=True)
 (inventory / 'main.c').write_text('int main(void) { return 0; }\n')
@@ -72,7 +68,8 @@ target_link_libraries(ffb_inventory PRIVATE openvino::runtime::c)
 run(['cmake', '-S', inventory, '-B', inventory / 'build', '-G', 'Unix Makefiles',
      '-DOV_BUILD=' + str(build)])
 link = (inventory / 'build/CMakeFiles/ffb_inventory.dir/link.txt').read_text()
-archives = list(dict.fromkeys(re.findall(r'/[^\s]+\.a', link)))
+archives = list(dict.fromkeys(token for token in shlex.split(link)
+                              if token.endswith('.a') and Path(token).is_absolute()))
 if not archives:
     raise SystemExit('OpenVINO did not export a static dependency closure')
 lib = deps / 'lib'
@@ -85,7 +82,5 @@ for archive in archives:
     name = 'libffb_ov_' + '_'.join(relative.parts)
     shutil.copy2(path, lib / name)
     names.append('-l:' + name)
-(lib / 'libopenvino.a').write_text('GROUP (\n' + '\n'.join(names) +
+(lib / 'ffb-openvino-cpu.ld').write_text('GROUP (\n' + '\n'.join(names) +
                                   '\n-l:libstdc++.a -lm -ldl -lpthread\n)\n')
-shutil.copytree(src / 'src/bindings/c/include/openvino', deps / 'include/openvino',
-                dirs_exist_ok=True)

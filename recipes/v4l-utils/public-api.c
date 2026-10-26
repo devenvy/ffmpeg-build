@@ -18,6 +18,25 @@ int main(void) {
     assert(rds);
     v4l2_rds_reset(rds, 1);
     v4l2_rds_destroy(rds);
+    unsigned char rgb[16 * 16 * 3], bgr[sizeof(rgb)];
+    for (size_t i = 0; i < sizeof(rgb); i += 3) {
+        rgb[i] = 31; rgb[i + 1] = 73; rgb[i + 2] = 229;
+    }
+    struct v4l2_format rgb_format = {0}, bgr_format = {0};
+    rgb_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    rgb_format.fmt.pix.width = rgb_format.fmt.pix.height = 16;
+    rgb_format.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+    rgb_format.fmt.pix.bytesperline = 16 * 3;
+    rgb_format.fmt.pix.sizeimage = sizeof(rgb);
+    bgr_format = rgb_format;
+    bgr_format.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
+    struct v4lconvert_data *software = v4lconvert_create(-1);
+    assert(software);
+    assert(v4lconvert_convert(software, &rgb_format, &bgr_format,
+                             rgb, sizeof(rgb), bgr, sizeof(bgr)) == sizeof(bgr));
+    for (size_t i = 0; i < sizeof(bgr); i += 3)
+        assert(bgr[i] == 229 && bgr[i + 1] == 73 && bgr[i + 2] == 31);
+    v4lconvert_destroy(software);
     assert(chdir("/") == 0);
     for (int is518 = 0; is518 < 2; is518++) {
         unsigned char source[80], output[1024];
@@ -52,8 +71,13 @@ int main(void) {
             memset(output, 0, sizeof(output));
             const int count = v4lconvert_convert(conversion, &input, &format,
                                                 source, length, output, sizeof(output));
+            const char *available = getenv(is518 ? "FFB_V4L_OV518" : "FFB_V4L_OV511");
+            if (!available || strcmp(available, "1") != 0) {
+                assert(count < 0 && *v4lconvert_get_error_message(conversion));
+                break;
+            }
             if (count != (int)format.fmt.pix.sizeimage) {
-                fprintf(stderr, "%s\n", v4lconvert_get_error_message(conversion));
+                fprintf(stderr, "Installed native system decoder failed: %s\n", v4lconvert_get_error_message(conversion));
                 v4lconvert_destroy(conversion);
                 return 1;
             }
@@ -63,6 +87,6 @@ int main(void) {
         }
         v4lconvert_destroy(conversion);
     }
-    puts("V4L: native public libraries, two independent decoder processes, exact authored conversions and cleanup passed");
+    puts("V4L: native RGB conversion, RDS, device errors and optional system-helper dispatch/absence passed");
     return 0;
 }

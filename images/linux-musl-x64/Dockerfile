@@ -2,15 +2,25 @@
 # packages upstream's 03_install_packages.sh installs for musl. Artifacts link libgcc and libstdc++ statically, so
 # they run on any musl system. The library cache keys on this image's Docker ID.
 FROM mirror.gcr.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS toolchain
+RUN apk add --no-cache gettext-dev
 FROM mirror.gcr.io/library/node:24.20.0-alpine3.23@sha256:0388af2af070cd4736a1567cfed02469ba117848845b4165d87a333edb53d2ca AS node
 FROM mirror.gcr.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 COPY --from=node /usr/local/ /usr/local/
+# Bootstrap data only: gettext-dev's GNU header conflicts with musl's native gettext implementation.
+COPY --from=toolchain /usr/share/gettext/ /usr/share/gettext/
+COPY --from=toolchain /usr/share/aclocal/nls.m4 /usr/share/aclocal/nls.m4
 
 # bash, jq and GNU findutils/coreutils/tar/sed/grep for the driver (BusyBox lacks find -printf and friends);
 # xxd for libvmaf's built-in models; python3 for meson. Alpine's own glslc is new enough (probed below).
 RUN apk add --no-cache \
-      bash autoconf automake libtool build-base cmake curl diffutils gperf git linux-headers m4 meson nasm ninja \
+      bash autoconf automake libtool gettext musl-libintl llvm-libunwind-static argp-standalone build-base cmake curl diffutils gperf git linux-headers m4 meson nasm ninja \
       patchelf perl pkgconf xz yasm xxd glslang shaderc jq python3 tar findutils coreutils sed grep
+RUN autopoint --version \
+ && apk info --who-owns /usr/lib/libunwind.a \
+ && test -s /usr/lib/libunwind.a && test ! -e /usr/lib/libunwind.so \
+ && test -s /usr/share/gettext/archive.dir.tar.xz \
+ && printf '#include <libintl.h>\nint main(void) { bindtextdomain("ffb", "."); return dgettext("ffb", "ok") == 0; }\n' | cc -x c - -o /tmp/gettext-probe \
+ && /tmp/gettext-probe && rm -f /tmp/gettext-probe
 
 # FFmpeg 8.1+ / 9.x probe the shader compiler with Vulkan 1.4 / SPIR-V 1.6; a glslc that predates Vulkan 1.4 makes
 # configure drop every Vulkan filter silently. The image fails to build rather than produce such builds.

@@ -7,17 +7,12 @@ license-files: [{ recipe: LGPL-2.1.txt }]
 configure: [--enable-libjack]
 source: { git: https://github.com/jackaudio/jack2.git, ref: 'v{version}' }
 versions: { git-tags: '^v(\d+\.\d+\.\d+)$' }
-platforms: [linux-*]
-# Static clients speak JACK2's protocol. Select shared for PipeWire's pw-jack replacement through LD_LIBRARY_PATH.
+# Native Linux client builds are shared. Alpine's current Python cannot run this release's bundled Waf.
+platforms: [linux-x64, linux-arm64, linux-armhf]
 linkage:
-  default: static
+  default: shared
   modes:
-    static: { runtime: [] }
     shared:
-      vars:
-        client-cxx-feature: cxxshlib
-        client-c-feature: cshlib
-        static-mode: ''
       runtime: ['lib/libjack.so*']
 build:
   # JACK2 (waf), for FFmpeg's jack input device: none of the optional backends or codecs (ALSA, FireWire, IIO,
@@ -27,44 +22,24 @@ build:
   vars:
     cc: gcc
     cxx: g++
-    client-cxx-feature: cxxstlib
-    client-c-feature: cstlib
-    static-mode: 'yes'
+    python: '{JACK_PYTHON|python3}'
     # glibc thread cancellation must share its system unwinder, including inside FFmpeg's shared libraries.
     runtime-link-flags: '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a'
-    unwind-libs: '-shared-libgcc -lgcc_s'
-    hidden-archives: 'libjack.a:libstdc++.a:libgcc.a'
   env:
     LDFLAGS: '+= {runtime-link-flags}'
   platforms:
     'linux-armhf': { vars: { cc: arm-linux-gnueabihf-gcc, cxx: arm-linux-gnueabihf-g++ } }
-    # shipped on musl: it asks for glibc's 8 MiB thread stacks, as FFmpeg's own libraries do (platforms.yml), and
-    # takes its C++ and GCC runtimes in statically, as every musl build does
-    'linux-musl-*':
-      {
-        vars:
-          {
-            runtime-link-flags: '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a',
-            unwind-libs: '-l:libgcc.a -l:libgcc_eh.a',
-            hidden-archives: 'libjack.a:libstdc++.a:libgcc.a:libgcc_eh.a',
-          },
-        env: { LDFLAGS: '+= -Wl,-z,stack-size=8388608 {runtime-link-flags}' },
-      }
+  before:
+    # The toolchain can select a compatible interpreter without changing its global Python.
+    - [
+        '{python}',
+        -c,
+        "import sys; sys.exit('JACK 1.9.22 requires Python 3.11 or earlier for its bundled Waf') if sys.version_info >= (3, 12) else None",
+      ]
   steps:
-    # its waf (2.0.12) imports imp, which Python 3.12 removed: types.ModuleType is what imp.new_module made
-    - replace-in-file:
-        {
-          path: waflib/Context.py,
-          from: 'import os, re, imp, sys',
-          to: 'import os, re, sys, types',
-        }
-    - replace-in-file: { path: waflib/Context.py, from: 'imp.new_module(', to: 'types.ModuleType(' }
-    - replace-in-file:
-        path: common/wscript
-        from: "clientlib = bld(features=['c', 'cxx', 'cxxshlib', 'cshlib'])"
-        to: "clientlib = bld(features=['c', 'cxx', '{client-cxx-feature}', '{client-c-feature}'])"
+    # Run the release's unchanged Waf with its supported Python (3.11 or earlier, providing imp).
     - run:
-        - python3
+        - '{python}'
         - ./waf
         - configure
         - '--prefix={deps}'
@@ -82,10 +57,5 @@ build:
         - --db=no
         - --doxygen=no
       env: { CC: '{cc}', CXX: '{cxx}' }
-    - [python3, ./waf, build, '-j{jobs}']
-    - [python3, ./waf, install]
-    - edit-pkg-config:
-        path: '{deps}/lib/pkgconfig/jack.pc'
-        libs-private:
-          add: '-l:libstdc++.a {unwind-libs} -lm -pthread -ldl -lrt -Wl,--exclude-libs,{hidden-archives}'
-      when: { set: '{static-mode}' }
+    - ['{python}', ./waf, build, '-j{jobs}']
+    - ['{python}', ./waf, install]

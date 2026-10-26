@@ -24,14 +24,20 @@ build:
   # XEVE: MPEG-5 EVC encoder, main profile (BSD-3-Clause), static, for FFmpeg's libxeve encoder (found through xeve.pc,
   # 0.5.1 or later). Its CMake always builds the shared library beside the static one, puts the static one in lib/xeve/
   # (xeve.pc reaches it only through Libs.private), and its gcc branch, which Apple's clang also takes, adds -Werror
-  # to gcc-only warning flags. So: no -Werror, no command-line app, and after the install the static archive is
+  # to gcc-only warning flags. Native Release flags allow non-fatal warnings; native library targets and install
+  # components omit the apps without altering their build rules. After installation the static archive is
   # moved to lib/, the shared library (and Windows' DLL and import library) removed, and the .pc's extra -L dropped.
   system: cmake
+  build-targets: [xeve, xeve_dynamic]
+  install-components: [Libraries, Development]
   vars: { static-mode: 'yes', shared-link-arg: [] }
-  args: [-DSET_PROF=MAIN, '{shared-link-arg}']
-  before:
-    - replace-in-file: { path: CMakeLists.txt, from: ' -Werror', to: '' }
-    - replace-in-file: { path: CMakeLists.txt, from: 'add_subdirectory(app)', to: '' }
+  args:
+    [
+      -DSET_PROF=MAIN,
+      '-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -Wno-error',
+      -DCMAKE_MACOSX_BUNDLE=OFF,
+      '{shared-link-arg}',
+    ]
   after:
     - remove: { path: '{deps}/lib/libxeve.so*' }
       when: { set: '{static-mode}' }

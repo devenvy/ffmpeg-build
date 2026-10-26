@@ -10,14 +10,14 @@ environment = dict(os.environ, PKG_CONFIG_PATH=str(library_dir / 'pkgconfig'),
                    LD_LIBRARY_PATH=str(library_dir), LD_BIND_NOW='1')
 flags = shlex.split(subprocess.check_output(
     ['pkg-config', '--cflags', '--libs', 'tesseract', 'lept'], text=True, env=environment))
-subprocess.run([*shlex.split(compiler), '-std=c++17', '-static-libstdc++',
+subprocess.run([*shlex.split(compiler), '-std=c++17', '-shared-libgcc',
                 str(Path(os.environ['RECIPES'], 'tesseract', 'public-api.cpp')),
                 *flags, '-o', output], check=True, env=environment)
 subprocess.run([output], check=True, timeout=30, env=environment)
-library = library_dir / 'libtesseract.so.5.5'
+library = library_dir / 'libtesseract.so.5'
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
-assert '[libtesseract.so.5.5]' in dynamic and '[libleptonica.so.6]' in dynamic, dynamic
-assert 'libstdc++.so' not in dynamic, dynamic
+assert '[libtesseract.so.5]' in dynamic and '[libleptonica.so.6]' in dynamic, dynamic
+assert '[libstdc++.so.6]' in dynamic, dynamic
 assert 'libgcc_s.so.1' in dynamic, dynamic
 symbols = subprocess.check_output(['nm', '-D', '--defined-only', library], text=True)
 names = {line.split()[-1].split('@')[0] for line in symbols.splitlines() if line.split()}

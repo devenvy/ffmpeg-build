@@ -2,7 +2,7 @@ name: v4l-utils
 provides: v4l2
 # libv4l (libv4l2 and libv4lconvert), what is built of v4l-utils
 license: LGPL-2.1-or-later
-license-files: [COPYING.libv4l, COPYING, { recipe: RUNTIME-PROGRAMS.txt }]
+license-files: [COPYING.libv4l, COPYING]
 configure: [--enable-libv4l2]
 source:
   url: 'https://linuxtv.org/downloads/v4l-utils/v4l-utils-{version}.tar.xz'
@@ -14,40 +14,31 @@ versions:
 platforms: [linux-*]
 notes:
   '>=1.32.0': >-
-    Linux x64 static and shared modes ship ov511-decomp and ov518-decomp as independent
-    GPL-2.0-only programs, with BSD-2-Clause helper utility code. The LGPL
-    libraries call them through upstream's existing fork/pipe protocol;
-    they are not linked into FFmpeg or these libraries. See the separate
-    runtime-program notices and complete pinned sources.
+    OV511/OV518 conversion requires independent system helpers at
+    /usr/lib/libv4l/ov511-decomp and /usr/lib/libv4l/ov518-decomp.
+    They are GPL-2.0-only programs, with BSD-2-Clause utility code;
+    they are neither linked into FFmpeg nor bundled in its runtime archive.
+    Other native software conversions do not need these programs.
 linkage:
   default: static
   modes:
-    static:
-      runtime:
-        - lib/ov511-decomp: { platforms: [linux-x64] }
-        - lib/ov518-decomp: { platforms: [linux-x64] }
+    static: {}
     shared:
       platforms: [linux-x64]
       vars: { shared-mode: 'yes', library-arg: --default-library=shared }
-      runtime:
-        [
-          'lib/libv4l1.so*',
-          'lib/libv4l2.so*',
-          'lib/libv4lconvert.so*',
-          'lib/libv4l2rds.so*',
-          lib/ov511-decomp,
-          lib/ov518-decomp,
-        ]
+      runtime: ['lib/libv4l1.so*', 'lib/libv4l2.so*', 'lib/libv4lconvert.so*', 'lib/libv4l2rds.so*']
 build:
   # libv4l2 and libv4lconvert (LGPL-2.1-or-later), static, for FFmpeg's v4l2 input device (its use_libv4l2 option:
   # libv4l's format conversion, for cameras whose formats FFmpeg doesn't take). The libraries alone: no tools,
-  # plugins (a static libv4l2 loads none), LD_PRELOAD wrappers, libdvbv5, JPEG decoding (MJPEG cameras convert
+  # device plugins in either mode, LD_PRELOAD wrappers, libdvbv5, JPEG decoding (MJPEG cameras convert
   # without it in FFmpeg itself) or docs.
   system: meson
+  env: { DESTDIR: '{src}/_stage' }
   vars: { shared-mode: '', library-arg: [] }
   args:
     [
       '{library-arg}',
+      --prefix=/usr,
       -Dauto_features=disabled,
       -Dv4l-utils=false,
       -Dv4l-plugins=false,
@@ -60,33 +51,13 @@ build:
     # FFmpeg's v4l2 device (whose ioctl pointer is POSIX's on musl) can't take
     'linux-musl-*':
       after:
-        - replace-in-file:
-            {
-              path: '{deps}/include/libv4l2.h',
-              from: '#ifdef LIBV4L_HAVE_POSIX_IOCTL',
-              to: '#if 1 /* musl: built with POSIX ioctl */',
-            }
-  before:
-    - run:
-        - python3
-        - -c
-        - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'v4l-utils', 'prepare-shared.py'), run_name='__main__')"
-      when: { platforms: [linux-x64] }
-    # argp is only its tools', and libintl (gettext) only libdvbv5's, which aren't built; musl has neither in its C
-    # library
-    - replace-in-file:
-        {
-          path: meson.build,
-          from: "dep_argp = cc.find_library('argp')",
-          to: "dep_argp = cc.find_library('argp', required : false)",
-        }
-    - replace-in-file:
-        {
-          path: meson.build,
-          from: "dep_intl = dependency('intl')",
-          to: "dep_intl = dependency('intl', required : false)",
-        }
+        - edit-pkg-config:
+            { path: '{deps}/lib/pkgconfig/libv4l2.pc', cflags: { add: -DLIBV4L_HAVE_POSIX_IOCTL } }
   after:
+    - copy: { from: '{src}/_stage/usr', to: '{deps}', recursive: true, preserve: true }
+    - edit-pkg-config:
+        path: '{deps}/lib/pkgconfig/libv4l*.pc'
+        variables: { prefix: '{deps}' }
     - run:
         - python3
         - -c

@@ -62,23 +62,22 @@ const withEnv = (line: string, ...env: string[]) =>
 
 // ALSA defaults to static builtin plugins; PulseAudio and JACK retain shared client libraries.
 describe('alsa-lib', () => {
-  // the distributions' plugin folders for the platform, Debian's multiarch one first
+  // Upstream uses one plugin directory, with ALSA_PLUGIN_DIR as the recipient's native override.
   const plugindirs: Record<string, string> = {
-    'linux-x64': '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-musl-x64': '/usr/lib/x86_64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-arm64': '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-musl-arm64': '/usr/lib/aarch64-linux-gnu/alsa-lib:/usr/lib64/alsa-lib:/usr/lib/alsa-lib',
-    'linux-armhf': '/usr/lib/arm-linux-gnueabihf/alsa-lib:/usr/lib/alsa-lib',
+    'linux-x64': '/usr/lib/x86_64-linux-gnu/alsa-lib',
+    'linux-musl-x64': '/usr/lib/alsa-lib',
+    'linux-arm64': '/usr/lib/aarch64-linux-gnu/alsa-lib',
+    'linux-musl-arm64': '/usr/lib/alsa-lib',
+    'linux-armhf': '/usr/lib/arm-linux-gnueabihf/alsa-lib',
   };
   it.each(platformsOf('alsa-lib'))('%s', async (platform) => {
     const h = fake(platform);
     expect(h.base['CFLAGS']).toContain('-fPIC');
     const dlmisc = join(h.src, 'src', 'dlmisc.c');
-    put(
-      dlmisc,
+    const original =
       '\tsnprintf(path, path_len, "%s/%s",\n\t\t snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR, name);\n' +
-        '#ifndef PIC\n\tif (name == NULL)\n\t\treturn &snd_dlsym_start;\n#else\n',
-    );
+      '#ifndef PIC\n\tif (name == NULL)\n\t\treturn &snd_dlsym_start;\n#else\n';
+    put(dlmisc, original);
     const topology = pcPath(h, 'alsa-topology');
     h.onRun = (call) => {
       if (call.args.includes('install-pkgconfigDATA')) {
@@ -107,12 +106,7 @@ describe('alsa-lib', () => {
       ].map((line) => withEnv(line, muslLdflags(platform))),
     );
     expect(existsSync(topology)).toBe(false);
-    // ALSA_PLUGIN_DIR read as a list: the first folder that has the plugin
-    const patched = h.read(dlmisc);
-    expect(patched).toContain("end = strchr(dir, ':');");
-    expect(patched).toContain('if (access(path, F_OK) == 0)');
-    expect(patched).not.toContain('snd_plugin_dir ? snd_plugin_dir : ALSA_PLUGIN_DIR');
-    expect(patched).toContain('External plugins are disabled in this static ALSA build');
+    expect(h.read(dlmisc)).toBe(original);
   });
   it('is LGPL-2.1-or-later, on Linux, with an opt-in shared runtime', () => {
     expect(recipe('alsa-lib').license).toBe('LGPL-2.1-or-later');
@@ -143,25 +137,36 @@ describe('pulseaudio', () => {
       return undefined;
     };
     await build(h, 'pulseaudio');
-    expect(h.read(common)).toContain("libpulsecommon = library('pulsecommon-'");
-    expect(h.read(client)).not.toContain('shared_library(');
+    expect(h.read(common)).toBe(
+      "libpulsecommon = shared_library('pulsecommon-' + pa_version_major_minor,\n",
+    );
+    expect(h.read(client)).toBe(
+      "libpulse = shared_library('pulse',\nlibpulse_simple = shared_library('pulse-simple',\nlibpulse_mainloop_glib = shared_library('pulse-mainloop-glib',\n",
+    );
     expect(h.read(pc)).toContain('-lpulsecommon-1.2 -lm -ldl -lrt');
     expect(h.read(pc)).toContain('Requires.private: sndfile');
-    // no translations, so no <libintl.h> (musl has none)
-    expect(h.read(meson)).toBe('\n');
+    expect(h.read(meson)).toBe("cdata.set('ENABLE_NLS', 1)\n");
     expect(commands(h)).toEqual(
       [
         [
           'meson setup _build .',
           `--prefix=${h.deps}`,
-          '--libdir=lib --buildtype=release --default-library=static -Db_staticpic=true --sysconfdir=/etc --localedir=/usr/share/locale',
+          '--libdir=lib --buildtype=release --default-library=shared -Db_staticpic=true --sysconfdir=/etc --localedir=/usr/share/locale',
           ...h.context.toolchain.mesonArgs,
           '-Dauto_features=disabled -Ddaemon=false -Dclient=true -Ddoxygen=false -Dman=false -Dtests=false',
           '-Dbashcompletiondir=no -Dzshcompletiondir=no',
         ].join(' '),
         'meson compile -C _build',
         'meson install -C _build --tags runtime,devel',
-      ].map((line) => withEnv(line, muslLdflags(platform))),
+      ].map((line) =>
+        withEnv(
+          line,
+          platform.startsWith('linux-musl-') ? `CPPFLAGS= -I${h.deps}/include` : '',
+          platform.startsWith('linux-musl-')
+            ? `LDFLAGS= -L${h.deps}/lib -Wl,-z,stack-size=8388608`
+            : '',
+        ),
+      ),
     );
   });
   it('is the client library alone, on libsndfile, shipped with its libpulsecommon', () => {
@@ -192,13 +197,20 @@ describe('libsndfile', () => {
     );
   });
   it('builds where PulseAudio does', () => {
-    expect(platformsOf('libsndfile')).toEqual(platformsOf('pulseaudio'));
+    expect(platformsOf('libsndfile')).toEqual(PLATFORMS);
   });
 });
 
 describe('jack2', () => {
-  it.each(platformsOf('jack2'))('%s', async (platform) => {
-    const h = fake(platform);
+  it.each(
+    platformsOf('jack2').flatMap((platform) =>
+      ['python3', '/opt/python/cp311-cp311/bin/python3.11'].map(
+        (python) => [platform, python] as const,
+      ),
+    ),
+  )('%s with %s', async (platform, python) => {
+    const h = harness(platform, { env: { JACK_PYTHON: python } });
+    made.push(h);
     const context = join(h.src, 'waflib', 'Context.py');
     put(context, 'import os, re, imp, sys\n\tmodule = imp.new_module(WSCRIPT_FILE)\n');
     const common = join(h.src, 'common', 'wscript');
@@ -211,28 +223,23 @@ describe('jack2', () => {
       return undefined;
     };
     await build(h, 'jack2');
-    expect(h.read(common)).toContain("features=['c', 'cxx', 'cxxstlib', 'cstlib']");
-    expect(h.read(pc)).toContain(
-      platform.startsWith('linux-musl-')
-        ? '-l:libstdc++.a -l:libgcc.a -l:libgcc_eh.a'
-        : '-l:libstdc++.a -shared-libgcc -lgcc_s',
-    );
-    expect(h.read(pc)).toContain('--exclude-libs,libjack.a:');
-    // Python 3.12 has no imp
+    expect(h.read(common)).toBe("clientlib = bld(features=['c', 'cxx', 'cxxshlib', 'cshlib'])\n");
+    expect(h.read(pc)).toBe('Name: jack\nLibs: -ljack\n');
     expect(h.read(context)).toBe(
-      'import os, re, sys, types\n\tmodule = types.ModuleType(WSCRIPT_FILE)\n',
+      'import os, re, imp, sys\n\tmodule = imp.new_module(WSCRIPT_FILE)\n',
     );
     const cross = platform === 'linux-armhf' ? 'arm-linux-gnueabihf-' : '';
-    const privateRuntime = platform.startsWith('linux-musl-')
-      ? '-static-libstdc++ -static-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a:libgcc_eh.a'
-      : '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a';
-    const musl = platform.startsWith('linux-musl-')
-      ? muslLdflags(platform, ` ${privateRuntime}`)
-      : `LDFLAGS= ${privateRuntime}`;
+    const privateRuntime =
+      '-static-libstdc++ -shared-libgcc -Wl,--exclude-libs,libstdc++.a:libgcc.a';
+    const musl = `LDFLAGS= ${privateRuntime}`;
     expect(commands(h)).toEqual([
       withEnv(
+        `${python} -c import sys; sys.exit('JACK 1.9.22 requires Python 3.11 or earlier for its bundled Waf') if sys.version_info >= (3, 12) else None`,
+        musl,
+      ),
+      withEnv(
         [
-          'python3 ./waf configure',
+          `${python} ./waf configure`,
           `--prefix=${h.deps} --libdir=${h.deps}/lib`,
           '--autostart=none --alsa=no --firewire=no --iio=no --portaudio=no --winmme=no --celt=no --opus=no',
           '--samplerate=no --systemd=no --db=no --doxygen=no',
@@ -241,13 +248,13 @@ describe('jack2', () => {
         `CXX=${cross}g++`,
         musl,
       ),
-      withEnv('python3 ./waf build -j4', musl),
-      withEnv('python3 ./waf install', musl),
+      withEnv(`${python} ./waf build -j4`, musl),
+      withEnv(`${python} ./waf install`, musl),
     ]);
   });
   it('ships libjack (LGPL-2.1-or-later) on Linux', () => {
     expect(recipe('jack2').license).toBe('LGPL-2.1-or-later');
-    expect(platformsOf('jack2')).toEqual(LINUX);
+    expect(platformsOf('jack2')).toEqual(['linux-x64', 'linux-arm64', 'linux-armhf']);
     expect(recipe('jack2').linkage!.modes.shared!.runtime).toEqual([{ value: 'lib/libjack.so*' }]);
   });
 });
@@ -292,7 +299,7 @@ describe('openal-soft', () => {
     const h = fake(platform);
     const pc = pcPath(h, 'openal');
     const alc = join(h.src, 'alc', 'alc.cpp');
-    put(alc, '| std::views::transform(&ContextBase::EffectSlotCluster::operator*)\n');
+    put(alc, 'unmodified upstream source\n');
     h.onRun = (call) => {
       if (call.command === 'cmake' && call.args[0] === '--install') {
         put(pc, 'Name: OpenAL\nLibs: -lopenal\nLibs.private: -lm\n');
@@ -312,7 +319,6 @@ describe('openal-soft', () => {
         '-DALSOFT_INSTALL_EXAMPLES=OFF',
         '-DALSOFT_INSTALL_UTILS=OFF',
         '-DALSOFT_UPDATE_BUILD_VERSION=OFF',
-        '-DALSOFT_ENABLE_MODULES=OFF',
         '-DALSOFT_BACKEND_PIPEWIRE=OFF',
         '-DALSOFT_BACKEND_PULSEAUDIO=OFF',
         '-DALSOFT_BACKEND_JACK=OFF',
@@ -323,14 +329,15 @@ describe('openal-soft', () => {
         ...(platform.startsWith('linux-')
           ? ['-DALSOFT_REQUIRE_ALSA=ON', '-DALSOFT_DLOPEN=OFF']
           : []),
-      ]),
+      ]).map((line) =>
+        platform === 'win-arm64'
+          ? `${line} [CXXFLAGS=${h.base['CXXFLAGS'] ?? ''} -include stdlib.h]`
+          : line,
+      ),
     );
     expect(h.read(pc)).toContain(`Libs.private: -lm ${cxxRuntime(platform)}`);
     expect(h.read(pc).includes('Requires.private: alsa')).toBe(platform.startsWith('linux-'));
-    // a lambda for the member pointer newer libc++ can't deduce in views::transform
-    expect(h.read(alc)).toBe(
-      '| std::views::transform([](auto &cluster) -> auto& { return *cluster; })\n',
-    );
+    expect(h.read(alc)).toBe('unmodified upstream source\n');
     // Windows: COM's and the known folders' libraries, which its .pc leaves out
     expect(h.read(pc).includes('-lole32 -lshell32 -luuid')).toBe(platform.startsWith('win-'));
   });

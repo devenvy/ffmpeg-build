@@ -302,6 +302,7 @@ export const PC_FIELDS = {
   requires: 'Requires',
   'requires-private': 'Requires.private',
   cflags: 'Cflags',
+  'cflags-private': 'Cflags.private',
 } as const;
 const pcFieldEdit = z
   .strictObject({
@@ -310,17 +311,25 @@ const pcFieldEdit = z
     add: text.optional(), // the words not already on the line (for Libs and Libs.private: on either) go at the end
     set: z.string().optional(), // the line becomes `Field: <set>`
     remove: text.optional(), // these words leave the line
+    tokens: z
+      .record(
+        text.refine((word) => !/\s/.test(word), { error: 'expected one metadata token' }),
+        text.refine((word) => !/\s/.test(word), { error: 'expected one metadata token' }),
+      )
+      .optional(), // map complete metadata words, without patterns or substring edits
+    'remove-library-paths': z.array(name).min(1).optional(), // named library file inputs leave this field
     missing: z
       .enum(['end', 'after-libs', 'skip'], { error: 'expected end, after-libs or skip' })
       .default('end'),
   })
   .refine(
     (o) =>
-      ['append', 'prepend', 'add', 'set', 'remove'].filter(
+      ['append', 'prepend', 'add', 'set', 'remove', 'tokens', 'remove-library-paths'].filter(
         (k) => o[k as keyof typeof o] !== undefined,
       ).length === 1,
     {
-      error: 'give exactly one of append, prepend, add, set or remove',
+      error:
+        'give exactly one of append, prepend, add, set, remove, tokens or remove-library-paths',
     },
   );
 
@@ -364,16 +373,6 @@ const step = z.union([
     when,
   }),
   z.strictObject({
-    'replace-in-file': z.strictObject({
-      path: operationPath,
-      from: text,
-      to: z.string(),
-      regex: flag.default(false),
-      optional: flag.default(false),
-    }),
-    when,
-  }),
-  z.strictObject({
     copy: z
       .strictObject({
         from: z
@@ -411,8 +410,18 @@ const step = z.union([
   }),
   z.strictObject({
     'edit-pkg-config': z.strictObject({
-      path: operationPath,
+      path: operationPath.refine((path) => path.endsWith('.pc'), {
+        error: 'package metadata operations require a .pc path or glob',
+      }),
       optional: flag.default(false), // a missing file is skipped
+      variables: z
+        .strictObject({
+          prefix: text.optional(),
+          exec_prefix: text.optional(),
+          libdir: text.optional(),
+          includedir: text.optional(),
+        })
+        .optional(),
       ...(Object.fromEntries(
         Object.keys(PC_FIELDS).map((k) => [k, pcFieldEdit.optional()]),
       ) as Record<keyof typeof PC_FIELDS, z.ZodOptional<typeof pcFieldEdit>>),
@@ -477,6 +486,9 @@ const recipeBuild = z
     args: z.array(text).default([]),
     'source-dir': relativePath.optional(),
     'source-inventory': relativePath.optional(),
+    'build-targets': z.array(text).min(1).optional(),
+    'install-components': z.array(text).min(1).optional(),
+    'install-args': z.array(text).optional(),
     'configure-script': relativePath.default('configure'),
     'make-targets': z.array(text).default([]),
     'install-targets': z.array(text).default(['install']),
@@ -487,15 +499,12 @@ const recipeBuild = z
     // and listed by cargo (package and features as the build selects them), go into THIRD-PARTY-NOTICES.txt and the
     // sources archive, and are checked against licenses.yml before the build; it then builds offline.
     // standard-texts: crates reviewed to take the standard text of their licence, as they ship no licence file.
-    // exports: the library's C API (globs, as nm names them: rav1e_*); every other symbol its Rust objects define
-    // takes the library's own prefix once it is built, so two Rust libraries link into one FFmpeg (build/rust-archive.ts)
     cargo: z
       .strictObject({
         target: text,
         package: text,
         features: z.array(text).default([]),
         'standard-texts': z.array(text).default([]),
-        exports: z.array(z.string().regex(/^[\w.$*]+$/)).min(1),
       })
       .optional(),
     env: buildEnv.default({}),
@@ -537,6 +546,16 @@ const linkMode = z.strictObject({
   platforms: platforms.optional(),
   packages: z.record(text, z.array(text)).default({}),
   'requires-link': z.record(name, linkRequirement).optional(),
+  'conflicts-link': z
+    .record(
+      name,
+      z.strictObject({
+        modes: z.array(linkage).min(1),
+        platforms,
+        reason: text,
+      }),
+    )
+    .optional(),
 });
 
 /** recipes/<name>/recipe.yml: facts about one library. Never a version. */

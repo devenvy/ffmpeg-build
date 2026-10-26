@@ -6,11 +6,25 @@ FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.16-1@sha
 FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.18.1-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node
 FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.16-1@sha256:b873ffc316ffe8a154e3dc4872871de2ebd170db4876c8bbd983d42ff320001e
 COPY --from=node /usr/local/ /usr/local/
+# JACK's unchanged bundled Waf imports imp, removed in Python 3.12.
+ENV JACK_PYTHON=/opt/python/cp311-cp311/bin/python3.11
+RUN test -x "$JACK_PYTHON" && "$JACK_PYTHON" -c 'import imp'
 
 # vim-common supplies xxd (libvmaf's built-in models silently vanish without it).
 RUN dnf -y install --setopt=install_weak_deps=False \
       nasm cmake git pkgconfig autoconf automake libtool perl gperf xz bzip2 curl make diffutils gcc-c++ jq vim-common \
  && dnf clean all
+# ZVBI's upstream bootstrap needs gettext >=0.21. Keep these native build tools
+# separate from the target library search paths.
+RUN curl -fsSL https://ftpmirror.gnu.org/gettext/gettext-0.21.tar.xz -o /tmp/gettext.tar.xz \
+ && echo "d20fcbb537e02dcf1383197ba05bd0734ef7bf5db06bdb241eb69b7d16b73192  /tmp/gettext.tar.xz" | sha256sum -c - \
+ && tar -xJf /tmp/gettext.tar.xz -C /tmp \
+ && cd /tmp/gettext-0.21 \
+ && ./configure --prefix=/opt/gettext --disable-shared --disable-java --disable-csharp --without-emacs --disable-nls --disable-openmp \
+ && make -j$(nproc) && make install \
+ && rm -rf /tmp/gettext-0.21 /tmp/gettext.tar.xz
+ENV PATH="/opt/gettext/bin:${PATH}"
+ENV ACLOCAL_PATH=/opt/gettext/share/aclocal
 # meson/ninja: the system python is 3.6 (pip caps meson at 0.61) and dnf's meson is 0.58, below libdrm's >= 0.59.
 # meson and ninja by version and by sha256, as PyPI lists them: meson's one wheel, ninja's manylinux x86_64 and
 # aarch64 wheels (--only-binary: never an sdist, whose build would run code no hash covers).
