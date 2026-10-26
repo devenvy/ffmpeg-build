@@ -1,7 +1,8 @@
 # Recipe checks: a change to recipes/<name>/ builds that library, and every recipe that builds against it, on every
 # platform it claims (without FFmpeg), at the canary lock's versions. `ffmpeg-build recipe-check --plan` writes the
-# check targets once (one per platform and option, locked) and plans one job per platform; each job builds its
-# platform from that same folder. A recipe that claims a platform no option builds it on fails the check; one no
+# check targets once (one per platform and option, locked). TensorFlow and Torch each get a separate job so a cold
+# native ML batch stays within GitHub's six-hour limit; other targets share their platform's job. Each job uses
+# that same locked folder. A recipe that claims a platform no option builds it on fails the check; one no
 # platform builds is a notice. ci.yml calls this on every pull request and its required `result` needs it (no recipe
 # changed: nothing builds, and it passes); a push to main runs it too, which keeps main's library caches warm.
 # A change to the toolchains (src/build, images, platforms.yml) is toolchains.yml's.
@@ -72,7 +73,13 @@ jobs:
           jq -r '.unbuildable[] | "::notice::no option builds \(.) on any platform, so nothing checks it here"' "${RUNNER_TEMP}/plan.json"
           jq -r '.unbuilt[] | "::error::\(.recipe) claims \(.platforms | join(", ")), but no option builds it there: correct its platforms: in recipes/\(.recipe)/recipe.yml"' "${RUNNER_TEMP}/plan.json"
           {
-            echo "matrix=$(jq -c '{include: [.platforms[] | {platform, runner, targets: ([.targets[].name] | join(" "))}]}' "${RUNNER_TEMP}/plan.json")"
+            echo "matrix=$(jq -c '{include: [
+              .platforms[] as $platform |
+              $platform.targets | group_by(if any(.only[]; . == "tensorflow" or . == "torch") then .name else "ordinary" end)[] |
+              {platform: $platform.platform, runner: $platform.runner,
+               shard: (if any(.[0].only[]; . == "tensorflow" or . == "torch") then .[0].name else "ordinary" end),
+               targets: (map(.name) | join(" "))}
+            ]}' "${RUNNER_TEMP}/plan.json")"
             echo "any=$(jq '.platforms | length > 0' "${RUNNER_TEMP}/plan.json")"
             echo "lock=$(sha256sum "${RUNNER_TEMP}/recipe-check/ffmpeg.lock" 2>/dev/null | cut -c1-16)"
           } >> "$GITHUB_OUTPUT"
@@ -97,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.changed.outputs.matrix) }}
-    name: ${{ matrix.platform }}
+    name: ${{ matrix.platform }} / ${{ matrix.shard }}
     runs-on: ${{ matrix.runner }}
     # A cold batch containing the native ML libraries can exceed four hours.
     timeout-minutes: 360
@@ -152,17 +159,25 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ffmpeg-build
-          key: ffmpeg-build-libs-${{ matrix.platform }}-recipes-${{ hashFiles('recipes/**', 'platforms/**', 'platforms.yml', 'images/**', 'src/build/**') }}-${{ needs.changed.outputs.lock }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ffmpeg-build-libs-${{ matrix.platform }}-recipes-${{ hashFiles('recipes/**', 'platforms/**', 'platforms.yml', 'images/**', 'src/build/**') }}-${{ needs.changed.outputs.lock }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            ffmpeg-build-libs-${{ matrix.platform }}-recipes-${{ hashFiles('recipes/**', 'platforms/**', 'platforms.yml', 'images/**', 'src/build/**') }}-${{ needs.changed.outputs.lock }}-${{ matrix.shard }}-
             ffmpeg-build-libs-${{ matrix.platform }}-recipes-${{ hashFiles('recipes/**', 'platforms/**', 'platforms.yml', 'images/**', 'src/build/**') }}-${{ needs.changed.outputs.lock }}-
             ffmpeg-build-libs-${{ matrix.platform }}-
       - name: build ${{ matrix.targets }}
         env:
-          RECIPES: ${{ needs.changed.outputs.recipes }}
-          PLATFORM: ${{ matrix.platform }}
+          TARGETS: ${{ matrix.targets }}
         run: |
-          # shellcheck disable=SC2086 # the recipe names, one argument each
-          ffmpeg-build recipe-check ${RECIPES} --platform "${PLATFORM}" --dir "${RUNNER_TEMP}/recipe-check" --out "${RUNNER_TEMP}/dist"
+          cd "${RUNNER_TEMP}/recipe-check"
+          failed=0
+          # shellcheck disable=SC2086 # the planner's target names, one argument each
+          for target in ${TARGETS}; do
+            only=$(jq -er --arg target "$target" '.plan.targets[] | select(.name == $target) | .only | select(length > 0) | join(",")' recipe-check.json)
+            if ! ffmpeg-build build --target "${target}" --only "${only}" --out "${RUNNER_TEMP}/dist"; then
+              failed=1
+            fi
+          done
+          exit "${failed}"
       - name: retain completed library builds
         if: always() && steps.library-cache.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -173,7 +188,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: recipe-check-logs-${{ matrix.platform }}
+          name: recipe-check-logs-${{ matrix.platform }}-${{ matrix.shard }}
           path: ${{ runner.temp }}/dist/*.log
           retention-days: 5
           if-no-files-found: ignore

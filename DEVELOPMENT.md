@@ -340,8 +340,9 @@ and `ships:`'s).
   installed globally builds a library natively). `result` needs them all and is the one required check.
 - **A change to a recipe** (`recipes.yml`, which `ci.yml` calls on every pull request, so `result` needs it; and on a
   push to `main` touching `recipes/`, which keeps main's library caches warm): `ffmpeg-build recipe-check` (above)
-  plans the changed recipes' check targets once, and one job per platform builds them: Linux, Windows, Android and
-  armhf in their Docker images on Linux runners, Apple natively on macOS runners. A pull request that changes no recipe
+  plans the changed recipes' check targets once. Ordinary targets share a platform job; TensorFlow and Torch each
+  get a separate job to keep cold native builds within GitHub's six-hour limit. Linux, Windows, Android and armhf
+  build in their Docker images on Linux runners, Apple natively on macOS runners. A pull request that changes no recipe
   builds nothing. A failed build on any platform, or a recipe claiming a platform nothing builds it on, fails `result`.
 - **A change to a toolchain** (`toolchains.yml`, on a pull request or a push to `main` touching `platforms/`,
   `images/`, `platforms.yml` or `src/build/`, or by hand from the Actions tab): the small targets in
