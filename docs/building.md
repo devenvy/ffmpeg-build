@@ -362,13 +362,17 @@ deleted (the entry only, never a path it names) and the library built again.
 
 ### TorchScript CPU inference
 
-`with: [torch]` enables FFmpeg's Torch DNN backend on linux-x64 with a static,
-source-built CPU-only PyTorch runtime. It includes TorchScript model loading;
+`with: [torch]` enables FFmpeg's Torch DNN backend on linux-x64 with a bundled,
+source-built shared CPU-only PyTorch runtime. It includes TorchScript model loading;
 Python, GPU runtimes, distributed execution, and pretrained models are not shipped.
 The build uses pinned source dependencies and source-only Python generators.
-Models must be compatible with the selected PyTorch version. The canary runs a
-locally authored parameterless ReLU model through both natural end of input and
-early output termination.
+Stock FFmpeg cannot scope Torch's static registration closure to one shared library,
+so this integration offers shared linking only. Models must match the selected PyTorch
+version and contain a parameter for the backend's device discovery. Set `nireq=1` in
+the DNN filter; the backend allocates one request, and its automatic count can race
+during teardown. For example, `dnn_processing=dnn_backend=torch:nireq=1:model=model.pt`.
+The canary checks an owned CPU ReLU model in both async modes through natural EOF,
+early output termination, empty input and invalid-model cleanup.
 
 ### Supplemental source inputs
 

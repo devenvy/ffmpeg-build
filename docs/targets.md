@@ -14,25 +14,28 @@ Shared mode uses the system C++ runtime; recipients need a compatible `libstdc++
 Both modes retain the complete native installed C/C++ headers and CMake SDK.
 Static mode uses separate linker metadata for its native archive closure without changing those archives.
 
-Torch CPU inference offers static and bundled shared modes on Linux x64,
-with static as the default. Select `link: { torch: shared }` to ship its four
-native Torch, Torch CPU, c10 and global-dependency libraries. Its installed
+Torch CPU inference uses bundled shared libraries on Linux x64: the four native
+Torch, Torch CPU, c10 and global-dependency libraries. Stock FFmpeg cannot scope
+its native static whole-archive registration closure to a single shared owner,
+so static Torch integration is not offered. Its installed
 C++ API preserves the native compiler exception ABI across library boundaries.
 Shared mode uses the system C++ runtime and unwinder. SDK checks cover typed errors, callbacks,
 tensors and retained external-buffer ownership; cross-library exception tests
 also cover nested catches and retained rethrows.
+Use `nireq=1` in Torch DNN filters. The backend allocates one request; the native
+automatic count can race during teardown. Both async modes require complete
+EOF, early-cutoff, empty-input and invalid-model checks.
 
-TensorFlow CPU inference offers static and bundled shared modes on Linux x64,
-with static as the default. Select `link: { tensorflow: shared }` to ship its
-native monolithic C runtime. The Graph and Eager APIs use the same native owner;
-the shared mode does not require a separate TensorFlow framework library.
-Shared mode retains the upstream compiler-runtime selection and requires compatible system runtime libraries.
+TensorFlow CPU inference uses its bundled native monolithic C runtime on Linux x64.
+The Graph and Eager APIs use the same native owner, without a separate TensorFlow
+framework library. Its static alwayslink registrations cannot be scoped safely through
+stock FFmpeg's transitive shared-library link flags, so static integration is not offered.
+The build retains upstream compiler-runtime selection and requires compatible system runtime libraries.
 
 The pinned Torch, TensorFlow and ONNX Runtime builds use Protobuf 3.13.0, 6.31.1 and 6.33.6 respectively.
-Their native static runtimes have overlapping symbols and incompatible ABIs. A build may select at most one
-of these three as static; choose `shared` for the others. Each still defaults to static when selected alone.
-The planner rejects the incompatible static pairs. Combined native shared owners are verified separately;
-the engine does not rename their Protobuf symbols or change upstream implementation code.
+Their native Protobuf runtimes have incompatible ABIs. Torch and TensorFlow keep private
+versions inside their native shared owners; ONNX Runtime retains its static default.
+The engine does not rename their symbols or change upstream implementation code.
 
 Rav1e defaults to static linking and offers a bundled shared mode on Linux x64.
 It uses cargo-c's native versioned C library and preserves all 37 public C API

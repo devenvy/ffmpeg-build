@@ -1391,7 +1391,6 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [tensorflow, torch, onnxruntime, openvino, whisper]
-    link: { torch: shared, onnxruntime: shared }
     tests: [tests/ml-batch-linkage.sh]
   linux-x64-ml-shared-lgplv3:
     platform: linux-x64
@@ -1701,7 +1700,6 @@ targets:
     license: lgplv3
     ffmpeg: '9'
     with: [torch, onnxruntime, openvino]
-    link: { onnxruntime: shared }
     tests: [tests/torch.sh, tests/onnxruntime.sh, tests/openvino.sh]
   linux-x64-openvino-lgplv3:
     platform: linux-x64
@@ -1716,7 +1714,7 @@ targets:
     with: [openvino]
     link: { openvino: shared }
     tests: [tests/openvino-linkage.sh]
-  linux-x64-torch-static-lgplv3:
+  linux-x64-torch-lgplv3:
     platform: linux-x64
     license: lgplv3
     ffmpeg: '9'

@@ -1,14 +1,14 @@
 """Source-built CPU TorchScript, with recorded generator dependencies."""
 import os
 from pathlib import Path
-import shlex
 import shutil
 import subprocess
 import sys
 
 src = Path.cwd()
 deps = Path(os.environ['DEPS_DIR'])
-shared = len(sys.argv) > 1 and sys.argv[1] == 'shared'
+if len(sys.argv) > 1 and sys.argv[1] != 'shared':
+    raise SystemExit('Only native shared Torch integration is supported')
 if os.environ['VERSION'] != '2.7.1':
     raise SystemExit('Review the Torch CPU dependency inventory before changing versions')
 
@@ -61,15 +61,12 @@ python = venv / 'bin/python'
 env = dict(os.environ, PYTHONPATH=':'.join(paths))
 build = src / '_build'
 install = src / '_install'
-off = ['BUILD_SHARED_LIBS', 'BUILD_PYTHON', 'BUILD_TEST', 'BUILD_BINARY', 'USE_CUDA',
+off = ['BUILD_PYTHON', 'BUILD_TEST', 'BUILD_BINARY', 'USE_CUDA',
        'USE_ROCM', 'USE_XPU', 'USE_DISTRIBUTED', 'USE_KINETO', 'USE_OPENMP',
        'USE_NNPACK', 'USE_PYTORCH_QNNPACK', 'USE_XNNPACK', 'USE_FBGEMM',
        'USE_MKLDNN', 'USE_NUMPY', 'USE_ITT', 'USE_MIMALLOC', 'USE_MPI',
        'USE_TENSORPIPE', 'USE_KLEIDIAI']
-shared_args = []
-if shared:
-    off.remove('BUILD_SHARED_LIBS')
-    shared_args = ['-DBUILD_SHARED_LIBS=ON', '-DHAVE_SOVERSION=ON',
+shared_args = ['-DBUILD_SHARED_LIBS=ON', '-DHAVE_SOVERSION=ON',
                    '-DCMAKE_SHARED_LINKER_FLAGS=-shared-libgcc -pthread -Wl,-z,defs']
 run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
@@ -77,29 +74,23 @@ run(['cmake', '-S', src, '-B', build, '-G', 'Ninja',
      '-DGLIBCXX_USE_CXX11_ABI=1', '-DTORCH_BUILD_VERSION=2.7.1',
      '-DCMAKE_DISABLE_FIND_PACKAGE_BLAS=ON',
      '-DPython_EXECUTABLE=' + str(python), '-DINTERN_DISABLE_ONNX=OFF',
-     '-DCAFFE2_LINK_LOCAL_PROTOBUF=' + ('ON' if shared else 'OFF'), '-DBUILD_CUSTOM_PROTOBUF=ON'] +
+     '-DCAFFE2_LINK_LOCAL_PROTOBUF=ON', '-DBUILD_CUSTOM_PROTOBUF=ON'] +
     ['-D' + name + '=OFF' for name in off] + shared_args, env=env)
 run(['cmake', '--build', build, '--parallel', os.environ['JOBS']], env=env)
 run(['cmake', '--install', build], env=env)
-if not shared:
-    # TorchConfig searches these native names, but the top-level static install
-    # omits the ONNX archives built by its own dependency targets.
-    for name in ['libonnx.a', 'libonnx_proto.a']:
-        shutil.copy2(build / 'lib' / name, install / 'lib' / name)
-# Preserve native archive names, SDK headers and CMake exports together.
+# Preserve the complete native shared CPU headers and CMake SDK.
 shutil.copytree(install, deps, dirs_exist_ok=True, symlinks=True)
-if shared:
-    # Preserve every native CPU DSO; fail if this reviewed inventory changes.
-    runtime = list((install / 'lib').glob('*.so*'))
-    components = {path.name.split('.so')[0] for path in runtime}
-    expected = {'libtorch', 'libtorch_cpu', 'libc10', 'libtorch_global_deps'}
-    if components != expected:
-        raise SystemExit('Review complete native Torch CPU runtime inventory: ' + repr(components))
-    lib = deps / 'lib'
-    lib.mkdir(parents=True, exist_ok=True)
-    pc = lib / 'pkgconfig'
-    pc.mkdir(exist_ok=True)
-    (pc / 'torch.pc').write_text('prefix=' + str(deps) + '''
+# Preserve every native CPU DSO; fail if this reviewed inventory changes.
+runtime = list((install / 'lib').glob('*.so*'))
+components = {path.name.split('.so')[0] for path in runtime}
+expected = {'libtorch', 'libtorch_cpu', 'libc10', 'libtorch_global_deps'}
+if components != expected:
+    raise SystemExit('Review complete native Torch CPU runtime inventory: ' + repr(components))
+lib = deps / 'lib'
+lib.mkdir(parents=True, exist_ok=True)
+pc = lib / 'pkgconfig'
+pc.mkdir(exist_ok=True)
+(pc / 'torch.pc').write_text('prefix=' + str(deps) + '''
 Name: torch
 Description: Native shared CPU TorchScript runtime
 Version: 2.7.1
@@ -107,53 +98,4 @@ Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++1
 Libs: -L${prefix}/lib -ltorch -ltorch_cpu -lc10
 Libs.private: -lstdc++ -lm -ldl -lpthread
 ''')
-    run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps, 'shared'])
-    sys.exit(0)
-inventory = src / '_ffb_inventory'
-inventory.mkdir(exist_ok=True)
-(inventory / 'main.cpp').write_text('int main() { return 0; }\n')
-(inventory / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.20)
-project(ffb_inventory LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 17)
-find_package(Torch REQUIRED CONFIG NO_DEFAULT_PATH PATHS "${TORCH_PREFIX}/share/cmake/Torch")
-add_executable(ffb_torch_inventory main.cpp)
-target_link_libraries(ffb_torch_inventory PRIVATE "${TORCH_LIBRARIES}")
-''')
-run(['cmake', '-S', inventory, '-B', inventory / 'build', '-G', 'Unix Makefiles',
-     '-DTORCH_PREFIX=' + str(install)])
-tokens = shlex.split((inventory / 'build/CMakeFiles/ffb_torch_inventory.dir/link.txt').read_text())
-tokens = tokens[tokens.index('ffb_torch_inventory') + 1:]
-lib = deps / 'lib'
-lib.mkdir(parents=True, exist_ok=True)
-libs = []
-whole = False
-for token in tokens + [str(build / 'lib/libonnx.a'), str(build / 'lib/libonnx_proto.a')]:
-    if token == '-Wl,--whole-archive':
-        whole = True
-        libs.append(token)
-    elif token == '-Wl,--no-whole-archive':
-        whole = False
-        libs.append(token)
-    elif token.endswith('.a'):
-        path = Path(token)
-        relative = path.resolve().relative_to(src.resolve())
-        name = 'libffb_torch_' + '_'.join(relative.parts)
-        shutil.copy2(path, lib / name)
-        libs.append('-l:' + name)
-    elif token.startswith('-l') or token == '-pthread':
-        libs.append(token)
-if whole or not libs:
-    raise SystemExit('Incomplete Torch static CMake closure')
-closure = ['-Wl,--as-needed', '-Wl,--start-group', *libs,
-           '-l:libstdc++.a', '-l:libgcc.a', '-l:libgcc_eh.a',
-           '-lm', '-ldl', '-lpthread', '-lrt', '-Wl,--end-group']
-(lib / 'ffb-torch-static.rsp').write_text(shlex.join(closure) + '\n')
-pc = lib / 'pkgconfig'
-pc.mkdir(exist_ok=True)
-(pc / 'torch.pc').write_text('prefix=' + str(deps) + '''
-Name: torch
-Description: Static CPU TorchScript runtime
-Version: 2.7.1
-Cflags: -I${prefix}/include -I${prefix}/include/torch/csrc/api/include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=1
-Libs: -L${prefix}/lib ''' + shlex.join(closure) + '\n')
-run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps, 'static'])
+run([sys.executable, Path(os.environ['RECIPES']) / 'torch/check-public-api.py', deps])

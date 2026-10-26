@@ -13,8 +13,9 @@ describe('Torch native CPU runtime linking', () => {
     );
   });
 
-  it('retains static defaults and bounds the shared owner to Linux x64', () => {
-    expect(linkagePlan(data, ['torch'], 'linux-x64').modes['torch']).toBe('static');
+  it('uses the native shared owner and rejects unsupported static FFmpeg integration', () => {
+    expect(linkagePlan(data, ['torch'], 'linux-x64').modes['torch']).toBe('shared');
+    expect(linkagePlan(data, ['torch'], 'linux-x64', { torch: 'static' }).errors).toHaveLength(1);
     expect(linkagePlan(data, ['torch'], 'linux-x64', { torch: 'shared' }).errors).toEqual([]);
     expect(linkagePlan(data, ['torch'], 'linux-arm64', { torch: 'shared' }).errors).toHaveLength(1);
   });

@@ -1,6 +1,7 @@
 """Bazel 7's real path-fragment shape and strict native closure rejection."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shlex
 import sys
@@ -108,21 +109,19 @@ class NativeSDKTemplate(unittest.TestCase):
                 restorer.sdk_build(archive)
 
 
-class NativeStaticPackaging(unittest.TestCase):
-    def test_archive_bytes_and_registration_scope_survive_packaging(self):
+class NativeSharedPackaging(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'The native Linux SDK uses ELF SONAME symlinks')
+    def test_native_owner_bytes_headers_and_soname_links_survive_packaging(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / 'source'
             deps = Path(temporary) / 'installed'
             (source / '.ffb_inputs').mkdir(parents=True)
-            paths = ['bazel-out/owned.a', 'bazel-out/registrations.a']
-            payloads = [b'!<arch>\nnative ordinary bytes\n', b'!<arch>\nnative registration bytes\n']
-            for name, payload in zip(paths, payloads):
-                target = source / name
-                target.parent.mkdir(exist_ok=True)
-                target.write_bytes(payload)
+            target = source / 'bazel-bin/tensorflow/libtensorflow.so.2.21.0'
+            target.parent.mkdir(parents=True)
+            payload = b'\x7fELF owned native shared bytes\n'
+            target.write_bytes(payload)
             rows = [{'flags': ['-lm'], 'additional_inputs': [], 'libraries': [
-                {'archive': paths[0], 'alwayslink': False},
-                {'archive': paths[1], 'alwayslink': True},
+                {'archive': 'bazel-out/owned.a', 'alwayslink': True},
             ]}]
             (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps(rows))
             header = source / 'tensorflow/c/c_api.h'
@@ -130,31 +129,36 @@ class NativeStaticPackaging(unittest.TestCase):
             header.write_text('/* owned header */\n')
 
             def dependencies(arguments, **unused):
-                Path(arguments[arguments.index('-MF') + 1]).write_text('c_api: ' + shlex.quote(header.as_posix()) + '\n')
+                if '-MF' in arguments:
+                    Path(arguments[arguments.index('-MF') + 1]).write_text('c_api: ' + shlex.quote(header.as_posix()) + '\n')
+                else:
+                    self.assertTrue(arguments[1].endswith('native-link.py'))
 
             with patch.object(exporter.subprocess, 'run', side_effect=dependencies):
                 exporter.install(source, deps)
-            archives = list((deps / 'lib').glob('libffb_tensorflow_*.a'))
-            self.assertCountEqual([archive.read_bytes() for archive in archives], payloads)
-            arguments = shlex.split((deps / 'lib/ffb-tensorflow-static.rsp').read_text())
-            self.assertNotIn(str(source), ' '.join(arguments))
-            forced = arguments.index('-Wl,--whole-archive')
-            self.assertEqual(arguments[forced + 2], '-Wl,--no-whole-archive')
-            registration = next(archive.name for archive in archives if archive.read_bytes() == payloads[1])
-            self.assertEqual(arguments[forced + 1], '-l:' + registration)
-            self.assertNotIn(registration, (deps / 'lib/libtensorflow.a').read_text())
-            self.assertGreater(arguments.index('-l:libstdc++.a'), forced + 2)
+            self.assertEqual((deps / 'lib/libtensorflow.so.2.21.0').read_bytes(), payload)
+            self.assertEqual(os.readlink(deps / 'lib/libtensorflow.so.2'), 'libtensorflow.so.2.21.0')
+            self.assertEqual(os.readlink(deps / 'lib/libtensorflow.so'), 'libtensorflow.so.2')
+            self.assertFalse(list((deps / 'lib').glob('*.a')))
+            self.assertFalse(list((deps / 'lib').glob('*.rsp')))
             self.assertEqual((deps / 'include/tensorflow/c/c_api.h').read_bytes(), header.read_bytes())
+            self.assertEqual(json.loads((deps / 'share/ffmpeg-build/tensorflow-shared-closure.json').read_text()), rows)
 
-    def test_unhandled_linker_inputs_fail_before_packaging(self):
+    def test_empty_native_owner_inventory_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary)
             (source / '.ffb_inputs').mkdir()
             (source / '.ffb_inputs/native-link-closure.json').write_text(json.dumps([
-                {'flags': [], 'additional_inputs': ['unhandled.lds'], 'libraries': []},
+                {'flags': [], 'additional_inputs': [], 'libraries': []},
             ]))
-            with self.assertRaisesRegex(SystemExit, 'additional native'):
+            with self.assertRaisesRegex(SystemExit, 'shared closure inventory is empty'):
                 exporter.install(source, source / 'installed')
+
+    def test_static_integration_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            with self.assertRaisesRegex(SystemExit, 'Static TensorFlow integration'):
+                exporter.install(source, source / 'installed', False)
 
 
 if __name__ == '__main__':

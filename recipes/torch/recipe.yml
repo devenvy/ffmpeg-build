@@ -33,24 +33,13 @@ source: { git: https://github.com/pytorch/pytorch.git, ref: 'v{version}' }
 versions: { git-tags: '^v(2\.7\.1)$' }
 platforms: [linux-x64]
 linkage:
-  default: static
+  # Stock FFmpeg's plain-library probe cannot scope Torch's native static
+  # whole-archive registration closure to libavfilter. Global flags duplicate
+  # those owners in unrelated FFmpeg DSOs; use the native shared CPU SDK.
+  default: shared
   modes:
-    static:
-      # Stock FFmpeg uses a plain -ltorch probe, not torch.pc. Preserve the native
-      # CMake whole-archive registration closure with a compiler response file.
-      configure: ['--extra-libs=@{deps}/lib/ffb-torch-static.rsp']
-      conflicts-link:
-        tensorflow:
-          modes: [static]
-          platforms: [linux-x64]
-          reason: 'These libraries retain incompatible native Protobuf runtimes. Select shared for either owner.'
-        onnxruntime:
-          modes: [static]
-          platforms: [linux-x64]
-          reason: 'These libraries retain incompatible native Protobuf runtimes. Select shared for either owner.'
     shared:
       platforms: [linux-x64]
-      vars: { build-mode: shared }
       runtime:
         [
           'lib/libtorch.so*',
@@ -60,10 +49,8 @@ linkage:
         ]
 build:
   system: none
-  vars: { build-mode: static }
   steps:
     - run:
         - python3
         - -c
         - "import os, runpy; runpy.run_path(os.path.join(os.environ['RECIPES'], 'torch', 'build.py'), run_name='__main__')"
-        - '{build-mode}'

@@ -1,4 +1,4 @@
-"""Rebuild the authored static target after restoring verified source/input records."""
+"""Rebuild the native shared C/eager target from verified source/input records."""
 import os
 import json
 from pathlib import Path
@@ -62,7 +62,9 @@ def prepare_llvm(source):
     (llvm / 'WORKSPACE.bazel').write_text('workspace(name = "llvm-raw")\n')
     shutil.copy2(upstream / 'run_lit.sh', llvm / 'mlir/run_lit.sh')
 
-def build(source, shared=False):
+def build(source, shared=True):
+    if not shared:
+        raise SystemExit('Static TensorFlow integration is not supported by stock shared FFmpeg builds')
     inputs = source / '.ffb_inputs'
     prepare_llvm(source)
     jobs, ram_mb = resources()
@@ -107,5 +109,4 @@ def build(source, shared=False):
 
 if __name__ == '__main__':
     source = Path(__file__).resolve().parent.parent
-    mode = source / '.ffb_inputs/build-mode.txt'
-    build(source, mode.exists() and mode.read_text().strip() == 'shared')
+    build(source)

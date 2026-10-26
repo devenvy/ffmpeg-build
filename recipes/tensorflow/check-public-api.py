@@ -7,9 +7,6 @@ import subprocess
 import sys
 
 deps = Path(sys.argv[1])
-mode = sys.argv[2] if len(sys.argv) > 2 else 'shared'
-if mode not in {'static', 'shared'}:
-    raise SystemExit('Expected static or shared TensorFlow SDK mode')
 recipe = Path(os.environ['RECIPES']) / 'tensorflow'
 environment = dict(os.environ)
 for variable in ['LD_LIBRARY_PATH', 'LIBRARY_PATH']:
@@ -20,14 +17,10 @@ subprocess.run([*shlex.split(os.environ.get('CXX', 'c++')), '-std=c++17', '-fsyn
                check=True, env=environment)
 subprocess.run([*shlex.split(os.environ.get('CC', 'cc')), recipe / 'validate-eager.c',
                 '-I' + str(deps / 'include'), '-L' + str(deps / 'lib'), '-ltensorflow',
-                *([] if mode == 'shared' else ['@' + str(deps / 'lib/ffb-tensorflow-static.rsp')]),
                 '-o', output], check=True, env=environment)
 environment.update(LD_LIBRARY_PATH=str(deps / 'lib'), LD_BIND_NOW='1',
                    TF_NUM_INTRAOP_THREADS='2', TF_NUM_INTEROP_THREADS='2')
 subprocess.run([output], timeout=120, check=True, env=environment)
-if mode == 'static':
-    print('TensorFlow: native static Graph/Eager closure, public headers and Eager execution passed')
-    sys.exit(0)
 library = deps / 'lib/libtensorflow.so.2.21.0'
 dynamic = subprocess.check_output(['readelf', '-d', library], text=True)
 assert '[libtensorflow.so.2]' in dynamic, dynamic

@@ -5,9 +5,6 @@ import subprocess
 import sys
 
 deps = Path(sys.argv[1])
-mode = sys.argv[2] if len(sys.argv) > 2 else 'shared'
-if mode not in {'static', 'shared'}:
-    raise SystemExit('Expected static or shared Torch SDK mode')
 environment = dict(os.environ, PKG_CONFIG_PATH=str(deps / 'lib/pkgconfig'),
                    LD_LIBRARY_PATH=str(deps / 'lib'), LD_BIND_NOW='1')
 flags = shlex.split(subprocess.check_output(['pkg-config', '--static', '--cflags', '--libs', 'torch'],
@@ -36,9 +33,6 @@ try:
                    env=dict(clean, LD_LIBRARY_PATH=str(moved / 'lib'), LD_BIND_NOW='1'))
 finally:
     moved.rename(installed)
-if mode == 'static':
-    print('Torch: native static tensor/JIT API and relocated complete CMake SDK passed')
-    sys.exit(0)
 standard_runtime = False
 for component in ['libtorch', 'libtorch_cpu', 'libc10', 'libtorch_global_deps']:
     library = deps / ('lib/' + component + '.so.2.7')

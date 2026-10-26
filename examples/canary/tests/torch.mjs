@@ -44,26 +44,24 @@ const run = (filter, earlyCutoff, reject = false) => {
   return result.stdout.split('\n').filter((line) => line.startsWith('0,'));
 };
 try {
-  for (const earlyCutoff of [false, true]) {
-    const expected = run('format=rgb24', earlyCutoff);
-    assert.equal(expected.length, FRAME_COUNT);
-    for (let attempt = 0; attempt < REPETITIONS; attempt++) {
-      const actual = run(
-        `format=rgb24,dnn_processing=dnn_backend=torch:model=${model}`,
-        earlyCutoff,
-      );
-      assert.deepEqual(actual, expected);
-    }
-  }
-  assert.deepEqual(
-    run(`format=rgb24,trim=end_frame=0,dnn_processing=dnn_backend=torch:model=${model}`, false),
-    [],
-  );
   const invalid = join(work, 'invalid.pt');
   writeFileSync(invalid, 'owned invalid Torch model');
-  run(`format=rgb24,dnn_processing=dnn_backend=torch:model=${invalid}`, false, true);
+  // Stock Torch allocates one request; native nireq=1 waits for it at teardown.
+  for (const async of [0, 1]) {
+    const filter = (path) =>
+      `dnn_processing=dnn_backend=torch:nireq=1:async=${async}:model=${path}`;
+    for (const earlyCutoff of [false, true]) {
+      const expected = run('format=rgb24', earlyCutoff);
+      assert.equal(expected.length, FRAME_COUNT);
+      for (let attempt = 0; attempt < REPETITIONS; attempt++) {
+        assert.deepEqual(run(`format=rgb24,${filter(model)}`, earlyCutoff), expected);
+      }
+    }
+    assert.deepEqual(run(`format=rgb24,trim=end_frame=0,${filter(model)}`, false), []);
+    run(`format=rgb24,${filter(invalid)}`, false, true);
+  }
   console.log(
-    'Torch CPU inference passed natural EOF, early cutoff, empty-input and invalid-model cleanup',
+    'Torch CPU single-request inference passed both async modes, EOF, early cutoff, empty and invalid-model cleanup',
   );
 } finally {
   rmSync(work, { recursive: true, force: true });

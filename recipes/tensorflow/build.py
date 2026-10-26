@@ -17,8 +17,10 @@ deps = Path(os.environ['DEPS_DIR'])
 inputs = source / '.ffb_inputs'
 inputs.mkdir(exist_ok=True)
 pins = json.loads((recipe / 'inputs.json').read_text())
-shared = len(sys.argv) > 1 and sys.argv[1] == 'shared'
-(inputs / 'build-mode.txt').write_text('shared\n' if shared else 'static\n')
+shared = True
+if len(sys.argv) > 1 and sys.argv[1] != 'shared':
+    raise SystemExit('Only native shared TensorFlow integration is supported')
+(inputs / 'build-mode.txt').write_text('shared\n')
 if os.environ['VERSION'] != pins['tensorflow']:
     raise SystemExit('Review TensorFlow inputs and runtime notices before changing versions')
 
@@ -87,11 +89,11 @@ module('export').install(source, deps, shared)
 consumer = source / '_ffb-c-api-check'
 run(shlex.split(os.environ.get('CC', 'cc')) + ['-I' + str(deps / 'include'),
     recipe / 'validate.c', '-L' + str(deps / 'lib'), '-ltensorflow',
-    *([] if shared else ['@' + str(deps / 'lib/ffb-tensorflow-static.rsp')]), '-o', consumer])
+    '-o', consumer])
 runtime_environment = dict(os.environ, LD_LIBRARY_PATH=str(deps / 'lib'),
                            TF_NUM_INTRAOP_THREADS='2', TF_NUM_INTEROP_THREADS='2')
 subprocess.run([str(consumer), str(inputs / 'authored-relu.pb')], check=True, env=runtime_environment)
-run([sys.executable, recipe / 'check-public-api.py', deps, 'shared' if shared else 'static'])
+run([sys.executable, recipe / 'check-public-api.py', deps])
 module('notices').collect(source, pins, shared)
 
 # Mirror choices belong to the preserved recipe input catalog. The engine inventory records
@@ -101,8 +103,7 @@ records = [{key: entry[key] for key in ['path', 'sha256', 'origin', 'kind', 'rep
 known = {entry['path'] for entry in records}
 metadata = [source / path for path in pins['cacheIds']]
 metadata += [custom / 'BUILD.bazel', custom / 'link.bzl']
-if shared:
-    metadata += [inputs / 'native-shared-link.json']
+metadata += [inputs / 'native-shared-link.json']
 metadata += [go / name for name in ['BUILD.bazel', 'ROOT', 'REPO.bazel']]
 metadata += [inputs / name for name in ['inputs.json', 'replay.py', 'build.py', 'export.py', 'native-link.py',
                                      'restore.py', 'notices.py', 'validate.c', 'validate-eager.c',
