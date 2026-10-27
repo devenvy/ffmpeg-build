@@ -70,6 +70,19 @@ export function writeBuildSbom(
       ) {
         throw new Error(`SBOM: conflicting observed source identity ${entry.key}`);
       }
+      const previousDeclared = previous.license !== undefined && previous.license !== 'NOASSERTION';
+      const nextDeclared = entry.license !== undefined && entry.license !== 'NOASSERTION';
+      if (previousDeclared && nextDeclared && previous.license !== entry.license) {
+        throw new Error(`SBOM: conflicting observed licence declaration ${entry.key}`);
+      }
+      if (!previousDeclared && nextDeclared) {
+        previous.license = entry.license;
+        if (entry.licenseComments) {
+          previous.licenseComments = entry.licenseComments;
+        } else {
+          delete previous.licenseComments;
+        }
+      }
       return entry.key;
     }
     packages.set(entry.key, entry);

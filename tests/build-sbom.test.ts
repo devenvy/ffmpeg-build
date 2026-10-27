@@ -199,6 +199,57 @@ describe('observed build SBOM', () => {
     );
   });
 
+  it('retains the gated declaration when the same immutable crate is first observed as source-only', () => {
+    const inventory = (linkedFirst: boolean) => {
+      const context = fixture();
+      const entries = linkedFirst
+        ? ['linked-owner', 'source-owner']
+        : ['source-owner', 'linked-owner'];
+      const template = context.buildPlan.libraries[0]!;
+      context.buildPlan.libraries = entries.map((name) => ({ ...template, name }));
+      const records = entries.map((name) => ({
+        ...source(name),
+        crates: [
+          {
+            name: 'same-crate',
+            version: '3.0',
+            source: 'crates.io' as const,
+            sha256: hash('immutable-crate'),
+            linked: name === 'linked-owner',
+            license: 'MIT/Apache-2.0',
+            texts: [],
+          },
+        ],
+      }));
+      writeBuildSbom(context, ffmpeg, records);
+      return read(context).packages.find((item) => item.name === 'same-crate')!;
+    };
+    const sourceFirst = inventory(false);
+    expect(sourceFirst.licenseDeclared).toBe('MIT OR Apache-2.0');
+    expect(sourceFirst).toEqual(inventory(true));
+  });
+
+  it('rejects contradictory gated declarations for the same immutable crate', () => {
+    const context = fixture();
+    const template = context.buildPlan.libraries[0]!;
+    context.buildPlan.libraries = ['first', 'second'].map((name) => ({ ...template, name }));
+    const records = context.buildPlan.libraries.map((library) => ({
+      ...source(library.name),
+      crates: [
+        {
+          name: 'same-crate',
+          version: '3.0',
+          source: 'crates.io' as const,
+          sha256: hash('immutable-crate'),
+          linked: true,
+          license: library.name === 'first' ? 'MIT' : 'ISC',
+          texts: [],
+        },
+      ],
+    }));
+    expect(() => writeBuildSbom(context, ffmpeg, records)).toThrow(/conflicting.*licen[cs]e/);
+  });
+
   it('records user-owned proprietary patch text without treating its tree hash as an archive hash', () => {
     const context = fixture();
     context.buildPlan.license = 'nonfree';
