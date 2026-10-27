@@ -51,9 +51,9 @@ permissions:
 
 # runs that publish take turns per repository and folder: a scheduled run and a manual one started together would
 # otherwise both plan the same tag, and the second would find it already published. Queued, the second plans after the
-# first published (the next build number, or nothing due). A pull request's build (publish: never) never waits.
+# first published (the next build number, or nothing due). Separate folders in a non-publishing run build independently.
 concurrency:
-  group: ${{ inputs.publish != 'never' && format('ffmpeg-build-publish-{0}-{1}', github.repository, inputs.folder) || format('ffmpeg-build-{0}', github.run_id) }}
+  group: ${{ inputs.publish != 'never' && format('ffmpeg-build-publish-{0}-{1}', github.repository, inputs.folder) || format('ffmpeg-build-{0}-{1}', github.run_id, inputs.folder) }}
   cancel-in-progress: false
 
 jobs:
@@ -70,6 +70,7 @@ jobs:
       any_tests: ${{ steps.plan.outputs.any_tests }}
       engine: ${{ steps.engine.outputs.version }}
       private: ${{ steps.visibility.outputs.private }}
+      artifacts: ${{ steps.scope.outputs.artifacts }}
     steps:
       # a misspelt value would otherwise build every release (publish) or publish what it shouldn't: stop first
       - name: inputs
@@ -106,6 +107,12 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+      - id: scope
+        name: Artifact scope for this folder and run attempt
+        env:
+          FOLDER: ${{ inputs.folder }}
+        run: |
+          printf 'artifacts=%s-%s\n' "$GITHUB_RUN_ATTEMPT" "$(printf '%s' "$FOLDER" | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
       - id: engine
         name: engine version
         working-directory: ${{ inputs.folder }}
@@ -370,7 +377,7 @@ jobs:
           script: ffmpeg-build test --target "${MATRIX_TARGET}" --dist "${RUNNER_TEMP}/dist" --must-run
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: dist-${{ matrix.release }}-${{ matrix.target }}
+          name: dist-${{ needs.plan.outputs.artifacts }}-${{ matrix.release }}-${{ matrix.target }}
           path: ${{ runner.temp }}/dist
           retention-days: 5
           if-no-files-found: error
@@ -411,7 +418,7 @@ jobs:
           esac
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: dist-${{ matrix.release }}-${{ matrix.target }}
+          name: dist-${{ needs.plan.outputs.artifacts }}-${{ matrix.release }}-${{ matrix.target }}
           path: ${{ runner.temp }}/dist
       - name: test ${{ matrix.target }}
         working-directory: ${{ inputs.folder }}
@@ -451,7 +458,7 @@ jobs:
           esac
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: dist-${{ matrix.release }}-*
+          pattern: dist-${{ needs.plan.outputs.artifacts }}-${{ matrix.release }}-*
           path: ${{ runner.temp }}/dist
           merge-multiple: true
       - working-directory: ${{ inputs.folder }}
@@ -460,7 +467,7 @@ jobs:
         run: ffmpeg-build bundle --apple --release "${MATRIX_RELEASE}" --dist "${RUNNER_TEMP}/dist"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ios-${{ matrix.release }}
+          name: ios-${{ needs.plan.outputs.artifacts }}-${{ matrix.release }}
           # each bundle with its .slices.json: plain bundle checks the bundle against the slice archives with it
           path: |
             ${{ runner.temp }}/dist/ffmpeg-*-ios-*.tar.gz
@@ -522,7 +529,7 @@ jobs:
           df -h "${RUNNER_TEMP}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: '{dist,ios}-${{ matrix.release }}*'
+          pattern: '{dist,ios}-${{ needs.plan.outputs.artifacts }}-${{ matrix.release }}*'
           path: ${{ runner.temp }}/dist
           merge-multiple: true
       - name: bundle
