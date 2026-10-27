@@ -21,7 +21,10 @@ GitHub token or profile setting. `--only <library>` is a partial library build a
 This is a **build inventory**. Dependency relationships record the selected build inputs; a static recipe does not
 prove that every object in its archive reached the final executable. Linkage selections appear in relationship
 comments. Runtime files that staging actually finds have their own hashes and containment relationships. Build-only
-tools and source-only Cargo packages are distinguished from linked dependencies. Host system packages, frameworks,
+tools and source-only Cargo packages are distinguished from linked dependencies. Linked crates use the engine's
+normalization of legacy Cargo licence syntax; their original declarations remain in comments. Source-only crates'
+licence strings are unvalidated metadata, preserved in comments with `NOASSERTION` as the formal declaration.
+Host system packages, frameworks,
 drivers and arbitrary vendored source subtrees are not exhaustively enumerated. Unknown versions and licence terms
 remain unknown; the engine does not invent them. Recipe licence declarations are separate from legal conclusions.
 Custom `LicenseRef-` declarations include actual staged licence text when it can be identified separately; otherwise

@@ -165,6 +165,40 @@ describe('observed build SBOM', () => {
     );
   });
 
+  it('normalizes gated Cargo declarations and preserves ungated licence metadata without asserting validity', () => {
+    const context = fixture();
+    const record = source('sample');
+    record.crates = [
+      {
+        name: 'legacy-license',
+        version: '1.0',
+        source: 'crates.io',
+        linked: true,
+        license: 'MIT/Apache-2.0',
+        texts: [],
+      },
+      {
+        name: 'source-metadata',
+        version: '2.0',
+        source: 'crates.io',
+        linked: false,
+        license: 'BSD',
+        texts: [],
+      },
+    ];
+    writeBuildSbom(context, ffmpeg, [record]);
+    const document = read(context);
+    const linked = document.packages.find((item) => item.name === 'legacy-license')!;
+    expect(linked.licenseDeclared).toBe('MIT OR Apache-2.0');
+    expect(linked.licenseComments).toContain('MIT/Apache-2.0');
+    const metadata = document.packages.find((item) => item.name === 'source-metadata')!;
+    expect(metadata.licenseDeclared).toBe('NOASSERTION');
+    expect(metadata.licenseComments).toContain('BSD');
+    expect(document.relationships).toContainEqual(
+      expect.objectContaining({ relatedSpdxElement: metadata.SPDXID, relationshipType: 'OTHER' }),
+    );
+  });
+
   it('records user-owned proprietary patch text without treating its tree hash as an archive hash', () => {
     const context = fixture();
     context.buildPlan.license = 'nonfree';

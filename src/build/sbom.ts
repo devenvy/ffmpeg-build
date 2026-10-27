@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, globSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
+import { normalizeSpdx } from './cargo.ts';
 import { sha256, type SourceRecord } from './fetch.ts';
 import { createSpdx, sbomDownloadLocation, type SpdxInput } from '../sbom.ts';
 import { symbolsName } from '../targets.ts';
@@ -221,22 +222,30 @@ export function writeBuildSbom(
     }
     for (const crate of record.crates ?? []) {
       const crateKey = `crate:${crate.source}:${crate.name}:${crate.version}:${crate.sha256 ?? key}`;
-      const crateFiles = crate.license?.includes('LicenseRef-')
-        ? crate.texts.map((file) => ({
-            path: file,
-            text: readFileSync(
-              join(
-                context.depsDir,
-                'share/ffmpeg-build/legal',
-                library.name,
-                'crates',
-                `${crate.name}-${crate.version}`,
-                file,
+      const crateFiles =
+        crate.linked && crate.license?.includes('LicenseRef-')
+          ? crate.texts.map((file) => ({
+              path: file,
+              text: readFileSync(
+                join(
+                  context.depsDir,
+                  'share/ffmpeg-build/legal',
+                  library.name,
+                  'crates',
+                  `${crate.name}-${crate.version}`,
+                  file,
+                ),
+                'utf8',
               ),
-              'utf8',
-            ),
-          }))
-        : [];
+            }))
+          : [];
+      const cargoLicense: Pick<Entry, 'license' | 'licenseComments'> = crate.linked
+        ? declaration(
+            crate.license ? normalizeSpdx(crate.license) : undefined,
+            crateFiles,
+            crateKey,
+          )
+        : {};
       add({
         key: crateKey,
         name: crate.name,
@@ -248,7 +257,17 @@ export function writeBuildSbom(
               downloadLocation: `https://crates.io/api/v1/crates/${encodeURIComponent(crate.name)}/${encodeURIComponent(crate.version)}/download`,
             }
           : {}),
-        ...declaration(crate.license, crateFiles, crateKey),
+        ...cargoLicense,
+        ...(crate.license
+          ? {
+              licenseComments: [
+                cargoLicense.licenseComments,
+                `Cargo declaration: ${crate.license}.${crate.linked ? '' : ' Source-only metadata; its licence declaration was not validated by the build.'}`,
+              ]
+                .filter(Boolean)
+                .join(' '),
+            }
+          : {}),
         purpose: 'SOURCE',
         sourceInfo:
           crate.source === 'path'
