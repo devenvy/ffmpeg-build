@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
+import { fixtureSbom } from './helpers/sbom.ts';
 import { fixtureEngineRoot } from './helpers.ts';
 import { bundle } from '../src/bundle.ts';
 import { type EngineData, loadEngineData } from '../src/engine-data.ts';
@@ -164,6 +165,55 @@ describe('ffmpeg-build bundle', () => {
       expect(index.data.toString()).toContain('https://example.org/input.tar');
     },
   );
+  it('publishes build SBOMs with checksums without changing the existing manifest format', async () => {
+    const { dist, folder } = builtFolder();
+    const name = 'ffmpeg-9.1.0-linux-x64-lgplv3';
+    const sbom = fixtureSbom(dist, name);
+    const result = await bundle(folder, data, LOCK, {
+      tag: '9.1.0.0',
+      dist,
+      engineRoot: packageRoot,
+    });
+    expect(result.assets).toContain(sbom);
+    expect(readFileSync(join(dist, 'SHA256SUMS'), 'utf8')).toContain(
+      `${sha(readFileSync(join(dist, sbom)))}  ${sbom}`,
+    );
+    const manifest = parseManifest(readFileSync(join(dist, 'manifest.yml'), 'utf8'));
+    expect(manifest.targets[0]!.assets).not.toHaveProperty('sbom');
+    const sourcesArchive = readTarGz(readFileSync(join(dist, 'ffmpeg-9.1.0-sources.tar.gz')));
+    expect(sourcesArchive.some((entry) => entry.name.endsWith(`/sbom/${sbom}`))).toBe(true);
+  });
+
+  it('refuses an SBOM for different archive bytes', async () => {
+    const { dist, folder } = builtFolder();
+    const name = 'ffmpeg-9.1.0-linux-x64-lgplv3';
+    fixtureSbom(dist, name);
+    writeFileSync(join(dist, `${name}.tar.gz`), 'rebuilt archive');
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot }),
+    ).rejects.toThrow(/SBOM.*(match|stale)/);
+  });
+
+  it('refuses an invalid SBOM instead of publishing it as an ordinary sidecar', async () => {
+    const { dist, folder } = builtFolder();
+    writeFileSync(
+      join(dist, 'ffmpeg-9.1.0-linux-x64-lgplv3.spdx.json'),
+      '{"spdxVersion":"SPDX-2.3"}',
+    );
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot }),
+    ).rejects.toThrow(/SBOM/);
+  });
+
+  it('refuses a lost SBOM from a new build while keeping legacy source records readable', async () => {
+    const { dist, folder } = builtFolder(FOLDER, (name, sources) => {
+      Object.assign(sources, { sbom: `${name}.spdx.json` });
+    });
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot: packageRoot }),
+    ).rejects.toThrow(/SBOM.*missing/);
+  });
+
   it('writes the manifest, the sources archive, SHA256SUMS, the notes, and what to upload', async () => {
     const { dist, folder } = builtFolder();
     const r = await bundle(folder, data, LOCK, {
@@ -211,6 +261,7 @@ describe('ffmpeg-build bundle', () => {
         'ffmpeg-9.1.0-sources/build/ffmpeg-build.yml',
         'ffmpeg-9.1.0-sources/build/ffmpeg.lock',
         'ffmpeg-9.1.0-sources/engine/src/build/toolchain.ts',
+        'ffmpeg-9.1.0-sources/engine/src/sbom.ts',
         'ffmpeg-9.1.0-sources/engine/recipes/dav1d/recipe.yml',
         'ffmpeg-9.1.0-sources/SOURCES.md',
       ]),
@@ -273,6 +324,27 @@ describe('ffmpeg-build bundle', () => {
     ).rejects.toThrow(
       `win-x64-lgplv3 isn't built in ${missing.dist}: symbols-9.1.0-win-x64-lgplv3.tar.gz missing`,
     );
+  });
+
+  it('keeps the inventory generator with the compiled worker in an installed engine source bundle', async () => {
+    const { dir, dist, folder } = builtFolder();
+    const engineRoot = join(dir, 'installed-engine');
+    mkdirSync(join(engineRoot, 'dist/build'), { recursive: true });
+    writeFileSync(
+      join(engineRoot, 'package.json'),
+      readFileSync(join(packageRoot, 'package.json')),
+    );
+    writeFileSync(
+      join(engineRoot, 'platforms.yml'),
+      readFileSync(join(packageRoot, 'platforms.yml')),
+    );
+    writeFileSync(join(engineRoot, 'dist/build/worker.js'), 'compiled worker fixture');
+    writeFileSync(join(engineRoot, 'dist/sbom.js'), 'compiled inventory generator fixture');
+    await bundle(folder, data, LOCK, { tag: '9.1.0.0', dist, engineRoot });
+    const entries = readTarGz(readFileSync(join(dist, 'ffmpeg-9.1.0-sources.tar.gz')));
+    expect(
+      entries.find((entry) => entry.name.endsWith('/engine/dist/sbom.js'))?.data.toString(),
+    ).toBe('compiled inventory generator fixture');
   });
 
   it('gives a product exactly what was bundled: fetch reads the manifest and checks every archive', async () => {

@@ -62,7 +62,7 @@ const LICENCE_DIR = /^licen[cs]es$/i;
 const WITH_CLAUSE_TOKENS = 2;
 
 /** An SPDX expression as crates write it, in the form licenses.yml reads: old-style `/` and lower-case operators. */
-function normalizeSpdx(expression: string): string {
+export function normalizeSpdx(expression: string): string {
   return (expression.replaceAll('/', ' OR ').match(/\(|\)|[^\s()]+/g) ?? [])
     .map((t) => (/^(or|and|with)$/i.test(t) ? t.toUpperCase() : t))
     .join(' ')

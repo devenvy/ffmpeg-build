@@ -20,6 +20,7 @@ import { keptFiles, type SourceRecord } from './fetch.ts';
 import { checkNotices, writeNotices } from './notices.ts';
 import { run, searchOutput, step } from './run.ts';
 import { systemCheckEnv, writeRuntimeDependencies } from './runtime-dependencies.ts';
+import { writeBuildSbom } from './sbom.ts';
 
 import type { BuildContext } from './library.ts';
 
@@ -706,11 +707,13 @@ export async function stageBuild(
     ffmpeg,
     libraries,
     patches: plan.patches.map(({ name, sha256 }) => ({ name, sha256 })),
+    sbom: `${plan.name}.spdx.json`,
   };
   const recordPath = join(context.out, `${plan.name}.sources.json`);
   const temp = `${recordPath}.tmp`;
   writeFileSync(temp, `${JSON.stringify(record, null, JSON_INDENT)}\n`);
   renameSync(temp, recordPath);
+  writeBuildSbom(context, ffmpeg, libraries);
   const sourceOut = join(context.out, `${plan.name}.sources`);
   rmSync(sourceOut, { recursive: true, force: true });
   // (a Rust library's crates too)

@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
+import { fixtureSbom } from './helpers/sbom.ts';
 import { appleSets, appleSlicesRecord, bundleApple } from '../src/bundle-apple.ts';
 import { bundle } from '../src/bundle.ts';
 import { runFolderCheck } from '../src/commands/folder.ts';
@@ -17,6 +18,7 @@ import { type FolderLock, formatFolderLock } from '../src/lockfile.ts';
 import { type Manifest, parseManifest } from '../src/manifest.ts';
 import { packageRoot } from '../src/paths.ts';
 import { changesSince, planReleases, publishedTargets, removals } from '../src/release.ts';
+import { combineBuildSboms, readBuildSbom } from '../src/sbom-release.ts';
 import { artifactName, type Folder, loadFolder } from '../src/targets.ts';
 import { readTarGz } from '../src/untar.ts';
 
@@ -234,6 +236,61 @@ function appleBundled(dist: string, folder: Folder): void {
 }
 
 describe('ffmpeg-build bundle, for a release with framework targets', () => {
+  it('publishes one combined SBOM bound to the Apple bundle and retains all slice inventories as provenance', async () => {
+    const { dist, folder } = builtFolder();
+    appleBundled(dist, folder);
+    const inputs = SLICES.map((platform) => {
+      const name = `ffmpeg-9.0.2-${platform}-lgplv3`;
+      return {
+        archive: join(dist, `${name}.tar.gz`),
+        sbom: join(dist, fixtureSbom(dist, name, platform)),
+      };
+    });
+    const sbom = 'ffmpeg-9.0.2-ios-lgplv3.spdx.json';
+    const document = combineBuildSboms({
+      archive: join(dist, 'ffmpeg-9.0.2-ios-lgplv3.tar.gz'),
+      inputs,
+      target: 'ios-lgplv3',
+      platform: 'ios',
+      version: '9.0.2',
+      engine: 'test',
+      created: '2026-10-27T00:00:00Z',
+    });
+    writeFileSync(join(dist, sbom), JSON.stringify(document));
+    const result = await bundle(folder, data, LOCK, {
+      tag: '9.0.2.3',
+      dist,
+      engineRoot: packageRoot,
+    });
+    expect(result.assets.filter((file) => file.endsWith('.spdx.json'))).toEqual([sbom]);
+    expect(readFileSync(join(dist, 'SHA256SUMS'), 'utf8')).toContain(
+      `${sha(readFileSync(join(dist, sbom)))}  ${sbom}`,
+    );
+    const entries = readTarGz(readFileSync(join(dist, 'ffmpeg-9.0.2-sources.tar.gz')));
+    expect(
+      entries.filter((entry) => entry.name.includes('/sbom/') && entry.name.endsWith('.spdx.json')),
+    ).toHaveLength(SLICES.length);
+    const changed = JSON.parse(readFileSync(inputs[0]!.sbom, 'utf8')) as {
+      comment: string;
+      documentNamespace: string;
+    };
+    changed.comment = 'New metadata for the same archive bytes.';
+    changed.documentNamespace += '-new';
+    writeFileSync(inputs[0]!.sbom, JSON.stringify(changed));
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.0.2.3', dist, engineRoot: packageRoot }),
+    ).rejects.toThrow(/SBOM.*stale/);
+  });
+
+  it('does not publish an incomplete set of Apple slice inventories', async () => {
+    const { dist, folder } = builtFolder();
+    appleBundled(dist, folder);
+    fixtureSbom(dist, `ffmpeg-9.0.2-${SLICES[0]!}-lgplv3`, SLICES[0]);
+    await expect(
+      bundle(folder, data, LOCK, { tag: '9.0.2.3', dist, engineRoot: packageRoot }),
+    ).rejects.toThrow(/SBOM.*(incomplete|missing)/);
+  });
+
   it("publishes the ios bundle for the slices, and keeps every slice's sources", async () => {
     const { dist, folder } = builtFolder();
     appleBundled(dist, folder);
@@ -382,78 +439,93 @@ describe.skipIf(!hasXcode)('bundle --apple on a Mac', () => {
     'maccatalyst-x64': ['--sdk', 'macosx', 'clang', '-target', 'x86_64-apple-ios14.0-macabi'],
   };
 
-  it('makes one three-slice xcframework per library, with the Catalyst slices fused and one notices file', async () => {
-    const { dist, folder } = builtFolder();
-    const src = join(mkdtempSync(join(tmpdir(), 'ffmpeg-build-fw-')), 'x.c');
-    writeFileSync(src, 'int av_version_stub(void) { return 1; }\n');
-    for (const p of SLICES) {
-      const name = `ffmpeg-9.0.2-${p}-lgplv3`;
-      const root = mkdtempSync(join(tmpdir(), 'ffmpeg-build-slice-'));
-      for (const lib of ['libavutil', 'libavcodec']) {
-        const fw = join(root, `${lib}.framework`);
-        mkdirSync(join(fw, 'Headers'), { recursive: true });
-        writeFileSync(join(fw, 'Headers', 'version.h'), '#define X 1\n');
-        writeFileSync(
-          join(fw, 'Info.plist'),
-          `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>${lib}</string><key>CFBundleIdentifier</key><string>org.ffmpeg.${lib}</string><key>CFBundlePackageType</key><string>FMWK</string></dict></plist>\n`,
+  it.each([false, true])(
+    'makes one three-slice xcframework per library, with the Catalyst slices fused and one notices file (SBOM=%s)',
+    async (withSbom) => {
+      const { dist, folder } = builtFolder();
+      const src = join(mkdtempSync(join(tmpdir(), 'ffmpeg-build-fw-')), 'x.c');
+      writeFileSync(src, 'int av_version_stub(void) { return 1; }\n');
+      for (const p of SLICES) {
+        const name = `ffmpeg-9.0.2-${p}-lgplv3`;
+        const root = mkdtempSync(join(tmpdir(), 'ffmpeg-build-slice-'));
+        for (const lib of ['libavutil', 'libavcodec']) {
+          const fw = join(root, `${lib}.framework`);
+          mkdirSync(join(fw, 'Headers'), { recursive: true });
+          writeFileSync(join(fw, 'Headers', 'version.h'), '#define X 1\n');
+          writeFileSync(
+            join(fw, 'Info.plist'),
+            `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>${lib}</string><key>CFBundleIdentifier</key><string>org.ffmpeg.${lib}</string><key>CFBundlePackageType</key><string>FMWK</string></dict></plist>\n`,
+          );
+          execFileSync('xcrun', [
+            ...TARGET[p]!,
+            '-dynamiclib',
+            '-install_name',
+            `@rpath/${lib}.framework/${lib}`,
+            '-o',
+            join(fw, lib),
+            src,
+          ]);
+        }
+        writeFileSync(join(root, 'THIRD-PARTY-NOTICES.txt'), `notices of ${name}\n`);
+        rmSync(join(dist, `${name}.tar.gz`));
+        execFileSync('tar', ['-czf', join(dist, `${name}.tar.gz`), '-C', root, '.']);
+        if (withSbom) {
+          fixtureSbom(dist, name, p);
+        }
+      }
+      const r = await bundleApple(folder, data, LOCK, {
+        tag: '9.0.2.3',
+        dist,
+        engineRoot: packageRoot,
+      });
+      expect(r.assets).toEqual([
+        'ffmpeg-9.0.2-ios-lgplv3.tar.gz',
+        'ffmpeg-9.0.2-ios-lgplv3.slices.json',
+        ...(withSbom ? ['ffmpeg-9.0.2-ios-lgplv3.spdx.json'] : []),
+      ]);
+      const sbomFile = join(dist, 'ffmpeg-9.0.2-ios-lgplv3.spdx.json');
+      const inventory = withSbom
+        ? readBuildSbom(sbomFile, [join(dist, 'ffmpeg-9.0.2-ios-lgplv3.tar.gz')])
+        : undefined;
+      expect(inventory?.externalDocumentRefs ?? []).toHaveLength(withSbom ? SLICES.length : 0);
+      if (withSbom && process.env['FFB_SPDX_VALIDATOR']) {
+        execFileSync(process.env['FFB_SPDX_VALIDATOR'], ['-i', sbomFile], { stdio: 'pipe' });
+      }
+      const record = JSON.parse(
+        readFileSync(join(dist, 'ffmpeg-9.0.2-ios-lgplv3.slices.json'), 'utf8'),
+      ) as { slices: Record<string, { sha256: string }> };
+      for (const p of SLICES) {
+        expect(record.slices[p]!.sha256).toBe(
+          sha(readFileSync(join(dist, `ffmpeg-9.0.2-${p}-lgplv3.tar.gz`))),
         );
-        execFileSync('xcrun', [
-          ...TARGET[p]!,
-          '-dynamiclib',
-          '-install_name',
-          `@rpath/${lib}.framework/${lib}`,
-          '-o',
-          join(fw, lib),
-          src,
+      }
+      const out = mkdtempSync(join(tmpdir(), 'ffmpeg-build-xcf-'));
+      execFileSync('tar', ['-xzf', join(dist, 'ffmpeg-9.0.2-ios-lgplv3.tar.gz'), '-C', out]);
+      for (const lib of ['libavutil', 'libavcodec']) {
+        const xcf = join(out, `${lib}.xcframework`);
+        for (const slice of ['ios-arm64', 'ios-arm64-simulator', 'ios-arm64_x86_64-maccatalyst']) {
+          expect(existsSync(join(xcf, slice, `${lib}.framework`, lib)), slice).toBe(true);
+        }
+        const fused = execFileSync(
+          'lipo',
+          ['-archs', join(xcf, 'ios-arm64_x86_64-maccatalyst', `${lib}.framework`, lib)],
+          { encoding: 'utf8' },
+        )
+          .trim()
+          .split(' ')
+          .sort();
+        expect(fused).toEqual(['arm64', 'x86_64']);
+        execFileSync('codesign', [
+          '-v',
+          join(xcf, 'ios-arm64_x86_64-maccatalyst', `${lib}.framework`),
         ]);
       }
-      writeFileSync(join(root, 'THIRD-PARTY-NOTICES.txt'), `notices of ${name}\n`);
-      rmSync(join(dist, `${name}.tar.gz`));
-      execFileSync('tar', ['-czf', join(dist, `${name}.tar.gz`), '-C', root, '.']);
-    }
-    const r = await bundleApple(folder, data, LOCK, {
-      tag: '9.0.2.3',
-      dist,
-      engineRoot: packageRoot,
-    });
-    expect(r.assets).toEqual([
-      'ffmpeg-9.0.2-ios-lgplv3.tar.gz',
-      'ffmpeg-9.0.2-ios-lgplv3.slices.json',
-    ]);
-    const record = JSON.parse(
-      readFileSync(join(dist, 'ffmpeg-9.0.2-ios-lgplv3.slices.json'), 'utf8'),
-    ) as { slices: Record<string, { sha256: string }> };
-    for (const p of SLICES) {
-      expect(record.slices[p]!.sha256).toBe(
-        sha(readFileSync(join(dist, `ffmpeg-9.0.2-${p}-lgplv3.tar.gz`))),
-      );
-    }
-    const out = mkdtempSync(join(tmpdir(), 'ffmpeg-build-xcf-'));
-    execFileSync('tar', ['-xzf', join(dist, 'ffmpeg-9.0.2-ios-lgplv3.tar.gz'), '-C', out]);
-    for (const lib of ['libavutil', 'libavcodec']) {
-      const xcf = join(out, `${lib}.xcframework`);
-      for (const slice of ['ios-arm64', 'ios-arm64-simulator', 'ios-arm64_x86_64-maccatalyst']) {
-        expect(existsSync(join(xcf, slice, `${lib}.framework`, lib)), slice).toBe(true);
+      const notices = readFileSync(join(out, 'THIRD-PARTY-NOTICES.txt'), 'utf8');
+      for (const p of SLICES) {
+        expect(notices).toContain(`notices of ffmpeg-9.0.2-${p}-lgplv3`);
       }
-      const fused = execFileSync(
-        'lipo',
-        ['-archs', join(xcf, 'ios-arm64_x86_64-maccatalyst', `${lib}.framework`, lib)],
-        { encoding: 'utf8' },
-      )
-        .trim()
-        .split(' ')
-        .sort();
-      expect(fused).toEqual(['arm64', 'x86_64']);
-      execFileSync('codesign', [
-        '-v',
-        join(xcf, 'ios-arm64_x86_64-maccatalyst', `${lib}.framework`),
-      ]);
-    }
-    const notices = readFileSync(join(out, 'THIRD-PARTY-NOTICES.txt'), 'utf8');
-    for (const p of SLICES) {
-      expect(notices).toContain(`notices of ffmpeg-9.0.2-${p}-lgplv3`);
-    }
-  });
+    },
+  );
 
   it('refuses a missing slice archive', async () => {
     const { dist, folder } = builtFolder();

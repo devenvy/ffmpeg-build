@@ -10,6 +10,31 @@ FFmpeg DLLs (FFmpeg and whisper.cpp are compiled with `-g` there), to symbolize 
 it carries no DWARF and that FFmpeg's (and, with whisper, ggml's) functions resolve to their source in the symbols. A
 release publishes it beside the build's archives.
 
+## Software bill of materials
+
+Every complete build also writes `ffmpeg-<version>-<target>.spdx.json`, an SPDX 2.3 JSON SBOM. It describes the
+runtime, development and optional symbols archives by their exact SHA256 hashes, and records the observed FFmpeg
+and recipe source versions, source-archive hashes and origins. It includes recorded supplemental sources, Cargo
+packages, build tools, user-selected patches and platform libraries. Generating it needs no extra software,
+GitHub token or profile setting. `--only <library>` is a partial library build and does not produce an FFmpeg SBOM.
+
+This is a **build inventory**. Dependency relationships record the selected build inputs; a static recipe does not
+prove that every object in its archive reached the final executable. Linkage selections appear in relationship
+comments. Runtime files that staging actually finds have their own hashes and containment relationships. Build-only
+tools and source-only Cargo packages are distinguished from linked dependencies. Linked crates use the engine's
+normalization of legacy Cargo licence syntax; their original declarations remain in comments. Source-only crates'
+licence strings are unvalidated metadata, preserved in comments with `NOASSERTION` as the formal declaration.
+Host system packages, frameworks,
+drivers and arbitrary vendored source subtrees are not exhaustively enumerated. Unknown versions and licence terms
+remain unknown; the engine does not invent them. Recipe licence declarations are separate from legal conclusions.
+Custom `LicenseRef-` declarations include actual staged licence text when it can be identified separately; otherwise
+the declaration is preserved in a comment with `NOASSERTION` as the formal licence.
+
+Keep the SBOM with the archive it describes. Changing archive bytes invalidates its binding: the release bundler
+checks the hashes before publication. See [releases](releases.md#sboms-and-github) for GitHub integration and
+validation. An application or NuGet package that incorporates this FFmpeg build should reference this inventory
+and create its own SBOM for its additional dependencies and final package bytes.
+
 ## What you need
 
 `smbclient` is opt-in on Linux x64 in GPLv3 and nonfree builds. It builds Samba's client libraries from source

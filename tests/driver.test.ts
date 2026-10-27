@@ -295,6 +295,7 @@ interface SourceEntry {
   cached: boolean;
 }
 interface SourcesRecord {
+  sbom: string;
   ffmpeg: SourceEntry;
   // the fake folder builds two libraries, alpha and beta
   libraries: [SourceEntry, SourceEntry, ...SourceEntry[]];
@@ -319,6 +320,41 @@ describe.skipIf(!hasTools)('the driver: THIRD-PARTY-NOTICES.txt and sources', ()
     lay();
     first = drive('lgplv3');
   }, 120_000);
+
+  it('writes an SPDX sidecar bound to both archive hashes and the observed source inputs', () => {
+    expect(sources(first.name).sbom).toBe(`${first.name}.spdx.json`);
+    if (process.env['FFB_SPDX_VALIDATOR']) {
+      execFileSync(
+        process.env['FFB_SPDX_VALIDATOR'],
+        ['-i', join(T, 'out', `${first.name}.spdx.json`)],
+        { stdio: 'pipe' },
+      );
+    }
+    const document = JSON.parse(
+      readFileSync(join(T, 'out', `${first.name}.spdx.json`), 'utf8'),
+    ) as {
+      spdxVersion: string;
+      packages: {
+        name: string;
+        licenseDeclared: string;
+        checksums?: { algorithm: string; checksumValue: string }[];
+      }[];
+    };
+    expect(document.spdxVersion).toBe('SPDX-2.3');
+    for (const archive of [`${first.name}.tar.gz`, `${first.name}-dev.tar.gz`]) {
+      expect(document.packages.find((item) => item.name === archive)?.checksums).toEqual([
+        { algorithm: 'SHA256', checksumValue: sha256(join(T, 'out', archive)) },
+      ]);
+    }
+    const alpha = document.packages.find((item) => item.name === 'alpha')!;
+    expect(alpha.licenseDeclared).toBe('MIT');
+    expect(alpha.checksums).toEqual([
+      {
+        algorithm: 'SHA256',
+        checksumValue: sources(first.name).libraries.find((item) => item.name === 'alpha')!.sha256,
+      },
+    ]);
+  });
 
   it('builds, with THIRD-PARTY-NOTICES.txt at the root of both archives and no legal/ folder', () => {
     expect(first.code, first.log).toBe(0);

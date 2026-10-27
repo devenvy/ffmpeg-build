@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { appleBundleName, BundleError, releaseOf } from './bundle.ts';
+import { packageVersion } from './paths.ts';
 import {
   APPLE_SLICES,
   type AppleSlices,
@@ -27,6 +28,7 @@ import {
   type PlannedRelease,
   type PlannedTarget,
 } from './release.ts';
+import { combineBuildSboms } from './sbom-release.ts';
 import { artifactName, type Folder } from './targets.ts';
 
 import type { EngineData } from './engine-data.ts';
@@ -214,6 +216,19 @@ export async function bundleApple(
         unpacked.set(slice, { dir, artifact });
       }
       const frameworks = frameworksIn(unpacked.get('ios-arm64')!.dir);
+      const inventories = APPLE_SLICES.map((slice) => {
+        const artifact = unpacked.get(slice)!.artifact;
+        return {
+          sbom: join(o.dist, `${artifact}.spdx.json`),
+          archive: join(o.dist, `${artifact}.tar.gz`),
+        };
+      });
+      const present = inventories.filter((input) => existsSync(input.sbom));
+      if (present.length && present.length !== inventories.length) {
+        throw new BundleError(
+          `SBOM inventory is incomplete for the ${license} Apple bundle; build every slice with an inventory`,
+        );
+      }
       if (!frameworks.length) {
         throw new BundleError(`${unpacked.get('ios-arm64')!.artifact}.tar.gz has no .framework`);
       }
@@ -307,6 +322,24 @@ export async function bundleApple(
         `${JSON.stringify(appleSlicesRecord(o.dist, name, set, rel.ffmpeg), null, JSON_INDENT)}\n`,
       );
       assets.push(name, appleSlicesName(name));
+      if (present.length) {
+        const sbom = name.replace(/\.tar\.gz$/, '.spdx.json');
+        try {
+          const document = combineBuildSboms({
+            archive: join(o.dist, name),
+            inputs: inventories,
+            target: `ios-${license}`,
+            platform: 'ios',
+            version: rel.ffmpeg,
+            engine: packageVersion(),
+            created: new Date().toISOString(),
+          });
+          writeFileSync(join(o.dist, sbom), `${JSON.stringify(document, null, JSON_INDENT)}\n`);
+        } catch (error) {
+          throw new BundleError(error instanceof Error ? error.message : String(error));
+        }
+        assets.push(sbom);
+      }
     } finally {
       rmSync(work, { recursive: true, force: true });
     }

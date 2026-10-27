@@ -21,6 +21,7 @@ function writeSet(dir: string, label: string, sources = ['ffmpeg/ffmpeg-9.0.2.ta
   writeFileSync(join(dir, `${NAME}.tar.gz`), label);
   writeFileSync(join(dir, `${NAME}-dev.tar.gz`), label);
   writeFileSync(join(dir, `${NAME}.sources.json`), label);
+  writeFileSync(join(dir, `${NAME}.spdx.json`), label);
   for (const s of sources) {
     mkdirSync(join(dir, `${NAME}.sources`, s, '..'), { recursive: true });
     writeFileSync(join(dir, `${NAME}.sources`, s), label);
@@ -46,6 +47,7 @@ describe('build outputs', () => {
       `${NAME}.tar.gz`,
       `${NAME}-dev.tar.gz`,
       `${NAME}.sources.json`,
+      `${NAME}.spdx.json`,
       `${NAME}.log`,
     ]) {
       expect(readFileSync(join(out, f), 'utf8')).toBe(f.endsWith('.log') ? 'log' : 'new');
@@ -56,6 +58,7 @@ describe('build outputs', () => {
       `${NAME}.log`,
       `${NAME}.sources`,
       `${NAME}.sources.json`,
+      `${NAME}.spdx.json`,
       `${NAME}.tar.gz`,
     ]);
   });
@@ -123,7 +126,12 @@ describe('build outputs', () => {
     writeFileSync(join(out, `${NAME}.tar.gz`), 'new');
     mkdirSync(join(out, `.${NAME}.staging-def456`)); // and an earlier run's staging folder
     beginOutputs(out, NAME).release();
-    for (const f of [`${NAME}.tar.gz`, `${NAME}-dev.tar.gz`, `${NAME}.sources.json`]) {
+    for (const f of [
+      `${NAME}.tar.gz`,
+      `${NAME}-dev.tar.gz`,
+      `${NAME}.sources.json`,
+      `${NAME}.spdx.json`,
+    ]) {
       expect(readFileSync(join(out, f), 'utf8')).toBe('old');
     }
     expect(readdirSync(out).filter((f) => f.startsWith('.'))).toEqual([]);
@@ -138,6 +146,7 @@ describe('build outputs', () => {
     writeFileSync(join(staged, `${NAME}-dev.tar.gz`), 'new');
     writeFileSync(join(out, `${NAME}.tar.gz`), 'new');
     writeFileSync(join(out, `${NAME}.sources.json`), 'new');
+    writeFileSync(join(out, `${NAME}.spdx.json`), 'new');
     mkdirSync(join(out, `${NAME}.sources`));
     writeFileSync(join(out, `${NAME}.log`), 'new');
     writeFileSync(join(out, 'ffmpeg-9.0.2-linux-arm64-gplv3.tar.gz'), 'another artifact');
@@ -228,6 +237,7 @@ describe('build outputs', () => {
               `${NAME}.log`,
               `${NAME}.sources`,
               `${NAME}.sources.json`,
+              `${NAME}.spdx.json`,
               `${NAME}.tar.gz`,
             ];
             wantedContents = ['new'];
@@ -236,6 +246,7 @@ describe('build outputs', () => {
               `${NAME}-dev.tar.gz`,
               `${NAME}.sources`,
               `${NAME}.sources.json`,
+              `${NAME}.spdx.json`,
               `${NAME}.tar.gz`,
             ];
             wantedContents = ['old'];
