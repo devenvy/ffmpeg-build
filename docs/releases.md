@@ -25,6 +25,66 @@ the sources archive.
   the archives. Distributable builds from private repositories carry a written source offer because an outside
   recipient cannot open their source links (`source-offer:` names who to ask).
 
+### SBOMs and GitHub
+
+Build SBOMs are published as `.spdx.json` assets beside their archives and covered by `SHA256SUMS`. The manifest
+format stays unchanged, so older consumers can still read releases. Legacy builds without inventories still bundle;
+new builds mark their inventory as required, so a lost sidecar stops publication. Malformed or stale metadata also
+stops publication. The sources archive retains the
+original per-build inventories under `sbom/`.
+
+Apple xcframework bundles receive a combined SBOM bound to the final bundle's SHA256. It retains the slice
+inventories' dependency graph and their exact document hashes and namespaces, remaps document-local identifiers,
+and preserves different versions and licence texts. A partial set of slice inventories stops bundling; all four
+slices must have inventories, or all four must be legacy builds without them.
+
+SPDX 2.3 JSON is supported by [GitHub SBOM attestations](https://github.com/actions/attest). Uploading an SBOM
+asset alone does not add dependencies to GitHub's dependency graph. There are two optional integrations:
+
+- **Attest the actual archive** in its trusted build or release workflow with `actions/attest`. After building or
+  downloading the archive and its matching SBOM, use an explicit pair of paths, not a glob mixing different targets:
+
+  ```yaml
+  permissions:
+    contents: read
+    id-token: write
+    attestations: write
+    artifact-metadata: write
+
+  steps:
+    # ... build, or download and verify the archive and matching inventory ...
+    - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      with:
+        subject-path: dist/ffmpeg-9.0.2-linux-x64-lgplv3.tar.gz
+        sbom-path: dist/ffmpeg-9.0.2-linux-x64-lgplv3.spdx.json
+  ```
+
+  GitHub requires Enterprise Cloud for attestations in private/internal repositories; ordinary SBOM generation and
+  publication do not depend on that feature. Verify an attestation with `gh attestation verify <archive> --repo
+<owner/repo> --predicate-type https://spdx.dev/Document/v2.3`.
+
+- **Submit to the dependency graph** in a trusted workflow with `contents: write`, using
+  [SPDX Dependency Submission Action](https://github.com/advanced-security/spdx-dependency-submission-action):
+
+  ```yaml
+  - uses: advanced-security/spdx-dependency-submission-action@b009efcf8b9d562a4569d2028c276522232e631f # v0.4.0
+    with:
+      filePath: dist
+      filePattern: '*.spdx.json'
+      correlator: ffmpeg-build-release
+  ```
+
+  Submit a complete set consistently with the same correlator; independent partial submissions can replace each
+  other. Submission is separate from the reusable build workflow, which does not request new write/OIDC permissions.
+  The standard inventory uses generic package URLs for source-built C/C++ libraries and Cargo URLs for identified
+  Rust packages. GitHub advisory matching varies by supported ecosystem; a successful submission is not a guarantee
+  that Dependabot detects every native-library vulnerability. Do not relabel source builds as Conan/vcpkg packages.
+
+For independent format validation, install [SPDX tools](https://github.com/spdx/tools-python) in an isolated Python
+environment (`python -m pip install spdx-tools==0.8.5`) and run `pyspdxtools -i <build>.spdx.json`. The engine's CI
+runs this validator against generated inventories and combined bundles. [Inventory scope](building.md#software-bill-of-materials)
+describes what the metadata records and its limits.
+
 ### iOS and Mac Catalyst: the xcframework bundle
 
 A licence's four framework builds (ios-arm64, ios-sim-arm64, maccatalyst-arm64 and maccatalyst-x64) ship as one

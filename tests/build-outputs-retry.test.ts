@@ -16,7 +16,13 @@ import { beginOutputs } from '../src/build-outputs.ts';
 const NAME = 'ffmpeg-9.0.2-linux-x64-gplv3';
 const TRANSIENT_FAILURES = 2;
 const MAX_EXPECTED_ATTEMPTS = 20;
-const FILES = [`${NAME}.tar.gz`, `${NAME}-dev.tar.gz`, `${NAME}.sources.json`, `${NAME}.log`];
+const FILES = [
+  `${NAME}.tar.gz`,
+  `${NAME}-dev.tar.gz`,
+  `${NAME}.sources.json`,
+  `${NAME}.spdx.json`,
+  `${NAME}.log`,
+];
 
 function writeSet(folder: string, value: string): void {
   for (const file of FILES) {

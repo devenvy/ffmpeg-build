@@ -35,6 +35,7 @@ const artifactItems = (name: string): string[] => [
   `${name}-dev.tar.gz`,
   symbolsName(name),
   `${name}.sources.json`,
+  `${name}.spdx.json`,
   `${name}.sources`,
   `${name}.log`,
 ];

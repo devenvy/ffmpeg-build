@@ -28,6 +28,13 @@ folder. So do `node <engine>/src/cli.ts check`, and, after `npm link` in the eng
 Docker and network). `pnpm run schema` regenerates `schema/ffmpeg-build.schema.json` after a schema change (a test
 fails when it is stale).
 
+SBOMs use SPDX 2.3 JSON. CI's `sbom` jobs install the official `spdx-tools==0.8.5` validator and set
+`FFB_SPDX_VALIDATOR` to its `pyspdxtools` executable before running the inventory tests, including real Xcode
+xcframework assembly on macOS. To run the same checks locally, set that variable to an installed validator and run
+`pnpm exec vitest run tests/sbom.test.ts tests/build-sbom.test.ts tests/sbom-release.test.ts tests/bundle.test.ts tests/apple-bundle.test.ts`.
+Keep source identity and archive hashes tied to observed inputs; do not substitute guessed versions, licences,
+package-manager identities or claims about which static objects were linked.
+
 ## How the engine is laid out
 
 | Path                                                            | What it is                                                                                                            |

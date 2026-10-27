@@ -107,6 +107,38 @@ jobs:
           path: coverage
       - uses: davelosert/vitest-coverage-report-action@8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece # v2.13.1
 
+  # Independent SPDX validation, including the actual Xcode xcframework assembly on macOS.
+  # Python is a CI validator only; generating or publishing inventories needs only the normal engine.
+  sbom:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - run: pnpm install --frozen-lockfile
+      - name: Install the independent SPDX validator
+        run: |
+          python -m venv "$RUNNER_TEMP/spdx-validator"
+          "$RUNNER_TEMP/spdx-validator/bin/python" -m pip install 'spdx-tools==0.8.5'
+      - name: Validate generated and combined inventories
+        run: FFB_SPDX_VALIDATOR="$RUNNER_TEMP/spdx-validator/bin/pyspdxtools" pnpm exec vitest run tests/sbom.test.ts tests/build-sbom.test.ts tests/sbom-release.test.ts tests/bundle.test.ts tests/apple-bundle.test.ts
+      - name: Validate the worker's actual staged inventory
+        if: runner.os == 'Linux'
+        run: FFB_SPDX_VALIDATOR="$RUNNER_TEMP/spdx-validator/bin/pyspdxtools" pnpm exec vitest run tests/driver.test.ts -t 'writes an SPDX sidecar'
+
   # The published artifact: the compiled CLI, packed as npm will publish it (dist/ and the engine data, no src/).
   build:
     runs-on: ubuntu-latest
@@ -173,7 +205,7 @@ jobs:
   # What npm will publish, installed as a user installs it: the packed package's compiled worker runs a real build.
   package:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -196,6 +228,44 @@ jobs:
         run: |
           ffmpeg-build check
           ffmpeg-build build --target linux-x64-lgplv3 --only dav1d --in here --out "${RUNNER_TEMP}/out"
+      - name: Build a small FFmpeg product with the installed package
+        run: |
+          node --input-type=module -e '
+            import { mkdirSync, writeFileSync } from "node:fs";
+            import { join } from "node:path";
+            const folder = join(process.env.RUNNER_TEMP, "sbom-package");
+            mkdirSync(folder, { recursive: true });
+            writeFileSync(join(folder, "ffmpeg-build.yml"), JSON.stringify({
+              targets: { sbom: {
+                platform: "linux-x64", license: "lgplv3", ffmpeg: 9, with: ["zlib"],
+                components: {
+                  decoders: ["wrapped_avframe"], encoders: ["wrapped_avframe"], hwaccels: [],
+                  demuxers: [], muxers: ["null"], parsers: [], bsfs: [], protocols: ["file", "pipe"],
+                  indevs: ["lavfi"], outdevs: [], filters: ["testsrc2"]
+                }
+              } }
+            }));
+          '
+          cd "$RUNNER_TEMP/sbom-package"
+          ffmpeg-build lock
+          ffmpeg-build build --target sbom --in here --out "$RUNNER_TEMP/sbom-out"
+          ffmpeg-build test --target sbom --dist "$RUNNER_TEMP/sbom-out" --must-run
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Independently validate the real FFmpeg inventory
+        run: |
+          python -m venv "$RUNNER_TEMP/spdx-validator"
+          "$RUNNER_TEMP/spdx-validator/bin/python" -m pip install 'spdx-tools==0.8.5'
+          for sbom in "$RUNNER_TEMP"/sbom-out/*.spdx.json; do
+            "$RUNNER_TEMP/spdx-validator/bin/pyspdxtools" -i "$sbom"
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-sbom
+          path: ${{ runner.temp }}/sbom-out/
+          if-no-files-found: error
+          retention-days: 5
 
   # Dependabot PRs merge themselves once the required check passes. Runs as the devenvy-bot app so the merge triggers
   # release.yml. Needs the org Dependabot secrets DEVENVY_BOT_CLIENT_ID and DEVENVY_BOT_PRIVATE_KEY. Not a base image
@@ -242,7 +312,19 @@ jobs:
   result:
     if: always()
     needs:
-      [pr-title, lint, test, build, audit, dependency-review, shellcheck, package, check, recipes]
+      [
+        pr-title,
+        lint,
+        test,
+        sbom,
+        build,
+        audit,
+        dependency-review,
+        shellcheck,
+        package,
+        check,
+        recipes,
+      ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -253,6 +335,7 @@ jobs:
           DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
           LINT: ${{ needs.lint.result }}
           TEST: ${{ needs.test.result }}
+          SBOM: ${{ needs.sbom.result }}
           BUILD: ${{ needs.build.result }}
           AUDIT: ${{ needs.audit.result }}
           SHELLCHECK: ${{ needs.shellcheck.result }}
@@ -262,7 +345,7 @@ jobs:
           IS_PR: ${{ github.event_name == 'pull_request' }}
         # pr-title, dependency-review and recipes only run on pull requests; the audit is informational there
         run: |
-          for result in "$LINT" "$TEST" "$BUILD" "$SHELLCHECK" "$PACKAGE" "$CHECK"; do test "$result" = "success"; done
+          for result in "$LINT" "$TEST" "$SBOM" "$BUILD" "$SHELLCHECK" "$PACKAGE" "$CHECK"; do test "$result" = "success"; done
           if [ "$IS_PR" = "true" ]; then
             test "$PR_TITLE" = "success"
             test "$DEPENDENCY_REVIEW" = "success"

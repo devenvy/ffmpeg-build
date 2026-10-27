@@ -465,6 +465,7 @@ jobs:
           path: |
             ${{ runner.temp }}/dist/ffmpeg-*-ios-*.tar.gz
             ${{ runner.temp }}/dist/ffmpeg-*-ios-*.slices.json
+            ${{ runner.temp }}/dist/ffmpeg-*-ios-*.spdx.json
           retention-days: 5
           if-no-files-found: ignore
 

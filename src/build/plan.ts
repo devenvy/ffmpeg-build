@@ -357,6 +357,7 @@ export interface BuildPlan {
     license: string;
     key: string;
     cached: boolean;
+    dependencies?: string[]; // resolved recipe inputs, retained for the build SBOM
     source: Source;
     licenseFiles: LicenseFile[];
     build: Recipe['build'];
@@ -799,6 +800,10 @@ export function makeBuildPlan(args: {
         license: r.license,
         key,
         cached: existsSync(join(args.cacheDir, `${key}.tar.gz`)),
+        dependencies: unique([
+          ...depsOn(r, 'needs', platform),
+          ...depsOn(r, 'uses', platform).filter((dependency) => cell.recipes.includes(dependency)),
+        ]),
         source: sourceOf(data, lib, versionOf(lib), pinOf(lib)),
         licenseFiles: r['license-files'],
         build: r.build,

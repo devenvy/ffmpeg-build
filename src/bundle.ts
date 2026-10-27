@@ -28,6 +28,7 @@ import {
   removals,
   type SliceComponents,
 } from './release.ts';
+import { checkSbomInputs, readBuildSbom } from './sbom-release.ts';
 import { type TarEntry, writeTarGz } from './tar-write.ts';
 import { artifactName, type Folder, shipsSymbols, symbolsName } from './targets.ts';
 
@@ -55,6 +56,7 @@ interface SourcesJson {
   ffmpeg: SourceRecord;
   libraries: SourceRecord[];
   patches: { name: string; sha256: string }[];
+  sbom?: string;
 }
 
 /** The sha256 digits that name the folder of a kept source whose name another build's file already took. */
@@ -165,7 +167,7 @@ export function releaseOf(
 function builtTarget(
   dist: string,
   p: PlannedTarget,
-): { runtime: string; dev: string; symbols?: string; sources: SourcesJson } {
+): { runtime: string; dev: string; symbols?: string; sbom?: string; sources: SourcesJson } {
   const name = artifactName(p.target, p.facts.ffmpeg);
   const files = {
     runtime: `${name}.tar.gz`,
@@ -217,11 +219,35 @@ function builtTarget(
       `${p.target.name} was built from other versions than ffmpeg.lock says (${planned.join(', ')}); build it again`,
     );
   }
+  const sbom = `${name}.spdx.json`;
+  const hasSbom = existsSync(join(dist, sbom));
+  if (sources.sbom !== undefined && sources.sbom !== sbom) {
+    throw new BundleError(`SBOM filename in ${files.json} is not ${sbom}; build it again`);
+  }
+  if (sources.sbom && !hasSbom) {
+    throw new BundleError(`SBOM ${sbom} is missing from this build; build it again`);
+  }
+  if (hasSbom) {
+    try {
+      readBuildSbom(
+        join(dist, sbom),
+        [files.runtime, files.dev, ...(files.symbols ? [files.symbols] : [])].map((file) =>
+          join(dist, file),
+        ),
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new BundleError(error.message);
+      }
+      throw error;
+    }
+  }
   return {
     runtime: files.runtime,
     dev: files.dev,
     ...(files.symbols ? { symbols: files.symbols } : {}),
     sources,
+    ...(hasSbom ? { sbom } : {}),
   };
 }
 
@@ -270,6 +296,10 @@ async function writeSources(
   const entries: TarEntry[] = [];
   for (const p of rel.targets) {
     const s = built.get(p.target.name)!;
+    const sbom = `${s.artifact}.spdx.json`;
+    if (existsSync(join(dist, sbom))) {
+      entries.push({ path: `${root}/sbom/${sbom}`, file: join(dist, sbom) });
+    }
     for (const r of [s.ffmpeg, ...s.libraries].flatMap(keptFiles)) {
       const at = archived.get(`${r.file}\0${r.sha256}`)!;
       if (!entries.some((e) => e.path === `${root}/${at}`)) {
@@ -295,10 +325,12 @@ async function writeSources(
         .filter((i) => i !== 'macos'),
     ),
   ].sort();
-  const modules = buildModules(engineRoot).dir;
+  const modules = buildModules(engineRoot);
   const fromEngine = [
     'package.json',
-    ...filesUnder(join(engineRoot, ...modules.split('/'))).map((f) => `${modules}/${f}`),
+    ...filesUnder(join(engineRoot, ...modules.dir.split('/'))).map((f) => `${modules.dir}/${f}`),
+    // The staged worker also uses the shared inventory generator, outside the build/ directory.
+    `${modules.dir.split('/')[0]!}/sbom${modules.ext}`,
     ...filesUnder(join(engineRoot, 'platforms')).map((f) => `platforms/${f}`),
     ...images.flatMap((i) =>
       filesUnder(join(engineRoot, 'images', i)).map((f) => `images/${i}/${f}`),
@@ -515,7 +547,10 @@ export async function bundle(
 
   // every build is checked, the framework slices too: their sources go into the sources archive
   const built = new Map<string, SourcesJson>();
-  const archives = new Map<string, { runtime: string; dev: string; symbols?: string }>();
+  const archives = new Map<
+    string,
+    { runtime: string; dev: string; symbols?: string; sbom?: string }
+  >();
   for (const p of rel.targets) {
     const b = builtTarget(o.dist, p);
     built.set(p.target.name, b.sources);
@@ -537,8 +572,34 @@ export async function bundle(
         );
       }
       sidecars.push(checkAppleBundle(o.dist, runtime, t.slices, o.tag));
+      const sbom = runtime.replace(/\.tar\.gz$/, '.spdx.json');
+      const sliceSboms = t.slices.map((slice) =>
+        join(o.dist, `${artifactName(slice.target, slice.facts.ffmpeg)}.spdx.json`),
+      );
+      const observed = sliceSboms.filter((file) => existsSync(file));
+      if (observed.length || existsSync(join(o.dist, sbom))) {
+        if (observed.length !== sliceSboms.length) {
+          throw new BundleError(
+            `SBOM inventory is incomplete for ${runtime}: a slice inventory is missing; build the missing slice again`,
+          );
+        }
+        if (!existsSync(join(o.dist, sbom))) {
+          throw new BundleError(`SBOM ${sbom} is missing: run bundle --apple again`);
+        }
+        try {
+          const document = readBuildSbom(join(o.dist, sbom), [join(o.dist, runtime)]);
+          checkSbomInputs(document, sliceSboms);
+        } catch (error) {
+          throw new BundleError(error instanceof Error ? error.message : String(error));
+        }
+        sidecars.push(sbom);
+      }
     } else {
       ({ runtime, dev, symbols } = archives.get(t.name)!);
+      const sbom = archives.get(t.name)!.sbom;
+      if (sbom) {
+        sidecars.push(sbom);
+      }
     }
     targets.push({
       name: t.name,
