@@ -2,9 +2,9 @@
 # 2.28, so the artifacts run on any glibc >= 2.28), provisioned as images/linux-x64 is. An arm64 image: it runs
 # natively on an arm64 host and under qemu on an x64 one, as upstream builds it on arm64 runners. Builds use
 # gcc-toolset-14, which the driver enables. The library cache keys on this image's Docker ID.
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.26-1@sha256:a3e02308c822fb6ce0d12248b0c941817ba5e1a1bc9e7bb5929f29c50eaa40a9 AS toolchain
-FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.10.26-1@sha256:a3e02308c822fb6ce0d12248b0c941817ba5e1a1bc9e7bb5929f29c50eaa40a9
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.11.01-2@sha256:54b271d9562a3686298880df05367909e949ed317e7b1b79b59c696d75f78676 AS toolchain
+FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c AS node
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.11.01-2@sha256:54b271d9562a3686298880df05367909e949ed317e7b1b79b59c696d75f78676
 COPY --from=node /usr/local/ /usr/local/
 # JACK's unchanged bundled Waf imports imp, removed in Python 3.12.
 ENV JACK_PYTHON=/opt/python/cp311-cp311/bin/python3.11

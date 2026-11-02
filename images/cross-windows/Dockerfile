@@ -2,9 +2,9 @@
 # as upstream devenvy/ffmpeg does on an ubuntu-latest runner (platform/windows.sh, 03_install_packages.sh). Upstream
 # leaves both toolchains unpinned; here the base is pinned by digest and llvm-mingw by version and SHA-256. Ubuntu's
 # mingw-w64 packages come with the base's apt archive; the library cache keys on this image's Docker ID.
-FROM mirror.gcr.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS toolchain
-FROM mirror.gcr.io/library/node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node
-FROM mirror.gcr.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
+FROM mirror.gcr.io/library/ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS toolchain
+FROM mirror.gcr.io/library/node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c AS node
+FROM mirror.gcr.io/library/ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 COPY --from=node /usr/local/ /usr/local/
 
 ENV DEBIAN_FRONTEND=noninteractive
