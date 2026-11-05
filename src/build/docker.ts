@@ -4,6 +4,7 @@ import { createWriteStream, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { buildModules, workerPath } from './modules.ts';
+import { retry } from './run.ts';
 import { onInterrupt } from '../interrupt.ts';
 
 /** execFile as a promise of its output; it rejects with execFile's error (its `code` says ENOENT for a missing command). */
@@ -99,6 +100,9 @@ export function imageBuildArgs(
   return ['build', '-t', tag, dir];
 }
 
+/** Tries at building a toolchain image before the build fails. */
+const IMAGE_BUILD_ATTEMPTS = 3;
+
 /**
  * The image's tag and Docker ID, building it from images/<image> when this machine doesn't have it yet. The ID is
  * the library cache's toolchain identity: dnf packages aren't pinned, so a rebuilt image counts as a new toolchain.
@@ -110,15 +114,18 @@ export async function ensureImage(
   const tag = imageTag(root, image);
   let id = await inspectId(tag);
   if (!id) {
-    const { code } = await runStreaming(
-      dockerCommand(),
-      imageBuildArgs(tag, join(root, 'images', image), image),
-    );
-    if (code !== 0) {
-      throw new BuildError(
-        `Couldn't build the toolchain image ${tag} (docker build exited ${code}).`,
+    // a failed image build is nearly always the network (a package mirror's metadata, a registry layer): try again
+    await retry(IMAGE_BUILD_ATTEMPTS, async () => {
+      const { code } = await runStreaming(
+        dockerCommand(),
+        imageBuildArgs(tag, join(root, 'images', image), image),
       );
-    }
+      if (code !== 0) {
+        throw new BuildError(
+          `Couldn't build the toolchain image ${tag} (docker build exited ${code}).`,
+        );
+      }
+    });
     id = await inspectId(tag);
     if (!id) {
       throw new BuildError(`Built the toolchain image ${tag}, but Docker can't find it.`);

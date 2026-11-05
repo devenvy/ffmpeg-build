@@ -3,9 +3,12 @@ git: https://github.com/FFmpeg/FFmpeg
 versions: { git-tags: '^n(\d+\.\d+(?:\.\d+)?)$' }
 url: 'https://ffmpeg.org/releases/ffmpeg-{version}.tar.xz'
 # ffmpeg.lock pins the tarball's sha256, so a fallback must serve the same file byte for byte: these are copies of
-# ffmpeg.org's .tar.xz (Debian's orig tarball is upstream's, checked against its signature; the BLFS mirror keeps
-# upstream's file). Neither keeps every release (Debian only the ones it packages now), so they help for many
-# versions, not all. A forge's generated archive (GitHub's n<version>.tar.gz) never matches the pin: it isn't here.
+# ffmpeg.org's .tar.xz (Alpine's distfiles and Debian's orig tarball are upstream's, checked against its signature;
+# the BLFS mirror and fossies keep upstream's file). None keeps every release (Alpine and Debian only the ones they
+# package now), so together they cover the current releases when ffmpeg.org is down, not every old one. A forge's
+# generated archive (GitHub's n<version>.tar.gz) never matches the pin: it isn't here.
 mirrors:
+  - 'https://distfiles.alpinelinux.org/distfiles/edge/ffmpeg-{version}.tar.xz'
+  - 'https://fossies.org/linux/misc/ffmpeg-{version}.tar.xz'
   - 'https://deb.debian.org/debian/pool/main/f/ffmpeg/ffmpeg_{version}.orig.tar.xz'
   - 'https://ftp2.osuosl.org/pub/blfs/conglomeration/ffmpeg/ffmpeg-{version}.tar.xz'
