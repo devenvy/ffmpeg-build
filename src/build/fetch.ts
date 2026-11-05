@@ -143,7 +143,7 @@ export function notWorthRetrying(error: unknown): boolean {
 /** How long a git network step may take before it is killed: an hour. */
 const GIT_DEADLINE_MS = 3_600_000;
 /** Tries at each archive URL; a git source gets more (fewer when a mirror is there to fall back on). */
-const ARCHIVE_ATTEMPTS = 3;
+const ARCHIVE_ATTEMPTS = 5;
 const GIT_ATTEMPTS = 6;
 const GIT_ATTEMPTS_BEFORE_MIRROR = 2;
 
