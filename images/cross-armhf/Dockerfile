@@ -1,9 +1,9 @@
 # The linux-armhf toolchain image: cross-compiles 32-bit ARM with Debian bookworm's crossbuild-essential-armhf, as
 # upstream devenvy/ffmpeg does (its linux-armhf job runs in this same pinned image), so artifacts need glibc 2.36+.
 # The library cache keys on this image's Docker ID.
-FROM mirror.gcr.io/library/debian:bookworm@sha256:d74df7598108a173a621eda4d58a2adbf850b2d9a9d81bc2cca1a6c21174a880 AS toolchain
-FROM mirror.gcr.io/library/node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c AS node
-FROM mirror.gcr.io/library/debian:bookworm@sha256:d74df7598108a173a621eda4d58a2adbf850b2d9a9d81bc2cca1a6c21174a880
+FROM mirror.gcr.io/library/debian:bookworm@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8 AS toolchain
+FROM mirror.gcr.io/library/node:24.22.2-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS node
+FROM mirror.gcr.io/library/debian:bookworm@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8
 COPY --from=node /usr/local/ /usr/local/
 
 ENV DEBIAN_FRONTEND=noninteractive

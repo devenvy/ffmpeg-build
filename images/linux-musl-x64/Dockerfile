@@ -1,10 +1,10 @@
 # The linux-musl-x64 toolchain image: upstream devenvy/ffmpeg's pinned Alpine (musl libc), provisioned with the
 # packages upstream's 03_install_packages.sh installs for musl. Artifacts link libgcc and libstdc++ statically, so
 # they run on any musl system. The library cache keys on this image's Docker ID.
-FROM mirror.gcr.io/library/alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS toolchain
+FROM mirror.gcr.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS toolchain
 RUN apk add --no-cache gettext-dev
-FROM mirror.gcr.io/library/node:24.22.1-alpine3.23@sha256:0468540aa58203ff9e40c2aab3907c52644ab818af6176b1c70a026137dc92a2 AS node
-FROM mirror.gcr.io/library/alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+FROM mirror.gcr.io/library/node:24.22.2-alpine3.23@sha256:0efee1e068d21f6edcab7fa8c962fc4ecd50d4e28727bc23963379b63ee318ab AS node
+FROM mirror.gcr.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 COPY --from=node /usr/local/ /usr/local/
 # Bootstrap data only: gettext-dev's GNU header conflicts with musl's native gettext implementation.
 COPY --from=toolchain /usr/share/gettext/ /usr/share/gettext/

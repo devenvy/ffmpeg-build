@@ -3,7 +3,7 @@
 # leaves both toolchains unpinned; here the base is pinned by digest and llvm-mingw by version and SHA-256. Ubuntu's
 # mingw-w64 packages come with the base's apt archive; the library cache keys on this image's Docker ID.
 FROM mirror.gcr.io/library/ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS toolchain
-FROM mirror.gcr.io/library/node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c AS node
+FROM mirror.gcr.io/library/node:24.22.2-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS node
 FROM mirror.gcr.io/library/ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 COPY --from=node /usr/local/ /usr/local/
 
