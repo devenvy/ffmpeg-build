@@ -136,6 +136,13 @@ names their concurrency groups and `update-lock.yml`'s branch, so it has one spe
   One `all-builds` job to require. Its caller grants `contents: write` even with
   `never`: GitHub won't start a run whose called workflow has a job (the skipped release job) asking for more than
   the caller grants.
+- **`retry.yml`**: called from a `workflow_run` workflow on the release's completion
+  ([`examples/workflows/retry.yml`](../examples/workflows/retry.yml)). Hosted macOS capacity runs short: GitHub
+  drops a job it can't find a runner for ("The job was not acquired by Runner of type hosted even after multiple
+  attempts"), and `all-builds` fails the run. When every failed job of a failed run is one of those, it re-runs the
+  run's failed jobs (`gh run rerun --failed`: the jobs that passed and their artifacts stay), until the run's
+  `max-attempts` (default 3). A run with any other failure is left alone. It checks out and runs no code
+  (`actions: write`, `checks: read`).
 - **`check.yml`**: the pull-request check the example `ci.yml` calls. It builds nothing: `check`, then
   `releases --json --due` (is `ffmpeg-build.yml` valid, does `ffmpeg.lock` cover it, can every target be planned),
   and the run's summary says which releases the next release would publish. Whether a target builds is the engine's

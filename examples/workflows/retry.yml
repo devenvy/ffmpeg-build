@@ -1,0 +1,22 @@
+# A consumer's release retry (copy into .github/workflows/ beside release.yml): when a Release run fails only because
+# GitHub gave some jobs no runner (hosted macOS capacity), re-runs its failed jobs, up to two times. Any other failure
+# is left for you. `workflows:` names the release workflow by its `name:`.
+#
+# Repository setting: none.
+# Permissions: actions: write (re-run) and checks: read (the jobs' annotations), below.
+name: Retry release
+on:
+  # zizmor: ignore[dangerous-triggers] checks out and runs no code: it reads the run's jobs and re-runs them
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  retry:
+    if: github.event.workflow_run.conclusion == 'failure'
+    uses: devenvy/ffmpeg-build/.github/workflows/retry.yml@v0
+    permissions:
+      actions: write
+      checks: read
