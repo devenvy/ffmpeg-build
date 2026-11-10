@@ -207,7 +207,10 @@ export function writeNotices(
     for (const shipped of ships) {
       result += `== ${shipped.file} ==\n\nLicense: ${shipped.license}\n`;
       if (shipped.evidence) {
-        result += `Linked statically into the libraries and programs, as FFmpeg's configured link shows: ${shipped.evidence.join('; ')}\n`;
+        result += `Linked statically into the libraries and programs, as FFmpeg's link shows: ${shipped.evidence.join('; ')}\n`;
+        if (shipped.version) {
+          result += `Version: ${shipped.version.value} (the linking compiler's: ${shipped.version.source})\n`;
+        }
         if (shipped.compilerIdent) {
           result += `Compiler: ${shipped.compilerIdent}\n`;
         }

@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export interface Toolchain {
@@ -181,8 +188,12 @@ function msys2RuntimeNotices(licenses: string): Record<string, string> {
   found('GCC_GPL3', 'gcc/COPYING3');
   found('LIBCXX_NOTICE', 'libc++/LICENSE');
   found('LIBUNWIND_NOTICE', 'libunwind/LICENSE');
+  found('COMPILER_RT_NOTICE', 'compiler-rt/LICENSE');
   return notices;
 }
+
+// gcc-toolset's libgcc.a and libstdc++_nonshared.a are in its gcc and libstdc++-devel packages, one GCC release
+const GLIBC_GCC_RUNTIMES = 'libgcc libstdc++_nonshared';
 
 /** Materialize the platform environment and the exact CMake/Meson files formerly written by setup/*.sh. */
 export function createToolchain(options: ToolchainOptions): Toolchain {
@@ -199,6 +210,7 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     // a glibc Linux machine building its own platform: its compilers, with the image's flags
     env['CFLAGS'] = '-fPIC';
     env['CXXFLAGS'] = '-fPIC';
+    env['COMPILER_RUNTIMES'] = GLIBC_GCC_RUNTIMES;
   } else if (options.native && options.setup === 'windows') {
     // MSYS2's MinGW environment: its compilers by their plain names; cmake on Ninja (its default on Windows is Visual Studio)
     const arm = options.platform === 'win-arm64';
@@ -214,7 +226,10 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
       NM: 'nm',
       STRIP: 'strip',
       DLLTOOL_MACHINE: arm ? 'arm64' : 'i386:x86-64',
-      ...(arm ? { CXX_RT_LIB: '-l:libc++.a' } : {}),
+      ...(clang ? { CXX_RT_LIB: '-l:libc++.a' } : {}),
+      // the runtimes MSYS2 ships with the compiler: GCC's are in its gcc package; LLVM's libc++ and libunwind are
+      // packages of their own, compiler-rt is built with clang
+      COMPILER_RUNTIMES: clang ? 'compiler-rt-builtins' : 'libstdc++ libgcc',
     });
     delete env['CROSS_HOST'];
     delete env['CROSS_PREFIX'];
@@ -228,6 +243,8 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
   } else if (options.setup === 'linux' || options.setup === 'linux-musl') {
     env['CFLAGS'] = '-fPIC';
     env['CXXFLAGS'] = '-fPIC';
+    // Alpine's libstdc++-dev and libgcc-static are subpackages of its gcc
+    env['COMPILER_RUNTIMES'] = options.setup === 'linux' ? GLIBC_GCC_RUNTIMES : 'libstdc++ libgcc';
     if (options.setup === 'linux') {
       const root = '/opt/rh/gcc-toolset-14/root/usr';
       env['PATH'] = `${root}/bin${env['PATH'] ? `:${env['PATH']}` : ''}`;
@@ -242,6 +259,7 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     env['CROSS_PREFIX'] = 'arm-linux-gnueabihf';
     env['CFLAGS'] = '-fPIC';
     env['CXXFLAGS'] = '-fPIC';
+    env['COMPILER_RUNTIMES'] = 'libgcc';
     const dir = `${posixDirname(deps)}/toolchain`;
     const cmake = `${dir}/armhf.cmake`;
     const meson = `${dir}/armhf-meson.ini`;
@@ -390,11 +408,16 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
         ? {
             LIBCXX_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
             LIBUNWIND_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+            COMPILER_RT_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+            // one llvm-mingw release: clang and the runtimes it builds
+            COMPILER_RUNTIMES: 'libc++ libunwind compiler-rt-builtins',
           }
         : {
             LIBSTDCXX_NOTICE: '/usr/share/doc/g++-mingw-w64-x86-64-win32/copyright',
             LIBGCC_NOTICE: '/usr/share/doc/gcc-mingw-w64-x86-64-win32/copyright',
             GCC_GPL3: '/usr/share/common-licenses/GPL-3',
+            // Ubuntu's g++-mingw-w64 and gcc-mingw-w64 packages: one gcc-mingw-w64 source release
+            COMPILER_RUNTIMES: 'libstdc++ libgcc',
           },
     );
   } else if (options.setup === 'apple-macos' || options.setup === 'apple-ios') {
@@ -699,28 +722,84 @@ const removeLibrary = (input: string, name: RegExp, replacement = ''): string =>
   return text;
 };
 
+/** The static runtime archives a platform links in, which a plain -l<name> must find (staticRuntimeDir). */
+function staticRuntimes(setup: string, clang: boolean): string[] {
+  if (setup === 'linux-musl') {
+    return ['libstdc++.a'];
+  }
+  if (setup === 'windows') {
+    return [
+      ...(clang ? ['libc++.a', 'libunwind.a'] : ['libstdc++.a']),
+      'libwinpthread.a',
+      'libpthread.a',
+    ];
+  }
+  return [];
+}
+
+/**
+ * Where a platform links its runtimes statically (musl, Windows), a folder holding only those archives (the
+ * compiler's own, as its -print-file-name finds them), searched first (-L): a plain -lstdc++ or -lpthread that
+ * configure adds itself (rubberband, snappy, openmpt), which the .pc rewrite doesn't reach, then takes the archive
+ * instead of libstdc++.so or the import library of a DLL the archives don't ship. FFmpeg's configure and the
+ * libraries' build files are unchanged; src/build/linked.ts follows the -L, so the archive is recorded as linked.
+ */
+function staticRuntimeDir(
+  work: string,
+  compiler: string,
+  archives: readonly string[],
+  run: (command: string, args: string[]) => string,
+): string | undefined {
+  const dir = `${work.replaceAll('\\', '/')}/static-runtime`;
+  const [command, ...preset] = compiler.split(/\s+/);
+  const found = archives.flatMap((archive) => {
+    const path = run(command!, [...preset, `-print-file-name=${archive}`]).trim();
+    // a name it can't find comes back as given
+    return path !== archive && existsSync(path) ? [{ archive, path }] : [];
+  });
+  if (!found.length) {
+    return undefined;
+  }
+  mkdirSync(dir, { recursive: true });
+  for (const { archive, path } of found) {
+    copyFileSync(path, join(dir, archive));
+  }
+  return dir;
+}
+
 /** Platform hook immediately before FFmpeg configure, including its generated host flags. */
 export function beforeFfmpeg(
   context: {
     buildPlan: { platform: string; setup: string };
     depsDir: string;
     env: NodeJS.ProcessEnv;
+    work?: string; // the build's work folder, for the static runtime folder (none: no folder)
   },
   _ffmpegDir: string,
   flags: readonly string[],
+  command: (command: string, args: string[]) => string = (name, args) =>
+    execFileSync(name, args, { encoding: 'utf8', env: context.env }),
 ): string[] {
   const { setup, platform } = context.buildPlan;
   // a toolchain setting as configure gets it (an unset one reads `undefined`, as it always has)
   const setting = (name: string): string => String(context.env[name]);
+  // a native Windows build (MSYS2) compiles for the machine it runs on: no cross compiler, prefix or toolchain names
+  const nativeWindows = setup === 'windows' && context.env['FFB_IN'] === 'here';
+  // llvm-mingw (win-arm64) or MSYS2's CLANG64/CLANGARM64: LLVM's C++ runtime and unwinder, not GCC's
+  const clang = platform === 'win-arm64' || (nativeWindows && context.env['CC'] === 'clang');
   if (setup === 'linux-musl') {
     rewritePcFiles(context.depsDir, (text) =>
-      removeLibrary(removeLibrary(text, /-lgcc_s/), /-lstdc\+\+/, '-l:libstdc++.a'),
+      removeLibrary(
+        removeLibrary(removeLibrary(text, /-lgcc_s/), /-lstdc\+\+/, '-l:libstdc++.a'),
+        /-lunwind/,
+        '-l:libunwind.a',
+      ),
     );
   }
   if (setup === 'windows') {
     rewritePcFiles(context.depsDir, (input) => {
       const text = removeLibrary(input, /-lgcc_s/);
-      if (platform === 'win-arm64') {
+      if (clang) {
         return removeLibrary(
           removeLibrary(
             removeLibrary(text, /-l(?:std)?c\+\+/, '-l:libc++.a'),
@@ -740,8 +819,6 @@ export function beforeFfmpeg(
       );
     });
   }
-  // a native Windows build (MSYS2) compiles for the machine it runs on: no cross compiler, prefix or toolchain names
-  const nativeWindows = setup === 'windows' && context.env['FFB_IN'] === 'here';
   const out = nativeWindows
     ? flags.filter(
         (f) =>
@@ -757,6 +834,17 @@ export function beforeFfmpeg(
       // MinGW 4b51967 moved FE_DFL_ENV into this native object in libmingw32;
       // fesetenv in the later libmingwex archive needs it when linking a DLL.
       out.push('--extra-ldflags=-l:CRT_fp10.o');
+    }
+  }
+  const archives = staticRuntimes(setup, clang);
+  if (context.work && archives.length) {
+    const compiler =
+      out.findLast((f) => f.startsWith('--cc='))?.slice('--cc='.length) ??
+      context.env['CC'] ??
+      'gcc';
+    const dir = staticRuntimeDir(context.work, compiler, archives, command);
+    if (dir) {
+      out.push(`--extra-ldflags=-L${dir}`);
     }
   }
   if (setup === 'android') {

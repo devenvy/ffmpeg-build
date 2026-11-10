@@ -24,10 +24,19 @@ comments. Runtime files that staging actually finds have their own hashes and co
 tools and source-only Cargo packages are distinguished from linked dependencies. Linked crates use the engine's
 normalization of legacy Cargo licence syntax; their original declarations remain in comments. Source-only crates'
 licence strings are unvalidated metadata, preserved in comments with `NOASSERTION` as the formal declaration.
-A toolchain's static runtime archive (libstdc++ and libgcc on musl and win-x64, libc++ and libunwind on win-arm64) is
-listed only when FFmpeg's configured link (`ffbuild/config.mak`) names it, with that evidence and the compiler
-configure identified in its comments; its version is not recorded, and it has no file hash, since it is not a file in
-the archives.
+A toolchain's static runtime archive is listed only when FFmpeg's link names it: the configured link
+(`ffbuild/config.mak`), or the libraries the linker driver adds to every link itself, which `$(LD) -shared -###` prints
+without linking. A `-l<name>` counts where ld would take the archive for it (the `-L` folders, then the driver's;
+following a GNU ld script such as gcc-toolset's `libstdc++.so`). The archives listed this way are libgcc on every GCC
+platform (with libstdc++ on musl and win-x64, and gcc-toolset's `libstdc++_nonshared.a` on glibc, where a C++ library
+brings it), LLVM's libunwind on musl, libunwind, libc++ and the compiler-rt builtins with clang on Windows, and
+winpthreads on Windows. The evidence and the compiler configure identified are in the comments. The version is the
+linking compiler's (`-dumpfullversion`, clang's `-dumpversion`) where the toolchain releases the runtime with that
+compiler, and is not recorded otherwise (Alpine's libunwind and winpthreads are packages of their own, and so are
+MSYS2's libc++ and libunwind). There is no file hash: these are not files in the archives. The inventory does not say
+which archive members were linked. It does not cover the runtimes Apple's and the NDK's clang link implicitly (the
+compiler-rt builtins, and the NDK's static libunwind), which no ships: entry declares yet. It also does not follow a
+search ld does beyond those folders (its built-in search directories, a sysroot's `=` prefix).
 Host system packages, frameworks,
 drivers and arbitrary vendored source subtrees are not exhaustively enumerated. Unknown versions and licence terms
 remain unknown; the engine does not invent them. Recipe licence declarations are separate from legal conclusions.
@@ -365,11 +374,12 @@ Then the rest, each part under its own `=====` rule:
   build fails when one is missing);
 - **PATCH SETS:** each set's name, licence, sha256 and patches, and its licence texts;
 - **FILES THE PLATFORM SHIPS:** what the toolchain contributes (Android's libc++_shared.so, Windows' winpthreads), each
-  with its licence and notice. A compiler runtime linked statically into the libraries (platforms.yml `ships:` with
-  `linked:`: libstdc++ and libgcc on musl and win-x64, libc++ and libunwind on win-arm64) is there only when FFmpeg's
-  configured link shows it, with what showed it; a build with no C++ library has no C++ runtime entry. Its notice is the
-  toolchain's own licence file; Alpine's GCC packages carry none, so musl builds carry GCC's COPYING.RUNTIME and
-  COPYING3 from the engine (`license-texts/`). A text several entries share is in full once.
+  with its licence and notice. A runtime linked statically into the libraries (platforms.yml `ships:` with `linked:`)
+  is there only when FFmpeg's link shows it, with what showed it and the linking compiler's version where it ships with
+  that compiler; a build with no C++ library has no C++ runtime entry. Its notice is the toolchain's own licence file
+  where the toolchain installs one. Alpine's packages carry none, and gcc-toolset's are not installed in the manylinux
+  images, so those builds carry GCC's COPYING.RUNTIME and COPYING3 and LLVM's libunwind licence from the engine
+  (`license-texts/`). A text several entries share is in full once.
 
 The libraries' texts are captured into each library's install tree when it is built, so a library from the cache
 brings them along. devenvy/ffmpeg's archives had a `legal/` folder instead; the owner chose one file.

@@ -157,7 +157,12 @@ describe('native toolchains', () => {
   it("names the compiler runtimes' licences, for the ships: entries a build links in, as each toolchain has them", () => {
     const m = msys2();
     const licenses = m.notice.replace(/\/winpthreads\/COPYING$/, '');
-    for (const path of ['gcc/COPYING.RUNTIME', 'gcc/COPYING3', 'libc++/LICENSE']) {
+    for (const path of [
+      'gcc/COPYING.RUNTIME',
+      'gcc/COPYING3',
+      'libc++/LICENSE',
+      'compiler-rt/LICENSE',
+    ]) {
       mkdirSync(`${licenses}/${path.replace(/\/[^/]+$/, '')}`, { recursive: true });
       writeFileSync(`${licenses}/${path}`, path);
     }
@@ -173,6 +178,22 @@ describe('native toolchains', () => {
       LIBGCC_NOTICE: `${licenses}/gcc/COPYING.RUNTIME`,
       GCC_GPL3: `${licenses}/gcc/COPYING3`,
       LIBCXX_NOTICE: `${licenses}/libc++/LICENSE`,
+      COMPILER_RT_NOTICE: `${licenses}/compiler-rt/LICENSE`,
+      COMPILER_RUNTIMES: 'libstdc++ libgcc',
+    });
+    // CLANG64: compiler-rt is built with clang; MSYS2's libc++ and libunwind are packages of their own
+    expect(
+      createToolchain({
+        platform: 'win-x64',
+        setup: 'windows',
+        native: true,
+        ...dirs(),
+        ...msys2({ MSYSTEM: 'CLANG64' }),
+      }).env,
+    ).toMatchObject({
+      CC: 'clang',
+      CXX_RT_LIB: '-l:libc++.a',
+      COMPILER_RUNTIMES: 'compiler-rt-builtins',
     });
     // what the environment doesn't have stays unset: a build that links it in fails at its notices, naming it
     expect(native['LIBUNWIND_NOTICE']).toBeUndefined();
@@ -182,11 +203,19 @@ describe('native toolchains', () => {
       LIBSTDCXX_NOTICE: '/usr/share/doc/g++-mingw-w64-x86-64-win32/copyright',
       LIBGCC_NOTICE: '/usr/share/doc/gcc-mingw-w64-x86-64-win32/copyright',
       GCC_GPL3: '/usr/share/common-licenses/GPL-3',
+      COMPILER_RUNTIMES: 'libstdc++ libgcc',
     });
     expect(image('win-arm64')).toMatchObject({
       LIBCXX_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
       LIBUNWIND_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+      COMPILER_RT_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+      COMPILER_RUNTIMES: 'libc++ libunwind compiler-rt-builtins',
     });
+    const linux = (setup: string, platform: string) =>
+      createToolchain({ platform, setup, ...dirs(), env: {} }).env['COMPILER_RUNTIMES'];
+    expect(linux('linux', 'linux-x64')).toBe('libgcc libstdc++_nonshared');
+    expect(linux('linux-musl', 'linux-musl-x64')).toBe('libstdc++ libgcc');
+    expect(linux('linux-armhf', 'linux-armhf')).toBe('libgcc');
     expect(image('win-arm64')['LIBSTDCXX_NOTICE']).toBeUndefined();
   });
 });

@@ -274,10 +274,25 @@ describe("the plan's legal data", () => {
         license: 'GPL-3.0-or-later WITH GCC-exception-3.1',
         notice: Object.keys(texts),
         texts,
-        linked: ['-static-libgcc', '-static'],
-        compiler: 'gcc',
+        linked: ['libgcc.a', 'libgcc_eh.a'],
+      },
+      {
+        file: 'libunwind',
+        license: 'Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)',
+        notice: ['license-texts/LLVM-libunwind.txt'],
+        texts: {
+          'license-texts/LLVM-libunwind.txt': readFileSync(
+            join(packageRoot, 'license-texts', 'LLVM-libunwind.txt'),
+            'utf8',
+          ),
+        },
+        linked: ['libunwind.a'],
       },
     ]);
+    // LLVM's own libunwind/LICENSE.TXT: rav1e's recipe carries the same file for the unwinder Rust links
+    expect(ships[2]!.texts!['license-texts/LLVM-libunwind.txt']).toBe(
+      readFileSync(join(packageRoot, 'recipes', 'rav1e', 'LLVM-LICENSE.txt'), 'utf8'),
+    );
   });
 });
 

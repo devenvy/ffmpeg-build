@@ -452,12 +452,12 @@ describe.skipIf(!hasTools)('the driver: THIRD-PARTY-NOTICES.txt and sources', ()
   it('adds a linked: toolchain archive only where the configured link shows it, with what showed it', () => {
     const ships = sectionOf(notices(first.name), 'FILES THE PLATFORM SHIPS');
     expect(ships).toContain(
-      "== libfake-rt ==\n\nLicense: Zlib\nLinked statically into the libraries and programs, as FFmpeg's configured link shows: libfake-rt.a (EXTRALIBS-avcodec)\nCompiler: gcc 9.9.9 (fake)\n\n--- NOTICE ---\n\nThe same text as under libfoo.so above.\n\n--- MIT.txt (the engine's standard text: the toolchain ships none) ---\n\nstandard MIT text\n",
+      "== libfake-rt ==\n\nLicense: Zlib\nLinked statically into the libraries and programs, as FFmpeg's link shows: libfake-rt.a (EXTRALIBS-avcodec)\nCompiler: gcc 9.9.9 (fake)\n\n--- NOTICE ---\n\nThe same text as under libfoo.so above.\n\n--- MIT.txt (the engine's standard text: the toolchain ships none) ---\n\nstandard MIT text\n",
     );
     // named only by a program that isn't built, and its flag not given: not in this build (nor its missing notice)
     expect(ships).not.toContain('libnone');
     expect(first.log).toContain(
-      "not linked in from the toolchain: libnone (FFmpeg's configured link shows none of libnone.a, -static-libnone)",
+      "not linked in from the toolchain: libnone (FFmpeg's link shows none of libnone.a, -static-libnone)",
     );
     const document = JSON.parse(
       readFileSync(join(T, 'out', `${first.name}.spdx.json`), 'utf8'),

@@ -372,6 +372,51 @@ describe('observed build SBOM', () => {
     expect(read(context).packages.some((item) => item.name === 'libstdc++')).toBe(false);
   });
 
+  it("gives a runtime released with its compiler that compiler's version, and says where it came from", () => {
+    const context = fixture();
+    const libgcc = {
+      file: 'libgcc',
+      license: 'GPL-3.0-or-later WITH GCC-exception-3.1',
+      notice: ['license-texts/GCC-exception-3.1.txt'],
+      linked: ['libgcc.a'],
+    };
+    const winpthread = {
+      ...libgcc,
+      file: 'libwinpthread',
+      license: 'MIT',
+      linked: ['libpthread.a'],
+    };
+    context.buildPlan.ships = [libgcc, winpthread];
+    writeBuildSbom(
+      context,
+      ffmpeg,
+      [source('sample')],
+      [
+        {
+          ...libgcc,
+          evidence: ['libgcc.a (gcc -shared -###)'],
+          version: { value: '14.2.1', source: 'gcc -dumpfullversion' },
+        },
+        { ...winpthread, evidence: ['libpthread.a (gcc -shared -###)'] },
+      ],
+    );
+    const document = read(context);
+    const runtime = document.packages.find((item) => item.name === 'libgcc')!;
+    expect(runtime.versionInfo).toBe('14.2.1');
+    expect(runtime.sourceInfo).toContain("Version: the linking compiler's (gcc -dumpfullversion)");
+    expect(runtime.externalRefs[0]!.referenceLocator).toBe('pkg:generic/libgcc@14.2.1');
+    // a separately packaged runtime: linked on the driver's evidence, the same relationship, no version
+    const pthread = document.packages.find((item) => item.name === 'libwinpthread')!;
+    expect(pthread).not.toHaveProperty('versionInfo');
+    expect(document.relationships).toContainEqual(
+      expect.objectContaining({
+        relatedSpdxElement: pthread.SPDXID,
+        relationshipType: 'DEPENDS_ON',
+        comment: expect.stringContaining('libpthread.a (gcc -shared -###)'),
+      }),
+    );
+  });
+
   it('rejects unobserved dependencies or mismatched source versions before emitting a document', () => {
     const context = fixture();
     context.buildPlan.libraries[0]!.dependencies = ['not-observed'];

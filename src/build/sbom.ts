@@ -363,16 +363,17 @@ export function writeBuildSbom(
     const key = add({
       key: `toolchain-linked:${shipped.file}:${plan.toolchain}`,
       name: shipped.file,
+      ...(shipped.version ? { version: shipped.version.value } : {}),
       ...declaration(shipped.license, [], shipped.file),
       purpose: 'LIBRARY',
-      sourceInfo: `Toolchain-supplied static archive, linked into the FFmpeg libraries and programs whose link the evidence names; FFmpeg's configured link (ffbuild/config.mak) shows: ${shipped.evidence!.join('; ')}.${shipped.compilerIdent ? ` Linking compiler, as FFmpeg's configure identified it (CC_IDENT): ${shipped.compilerIdent}.` : ''} Toolchain identity: ${plan.toolchain}. Its library version was not recorded. It is not a separate file in the archives, so no file checksum applies.`,
+      sourceInfo: `Toolchain-supplied static archive, linked into the FFmpeg libraries and programs whose link the evidence names; FFmpeg's link (ffbuild/config.mak, and its linker driver's own libraries) shows: ${shipped.evidence!.join('; ')}.${shipped.compilerIdent ? ` C compiler, as FFmpeg's configure identified it (CC_IDENT): ${shipped.compilerIdent}.` : ''} Toolchain identity: ${plan.toolchain}. ${shipped.version ? `Version: the linking compiler's (${shipped.version.source}), which the toolchain releases this runtime with.` : 'Its library version was not recorded.'} It is not a separate file in the archives, so no file checksum applies.`,
     });
     for (const artifact of describes) {
       edge(
         artifact,
         key,
         'DEPENDS_ON',
-        `Static toolchain archive named by FFmpeg's configured link: ${shipped.evidence!.join('; ')}. The linker takes only the archive members the libraries reference; this does not assert which were linked.`,
+        `Static toolchain archive named by FFmpeg's link: ${shipped.evidence!.join('; ')}. The linker takes only the archive members the libraries reference; this does not assert which were linked.`,
       );
     }
   }
