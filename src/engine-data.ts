@@ -48,6 +48,9 @@ export interface EngineData {
   ffmpegSource: { git: string; tags: string; url: string; mirrors: string[] };
 }
 
+/** A platforms.yml notice under this folder is the engine's standard text (license-texts/), not a toolchain file. */
+export const STANDARD_TEXTS = 'license-texts/';
+
 export class EngineDataError extends Error {
   readonly errors: string[];
 
@@ -145,7 +148,14 @@ export function loadEngineData(root: string): EngineData {
       configure: entry.configure ?? [],
       ships: entry.ships ?? {},
     });
-    for (const [file, { license: expr }] of Object.entries(entry.ships ?? {})) {
+    for (const [file, { license: expr, notice }] of Object.entries(entry.ships ?? {})) {
+      for (const path of notice.filter((n) => n.startsWith(STANDARD_TEXTS))) {
+        if (!/^license-texts\/[^/\\]+\.txt$/.test(path) || !existsSync(join(root, path))) {
+          errors.push(
+            `platforms.yml: ${p} ships ${file} with the notice ${path}, which is not one of the engine's standard texts (license-texts/<file>.txt)`,
+          );
+        }
+      }
       const verdict = allowedBy(expr, licenses);
       if ('unknown' in verdict) {
         errors.push(

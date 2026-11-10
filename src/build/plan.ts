@@ -8,7 +8,14 @@ import { androidApiFor, androidApiProblems, isAndroid } from '../android-api.ts'
 import { type About, aboutSchema, patchAdditions } from '../check.ts';
 import { versionInCell } from '../choose.ts';
 import { componentFlags } from '../component-lists.ts';
-import { depsOn, type EngineData, optionRecipe, optionsOf, valuesOn } from '../engine-data.ts';
+import {
+  depsOn,
+  type EngineData,
+  optionRecipe,
+  optionsOf,
+  STANDARD_TEXTS,
+  valuesOn,
+} from '../engine-data.ts';
 import { COMPONENT_KINDS, type Components } from '../ffmpeg-components.ts';
 import { allowedBy } from '../licenses.ts';
 import { linkageConfigure, linkagePlan, linkedRecipe } from '../linkage.ts';
@@ -369,7 +376,7 @@ export interface BuildPlan {
     runtime: string[];
     packages: Record<string, string[]>;
   }[];
-  ships: { file: string; license: string; notice: string }[]; // platform files the archives carry, with their notice's path in the toolchain
+  ships: PlannedShip[]; // what the platform's toolchain puts in the archives (platforms.yml ships:), with its notices
   patches: PlannedPatchSet[];
   // THIRD-PARTY-NOTICES.txt: the governing COPYING texts of FFmpeg to include, and the sections the plan can write
   notices: { governing: string[]; header: string; build: string; source: string };
@@ -691,6 +698,39 @@ export function plannedPatches(profile: Profile, major: string): PlannedPatchSet
   });
 }
 
+/** A platforms.yml `ships:` entry as a build needs it. */
+export interface PlannedShip {
+  file: string;
+  license: string;
+  // its notice files: paths in the toolchain (${VAR}: a variable of the platform's setup), or license-texts/<file>,
+  // the engine's standard text, which `texts` carries (the build has no engine data)
+  notice: string[];
+  texts?: Record<string, string>;
+  // only in a build whose configured FFmpeg link shows one of these (src/build/linked.ts), with this compiler
+  linked?: string[];
+  compiler?: string;
+}
+
+function plannedShips(data: EngineData, platform: string): PlannedShip[] {
+  return Object.entries(data.platforms.get(platform)?.ships ?? {}).map(([file, s]) => {
+    const standard = s.notice.filter((n) => n.startsWith(STANDARD_TEXTS));
+    return {
+      file,
+      license: s.license,
+      notice: s.notice,
+      ...(standard.length
+        ? {
+            texts: Object.fromEntries(
+              standard.map((n) => [n, readFileSync(join(data.root, n), 'utf8')]),
+            ),
+          }
+        : {}),
+      ...(s.linked ? { linked: s.linked } : {}),
+      ...(s.compiler ? { compiler: s.compiler } : {}),
+    };
+  });
+}
+
 /**
  * What a build with a Rust library needs to check and credit its crates (BuildPlan's cargo): licenses.yml, and the
  * standard licence texts the engine has (license-texts/<SPDX id>.txt). None when no recipe in it has cargo:.
@@ -832,11 +872,7 @@ export function makeBuildPlan(args: {
             })),
         }
       : {}),
-    ships: Object.entries(data.platforms.get(platform)?.ships ?? {}).map(([file, s]) => ({
-      file,
-      license: s.license,
-      notice: s.notice,
-    })),
+    ships: plannedShips(data, platform),
     patches,
     ...(cargo ? { cargo } : {}),
     notices: {

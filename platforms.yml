@@ -6,6 +6,14 @@
 #   test-runner  the runner that runs its builds, when the one it builds on can't (default: runner). Most are run
 #              on their build runner: natively, in a container (musl, armhf), in the iOS simulator, as a Mac
 #              process (Catalyst), or on an Android emulator; Windows builds need Windows.
+#   ships      what the toolchain puts into the archives besides FFmpeg and the recipes: a file they carry (Android's
+#              libc++_shared.so) or a static archive linked into the libraries, with its SPDX licence and its notice
+#              files (paths in the toolchain, ${VAR} a variable of its setup; or license-texts/<file>, the engine's
+#              standard text, for a toolchain that ships none), for THIRD-PARTY-NOTICES.txt and the SBOM. An entry
+#              with `linked:` is in a build only where FFmpeg's configured link (ffbuild/config.mak) shows one of them:
+#              a static archive it names (libstdc++.a: -l:libstdc++.a, its path, or -lstdc++ where the link is
+#              static) or a compiler-driver flag (-static-libgcc); `compiler:` limits it to one compiler (a word of
+#              configure's CC_IDENT), for a flag whose meaning depends on it.
 # FFmpeg features a platform offers (vaapi, d3d11va, videotoolbox) are options in ffmpeg/<major>.yml that profiles
 # list; they don't belong here.
 platforms:
@@ -42,6 +50,20 @@ platforms:
         --extra-ldflags=-static-libgcc,
         '--extra-ldflags=-Wl,-z,stack-size=8388608',
       ]
+    # GCC's runtimes, linked statically into the libraries and programs: libgcc (-static-libgcc, above) always, and
+    # libstdc++ where a C++ library brings it (its .pc's -lstdc++ is -l:libstdc++.a here: src/build/toolchain.ts
+    # beforeFfmpeg). `linked:`: a build has each only where FFmpeg's configured link shows it. Alpine's GCC packages
+    # ship no licence text: the notice is the engine's copy of GCC's COPYING.RUNTIME and COPYING3 (license-texts/).
+    ships:
+      libstdc++:
+        license: GPL-3.0-or-later WITH GCC-exception-3.1
+        notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
+        linked: [libstdc++.a]
+      libgcc:
+        license: GPL-3.0-or-later WITH GCC-exception-3.1
+        notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
+        linked: [-static-libgcc, -static]
+        compiler: gcc
   # 64-bit ARM: built natively in arm64 images, as upstream does on arm64 runners. An x64 host runs them under qemu
   # 8.1.5 (qemu 9.2 breaks the manylinux image's tar), registered with mirror.gcr.io/tonistiigi/binfmt:qemu-v8.1.5@sha256:
   # 2d2918e86e5327d0661f7083d67a95280b0f7be8f77ed79a8418f81d7d90ce6f: the README says how.
@@ -73,6 +95,17 @@ platforms:
         --extra-ldflags=-static-libgcc,
         '--extra-ldflags=-Wl,-z,stack-size=8388608',
       ]
+    # (GCC's runtimes: as linux-musl-x64)
+    ships:
+      libstdc++:
+        license: GPL-3.0-or-later WITH GCC-exception-3.1
+        notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
+        linked: [libstdc++.a]
+      libgcc:
+        license: GPL-3.0-or-later WITH GCC-exception-3.1
+        notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
+        linked: [-static-libgcc, -static]
+        compiler: gcc
   osx-arm64:
     image: macos
     setup: apple-macos
@@ -195,8 +228,22 @@ platforms:
       ]
     # mingw-w64's winpthreads, linked statically into the DLLs (src/build/toolchain.ts); its MIT notice must travel
     # with them: Ubuntu's mingw-w64 copyright file, which has winpthreads' terms
-    # (WINPTHREADS_NOTICE: the toolchain's copy of it; in MSYS2, its winpthreads package's licence)
-    ships: { libwinpthread: { license: MIT, notice: '${WINPTHREADS_NOTICE}' } }
+    # (WINPTHREADS_NOTICE: the toolchain's copy of it; in MSYS2, its winpthreads package's licence).
+    # GCC's runtimes, linked statically too: libgcc (-static-libgcc; MSYS2 adds -static) always, libstdc++ where a C++
+    # library brings it (-l:libstdc++.a: src/build/toolchain.ts beforeFfmpeg); each only where FFmpeg's configured link
+    # shows it (linked:). Their notices: the copyright files of Ubuntu's packages that have the archives, with GCC's
+    # runtime library exception, and the GPLv3 they refer to (in MSYS2, its gcc package's COPYING.RUNTIME and COPYING3).
+    ships:
+      libwinpthread: { license: MIT, notice: '${WINPTHREADS_NOTICE}' }
+      libstdc++:
+        license: GPL-3.0-or-later WITH GCC-exception-3.1
+        notice: ['${LIBSTDCXX_NOTICE}', '${GCC_GPL3}']
+        linked: [libstdc++.a]
+      libgcc:
+        license: GPL-3.0-or-later WITH GCC-exception-3.1
+        notice: ['${LIBGCC_NOTICE}', '${GCC_GPL3}']
+        linked: [-static-libgcc, -static]
+        compiler: gcc
   win-arm64:
     image: cross-windows
     setup: windows
@@ -219,8 +266,20 @@ platforms:
         '--extra-cxxflags=-static-libgcc -static-libstdc++ -O2 -pipe -include system_error',
         '--extra-ldflags=-static-libgcc -static-libstdc++',
       ]
-    # llvm-mingw's winpthreads, linked statically into the DLLs (src/build/toolchain.ts), with its notice from llvm-mingw
-    ships: { libwinpthread: { license: MIT, notice: '${WINPTHREADS_NOTICE}' } }
+    # llvm-mingw's winpthreads, linked statically into the DLLs (src/build/toolchain.ts), with its notice from llvm-mingw.
+    # LLVM's C++ runtime and unwinder, linked statically where a C++ library brings them (its .pc's -lc++ and -lunwind
+    # are -l:libc++.a and -l:libunwind.a here: src/build/toolchain.ts beforeFfmpeg); each only where FFmpeg's configured
+    # link shows it (linked:). Their notice: llvm-mingw's LLVM licence (in MSYS2, the libc++ and libunwind packages').
+    ships:
+      libwinpthread: { license: MIT, notice: '${WINPTHREADS_NOTICE}' }
+      libc++:
+        license: Apache-2.0 WITH LLVM-exception
+        notice: '${LIBCXX_NOTICE}'
+        linked: [libc++.a]
+      libunwind:
+        license: Apache-2.0 WITH LLVM-exception
+        notice: '${LIBUNWIND_NOTICE}'
+        linked: [libunwind.a]
   # 32-bit ARM (Raspberry Pi with a 32-bit OS), cross-compiled with Debian's gcc; glibc 2.36+.
   linux-armhf:
     image: cross-armhf

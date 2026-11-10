@@ -279,7 +279,7 @@ describe('observed build SBOM', () => {
 
   it('uses runtime containment only for an observed staged toolchain file', () => {
     const context = fixture();
-    context.buildPlan.ships = [{ file: 'libtoolchain.so.1', license: 'MIT', notice: 'NOTICE' }];
+    context.buildPlan.ships = [{ file: 'libtoolchain.so.1', license: 'MIT', notice: ['NOTICE'] }];
     writeFileSync(join(context.work, 'stage/run/libtoolchain.so.1'), 'observed runtime');
     writeBuildSbom(context, ffmpeg, [source('sample')]);
     const document = read(context);
@@ -300,7 +300,7 @@ describe('observed build SBOM', () => {
       {
         file: '/ndk/lib/libc++_shared.so',
         license: 'Apache-2.0 WITH LLVM-exception',
-        notice: 'NOTICE',
+        notice: ['NOTICE'],
       },
     ];
     const directory = join(context.work, 'stage/run/lib/arm64-v8a');
@@ -316,6 +316,60 @@ describe('observed build SBOM', () => {
     expect(document.relationships).toContainEqual(
       expect.objectContaining({ relatedSpdxElement: runtime.SPDXID, relationshipType: 'CONTAINS' }),
     );
+  });
+
+  it('records a toolchain archive the configured link named, with that evidence, and no file it is not', () => {
+    const context = fixture();
+    context.buildPlan.platform = 'linux-musl-x64';
+    const libstdcxx = {
+      file: 'libstdc++',
+      license: 'GPL-3.0-or-later WITH GCC-exception-3.1',
+      notice: ['license-texts/GCC-exception-3.1.txt'],
+      linked: ['libstdc++.a'],
+    };
+    const libgcc = { ...libstdcxx, file: 'libgcc', linked: ['-static-libgcc'], compiler: 'gcc' };
+    context.buildPlan.ships = [libstdcxx, libgcc];
+    // a staged file of the same name is not what a linked: entry is about
+    writeFileSync(join(context.work, 'stage/run/libstdc++'), 'unrelated');
+    writeBuildSbom(
+      context,
+      ffmpeg,
+      [source('sample')],
+      [
+        {
+          ...libstdcxx,
+          evidence: ['libstdc++.a (EXTRALIBS-avcodec)'],
+          compilerIdent: 'gcc 15.2.0 (Alpine 15.2.0)',
+        },
+      ],
+    );
+    const document = read(context);
+    const runtime = document.packages.find((item) => item.name === 'libstdc++')!;
+    expect(runtime).toMatchObject({
+      licenseDeclared: 'GPL-3.0-or-later WITH GCC-exception-3.1',
+      primaryPackagePurpose: 'LIBRARY',
+    });
+    expect(runtime).not.toHaveProperty('versionInfo');
+    expect(runtime).not.toHaveProperty('checksums');
+    expect(runtime.sourceInfo).toContain('libstdc++.a (EXTRALIBS-avcodec)');
+    expect(runtime.sourceInfo).toContain('gcc 15.2.0 (Alpine 15.2.0)');
+    expect(runtime.sourceInfo).toContain('version was not recorded');
+    const archives = document.packages.filter((item) => item.primaryPackagePurpose === 'ARCHIVE');
+    for (const archive of archives) {
+      expect(document.relationships).toContainEqual(
+        expect.objectContaining({
+          spdxElementId: archive.SPDXID,
+          relatedSpdxElement: runtime.SPDXID,
+          relationshipType: 'DEPENDS_ON',
+          comment: expect.stringContaining('does not assert which were linked'),
+        }),
+      );
+    }
+    // libgcc's flag wasn't shown: not in the inventory
+    expect(document.packages.some((item) => item.name === 'libgcc')).toBe(false);
+    // without what the build has, a linked: entry is never assumed
+    writeBuildSbom(context, ffmpeg, [source('sample')]);
+    expect(read(context).packages.some((item) => item.name === 'libstdc++')).toBe(false);
   });
 
   it('rejects unobserved dependencies or mismatched source versions before emitting a document', () => {

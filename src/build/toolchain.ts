@@ -122,6 +122,18 @@ function applePath(env: NodeJS.ProcessEnv): { brew: string; path: string } {
   return { brew, path: [`${brew}/bin`, ...tools, env['PATH'] ?? ''].join(':') };
 }
 
+/** Where an MSYS2 environment's packages install their licences: <prefix>/share/licenses, as Node reads it. */
+function msys2Licenses(
+  env: NodeJS.ProcessEnv,
+  run: (command: string, args: string[]) => string,
+): string {
+  const prefix = env['MINGW_PREFIX'] ?? env['MSYSTEM_PREFIX'];
+  if (!prefix) {
+    throw new Error('MINGW_PREFIX is not set: run the native Windows build from an MSYS2 shell');
+  }
+  return `${run('cygpath', ['-m', prefix])}/share/licenses`;
+}
+
 /**
  * winpthreads' licence in an MSYS2 environment: its package installs it under <prefix>/share/licenses/ (the folder's
  * name has varied: winpthreads, libwinpthread). The prefix is MSYS2's /mingw64 and the like, so cygpath gives the
@@ -131,11 +143,7 @@ export function msys2WinpthreadsNotice(
   env: NodeJS.ProcessEnv,
   run: (command: string, args: string[]) => string,
 ): string {
-  const prefix = env['MINGW_PREFIX'] ?? env['MSYSTEM_PREFIX'];
-  if (!prefix) {
-    throw new Error('MINGW_PREFIX is not set: run the native Windows build from an MSYS2 shell');
-  }
-  const licenses = `${run('cygpath', ['-m', prefix])}/share/licenses`;
+  const licenses = msys2Licenses(env, run);
   const found = existsSync(licenses)
     ? readdirSync(licenses)
         .filter((d) => /winpthread/i.test(d))
@@ -153,6 +161,27 @@ export function msys2WinpthreadsNotice(
     );
   }
   return found[0]!;
+}
+
+/**
+ * The compiler runtimes' licences in an MSYS2 environment, for the ships: entries a build links in (platforms.yml
+ * `linked:`): GCC's runtime library exception and GPLv3 (its gcc package, which has libstdc++.a and libgcc.a, installs
+ * COPYING.RUNTIME and COPYING3), and LLVM's libc++ and libunwind (each package its LICENSE). Only what the environment
+ * has: a build that links in a runtime whose licence isn't there fails at its notices, naming the variable.
+ */
+function msys2RuntimeNotices(licenses: string): Record<string, string> {
+  const notices: Record<string, string> = {};
+  const found = (name: string, path: string) => {
+    if (existsSync(`${licenses}/${path}`)) {
+      notices[name] = `${licenses}/${path}`;
+    }
+  };
+  found('LIBSTDCXX_NOTICE', 'gcc/COPYING.RUNTIME');
+  found('LIBGCC_NOTICE', 'gcc/COPYING.RUNTIME');
+  found('GCC_GPL3', 'gcc/COPYING3');
+  found('LIBCXX_NOTICE', 'libc++/LICENSE');
+  found('LIBUNWIND_NOTICE', 'libunwind/LICENSE');
+  return notices;
 }
 
 /** Materialize the platform environment and the exact CMake/Meson files formerly written by setup/*.sh. */
@@ -190,6 +219,7 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     delete env['CROSS_HOST'];
     delete env['CROSS_PREFIX'];
     env['WINPTHREADS_NOTICE'] = msys2WinpthreadsNotice(env, run);
+    Object.assign(env, msys2RuntimeNotices(msys2Licenses(env, run)));
     cmakeArgs = ['-G', 'Ninja'];
   } else if (options.native && options.setup !== 'apple-macos' && options.setup !== 'apple-ios') {
     throw new Error(
@@ -351,6 +381,22 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     env['WINPTHREADS_NOTICE'] = arm
       ? '/opt/llvm-mingw/aarch64-w64-mingw32/share/mingw32/COPYING.winpthreads.txt'
       : '/usr/share/doc/mingw-w64-x86-64-dev/copyright';
+    // the compiler runtimes' licences, for the ships: entries a build links in (platforms.yml linked:): llvm-mingw's
+    // LLVM licence (libc++, libunwind); the copyright files of Ubuntu's packages that have libstdc++.a and libgcc.a
+    // (with GCC's runtime library exception in full) and the GPLv3 they refer to
+    Object.assign(
+      env,
+      arm
+        ? {
+            LIBCXX_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+            LIBUNWIND_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+          }
+        : {
+            LIBSTDCXX_NOTICE: '/usr/share/doc/g++-mingw-w64-x86-64-win32/copyright',
+            LIBGCC_NOTICE: '/usr/share/doc/gcc-mingw-w64-x86-64-win32/copyright',
+            GCC_GPL3: '/usr/share/common-licenses/GPL-3',
+          },
+    );
   } else if (options.setup === 'apple-macos' || options.setup === 'apple-ios') {
     const apple = applePath(env);
     env['PATH'] = apple.path;

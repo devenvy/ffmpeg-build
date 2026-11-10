@@ -832,12 +832,36 @@ describe('Android ships the NDK libc++', () => {
       expect(data.platforms.get(platform)!.ships).toEqual({
         'libc++_shared.so': {
           license: 'Apache-2.0 WITH LLVM-exception',
-          notice: `\${TOOLCHAIN}/NOTICE`,
+          notice: [`\${TOOLCHAIN}/NOTICE`],
         },
       });
     }
     const lgplv2 = parseProfileText(
       'name: t\nffmpeg: 9\nplatforms: [android-arm64]\nlicense: lgplv2\nwith: [dav1d]\n',
+      't.yml',
+    );
+    expect(formatReport(checkProfile(lgplv2, data))).not.toContain('✗');
+  });
+
+  it('declares the static compiler runtimes musl and Windows link in, which every license allows', () => {
+    const linked = (platform: string) =>
+      Object.fromEntries(
+        Object.entries(data.platforms.get(platform)!.ships)
+          .filter(([, s]) => s.linked)
+          .map(([file, s]) => [file, s.linked]),
+      );
+    for (const platform of ['linux-musl-x64', 'linux-musl-arm64', 'win-x64']) {
+      expect(linked(platform)).toEqual({
+        'libstdc++': ['libstdc++.a'],
+        libgcc: ['-static-libgcc', '-static'],
+      });
+    }
+    expect(linked('win-arm64')).toEqual({ 'libc++': ['libc++.a'], libunwind: ['libunwind.a'] });
+    for (const platform of ['linux-x64', 'linux-arm64', 'linux-armhf']) {
+      expect(data.platforms.get(platform)!.ships).toEqual({});
+    }
+    const lgplv2 = parseProfileText(
+      'name: t\nffmpeg: 9\nplatforms: [linux-musl-x64, win-x64, win-arm64]\nlicense: lgplv2\nwith: [dav1d]\n',
       't.yml',
     );
     expect(formatReport(checkProfile(lgplv2, data))).not.toContain('✗');

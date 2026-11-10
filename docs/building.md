@@ -24,6 +24,10 @@ comments. Runtime files that staging actually finds have their own hashes and co
 tools and source-only Cargo packages are distinguished from linked dependencies. Linked crates use the engine's
 normalization of legacy Cargo licence syntax; their original declarations remain in comments. Source-only crates'
 licence strings are unvalidated metadata, preserved in comments with `NOASSERTION` as the formal declaration.
+A toolchain's static runtime archive (libstdc++ and libgcc on musl and win-x64, libc++ and libunwind on win-arm64) is
+listed only when FFmpeg's configured link (`ffbuild/config.mak`) names it, with that evidence and the compiler
+configure identified in its comments; its version is not recorded, and it has no file hash, since it is not a file in
+the archives.
 Host system packages, frameworks,
 drivers and arbitrary vendored source subtrees are not exhaustively enumerated. Unknown versions and licence terms
 remain unknown; the engine does not invent them. Recipe licence declarations are separate from legal conclusions.
@@ -361,7 +365,11 @@ Then the rest, each part under its own `=====` rule:
   build fails when one is missing);
 - **PATCH SETS:** each set's name, licence, sha256 and patches, and its licence texts;
 - **FILES THE PLATFORM SHIPS:** what the toolchain contributes (Android's libc++_shared.so, Windows' winpthreads), each
-  with its licence and notice.
+  with its licence and notice. A compiler runtime linked statically into the libraries (platforms.yml `ships:` with
+  `linked:`: libstdc++ and libgcc on musl and win-x64, libc++ and libunwind on win-arm64) is there only when FFmpeg's
+  configured link shows it, with what showed it; a build with no C++ library has no C++ runtime entry. Its notice is the
+  toolchain's own licence file; Alpine's GCC packages carry none, so musl builds carry GCC's COPYING.RUNTIME and
+  COPYING3 from the engine (`license-texts/`). A text several entries share is in full once.
 
 The libraries' texts are captured into each library's install tree when it is built, so a library from the cache
 brings them along. devenvy/ffmpeg's archives had a `legal/` folder instead; the owner chose one file.

@@ -622,15 +622,41 @@ export const platformsSchema = z.strictObject({
       runner: text.optional(), // the CI runner it builds on (default ubuntu-24.04)
       'test-runner': text.optional(), // the CI runner that runs its builds, when the one it builds on can't (default: runner)
       configure: z.array(text).optional(),
-      // files the archives carry besides FFmpeg's and the recipes': name -> its SPDX licence and its notice file, a path
-      // in the toolchain where ${VAR} is a variable of the platform's setup (its text goes into THIRD-PARTY-NOTICES.txt)
+      // what the archives carry or link in besides FFmpeg's and the recipes': name -> its SPDX licence and its notice
+      // files (their texts go into THIRD-PARTY-NOTICES.txt): paths in the toolchain, where ${VAR} is a variable of the
+      // platform's setup, or license-texts/<file>, the engine's standard text, for a toolchain that ships none.
+      // `linked:` makes an entry conditional: it is in a build only when FFmpeg's configured link
+      // (ffbuild/config.mak) shows one of them: a static archive (libstdc++.a) the link names (-l:libstdc++.a, its
+      // path, or -lstdc++ where the link is static), or a compiler-driver flag (-static-libgcc). `compiler:` (with
+      // `linked:`) limits it to one compiler, a word of configure's CC_IDENT (gcc, clang): for a flag whose meaning
+      // depends on the compiler.
       ships: z
         .record(
           text,
-          z.strictObject(
-            { license: text, notice: text },
-            { error: 'expected { license: <SPDX>, notice: <path of its licence text> }' },
-          ),
+          z
+            .strictObject(
+              {
+                license: text,
+                notice: oneOrMany(text, 'expected a notice path, or a list of them'),
+                linked: z
+                  .array(
+                    z.string().regex(/^(?:-\S+|[^\s/\\]+\.a)$/, {
+                      error:
+                        'expected a static archive file name (libstdc++.a) or a compiler-driver flag (-static-libgcc)',
+                    }),
+                  )
+                  .min(1)
+                  .optional(),
+                compiler: name.optional(),
+              },
+              {
+                error:
+                  'expected { license: <SPDX>, notice: <path of its licence text, or a list>, linked?: [...], compiler?: <name> }',
+              },
+            )
+            .refine((s) => s.compiler === undefined || s.linked !== undefined, {
+              error: 'compiler: limits a linked: entry; give the entry linked: too',
+            }),
         )
         .optional(),
     }),
@@ -638,7 +664,9 @@ export const platformsSchema = z.strictObject({
 });
 interface Shipped {
   license: string;
-  notice: string;
+  notice: string[];
+  linked?: string[];
+  compiler?: string;
 }
 export interface PlatformEntry {
   image: string;

@@ -11,6 +11,7 @@ import { symbolsName } from '../targets.ts';
 import { JSON_INDENT } from '../text.ts';
 
 import type { BuildContext } from './library.ts';
+import type { ShipInBuild } from './linked.ts';
 
 type Entry = SpdxInput['packages'][number];
 const LICENSE_ID_DIGITS = 16;
@@ -49,11 +50,15 @@ const buildLicence = {
 const sourceKey = (record: SourceRecord): string =>
   `source:${record.name}:${record.version}:${record.sha256}`;
 
-/** Sidecar generation happens after packaging so the archive hashes describe the exact delivered bytes. */
+/**
+ * Sidecar generation happens after packaging so the archive hashes describe the exact delivered bytes. `ships` is what
+ * of the platform's ships: the build has (src/build/linked.ts); without it, the entries that are not `linked:`.
+ */
 export function writeBuildSbom(
   context: SbomContext,
   ffmpeg: SourceRecord,
   records: readonly SourceRecord[],
+  ships: readonly ShipInBuild[] = context.buildPlan.ships.filter((shipped) => !shipped.linked),
 ): void {
   const plan = context.buildPlan;
   const packages = new Map<string, Entry>();
@@ -353,7 +358,25 @@ export function writeBuildSbom(
       edge(artifact, key, 'GENERATED_FROM');
     }
   }
-  for (const shipped of plan.ships) {
+  for (const shipped of ships.filter((entry) => entry.evidence)) {
+    // a toolchain archive the configured link named: linked into the libraries, not a file of the archives
+    const key = add({
+      key: `toolchain-linked:${shipped.file}:${plan.toolchain}`,
+      name: shipped.file,
+      ...declaration(shipped.license, [], shipped.file),
+      purpose: 'LIBRARY',
+      sourceInfo: `Toolchain-supplied static archive, linked into the FFmpeg libraries and programs whose link the evidence names; FFmpeg's configured link (ffbuild/config.mak) shows: ${shipped.evidence!.join('; ')}.${shipped.compilerIdent ? ` Linking compiler, as FFmpeg's configure identified it (CC_IDENT): ${shipped.compilerIdent}.` : ''} Toolchain identity: ${plan.toolchain}. Its library version was not recorded. It is not a separate file in the archives, so no file checksum applies.`,
+    });
+    for (const artifact of describes) {
+      edge(
+        artifact,
+        key,
+        'DEPENDS_ON',
+        `Static toolchain archive named by FFmpeg's configured link: ${shipped.evidence!.join('; ')}. The linker takes only the archive members the libraries reference; this does not assert which were linked.`,
+      );
+    }
+  }
+  for (const shipped of ships.filter((entry) => !entry.linked)) {
     const matches = globSync(`**/${basename(shipped.file)}`, {
       cwd: join(context.work, 'stage/run'),
     });
