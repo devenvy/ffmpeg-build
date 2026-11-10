@@ -3,8 +3,8 @@ import { basename, join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { harness, type Harness } from './recipe-harness.ts';
 import { stagePlatform } from '../src/build/stage.ts';
+import { harness, type Harness } from './recipe-harness.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

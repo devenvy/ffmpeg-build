@@ -6,10 +6,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData } from './helpers.ts';
 import { makeBuildPlan, plannedPatches } from '../src/build/plan.ts';
 import { planProfile } from '../src/resolve.ts';
 import { parseFolderText, targetProfile } from '../src/targets.ts';
+import { fixtureData } from './helpers.ts';
 
 import type { LockedProfile } from '../src/lockfile.ts';
 

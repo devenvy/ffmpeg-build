@@ -1,7 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { listenLocal } from './listen.ts';
-import { makeGitRepo, serveListing } from './upstream-helpers.ts';
 import { HttpError } from '../src/net.ts';
 import {
   findVersions,
@@ -12,6 +10,8 @@ import {
   UpstreamError,
   withRetry,
 } from '../src/upstream.ts';
+import { listenLocal } from './listen.ts';
+import { makeGitRepo, serveListing } from './upstream-helpers.ts';
 
 const noWait = [0, 0];
 /** A request handler that never answers. */

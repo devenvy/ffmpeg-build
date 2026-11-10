@@ -4,14 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { fakeGitHub, type FakeGitHub } from './github-fake.ts';
-import { fixtureEngineRoot } from './helpers.ts';
-import { runCliAsync } from './upstream-helpers.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { formatFolderLock, type LockPins } from '../src/lockfile.ts';
 import { packageRoot, packageVersion } from '../src/paths.ts';
 import { planReleases } from '../src/release.ts';
 import { loadFolder } from '../src/targets.ts';
+import { fakeGitHub, type FakeGitHub } from './github-fake.ts';
+import { fixtureEngineRoot } from './helpers.ts';
+import { runCliAsync } from './upstream-helpers.ts';
 
 const data = loadEngineData(fixtureEngineRoot);
 const LOCK: { engine: string; ffmpeg: Record<string, string>; libraries: Record<string, string> } =

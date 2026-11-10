@@ -3,9 +3,9 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { harness, type Harness, recipe } from './recipe-harness.ts';
 import { runRecipe } from '../src/build/library.ts';
 import { linkedRecipe } from '../src/linkage.ts';
+import { harness, type Harness, recipe } from './recipe-harness.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

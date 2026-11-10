@@ -5,9 +5,9 @@ import { rmSync } from 'node:fs';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { build, commands, type Harness, harness, platformsOf } from './recipe-harness.ts';
 import { runRecipe } from '../src/build/library.ts';
 import { recipeSchema } from '../src/schema/engine.ts';
+import { build, commands, type Harness, harness, platformsOf } from './recipe-harness.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

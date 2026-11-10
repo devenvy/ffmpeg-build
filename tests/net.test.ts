@@ -2,10 +2,10 @@ import { createServer, type Server } from 'node:http';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { listenLocal } from './listen.ts';
 import { curlArgs, gitNetwork, notWorthRetrying } from '../src/build/fetch.ts';
 import { retry, StepError } from '../src/build/run.ts';
 import { HttpError, retryDelay, withNetRetry } from '../src/net.ts';
+import { listenLocal } from './listen.ts';
 
 let server: Server | undefined;
 afterEach(async () => {

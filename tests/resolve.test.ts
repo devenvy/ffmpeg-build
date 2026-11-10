@@ -2,7 +2,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 import { configureFlags } from '../src/build/plan.ts';
 import { optionFacts } from '../src/commands/options.ts';
 import { loadEngineData } from '../src/engine-data.ts';
@@ -17,6 +16,7 @@ import {
   resolveCell,
   variantsOf,
 } from '../src/resolve.ts';
+import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 
 const data = fixtureData();
 function profile(text: string): Profile {

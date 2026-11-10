@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runCli } from './helpers.ts';
 import { configureFlags, makeBuildPlan, verifyNames } from '../src/build/plan.ts';
 import { SETUPS } from '../src/build/toolchain.ts';
 import { checkProfile } from '../src/check.ts';
@@ -16,6 +15,7 @@ import { PLATFORMS } from '../src/platforms.ts';
 import { parseProfileText } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
 import { parseFolderText, targetProfile } from '../src/targets.ts';
+import { runCli } from './helpers.ts';
 
 const data = loadEngineData(packageRoot);
 const shippedPath = join(packageRoot, 'profiles', 'devenvy.yml');

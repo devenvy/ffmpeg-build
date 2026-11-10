@@ -3,8 +3,6 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { crateBytes, fakeCargo, type FakeCrate, sha } from './cargo-fake.ts';
-import { commands, harness, type Harness } from './recipe-harness.ts';
 import {
   crateLicenseProblems,
   discoverCrates,
@@ -16,6 +14,8 @@ import { runRecipe } from '../src/build/library.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 import { recipeSchema } from '../src/schema/engine.ts';
+import { crateBytes, fakeCargo, type FakeCrate, sha } from './cargo-fake.ts';
+import { commands, harness, type Harness } from './recipe-harness.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

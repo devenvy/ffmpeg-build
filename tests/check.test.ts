@@ -2,13 +2,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 import { checkProfile } from '../src/check.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { formatReport } from '../src/format.ts';
 import { packageRoot } from '../src/paths.ts';
 import { loadProfile, parseProfileText } from '../src/profile.ts';
 import { fmtEntry } from '../src/text.ts';
+import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 
 const data = fixtureData();
 const checkFixture = (name: string) =>

@@ -5,8 +5,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runCliAsync } from './upstream-helpers.ts';
 import { formatFolderLock } from '../src/lockfile.ts';
+import { runCliAsync } from './upstream-helpers.ts';
 
 const MANYLINUX =
   'quay.io/pypa/manylinux_2_28_x86_64:2026.09.30-1@sha256:c2261579b9c2e5d45aa93312f73e2a302182e3e977b558581a1838d6fed3d8e6';

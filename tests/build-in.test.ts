@@ -5,12 +5,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureEngineRoot, runCli } from './helpers.ts';
 import { hostEnv } from '../src/build/native.ts';
 import { isScript } from '../src/build/run.ts';
 import { runTargetBuild } from '../src/commands/build.ts';
 import { formatFolderLock } from '../src/lockfile.ts';
 import { loadFolder } from '../src/targets.ts';
+import { fixtureData, fixtureEngineRoot, runCli } from './helpers.ts';
 
 const data = fixtureData();
 const LOCK = { engine: '0.2.0', ffmpeg: { '9': '9.1.0' }, libraries: { dav1d: '1.5.4' } };

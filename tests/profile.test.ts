@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureProfilesDir } from './helpers.ts';
 import { loadProfile, type LoadResult, parseProfileText } from '../src/profile.ts';
+import { fixtureProfilesDir } from './helpers.ts';
 
 function ok(result: LoadResult) {
   if (!result.ok) {

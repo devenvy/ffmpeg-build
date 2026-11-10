@@ -8,8 +8,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fakeGitHub } from './github-fake.ts';
-import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 import {
   GOVERNING_TEXTS,
   licenseNotice,
@@ -24,6 +22,8 @@ import { packageRoot } from '../src/paths.ts';
 import { loadProfile, parseProfileText } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
 import { parseFolderText, targetProfile } from '../src/targets.ts';
+import { fakeGitHub } from './github-fake.ts';
+import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 
 import type { LockedProfile } from '../src/lockfile.ts';
 

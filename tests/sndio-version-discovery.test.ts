@@ -2,10 +2,10 @@ import { rmSync } from 'node:fs';
 
 import { expect, it } from 'vitest';
 
-import { makeGitRepo } from './upstream-helpers.ts';
 import { loadEngineData, versionSource } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 import { findVersions } from '../src/upstream.ts';
+import { makeGitRepo } from './upstream-helpers.ts';
 
 it('discovers native sndio 1.10 updates without selecting releases that require the missing BSD dependency stack', async () => {
   const source = versionSource(loadEngineData(packageRoot), 'sndio');

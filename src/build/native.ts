@@ -4,9 +4,9 @@ import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { acquireLock, LockBusyError } from '../file-lock.ts';
 import { BuildError } from './docker.ts';
 import { DOCTOR_HINT } from './host.ts';
-import { acquireLock, LockBusyError } from '../file-lock.ts';
 import { toolchainIdentity } from './plan.ts';
 import { toolchainFacts } from './toolchain.ts';
 

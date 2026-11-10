@@ -2,7 +2,6 @@ import { rmSync } from 'node:fs';
 
 import { expect, it } from 'vitest';
 
-import { writeEngine } from './helpers.ts';
 import { configureFlags, makeBuildPlan, verifyNames } from '../src/build/plan.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { coverage, readCoverageData } from '../src/ffmpeg-coverage.ts';
@@ -11,6 +10,7 @@ import { packageRoot } from '../src/paths.ts';
 import { parseProfileText } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
 import { recipeSchema } from '../src/schema/engine.ts';
+import { writeEngine } from './helpers.ts';
 
 const data = loadEngineData(packageRoot);
 const altered = () => ({ ...data, recipes: new Map(data.recipes), ffmpeg: new Map(data.ffmpeg) });

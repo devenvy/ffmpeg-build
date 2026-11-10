@@ -9,8 +9,6 @@ import { pathToFileURL } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { listenLocal } from './listen.ts';
-import { makeGitRepo, makeScenario, type Scenario } from './upstream-helpers.ts';
 import { UpstreamFailure } from '../src/commands/versions.ts';
 import { type EngineData, loadEngineData } from '../src/engine-data.ts';
 import {
@@ -20,6 +18,8 @@ import {
   requiredPin,
   unpinnedSources,
 } from '../src/source-pins.ts';
+import { listenLocal } from './listen.ts';
+import { makeGitRepo, makeScenario, type Scenario } from './upstream-helpers.ts';
 
 import type { FolderLock } from '../src/lockfile.ts';
 import type { AddressInfo } from 'node:net';

@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
 
-import { listenLocal } from './listen.ts';
 import { formatManifest, type Manifest, type ManifestTarget } from '../src/manifest.ts';
+import { listenLocal } from './listen.ts';
 
 // ustar header fields: where each starts, and how many octal digits the numeric ones hold (before their NUL)
 const TAR_BLOCK = 512;

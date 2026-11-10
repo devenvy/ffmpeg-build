@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
-import { fixtureData, fixtureEngineRoot } from './helpers.ts';
 import { COMPONENT_KINDS, type Components } from '../src/ffmpeg-components.ts';
 import { parseOfferedFile } from '../src/ffmpeg-coverage.ts';
 import {
@@ -17,6 +16,7 @@ import {
   supportReport,
   writeReleases,
 } from '../src/ffmpeg-support.ts';
+import { fixtureData, fixtureEngineRoot } from './helpers.ts';
 
 const emptyComponents = (): Components =>
   Object.fromEntries(COMPONENT_KINDS.map((k) => [k, []])) as unknown as Components;

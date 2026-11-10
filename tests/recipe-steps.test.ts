@@ -3,7 +3,6 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { commands, harness, type Harness } from './recipe-harness.ts';
 import { submoduleArgs } from '../src/build/fetch.ts';
 import { runRecipe } from '../src/build/library.ts';
 import {
@@ -17,6 +16,7 @@ import {
 } from '../src/build/recipe-ops.ts';
 import { cxxRuntime } from '../src/build/toolchain.ts';
 import { recipeSchema } from '../src/schema/engine.ts';
+import { commands, harness, type Harness } from './recipe-harness.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

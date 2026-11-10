@@ -9,6 +9,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { submoduleArgs } from '../src/build/fetch.ts';
+import { valuesOn } from '../src/engine-data.ts';
 import {
   build,
   cmakeLines,
@@ -20,8 +22,6 @@ import {
   platformsOf,
   recipe,
 } from './recipe-harness.ts';
-import { submoduleArgs } from '../src/build/fetch.ts';
-import { valuesOn } from '../src/engine-data.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

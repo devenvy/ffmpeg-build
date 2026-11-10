@@ -4,11 +4,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, globSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
-import { normalizeSpdx } from './cargo.ts';
-import { sha256, type SourceRecord } from './fetch.ts';
 import { createSpdx, sbomDownloadLocation, type SpdxInput } from '../sbom.ts';
 import { symbolsName } from '../targets.ts';
 import { JSON_INDENT } from '../text.ts';
+import { normalizeSpdx } from './cargo.ts';
+import { sha256, type SourceRecord } from './fetch.ts';
 
 import type { BuildContext } from './library.ts';
 import type { ShipInBuild } from './linked.ts';

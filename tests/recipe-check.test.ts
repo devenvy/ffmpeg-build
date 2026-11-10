@@ -2,9 +2,9 @@
 // and so is every recipe that builds against it.
 import { describe, expect, it } from 'vitest';
 
-import { writeEngine } from './helpers.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { recipeCheckPlan } from '../src/recipe-check.ts';
+import { writeEngine } from './helpers.ts';
 
 const recipe = (name: string, extra = '', platforms = 'all') =>
   `name: ${name}\nlicense: MIT\nsource: { git: https://example.com/${name} }\nversions: { git-tags: '^v(.*)$' }\nplatforms: ${platforms}\n${extra}`;

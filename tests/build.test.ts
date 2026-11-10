@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureEngineRoot, fixtureProfilesDir, writeEngine } from './helpers.ts';
 import {
   containerCleanup,
   dockerRunArgs,
@@ -26,6 +25,7 @@ import { loadEngineData } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 import { loadProfile, parseProfileText, type Profile } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
+import { fixtureData, fixtureEngineRoot, fixtureProfilesDir, writeEngine } from './helpers.ts';
 
 import type { LockedProfile } from '../src/lockfile.ts';
 

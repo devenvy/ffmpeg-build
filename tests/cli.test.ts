@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { copyStudio, copyStudioFolder, fixtureEngineRoot, runCli } from './helpers.ts';
 import { packageVersion } from '../src/paths.ts';
+import { copyStudio, copyStudioFolder, fixtureEngineRoot, runCli } from './helpers.ts';
 
 describe('ffmpeg-build', () => {
   it('prints its version', () => {

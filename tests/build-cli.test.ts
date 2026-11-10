@@ -14,9 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { formatFolderLock } from '../src/lockfile.ts';
 import { copyStudioFolder, fixtureEngineRoot } from './helpers.ts';
 import { runCliAsync } from './upstream-helpers.ts';
-import { formatFolderLock } from '../src/lockfile.ts';
 
 const env = {
   FFMPEG_BUILD_DATA: fixtureEngineRoot,

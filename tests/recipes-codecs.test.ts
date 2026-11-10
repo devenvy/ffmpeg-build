@@ -5,6 +5,9 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { valuesOn } from '../src/engine-data.ts';
+import { packageRoot } from '../src/paths.ts';
+import { PLATFORMS } from '../src/platforms.ts';
 import { fakeCargo } from './cargo-fake.ts';
 import {
   build,
@@ -18,9 +21,6 @@ import {
   platformsOf,
   recipe,
 } from './recipe-harness.ts';
-import { valuesOn } from '../src/engine-data.ts';
-import { packageRoot } from '../src/paths.ts';
-import { PLATFORMS } from '../src/platforms.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

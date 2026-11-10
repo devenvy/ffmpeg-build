@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData } from './helpers.ts';
 import { checkProfile, type ProfileReport } from '../src/check.ts';
 import { formatPlan, formatReport, formatSummary, planJson, problemLines } from '../src/format.ts';
 import { parseProfileText, type Profile } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
+import { fixtureData } from './helpers.ts';
 
 import type { LockedProfile } from '../src/lockfile.ts';
 

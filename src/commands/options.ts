@@ -1,4 +1,4 @@
-import { CliError } from '../cli-errors.ts';
+import { CliError } from '../cli-error.ts';
 import {
   alwaysBuilt,
   type EngineData,

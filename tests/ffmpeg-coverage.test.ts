@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { writeEngine } from './helpers.ts';
 import { type EngineData, loadEngineData } from '../src/engine-data.ts';
 import {
   ConfigureError,
@@ -16,6 +15,7 @@ import {
   readCoverageData,
 } from '../src/ffmpeg-coverage.ts';
 import { packageRoot } from '../src/paths.ts';
+import { writeEngine } from './helpers.ts';
 
 // the shape of FFmpeg's configure: lists of names, some holding other lists by $NAME, and --help's library section
 const CONFIGURE = [

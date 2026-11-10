@@ -14,14 +14,14 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 
-import { retry, run } from './run.ts';
 import { readFileIfPresent } from '../read-file.ts';
 import { listTarGzMembers } from '../untar.ts';
+import { retry, run } from './run.ts';
 
+import type { Submodules } from '../schema/engine.ts';
 import type { CrateRecord, RustRecord } from './cargo.ts';
 import type { Source } from './plan.ts';
 import type { SupplementalSource } from './supplemental-sources.ts';
-import type { Submodules } from '../schema/engine.ts';
 
 export interface SourceRecord {
   name: string;

@@ -24,8 +24,8 @@ import { availability, type CellPlan } from '../resolve.ts';
 import { releaseVersion } from '../targets.ts';
 import { unique } from '../text.ts';
 import { treeHash } from '../tree-hash.ts';
-import { buildModules } from './modules.ts';
 import { parseYaml } from '../yaml.ts';
+import { buildModules } from './modules.ts';
 
 import type { LockedProfile, SourcePin } from '../lockfile.ts';
 import type { Profile } from '../profile.ts';

@@ -3,3 +3,7 @@ allowBuilds:
 # Our own packages skip the release-age wait, as they skip Dependabot's cooldown.
 minimumReleaseAgeExclude:
   - '@devenvy/*'
+overrides:
+  # GHSA-g3hv-75wg-m249 (minimatch < 11.0.1): eslint and typescript-eslint still ask for ^10, which has no fix.
+  # Drop this once they allow 11.
+  'minimatch@<11.0.1': ^11.0.1

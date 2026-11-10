@@ -5,8 +5,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { msys2 } from './helpers.ts';
 import { beforeFfmpeg, createToolchain, msys2WinpthreadsNotice } from '../src/build/toolchain.ts';
+import { msys2 } from './helpers.ts';
 
 const dirs = () => {
   const root = mkdtempSync(join(tmpdir(), 'ffmpeg-build-native-tc-')).replaceAll('\\', '/');

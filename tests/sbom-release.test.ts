@@ -6,8 +6,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fixtureSbom } from './helpers/sbom.ts';
 import { checkSbomInputs, combineBuildSboms, readBuildSbom } from '../src/sbom-release.ts';
+import { fixtureSbom } from './helpers/sbom.ts';
 
 const roots: string[] = [];
 afterEach(() => {

@@ -3,9 +3,9 @@ import { createHash } from 'node:crypto';
 import { createWriteStream, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { onInterrupt } from '../interrupt.ts';
 import { buildModules, workerPath } from './modules.ts';
 import { retry } from './run.ts';
-import { onInterrupt } from '../interrupt.ts';
 
 /** execFile as a promise of its output; it rejects with execFile's error (its `code` says ENOENT for a missing command). */
 async function execFileAsync(
