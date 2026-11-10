@@ -3,7 +3,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 import {
   buildOrder,
   EngineDataError,
@@ -18,6 +17,7 @@ import {
 import { packageRoot } from '../src/paths.ts';
 import { runnerOf, testRunnerOf, toolchainDefinition } from '../src/release.ts';
 import { cellBuildOrder } from '../src/resolve.ts';
+import { fixtureData, fixtureProfilesDir, writeEngine } from './helpers.ts';
 
 const okFfmpeg = 'major: 9\nreleases: [9.0.0]\noptions: {}\n';
 const okRecipe = (name: string, extra = '') =>

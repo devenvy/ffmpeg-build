@@ -4,12 +4,12 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { platformsOf } from './recipe-harness.ts';
 import { configureFlags, makeBuildPlan } from '../src/build/plan.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 import { parseProfileText } from '../src/profile.ts';
 import { planProfile } from '../src/resolve.ts';
+import { platformsOf } from './recipe-harness.ts';
 
 const data = loadEngineData(packageRoot);
 const directories: string[] = [];

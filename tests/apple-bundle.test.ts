@@ -8,8 +8,6 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
-import { fixtureSbom } from './helpers/sbom.ts';
 import { appleSets, appleSlicesRecord, bundleApple } from '../src/bundle-apple.ts';
 import { bundle } from '../src/bundle.ts';
 import { runFolderCheck } from '../src/commands/folder.ts';
@@ -21,6 +19,8 @@ import { changesSince, planReleases, publishedTargets, removals } from '../src/r
 import { combineBuildSboms, readBuildSbom } from '../src/sbom-release.ts';
 import { artifactName, type Folder, loadFolder } from '../src/targets.ts';
 import { readTarGz } from '../src/untar.ts';
+import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
+import { fixtureSbom } from './helpers/sbom.ts';
 
 const data = loadEngineData(packageRoot);
 const LOCK: FolderLock = {

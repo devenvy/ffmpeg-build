@@ -7,7 +7,7 @@ import { parseDocument } from 'yaml';
 import { writeFileAtomic } from '../atomic-write.ts';
 import { buildSettingProblems, buildSettings } from '../build-settings.ts';
 import { checkProfile, type ProfileReport } from '../check.ts';
-import { EXIT_PROBLEM, EXIT_USAGE, type ExitCode } from '../cli-errors.ts';
+import { EXIT_PROBLEM, EXIT_USAGE, type ExitCode } from '../cli-error.ts';
 import { type EngineData, knownMajors, recipeForPin, resolveName } from '../engine-data.ts';
 import { collectLibraryRequirements, folderLockMatches } from '../folder-choose.ts';
 import { addTo, missingByTarget, removeFrom, targetsReached } from '../folder-edit.ts';

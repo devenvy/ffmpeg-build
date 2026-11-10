@@ -1,7 +1,6 @@
 // src/component-lists.ts: what a target's components: builds, with what its options bring and its patch sets add.
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData } from './helpers.ts';
 import {
   broughtComponents,
   componentFlags,
@@ -14,6 +13,7 @@ import { knownMajors, loadEngineData, optionsOf } from '../src/engine-data.ts';
 import { COMPONENT_KINDS } from '../src/ffmpeg-components.ts';
 import { packageRoot } from '../src/paths.ts';
 import { platformMatches } from '../src/platforms.ts';
+import { fixtureData } from './helpers.ts';
 
 const fixture = fixtureData();
 const real = loadEngineData(packageRoot);

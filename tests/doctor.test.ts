@@ -5,13 +5,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureEngineRoot, runCli } from './helpers.ts';
 import { type Host, parseOsRelease } from '../src/build/host.ts';
 import { type DoctorEnv, runDoctor, vulkanShaders, wantsVulkan14 } from '../src/commands/doctor.ts';
 import { BINFMT } from '../src/commands/test.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
 import { type Folder, parseFolderText } from '../src/targets.ts';
+import { fixtureEngineRoot, runCli } from './helpers.ts';
 
 const ubuntu: Host = {
   os: 'linux',

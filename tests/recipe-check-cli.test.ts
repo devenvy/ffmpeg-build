@@ -6,12 +6,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { writeEngine } from './helpers.ts';
 import { runTargetBuild } from '../src/commands/build.ts';
 import { runRecipeCheck } from '../src/commands/recipe-check.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { formatFolderLock, readFolderLock } from '../src/lockfile.ts';
 import { loadFolder } from '../src/targets.ts';
+import { writeEngine } from './helpers.ts';
 
 const recipe = (name: string, extra = '', platforms = 'all') =>
   `name: ${name}\nlicense: MIT\nsource: { git: https://example.com/${name} }\nversions: { git-tags: '^v(.*)$' }\nplatforms: ${platforms}\n${extra}`;

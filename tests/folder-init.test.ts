@@ -4,12 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runCli } from './helpers.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { initFolder, shippedFolder } from '../src/folder-init.ts';
 import { packageRoot, schemaUrl } from '../src/paths.ts';
 import { planProfile } from '../src/resolve.ts';
 import { parseFolderText, targetProfile } from '../src/targets.ts';
+import { runCli } from './helpers.ts';
 
 const data = loadEngineData(packageRoot);
 const shipped = shippedFolder('devenvy');

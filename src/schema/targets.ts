@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import { androidApiLevel, libraryLinks, name, text } from './common.ts';
-import { LICENSES } from './profile.ts';
 import { ENV_NAME, RESERVED_TEST_ENV } from '../commands/test-env.ts';
 import { COMPONENT_KINDS, type ComponentKind } from '../ffmpeg-components.ts';
+import { androidApiLevel, libraryLinks, name, text } from './common.ts';
+import { LICENSES } from './profile.ts';
 
 // ffmpeg-build.yml: one per folder. Bases hold shared lists; each target is exactly one build.
 const names = z.array(name, { error: 'expected a list of names, like [dav1d, opus]' }).default([]);

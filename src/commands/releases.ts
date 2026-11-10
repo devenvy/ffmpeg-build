@@ -6,7 +6,7 @@ import { join } from 'node:path';
 
 import { type BuildIn, buildSettings, defaultIn } from '../build-settings.ts';
 import { publishingNotes } from '../bundle.ts';
-import { CliError } from '../cli-errors.ts';
+import { CliError } from '../cli-error.ts';
 import { FetchError } from '../fetch.ts';
 import { type FolderLock, LOCK_FILE, readFolderLock } from '../lockfile.ts';
 import { packageRoot } from '../paths.ts';

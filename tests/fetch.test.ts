@@ -11,11 +11,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { type FakeGitHub, fakeGitHub, type FakeTarget, tarGz } from './github-fake.ts';
-import { runCliAsync } from './upstream-helpers.ts';
 import { fetchRelease, parsePin, parseTag, updatePin } from '../src/fetch.ts';
 import { formatManifest, parseManifest } from '../src/manifest.ts';
 import { readTarGz } from '../src/untar.ts';
+import { type FakeGitHub, fakeGitHub, type FakeTarget, tarGz } from './github-fake.ts';
+import { runCliAsync } from './upstream-helpers.ts';
 
 let gh: FakeGitHub;
 beforeEach(async () => {

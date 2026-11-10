@@ -5,9 +5,6 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
-import { fixtureSbom } from './helpers/sbom.ts';
-import { fixtureEngineRoot } from './helpers.ts';
 import { bundle } from '../src/bundle.ts';
 import { type EngineData, loadEngineData } from '../src/engine-data.ts';
 import { fetchRelease } from '../src/fetch.ts';
@@ -23,6 +20,9 @@ import {
   symbolsName,
 } from '../src/targets.ts';
 import { readTarGz } from '../src/untar.ts';
+import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
+import { fixtureSbom } from './helpers/sbom.ts';
+import { fixtureEngineRoot } from './helpers.ts';
 
 const fixture = loadEngineData(fixtureEngineRoot);
 // and win-x64, whose builds come with their debug symbols

@@ -4,9 +4,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureEngineRoot, runCli } from './helpers.ts';
 import { addTo, missingByTarget, removeFrom } from '../src/folder-edit.ts';
 import { loadFolder } from '../src/targets.ts';
+import { fixtureData, fixtureEngineRoot, runCli } from './helpers.ts';
 
 const TEXT = [
   '# my builds',

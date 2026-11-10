@@ -4,9 +4,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureEngineRoot, runCli } from './helpers.ts';
 import { swapIn } from '../src/commands/migrate.ts';
 import { formatLock, parseFolderLock } from '../src/lockfile.ts';
+import { fixtureEngineRoot, runCli } from './helpers.ts';
 
 const env = { FFMPEG_BUILD_DATA: fixtureEngineRoot };
 const LIVE =

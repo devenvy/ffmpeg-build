@@ -4,6 +4,15 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import {
+  BuildError,
+  containerCleanup,
+  dockerCommand,
+  dockerRunArgs,
+  dockerStatus,
+  ensureImage,
+  runStreaming,
+} from '../build/docker.ts';
+import {
   currentHost,
   DOCTOR_HINT,
   type Host,
@@ -31,17 +40,6 @@ import {
 } from '../build/plan.ts';
 import { beginOutputs, type OutputSet } from '../build-outputs.ts';
 import { type BuildIn, buildSettings, defaultIn, isApple } from '../build-settings.ts';
-import { artifactName, type Folder, FOLDER_FILE, symbolsName, targetProfile } from '../targets.ts';
-import { FolderError, folderErrors, folderExitCode, runFolderCheck } from './folder.ts';
-import {
-  BuildError,
-  containerCleanup,
-  dockerCommand,
-  dockerRunArgs,
-  dockerStatus,
-  ensureImage,
-  runStreaming,
-} from '../build/docker.ts';
 import {
   cacheRoot,
   cleanTemps,
@@ -50,7 +48,8 @@ import {
   touchEntries,
   touchKeptSources,
 } from '../cache-admin.ts';
-import { BuildFailure, CliError, type ExitCode } from '../cli-errors.ts';
+import { CliError, type ExitCode } from '../cli-error.ts';
+import { BuildFailure } from '../cli-errors.ts';
 import { depsOn, type EngineData } from '../engine-data.ts';
 import { FetchError, repoIsPrivate, repoIsPrivateByGit } from '../fetch.ts';
 import { LockBusyError } from '../file-lock.ts';
@@ -60,7 +59,9 @@ import { packageRoot } from '../paths.ts';
 import { displayPath, type Profile } from '../profile.ts';
 import { publishingRepo } from '../release-remote.ts';
 import { type CellPlan, planProfile } from '../resolve.ts';
+import { artifactName, type Folder, FOLDER_FILE, symbolsName, targetProfile } from '../targets.ts';
 import { JSON_INDENT } from '../text.ts';
+import { FolderError, folderErrors, folderExitCode, runFolderCheck } from './folder.ts';
 
 import type { PlatformEntry } from '../schema/engine.ts';
 

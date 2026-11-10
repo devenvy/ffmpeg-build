@@ -5,12 +5,12 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { writeEngine } from './helpers.ts';
-import { addTag, makeGitRepo, makeScenario, runCliAsync } from './upstream-helpers.ts';
 import { formatFolderSummary } from '../src/commands/folder-versions.ts';
 import { formatFolderLock, parseFolderLock } from '../src/lockfile.ts';
 import { packageVersion } from '../src/paths.ts';
 import { parseFolderText } from '../src/targets.ts';
+import { writeEngine } from './helpers.ts';
+import { addTag, makeGitRepo, makeScenario, runCliAsync } from './upstream-helpers.ts';
 
 import type { FolderChoice } from '../src/folder-choose.ts';
 

@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureEngineRoot, writeEngine } from './helpers.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { chooseFolder, folderLockMatches } from '../src/folder-choose.ts';
 import { packageRoot } from '../src/paths.ts';
 import { type Folder, loadFolder } from '../src/targets.ts';
+import { fixtureData, fixtureEngineRoot, writeEngine } from './helpers.ts';
 
 import type { Upstreams } from '../src/choose.ts';
 import type { Found } from '../src/upstream.ts';

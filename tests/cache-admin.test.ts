@@ -14,8 +14,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { age, DAY, libraryCache, sha } from './cache-fixture.ts';
-import { tarGz } from './github-fake.ts';
 import {
   CacheBusyError,
   cacheEntries,
@@ -30,6 +28,8 @@ import {
   touchEntries,
   touchKeptSources,
 } from '../src/cache-admin.ts';
+import { age, DAY, libraryCache, sha } from './cache-fixture.ts';
+import { tarGz } from './github-fake.ts';
 
 const A = 'a'.repeat(64);
 const B = 'b'.repeat(64);

@@ -7,9 +7,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { tarGz } from './github-fake.ts';
 import { keptPath, parseSourceRecord, restoreCache } from '../src/build/cache.ts';
 import { checkTarMembers, listTarGzMembers, UnsafeArchiveError } from '../src/untar.ts';
+import { tarGz } from './github-fake.ts';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const COMMIT = 'a'.repeat(40);

@@ -12,7 +12,7 @@ import {
   pruneCache,
   takeCache,
 } from '../cache-admin.ts';
-import { CliError } from '../cli-errors.ts';
+import { CliError } from '../cli-error.ts';
 
 interface Result {
   output: string;

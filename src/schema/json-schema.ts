@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { folderSchema } from './targets.ts';
 import { schemaUrl } from '../paths.ts';
 import { JSON_INDENT } from '../text.ts';
+import { folderSchema } from './targets.ts';
 
 /** The JSON Schema editors use to autocomplete and check ffmpeg-build.yml, generated from the CLI's own zod schema. */
 export function folderJsonSchema(): string {

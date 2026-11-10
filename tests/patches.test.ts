@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureProfilesDir } from './helpers.ts';
 import { plannedPatches } from '../src/build/plan.ts';
 import { checkProfile, profileAdditions } from '../src/check.ts';
 import { formatReport } from '../src/format.ts';
 import { loadProfile } from '../src/profile.ts';
+import { fixtureData, fixtureProfilesDir } from './helpers.ts';
 
 const data = fixtureData();
 

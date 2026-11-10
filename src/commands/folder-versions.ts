@@ -1,7 +1,7 @@
 // lock / update / outdated on a folder of targets: one ffmpeg.lock for the folder, one version per library.
 import { join } from 'node:path';
 
-import { CliError } from '../cli-errors.ts';
+import { CliError } from '../cli-error.ts';
 import { FetchError } from '../fetch.ts';
 import { chooseFolder, type FolderChoice, type FolderRow } from '../folder-choose.ts';
 import { type FolderLock, formatFolderLock, LOCK_FILE, readFolderLock } from '../lockfile.ts';

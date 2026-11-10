@@ -5,13 +5,13 @@ import { gzipSync } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
-import { tarGz } from './github-fake.ts';
 import {
   checkTarMembers,
   extractTarGzFile,
   listTarGzMembers,
   UnsafeArchiveError,
 } from '../src/untar.ts';
+import { tarGz } from './github-fake.ts';
 
 const archive = (gz: Buffer) => {
   const path = join(mkdtempSync(join(tmpdir(), 'ffmpeg-build-untar-')), 'a.tar.gz');

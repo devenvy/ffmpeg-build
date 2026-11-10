@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData } from './helpers.ts';
 import { configureFlags } from '../src/build/plan.ts';
 import {
   enabledOptions,
@@ -21,6 +20,7 @@ import {
 import { staticShipped } from '../src/commands/test-library.ts';
 import { loadEngineData, optionsOf } from '../src/engine-data.ts';
 import { packageRoot } from '../src/paths.ts';
+import { fixtureData } from './helpers.ts';
 
 import type { CellPlan } from '../src/resolve.ts';
 

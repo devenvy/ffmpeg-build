@@ -9,10 +9,10 @@ import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { tarGz } from './github-fake.ts';
-import { addTag, makeGitRepo } from './upstream-helpers.ts';
 import { restoreCache } from '../src/build/cache.ts';
 import { fetchSource } from '../src/build/fetch.ts';
+import { tarGz } from './github-fake.ts';
+import { addTag, makeGitRepo } from './upstream-helpers.ts';
 
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 

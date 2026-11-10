@@ -11,6 +11,8 @@ import {
 } from 'node:fs';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
+import { platformMatches } from '../platforms.ts';
+import { PC_FIELDS, type Recipe } from '../schema/engine.ts';
 import {
   changedFiles,
   copyLicenses,
@@ -35,9 +37,7 @@ import {
 } from './recipe-ops.ts';
 import { run, step } from './run.ts';
 import { keepSupplementalSources } from './supplemental-sources.ts';
-import { platformMatches } from '../platforms.ts';
 import { cxxRuntime, type Toolchain } from './toolchain.ts';
-import { PC_FIELDS, type Recipe } from '../schema/engine.ts';
 
 import type { BuildPlan } from './plan.ts';
 

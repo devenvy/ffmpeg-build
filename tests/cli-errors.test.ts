@@ -6,11 +6,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { formatError } from '../src/cli-errors.ts';
+import { formatFolderLock } from '../src/lockfile.ts';
 import { type FakeGitHub, fakeGitHub, tarGz } from './github-fake.ts';
 import { copyStudioFolder, fixtureEngineRoot } from './helpers.ts';
 import { runCliAsync } from './upstream-helpers.ts';
-import { formatError } from '../src/cli-errors.ts';
-import { formatFolderLock } from '../src/lockfile.ts';
 
 const env = {
   FFMPEG_BUILD_DATA: fixtureEngineRoot,

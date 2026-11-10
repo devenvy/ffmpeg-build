@@ -7,8 +7,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { tarGz } from './github-fake.ts';
-import { msys2 } from './helpers.ts';
 import { restoreCache } from '../src/build/cache.ts';
 import { hostFacts, nativeTools } from '../src/build/host.ts';
 import { nativePreflight } from '../src/build/native.ts';
@@ -16,6 +14,8 @@ import { toolchainDefinitionFiles } from '../src/build/plan.ts';
 import { canRunX64, objdumpFor } from '../src/build/stage.ts';
 import { createToolchain } from '../src/build/toolchain.ts';
 import { packageRoot } from '../src/paths.ts';
+import { tarGz } from './github-fake.ts';
+import { msys2 } from './helpers.ts';
 
 /** An xcrun check that finds it. */
 const xcrunFound = (): void => undefined;

@@ -6,9 +6,6 @@
 import { CliError, EXIT_PROBLEM, EXIT_USAGE } from './cli-error.ts';
 import { JSON_INDENT } from './text.ts';
 
-export { CliError, EXIT_PROBLEM, EXIT_USAGE };
-export type { ExitCode } from './cli-error.ts';
-
 /** A build that ran and failed (a compiler or recipe step): a build problem, exit 1. */
 export class BuildFailure extends CliError {
   constructor(message: string) {

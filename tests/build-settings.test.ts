@@ -5,12 +5,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, fixtureEngineRoot, runCli } from './helpers.ts';
 import { buildSettingProblems, buildSettings } from '../src/build-settings.ts';
 import { formatFolderLock } from '../src/lockfile.ts';
 import { packageRoot } from '../src/paths.ts';
 import { planReleases } from '../src/release.ts';
 import { parseFolderText } from '../src/targets.ts';
+import { fixtureData, fixtureEngineRoot, runCli } from './helpers.ts';
 
 const TARGETS =
   'targets:\n  lin: { platform: linux-x64, license: lgplv3, ffmpeg: 9, with: [dav1d] }\n';

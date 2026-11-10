@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { PLATFORMS } from '../src/platforms.ts';
 import {
   build,
   cmakeLines,
@@ -16,7 +17,6 @@ import {
   platformsOf,
   recipe,
 } from './recipe-harness.ts';
-import { PLATFORMS } from '../src/platforms.ts';
 
 import type * as RunModule from '../src/build/run.ts';
 

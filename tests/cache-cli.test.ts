@@ -11,8 +11,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { DAY, libraryCache } from './cache-fixture.ts';
-import { runCli } from './helpers.ts';
 import {
   CacheBusyError,
   registerBuild,
@@ -20,6 +18,8 @@ import {
   touchEntries,
   touchKeptSources,
 } from '../src/cache-admin.ts';
+import { DAY, libraryCache } from './cache-fixture.ts';
+import { runCli } from './helpers.ts';
 
 const cli = (root: string, args: string[]) =>
   runCli(['cache', ...args], { cwd: root, env: { FFMPEG_BUILD_CACHE: root } });

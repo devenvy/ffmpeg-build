@@ -2,7 +2,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData } from './helpers.ts';
 import { configureFlags } from '../src/build/plan.ts';
 import { loadEngineData } from '../src/engine-data.ts';
 import { migrate } from '../src/migrate.ts';
@@ -10,6 +9,7 @@ import { packageRoot } from '../src/paths.ts';
 import { declined, loadProfile, parseProfileText, type Profile } from '../src/profile.ts';
 import { type CellPlan, planProfile } from '../src/resolve.ts';
 import { artifactName, parseFolderText, targetProfile } from '../src/targets.ts';
+import { fixtureData } from './helpers.ts';
 
 const data = loadEngineData(packageRoot);
 const all = (() => {

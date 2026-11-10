@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { fixtureData, writeEngine } from './helpers.ts';
 import { allowedLicenses, licenseBlocker, loadEngineData } from '../src/engine-data.ts';
 import { allowedBy, type LicenseTable } from '../src/licenses.ts';
 import { availability, optionLicenses } from '../src/resolve.ts';
+import { fixtureData, writeEngine } from './helpers.ts';
 
 const ALL = ['lgplv2', 'lgplv3', 'gplv2', 'gplv3', 'nonfree'] as const;
 const table: LicenseTable = new Map([
