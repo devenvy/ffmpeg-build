@@ -100,8 +100,27 @@ export function imageBuildArgs(
   return ['build', '-t', tag, dir];
 }
 
-/** Tries at building a toolchain image before the build fails. */
-const IMAGE_BUILD_ATTEMPTS = 3;
+/**
+ * Tries at building a toolchain image before the build fails, and the first wait between them, doubling: 30 s, 60 s,
+ * 120 s (less up to a quarter, at random). A package mirror caught mid-sync (an AlmaLinux mirror serving an empty
+ * repomd.xml, whose parse error dnf doesn't retry on another mirror) can take minutes to come right; three tries within
+ * 13 s all met the same one. FFMPEG_BUILD_IMAGE_ATTEMPTS and FFMPEG_BUILD_IMAGE_RETRY_MS override them (tests, CI).
+ */
+const IMAGE_BUILD_ATTEMPTS = 4;
+const IMAGE_BUILD_RETRY_MS = 30_000;
+
+const positiveEnv = (name: string, fallback: number): number => {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+/** How ensureImage retries a failed image build: its attempts and first wait, with the environment's overrides. */
+export function imageBuildRetry(): { attempts: number; firstDelayMs: number } {
+  return {
+    attempts: Math.floor(positiveEnv('FFMPEG_BUILD_IMAGE_ATTEMPTS', IMAGE_BUILD_ATTEMPTS)),
+    firstDelayMs: positiveEnv('FFMPEG_BUILD_IMAGE_RETRY_MS', IMAGE_BUILD_RETRY_MS),
+  };
+}
 
 /**
  * The image's tag and Docker ID, building it from images/<image> when this machine doesn't have it yet. The ID is
@@ -114,18 +133,25 @@ export async function ensureImage(
   const tag = imageTag(root, image);
   let id = await inspectId(tag);
   if (!id) {
-    // a failed image build is nearly always the network (a package mirror's metadata, a registry layer): try again
-    await retry(IMAGE_BUILD_ATTEMPTS, async () => {
-      const { code } = await runStreaming(
-        dockerCommand(),
-        imageBuildArgs(tag, join(root, 'images', image), image),
-      );
-      if (code !== 0) {
-        throw new BuildError(
-          `Couldn't build the toolchain image ${tag} (docker build exited ${code}).`,
+    // a failed image build is nearly always the network (a package mirror's metadata, a registry layer): try again,
+    // after long enough for a mirror to finish syncing
+    const { attempts, firstDelayMs } = imageBuildRetry();
+    await retry(
+      attempts,
+      async () => {
+        const { code } = await runStreaming(
+          dockerCommand(),
+          imageBuildArgs(tag, join(root, 'images', image), image),
         );
-      }
-    });
+        if (code !== 0) {
+          throw new BuildError(
+            `Couldn't build the toolchain image ${tag} (docker build exited ${code}).`,
+          );
+        }
+      },
+      () => true,
+      { firstDelayMs },
+    );
     id = await inspectId(tag);
     if (!id) {
       throw new BuildError(`Built the toolchain image ${tag}, but Docker can't find it.`);

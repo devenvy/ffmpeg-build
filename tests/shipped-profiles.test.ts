@@ -832,12 +832,62 @@ describe('Android ships the NDK libc++', () => {
       expect(data.platforms.get(platform)!.ships).toEqual({
         'libc++_shared.so': {
           license: 'Apache-2.0 WITH LLVM-exception',
-          notice: `\${TOOLCHAIN}/NOTICE`,
+          notice: [`\${TOOLCHAIN}/NOTICE`],
         },
       });
     }
     const lgplv2 = parseProfileText(
       'name: t\nffmpeg: 9\nplatforms: [android-arm64]\nlicense: lgplv2\nwith: [dav1d]\n',
+      't.yml',
+    );
+    expect(formatReport(checkProfile(lgplv2, data))).not.toContain('✗');
+  });
+
+  it('declares the static runtimes each platform links in, which every license allows', () => {
+    const linked = (platform: string) =>
+      Object.fromEntries(
+        Object.entries(data.platforms.get(platform)!.ships)
+          .filter(([, s]) => s.linked)
+          .map(([file, s]) => [file, s.linked]),
+      );
+    const libgcc = ['libgcc.a', 'libgcc_eh.a'];
+    const winpthread = ['libwinpthread.a', 'libpthread.a'];
+    for (const platform of ['linux-x64', 'linux-arm64']) {
+      expect(linked(platform)).toEqual({
+        libgcc,
+        'libstdc++_nonshared': ['libstdc++_nonshared.a'],
+      });
+    }
+    expect(linked('linux-armhf')).toEqual({ libgcc });
+    for (const platform of ['linux-musl-x64', 'linux-musl-arm64']) {
+      expect(linked(platform)).toEqual({
+        'libstdc++': ['libstdc++.a'],
+        libgcc,
+        libunwind: ['libunwind.a'],
+      });
+    }
+    expect(linked('win-x64')).toEqual({
+      libwinpthread: winpthread,
+      'libstdc++': ['libstdc++.a'],
+      libgcc,
+      'libc++': ['libc++.a'],
+      libunwind: ['libunwind.a'],
+      'compiler-rt-builtins': ['libclang_rt.builtins-x86_64.a'],
+    });
+    expect(linked('win-arm64')).toEqual({
+      libwinpthread: winpthread,
+      'libc++': ['libc++.a'],
+      libunwind: ['libunwind.a'],
+      'compiler-rt-builtins': ['libclang_rt.builtins-aarch64.a'],
+    });
+    // no unconditional toolchain archive is left: a non-file entry is recorded only on evidence
+    for (const [platform, entry] of data.platforms) {
+      for (const [file, s] of Object.entries(entry.ships)) {
+        expect(s.linked !== undefined || file.endsWith('.so'), `${platform} ${file}`).toBe(true);
+      }
+    }
+    const lgplv2 = parseProfileText(
+      'name: t\nffmpeg: 9\nplatforms: [linux-x64, linux-armhf, linux-musl-x64, win-x64, win-arm64]\nlicense: lgplv2\nwith: [dav1d]\n',
       't.yml',
     );
     expect(formatReport(checkProfile(lgplv2, data))).not.toContain('✗');

@@ -104,6 +104,8 @@ const MS_PER_SECOND = 1_000;
 const RETRY_JITTER = 0.25;
 /** retry: each wait is this many times the one before. */
 const RETRY_BACKOFF = 2;
+/** retry: the first wait, unless the caller gives its own. */
+const RETRY_FIRST_DELAY_MS = 4_000;
 
 const NEWLINE = 0x0a;
 /** How much of a found string's line a message quotes. */
@@ -271,15 +273,17 @@ export async function run(
 }
 
 /**
- * Runs `action` up to `attempts` times, waiting 4 s, 8 s, 16 s... (each less up to a quarter, at random, so builds
- * that failed together don't retry together). `shouldRetry` says which failures are worth another attempt.
+ * Runs `action` up to `attempts` times, waiting `firstDelayMs` (default 4 s), then twice that each time: 4 s, 8 s,
+ * 16 s... (each less up to a quarter, at random, so builds that failed together don't retry together). `shouldRetry`
+ * says which failures are worth another attempt.
  */
 export async function retry<T>(
   attempts: number,
   action: () => Promise<T>,
   shouldRetry: (error: unknown) => boolean = () => true,
+  { firstDelayMs = RETRY_FIRST_DELAY_MS }: { firstDelayMs?: number } = {},
 ): Promise<T> {
-  let delay = 4_000;
+  let delay = firstDelayMs;
   for (let attempt = 1; ; attempt++) {
     try {
       return await action();

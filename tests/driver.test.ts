@@ -92,6 +92,8 @@ function lay(): void {
       `for a; do case "$a" in --prefix=*) echo "\${a#--prefix=}" >.prefix ;; esac; done`,
       'mkdir -p ffbuild',
       'echo CONFIG_FAKE=yes >ffbuild/config.mak',
+      // the configured link the ships: entries' linked: are read from (CONFIG_AVCODEC: avcodec is built; ffplay isn't)
+      "printf '%s\\n' 'CC_IDENT=gcc 9.9.9 (fake)' 'LDFLAGS= -static-libgcc' 'CONFIG_AVCODEC=yes' 'EXTRALIBS-avcodec=-lx -l:libfake-rt.a -lm' 'EXTRALIBS-ffplay=-l:libnone.a' >>ffbuild/config.mak",
       'printf \'#define FFMPEG_CONFIGURATION "%s"\\n\' "$(printf \'%s\' "$*" | sed \'s/[\\\\"]/\\\\&/g\')" >config.h',
       '',
     ].join('\n'),
@@ -218,7 +220,24 @@ function drive(
       };
     }),
     runtime: [],
-    ships: [{ file: 'libfoo.so', license: 'Zlib', notice: `\${FAKE_TOOLCHAIN}/NOTICE` }],
+    ships: [
+      { file: 'libfoo.so', license: 'Zlib', notice: [`\${FAKE_TOOLCHAIN}/NOTICE`] },
+      // linked: only where the configured link shows it: the fake configure's link names libfake-rt.a, not libnone.a
+      {
+        file: 'libfake-rt',
+        license: 'Zlib',
+        notice: [`\${FAKE_TOOLCHAIN}/NOTICE`, 'license-texts/MIT.txt'],
+        texts: { 'license-texts/MIT.txt': 'standard MIT text\n' },
+        linked: ['libfake-rt.a'],
+        compiler: 'gcc',
+      },
+      {
+        file: 'libnone',
+        license: 'Zlib',
+        notice: [`\${FAKE_TOOLCHAIN}/MISSING`],
+        linked: ['libnone.a', '-static-libnone'],
+      },
+    ],
     patches,
     notices: {
       governing: GOVERNING_TEXTS[license],
@@ -428,6 +447,25 @@ describe.skipIf(!hasTools)('the driver: THIRD-PARTY-NOTICES.txt and sources', ()
     expect(sectionOf(notices(first.name), 'FILES THE PLATFORM SHIPS')).toContain(
       '== libfoo.so ==\n\nLicense: Zlib\n\n--- NOTICE ---\n\nlibfoo notice\n',
     );
+  });
+
+  it('adds a linked: toolchain archive only where the configured link shows it, with what showed it', () => {
+    const ships = sectionOf(notices(first.name), 'FILES THE PLATFORM SHIPS');
+    expect(ships).toContain(
+      "== libfake-rt ==\n\nLicense: Zlib\nLinked statically into the libraries and programs, as FFmpeg's link shows: libfake-rt.a (EXTRALIBS-avcodec)\nCompiler: gcc 9.9.9 (fake)\n\n--- NOTICE ---\n\nThe same text as under libfoo.so above.\n\n--- MIT.txt (the engine's standard text: the toolchain ships none) ---\n\nstandard MIT text\n",
+    );
+    // named only by a program that isn't built, and its flag not given: not in this build (nor its missing notice)
+    expect(ships).not.toContain('libnone');
+    expect(first.log).toContain(
+      "not linked in from the toolchain: libnone (FFmpeg's link shows none of libnone.a, -static-libnone)",
+    );
+    const document = JSON.parse(
+      readFileSync(join(T, 'out', `${first.name}.spdx.json`), 'utf8'),
+    ) as { packages: { name: string; sourceInfo?: string }[] };
+    expect(document.packages.find((item) => item.name === 'libfake-rt')?.sourceInfo).toContain(
+      'libfake-rt.a (EXTRALIBS-avcodec)',
+    );
+    expect(document.packages.some((item) => item.name === 'libnone')).toBe(false);
   });
 
   it('points an unreleased build at its recorded sources, and offers them through whoever distributes it', () => {

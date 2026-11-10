@@ -17,6 +17,13 @@ import { basename, dirname, join } from 'node:path';
 import { shipsSymbols, symbolsName } from '../targets.ts';
 import { keptPath } from './cache.ts';
 import { keptFiles, type SourceRecord } from './fetch.ts';
+import {
+  configuredLink,
+  observeCompilerVersion,
+  observeDriver,
+  type ShipInBuild,
+  shipsInBuild,
+} from './linked.ts';
 import { checkNotices, writeNotices } from './notices.ts';
 import { run, searchOutput, step } from './run.ts';
 import { systemCheckEnv, writeRuntimeDependencies } from './runtime-dependencies.ts';
@@ -664,6 +671,43 @@ export async function canRunX64(
   }
 }
 
+/**
+ * What of the platform's ships: this build has: a linked: one only where FFmpeg's link shows it, as configured
+ * (ffbuild/config.mak) and as its linker driver runs it (its -###, with one of the build's own objects), with the
+ * linking compiler's version for a runtime the toolchain releases with it (COMPILER_RUNTIMES).
+ */
+function linkedShips(context: BuildContext, ffmpegDir: string): ShipInBuild[] {
+  const plan = context.buildPlan;
+  let link = configuredLink(
+    readFileSync(join(ffmpegDir, 'ffbuild', 'config.mak'), 'utf8'),
+    plan.platform.startsWith('win-'),
+  );
+  let version: ReturnType<typeof observeCompilerVersion>;
+  if (plan.ships.some((entry) => entry.linked) && link.linker) {
+    const object = globSync('libavutil/*.o', { cwd: ffmpegDir }).sort()[0];
+    if (!object) {
+      throw new Error(
+        `${ffmpegDir}/libavutil has no object file to ask FFmpeg's linker driver about`,
+      );
+    }
+    link = observeDriver(link, join(ffmpegDir, object), context.env);
+    version = observeCompilerVersion(link.linker!, context.env);
+  }
+  const ships = shipsInBuild(plan.ships, link, {
+    runtimes: (context.env['COMPILER_RUNTIMES'] ?? '').split(/\s+/).filter(Boolean),
+    ...(version ? { version } : {}),
+  });
+  for (const shipped of plan.ships.filter((entry) => entry.linked)) {
+    const found = ships.find((entry) => entry.file === shipped.file);
+    step(
+      found
+        ? `linked in from the toolchain: ${shipped.file}${found.version ? ` ${found.version.value}` : ''} (${found.evidence!.join('; ')})`
+        : `not linked in from the toolchain: ${shipped.file} (FFmpeg's link shows none of ${shipped.linked!.join(', ')}${shipped.compiler ? ` with ${shipped.compiler}` : ''})`,
+    );
+  }
+  return ships;
+}
+
 export async function stageBuild(
   context: BuildContext,
   ffmpegDir: string,
@@ -677,11 +721,12 @@ export async function stageBuild(
   mkdirSync(runDir, { recursive: true });
   mkdirSync(devDir, { recursive: true });
   await stagePlatform(context, join(context.work, 'install'), runDir, devDir);
+  const ships = linkedShips(context, ffmpegDir);
   const notice = join(runDir, 'THIRD-PARTY-NOTICES.txt');
-  writeNotices(context, ffmpegDir, libraries, notice);
+  writeNotices(context, ffmpegDir, libraries, notice, ships);
   copyFileSync(notice, join(devDir, 'THIRD-PARTY-NOTICES.txt'));
-  checkNotices(notice, context);
-  checkNotices(join(devDir, 'THIRD-PARTY-NOTICES.txt'), context);
+  checkNotices(notice, context, ships);
+  checkNotices(join(devDir, 'THIRD-PARTY-NOTICES.txt'), context, ships);
   step(`checking ${plan.name}`);
   await checkPlatform(context, runDir);
   await writeRuntimeDependencies(context, runDir, devDir);
@@ -713,7 +758,7 @@ export async function stageBuild(
   const temp = `${recordPath}.tmp`;
   writeFileSync(temp, `${JSON.stringify(record, null, JSON_INDENT)}\n`);
   renameSync(temp, recordPath);
-  writeBuildSbom(context, ffmpeg, libraries);
+  writeBuildSbom(context, ffmpeg, libraries, ships);
   const sourceOut = join(context.out, `${plan.name}.sources`);
   rmSync(sourceOut, { recursive: true, force: true });
   // (a Rust library's crates too)

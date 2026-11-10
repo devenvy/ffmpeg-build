@@ -732,7 +732,41 @@ describe('what a platform ships besides its libraries', () => {
           'platforms:\n  linux-x64: { image: linux-x64, setup: linux, ships: { libfoo.so: MIT } }\n',
       }),
     ).toEqual([
-      'platforms.yml: platforms.linux-x64.ships.libfoo.so: expected { license: <SPDX>, notice: <path of its licence text> }',
+      'platforms.yml: platforms.linux-x64.ships.libfoo.so: expected { license: <SPDX>, notice: <path of its licence text, or a list>, linked?: [...], compiler?: <name> }',
+    ]);
+  });
+
+  it("takes the engine's standard texts only as they are in license-texts/, and linked: as archives or flags", () => {
+    const files = (entry: string) => ({
+      'ffmpeg/9.yml': okFfmpeg,
+      'license-texts/MIT.txt': 'MIT',
+      'platforms.yml': `platforms:\n  linux-x64: { image: linux-x64, setup: linux, ships: { libfoo: ${entry} } }\n`,
+    });
+    const ships = (entry: string) => errorsOf(files(entry));
+    expect(
+      loadEngineData(
+        writeEngine(
+          files(
+            '{ license: MIT, notice: [license-texts/MIT.txt, /x/NOTICE], linked: [libfoo.a, -static-libfoo], compiler: gcc }',
+          ),
+        ),
+      ).platforms.get('linux-x64')!.ships,
+    ).toEqual({
+      libfoo: {
+        license: 'MIT',
+        notice: ['license-texts/MIT.txt', '/x/NOTICE'],
+        linked: ['libfoo.a', '-static-libfoo'],
+        compiler: 'gcc',
+      },
+    });
+    expect(ships('{ license: MIT, notice: license-texts/Nope.txt }')).toEqual([
+      "platforms.yml: linux-x64 ships libfoo with the notice license-texts/Nope.txt, which is not one of the engine's standard texts (license-texts/<file>.txt)",
+    ]);
+    expect(ships('{ license: MIT, notice: /x/NOTICE, linked: [lib/libfoo.a] }')).toEqual([
+      'platforms.yml: platforms.linux-x64.ships.libfoo.linked[0]: expected a static archive file name (libstdc++.a) or a compiler-driver flag (-static-libgcc)',
+    ]);
+    expect(ships('{ license: MIT, notice: /x/NOTICE, compiler: gcc }')).toEqual([
+      'platforms.yml: platforms.linux-x64.ships.libfoo: compiler: limits a linked: entry; give the entry linked: too',
     ]);
   });
 });

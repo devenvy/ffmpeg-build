@@ -322,6 +322,44 @@ describe('runtime libraries a platform ships', () => {
     );
     expect(text).toContain("✗ linux-x64 ships libfoo.so (Apache-2.0), which lgplv2 doesn't allow");
   });
+
+  it('holds a linked: one to every build it could be linked into: check cannot see the link', () => {
+    const d = loadEngineData(
+      writeEngine({
+        'ffmpeg/9.yml': 'major: 9\nreleases: [9.0.0]\noptions: {}\n',
+        'licenses.yml':
+          'licenses:\n  Apache-2.0: [lgplv3, gplv3, nonfree]\n  GPL-3.0-or-later WITH GCC-exception-3.1: all\n',
+        'platforms.yml': [
+          'platforms:',
+          '  linux-x64:',
+          '    image: linux-x64',
+          '    setup: linux',
+          '    ships:',
+          '      libfoo: { license: Apache-2.0, notice: /x/NOTICE, linked: [libfoo.a, -static-libfoo] }',
+          '      libgcc: { license: GPL-3.0-or-later WITH GCC-exception-3.1, notice: /x/COPYING.RUNTIME, linked: [-static-libgcc], compiler: gcc }',
+          '',
+        ].join('\n'),
+      }),
+    );
+    const report = (license: string) =>
+      formatReport(
+        checkProfile(
+          parseProfileText(
+            `name: t\nffmpeg: 9\nplatforms: [linux-x64]\nlicense: ${license}\n`,
+            't.yml',
+          ),
+          d,
+        ),
+      );
+    const text = report('[lgplv2, lgplv3]');
+    expect(text).toContain(
+      "✗ linux-x64 links libfoo in where its link uses libfoo.a or -static-libfoo (Apache-2.0), which lgplv2 doesn't allow",
+    );
+    expect(text).not.toContain('lgplv3 doesn');
+    // GCC's runtime library exception: every build may link libgcc in
+    expect(text).not.toContain('libgcc');
+    expect(report('gplv3')).not.toContain('libfoo');
+  });
 });
 
 describe('components in check', () => {

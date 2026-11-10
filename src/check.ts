@@ -539,23 +539,27 @@ function testsProblems(profile: Profile): Block[] {
   return lines.length ? [{ lines }] : [];
 }
 
-/** What a platform's archives carry besides the libraries (Android's libc++_shared.so): allowed in each build's license. */
+/**
+ * What a platform's archives carry or link in besides the libraries (Android's libc++_shared.so): allowed in each
+ * build's license. A `linked:` entry is in a build only when its configured link shows it, which check can't see: it
+ * must be allowed wherever it could be.
+ */
 function shipsProblems(data: EngineData, ctx: Ctx): Block[] {
   const lines: Line[] = [];
   for (const platform of ctx.platforms) {
     const ships = Object.entries(data.platforms.get(platform)?.ships ?? {}).flatMap(
-      ([file, { license: expr }]) => {
+      ([file, { license: expr, linked }]) => {
         const verdict = allowedBy(expr, data.licenses);
         // one that can't be read: engine data reports it
-        return 'allowed' in verdict ? [{ file, expr, allowed: verdict.allowed }] : [];
+        return 'allowed' in verdict ? [{ file, expr, linked, allowed: verdict.allowed }] : [];
       },
     );
-    for (const { file, expr, allowed } of ships) {
+    for (const { file, expr, linked, allowed } of ships) {
       for (const license of unique(ctx.variants.map((v) => v.license))) {
         if (!allowed.includes(license)) {
           lines.push({
             mark: '✗',
-            text: `${platform} ships ${file} (${expr}), which ${license} doesn't allow`,
+            text: `${platform} ${linked ? `links ${file} in where its link uses ${linked.join(' or ')}` : `ships ${file}`} (${expr}), which ${license} doesn't allow`,
           });
         }
       }

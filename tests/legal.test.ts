@@ -213,32 +213,86 @@ describe("the plan's legal data", () => {
     expect(more.files).toEqual([{ name: '0001-more.patch', text: 'diff\n' }]);
   });
 
+  const shipsOf = (target: string) => {
+    const targetCell = build(target);
+    return makeBuildPlan({
+      profile: targetProfile(
+        folder,
+        folder.targets.find((t) => t.name === target)!,
+      ),
+      data: shipped,
+      locked: {
+        ffmpeg: { '9': '9.0.2' },
+        libraries: Object.fromEntries(targetCell.recipes.map((r) => [r, '1.0'])),
+        pinned: [],
+      },
+      cell: targetCell,
+      variant: target,
+      imageId: 'x',
+      cacheDir: tmpdir(),
+    }).ships;
+  };
+
   it('lists the notice of what a platform ships', () => {
-    const android = build('android-arm64-lgplv3');
-    expect(
-      makeBuildPlan({
-        profile: targetProfile(
-          folder,
-          folder.targets.find((t) => t.name === 'android-arm64-lgplv3')!,
-        ),
-        data: shipped,
-        locked: {
-          ffmpeg: { '9': '9.0.2' },
-          libraries: Object.fromEntries(android.recipes.map((r) => [r, '1.0'])),
-          pinned: [],
-        },
-        cell: android,
-        variant: 'android-arm64-lgplv3',
-        imageId: 'x',
-        cacheDir: tmpdir(),
-      }).ships,
-    ).toEqual([
+    expect(shipsOf('android-arm64-lgplv3')).toEqual([
       {
         file: 'libc++_shared.so',
         license: 'Apache-2.0 WITH LLVM-exception',
-        notice: `\${TOOLCHAIN}/NOTICE`,
+        notice: [`\${TOOLCHAIN}/NOTICE`],
       },
     ]);
+  });
+
+  it("carries the engine's standard texts for a toolchain that ships none, and what shows a runtime was linked", () => {
+    const ships = shipsOf('linux-musl-x64-gplv3');
+    const texts = {
+      'license-texts/GCC-exception-3.1.txt': readFileSync(
+        join(packageRoot, 'license-texts', 'GCC-exception-3.1.txt'),
+        'utf8',
+      ),
+      'license-texts/GPL-3.0-or-later.txt': readFileSync(
+        join(packageRoot, 'license-texts', 'GPL-3.0-or-later.txt'),
+        'utf8',
+      ),
+    };
+    expect(texts['license-texts/GCC-exception-3.1.txt']).toMatch(
+      /^GCC RUNTIME LIBRARY EXCEPTION\n\nVersion 3\.1, 31 March 2009\n/,
+    );
+    expect(texts['license-texts/GPL-3.0-or-later.txt']).toMatch(
+      /^ {20}GNU GENERAL PUBLIC LICENSE\n {23}Version 3, 29 June 2007\n/,
+    );
+    expect(ships).toEqual([
+      {
+        file: 'libstdc++',
+        license: 'GPL-3.0-or-later WITH GCC-exception-3.1',
+        notice: Object.keys(texts),
+        texts,
+        linked: ['libstdc++.a'],
+      },
+      {
+        file: 'libgcc',
+        license: 'GPL-3.0-or-later WITH GCC-exception-3.1',
+        notice: Object.keys(texts),
+        texts,
+        linked: ['libgcc.a', 'libgcc_eh.a'],
+      },
+      {
+        file: 'libunwind',
+        license: 'Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)',
+        notice: ['license-texts/LLVM-libunwind.txt'],
+        texts: {
+          'license-texts/LLVM-libunwind.txt': readFileSync(
+            join(packageRoot, 'license-texts', 'LLVM-libunwind.txt'),
+            'utf8',
+          ),
+        },
+        linked: ['libunwind.a'],
+      },
+    ]);
+    // LLVM's own libunwind/LICENSE.TXT: rav1e's recipe carries the same file for the unwinder Rust links
+    expect(ships[2]!.texts!['license-texts/LLVM-libunwind.txt']).toBe(
+      readFileSync(join(packageRoot, 'recipes', 'rav1e', 'LLVM-LICENSE.txt'), 'utf8'),
+    );
   });
 });
 

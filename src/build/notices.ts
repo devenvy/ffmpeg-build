@@ -3,6 +3,7 @@ import { basename, dirname, join } from 'node:path';
 
 import type { SourceRecord } from './fetch.ts';
 import type { BuildContext } from './library.ts';
+import type { ShipInBuild } from './linked.ts';
 
 const RULE = '================================================================================';
 const section = (name: string) => `\n${RULE}\n${name}\n${RULE}\n\n`;
@@ -99,11 +100,16 @@ function crateNotices(context: BuildContext, library: string, record: SourceReco
   return result;
 }
 
+/**
+ * THIRD-PARTY-NOTICES.txt. `ships` is what of the platform's ships: the build has (src/build/linked.ts); without it,
+ * the entries that are not `linked:`.
+ */
 export function writeNotices(
   context: BuildContext,
   ffmpegDir: string,
   records: readonly SourceRecord[],
   out: string,
+  ships: readonly ShipInBuild[] = context.buildPlan.ships.filter((shipped) => !shipped.linked),
 ): void {
   const plan = context.buildPlan;
   const ffmpeg = plan.ffmpeg!;
@@ -192,26 +198,57 @@ export function writeNotices(
       }
     }
   }
-  if (plan.ships.length) {
+  if (ships.length) {
     result += section('FILES THE PLATFORM SHIPS');
     result +=
       "Parts of the platform's toolchain that the archives carry or link in, each with its licence and notice.\n\n";
-    for (const shipped of plan.ships) {
-      const path = expandVariables(shipped.notice, context.env, plan.setup);
-      result += `== ${shipped.file} ==\n\nLicense: ${shipped.license}\n\n`;
-      result += text(
-        basename(path),
-        requiredFile(
-          path,
-          `${path}, the notice platforms.yml names for ${shipped.file}, is missing`,
-        ),
-      );
+    // a text several entries share (one toolchain's licence for its runtimes) is in full once, under the first
+    const seen = new Map<string, string>();
+    for (const shipped of ships) {
+      result += `== ${shipped.file} ==\n\nLicense: ${shipped.license}\n`;
+      if (shipped.evidence) {
+        result += `Linked statically into the libraries and programs, as FFmpeg's link shows: ${shipped.evidence.join('; ')}\n`;
+        if (shipped.version) {
+          result += `Version: ${shipped.version.value} (the linking compiler's: ${shipped.version.source})\n`;
+        }
+        if (shipped.compilerIdent) {
+          result += `Compiler: ${shipped.compilerIdent}\n`;
+        }
+      }
+      result += '\n';
+      for (const notice of shipped.notice) {
+        const standard = shipped.texts?.[notice];
+        const path =
+          standard === undefined ? expandVariables(notice, context.env, plan.setup) : notice;
+        const heading =
+          standard === undefined
+            ? basename(path)
+            : `${basename(path)} (the engine's standard text: the toolchain ships none)`;
+        const contents =
+          standard ??
+          requiredFile(
+            path,
+            `${path}, the notice platforms.yml names for ${shipped.file}, is missing`,
+          );
+        const first = seen.get(contents);
+        result += text(
+          heading,
+          first === undefined ? contents : `The same text as under ${first} above.`,
+        );
+        if (first === undefined) {
+          seen.set(contents, shipped.file);
+        }
+      }
     }
   }
   writeFileSync(out, result);
 }
 
-export function checkNotices(path: string, context: BuildContext): void {
+export function checkNotices(
+  path: string,
+  context: BuildContext,
+  ships: readonly ShipInBuild[] = [],
+): void {
   if (!existsSync(path)) {
     throw new Error(`${path} is missing`);
   }
@@ -222,6 +259,11 @@ export function checkNotices(path: string, context: BuildContext): void {
   for (const library of context.buildPlan.libraries) {
     if (!contents.includes(`\n== ${library.name} ${library.version} ==\n`)) {
       missing.push(`${library.name} ${library.version}`);
+    }
+  }
+  for (const shipped of ships) {
+    if (!contents.includes(`\n== ${shipped.file} ==\n`)) {
+      missing.push(shipped.file);
     }
   }
   if (!contents.startsWith(`FFmpeg ${context.buildPlan.ffmpeg!.version} — `)) {

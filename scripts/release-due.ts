@@ -45,6 +45,7 @@ export const REUSABLE_WORKFLOWS = [
   '.github/workflows/automerge.yml',
   '.github/workflows/update-lock.yml',
   '.github/workflows/update-pin.yml',
+  '.github/workflows/retry.yml',
 ];
 const RELEASE_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
 
