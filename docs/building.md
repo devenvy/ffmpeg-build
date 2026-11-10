@@ -257,7 +257,9 @@ build runner adds a few minutes (the Android emulator and the iOS simulator boot
 [`platforms.yml`](../platforms.yml) says which platforms build, in which image, and on which CI runner. Node creates
 each compiler environment and CMake/Meson cross file in `src/build/toolchain.ts`, while `src/build/stage.ts` lays out
 and checks the archives. Images are built locally the first time from `images/<name>/Dockerfile` (base images pinned
-by digest, downloads and pip packages by sha256, git sources by commit, checked after the fetch).
+by digest, downloads and pip packages by sha256, git sources by commit, checked after the fetch). A failed image build
+is tried up to 4 times, 30 s, 60 s and 120 s apart, long enough for a package mirror caught mid-sync to come right
+(`FFMPEG_BUILD_IMAGE_ATTEMPTS` and `FFMPEG_BUILD_IMAGE_RETRY_MS`, the first wait, override them).
 
 Each library is cached under `~/.cache/ffmpeg-build` (`FFMPEG_BUILD_CACHE`), keyed by its recipe, version, platform,
 toolchain and the libraries it builds against, so a rebuild only compiles what changed. On Linux hosts the build hands the archives
