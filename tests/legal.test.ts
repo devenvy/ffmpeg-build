@@ -234,11 +234,30 @@ describe("the plan's legal data", () => {
   };
 
   it('lists the notice of what a platform ships', () => {
+    const llvm = 'Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)';
     expect(shipsOf('android-arm64-lgplv3')).toEqual([
       {
         file: 'libc++_shared.so',
         license: 'Apache-2.0 WITH LLVM-exception',
         notice: [`\${TOOLCHAIN}/NOTICE`],
+      },
+      {
+        file: 'compiler-rt-builtins',
+        license: llvm,
+        notice: [`\${TOOLCHAIN}/NOTICE`],
+        linked: ['libclang_rt.builtins-aarch64-android.a'],
+      },
+      {
+        file: 'libunwind',
+        license: llvm,
+        notice: [`\${TOOLCHAIN}/NOTICE`],
+        linked: ['libunwind.a'],
+      },
+      {
+        file: 'bionic-crt',
+        license: 'BSD-2-Clause',
+        notice: [`\${TOOLCHAIN}/sysroot/NOTICE`],
+        linked: ['crtbegin_so.o', 'crtend_so.o'],
       },
     ]);
   });
@@ -274,7 +293,7 @@ describe("the plan's legal data", () => {
         license: 'GPL-3.0-or-later WITH GCC-exception-3.1',
         notice: Object.keys(texts),
         texts,
-        linked: ['libgcc.a', 'libgcc_eh.a'],
+        linked: ['libgcc.a', 'libgcc_eh.a', 'crtbegin.o', 'crtend.o', 'crtbeginS.o', 'crtendS.o'],
       },
       {
         file: 'libunwind',
@@ -287,6 +306,18 @@ describe("the plan's legal data", () => {
           ),
         },
         linked: ['libunwind.a'],
+      },
+      {
+        file: 'musl-crt',
+        license: 'MIT',
+        notice: ['license-texts/musl-COPYRIGHT.txt'],
+        texts: {
+          'license-texts/musl-COPYRIGHT.txt': readFileSync(
+            join(packageRoot, 'license-texts', 'musl-COPYRIGHT.txt'),
+            'utf8',
+          ),
+        },
+        linked: ['crt1.o', 'Scrt1.o', 'rcrt1.o', 'crti.o', 'crtn.o', 'libssp_nonshared.a'],
       },
     ]);
     // LLVM's own libunwind/LICENSE.TXT: rav1e's recipe carries the same file for the unwinder Rust links

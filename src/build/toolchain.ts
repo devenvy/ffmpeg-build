@@ -189,11 +189,31 @@ function msys2RuntimeNotices(licenses: string): Record<string, string> {
   found('LIBCXX_NOTICE', 'libc++/LICENSE');
   found('LIBUNWIND_NOTICE', 'libunwind/LICENSE');
   found('COMPILER_RT_NOTICE', 'compiler-rt/LICENSE');
+  // the mingw-w64 runtime's notices, which its crt package installs (the file upstream asks binaries to carry)
+  found('MINGW_CRT_NOTICE', 'crt/COPYING.MinGW-w64-runtime.txt');
   return notices;
 }
 
 // gcc-toolset's libgcc.a and libstdc++_nonshared.a are in its gcc and libstdc++-devel packages, one GCC release
 const GLIBC_GCC_RUNTIMES = 'libgcc libstdc++_nonshared';
+
+/**
+ * glibc's licence texts for the parts of it a link takes statically (libc_nonshared.a, the crt objects), as the
+ * machine's packages install them: RPM's /usr/share/licenses/glibc (COPYING.LIB, and LICENSES, the notices it asks to
+ * ship), or Debian's libc6-dev copyright file and the LGPL-2.1 it refers to. Only what is there.
+ */
+function glibcNotices(debianPackage: string): Record<string, string> {
+  if (existsSync('/usr/share/licenses/glibc/COPYING.LIB')) {
+    return {
+      GLIBC_LGPL: '/usr/share/licenses/glibc/COPYING.LIB',
+      GLIBC_NOTICE: '/usr/share/licenses/glibc/LICENSES',
+    };
+  }
+  const copyright = `/usr/share/doc/${debianPackage}/copyright`;
+  return existsSync(copyright)
+    ? { GLIBC_LGPL: '/usr/share/common-licenses/LGPL-2.1', GLIBC_NOTICE: copyright }
+    : {};
+}
 
 /** Materialize the platform environment and the exact CMake/Meson files formerly written by setup/*.sh. */
 export function createToolchain(options: ToolchainOptions): Toolchain {
@@ -211,6 +231,7 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     env['CFLAGS'] = '-fPIC';
     env['CXXFLAGS'] = '-fPIC';
     env['COMPILER_RUNTIMES'] = GLIBC_GCC_RUNTIMES;
+    Object.assign(env, glibcNotices('libc6-dev'));
   } else if (options.native && options.setup === 'windows') {
     // MSYS2's MinGW environment: its compilers by their plain names; cmake on Ninja (its default on Windows is Visual Studio)
     const arm = options.platform === 'win-arm64';
@@ -253,6 +274,9 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
       env['LD_LIBRARY_PATH'] =
         `${root}/lib64${env['LD_LIBRARY_PATH'] ? `:${env['LD_LIBRARY_PATH']}` : ''}`;
       env['PCP_DIR'] = '/opt/rh/gcc-toolset-14/root';
+      // the manylinux image: AlmaLinux's glibc package installs its licences under /usr/share/licenses/glibc
+      env['GLIBC_LGPL'] = '/usr/share/licenses/glibc/COPYING.LIB';
+      env['GLIBC_NOTICE'] = '/usr/share/licenses/glibc/LICENSES';
     }
   } else if (options.setup === 'linux-armhf') {
     env['CROSS_HOST'] = 'arm-linux-gnueabihf';
@@ -260,6 +284,9 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     env['CFLAGS'] = '-fPIC';
     env['CXXFLAGS'] = '-fPIC';
     env['COMPILER_RUNTIMES'] = 'libgcc';
+    // Debian's libc6-dev-armhf-cross has libc_nonshared.a and the crt objects; its copyright refers to the LGPL-2.1
+    env['GLIBC_LGPL'] = '/usr/share/common-licenses/LGPL-2.1';
+    env['GLIBC_NOTICE'] = '/usr/share/doc/libc6-dev-armhf-cross/copyright';
     const dir = `${posixDirname(deps)}/toolchain`;
     const cmake = `${dir}/armhf.cmake`;
     const meson = `${dir}/armhf-meson.ini`;
@@ -321,6 +348,8 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
       STRIP: `${toolchain}/bin/llvm-strip`,
       NM: `${toolchain}/bin/llvm-nm`,
       LDFLAGS: '-Wl,-z,max-page-size=16384',
+      // the NDK's clang links its compiler-rt builtins and libunwind into every library: one NDK release
+      COMPILER_RUNTIMES: 'compiler-rt-builtins libunwind',
     });
     const dir = `${posixDirname(deps)}/toolchain`;
     const meson = `${dir}/android-meson.ini`;
@@ -399,6 +428,11 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
     env['WINPTHREADS_NOTICE'] = arm
       ? '/opt/llvm-mingw/aarch64-w64-mingw32/share/mingw32/COPYING.winpthreads.txt'
       : '/usr/share/doc/mingw-w64-x86-64-dev/copyright';
+    // the mingw-w64 runtime's notices: llvm-mingw's copy of upstream's COPYING.MinGW-w64-runtime.txt; Ubuntu's
+    // mingw-w64-x86-64-dev (which has the crt objects and libmingw32/libmingwex) copyright file
+    env['MINGW_CRT_NOTICE'] = arm
+      ? '/opt/llvm-mingw/aarch64-w64-mingw32/share/mingw32/COPYING.MinGW-w64-runtime.txt'
+      : '/usr/share/doc/mingw-w64-x86-64-dev/copyright';
     // the compiler runtimes' licences, for the ships: entries a build links in (platforms.yml linked:): llvm-mingw's
     // LLVM licence (libc++, libunwind); the copyright files of Ubuntu's packages that have libstdc++.a and libgcc.a
     // (with GCC's runtime library exception in full) and the GPLv3 they refer to
@@ -423,6 +457,8 @@ export function createToolchain(options: ToolchainOptions): Toolchain {
   } else if (options.setup === 'apple-macos' || options.setup === 'apple-ios') {
     const apple = applePath(env);
     env['PATH'] = apple.path;
+    // Xcode's clang links its compiler-rt builtins (libclang_rt.<os>.a) into everything it links
+    env['COMPILER_RUNTIMES'] = 'compiler-rt-builtins';
     const prefixMap = `-ffile-prefix-map=${work}=/work -ffile-prefix-map=${deps}=/opt/ffmpeg-build/deps`;
     const xcrun = (sdk: string, ...what: string[]) => run('xcrun', ['--sdk', sdk, ...what]);
     if (options.setup === 'apple-macos') {

@@ -226,7 +226,7 @@ describe("what FFmpeg's linker driver adds, and how ld finds each -l", () => {
     expect(() =>
       observeDriver(link, 'x.o', {}, () => ({ status: 1, stdout: '', stderr: 'no such compiler' })),
     ).toThrow(
-      'x86_64-w64-mingw32-gcc-win32 -shared -### printed no link command (exit 1): no such compiler',
+      'x86_64-w64-mingw32-gcc-win32 -shared -static-libgcc -L/deps/lib -### printed no link command (exit 1): no such compiler',
     );
     // no LD in config.mak (a stand-in configure): nothing to ask
     expect(
@@ -390,5 +390,141 @@ describe("what FFmpeg's linker driver adds, and how ld finds each -l", () => {
     });
     // winpthreads is a package of its own: no compiler version for it
     expect(msys2.find((s) => s.file === 'libwinpthread')).not.toHaveProperty('version');
+  });
+});
+
+describe("the C runtimes' static parts: startup objects, and what a libc's linker script adds", () => {
+  it('asks the driver about a program too, where the build has programs', () => {
+    const asked: string[][] = [];
+    const run = (_command: string, args: string[]) => {
+      asked.push(args);
+      return {
+        status: 0,
+        stdout: '',
+        stderr: args.includes('-shared')
+          ? ' /usr/libexec/gcc/collect2 crti.o crtbeginS.o x.o -lgcc crtendS.o crtn.o'
+          : ' /usr/libexec/gcc/collect2 Scrt1.o crti.o crtbeginS.o x.o -lgcc crtendS.o crtn.o',
+      };
+    };
+    const programs = observeDriver(
+      configuredLink(
+        'LD=gcc\nCONFIG_FFMPEG=yes\nLDFLAGS= -static-libgcc\nLDEXEFLAGS= -Wl,-z,now\n',
+      ),
+      'x.o',
+      {},
+      run,
+    );
+    expect(asked).toEqual([
+      ['-shared', '-static-libgcc', '-###', '-o', 'ffb-link-probe.so', 'x.o'],
+      ['-static-libgcc', '-Wl,-z,now', '-###', '-o', 'ffb-link-probe', 'x.o'],
+    ]);
+    expect(programs.programDriver?.variable).toBe('gcc -###');
+    expect(
+      shipsInBuild([ship('musl-crt', ['crt1.o', 'Scrt1.o', 'crti.o', 'crtn.o'])], programs)[0]
+        ?.evidence,
+    ).toEqual([
+      'Scrt1.o (gcc -###)',
+      'crti.o (gcc -shared -###, gcc -###)',
+      'crtn.o (gcc -shared -###, gcc -###)',
+    ]);
+    // libraries only (Android, iOS): no program link to ask about
+    asked.length = 0;
+    expect(
+      observeDriver(configuredLink('LD=clang\n'), 'x.o', {}, run).programDriver,
+    ).toBeUndefined();
+    expect(asked).toHaveLength(1);
+  });
+
+  it("glibc: libc.so's GROUP adds libc_nonshared.a by its path; the crt objects are named by the driver", () => {
+    const root = folders({
+      'lib64/libc.so':
+        '/* GNU ld script */\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /lib64/libc.so.6 __ROOT__/lib64/libc_nonshared.a  AS_NEEDED ( /lib64/ld-linux-x86-64.so.2 ) )\n',
+      'lib64/libc_nonshared.a': 'ar',
+    });
+    writeFileSync(
+      join(root, 'lib64/libc.so'),
+      `/* GNU ld script */\nGROUP ( /lib64/libc.so.6 ${root}/lib64/libc_nonshared.a  AS_NEEDED ( /lib64/ld-linux-x86-64.so.2 ) )\n`,
+    );
+    const link = {
+      ...configuredLink('CONFIG_AVUTIL=yes\nLDFLAGS=\nEXTRALIBS-avutil=-lm\n'),
+      driver: {
+        variable: 'gcc -shared -###',
+        words: [`-L${root}/lib64`, '/lib/../lib64/crti.o', 'x.o', '-lc', '/lib/../lib64/crtn.o'],
+      },
+    };
+    expect(
+      shipsInBuild(
+        [ship('glibc-static', ['libc_nonshared.a', 'crt1.o', 'Scrt1.o', 'crti.o', 'crtn.o'])],
+        link,
+      )[0]?.evidence,
+    ).toEqual([
+      'libc_nonshared.a (gcc -shared -###)',
+      'crti.o (gcc -shared -###)',
+      'crtn.o (gcc -shared -###)',
+    ]);
+  });
+
+  it("Windows: the mingw-w64 runtime's startup objects and libraries, and GCC's crtbegin.o only with GCC", () => {
+    const root = folders({
+      'mingw/libmingw32.a': 'ar',
+      'mingw/libmingwex.a': 'ar',
+      'mingw/libmoldname.a': 'ar',
+      'mingw/libmsvcrt.a': 'ar',
+      'mingw/libkernel32.a': 'ar',
+    });
+    const crt = ship(
+      'mingw-w64-crt',
+      [
+        'crt2.o',
+        'dllcrt2.o',
+        'CRT_fp10.o',
+        'libmingw32.a',
+        'libmingwex.a',
+        'libmoldname.a',
+        'libmsvcrt.a',
+      ],
+      { license: 'LicenseRef-mingw-w64-runtime' },
+    );
+    const gccRuntime = ship('libgcc', ['libgcc.a', 'libgcc_eh.a', 'crtbegin.o', 'crtend.o'], {
+      compiler: 'gcc',
+    });
+    const link = (ident: string) => ({
+      ...configuredLink(
+        `CC_IDENT=${ident}\nCONFIG_AVUTIL=yes\nLDFLAGS= -static -l:CRT_fp10.o\nEXTRALIBS-avutil=-luser32\n`,
+        true,
+      ),
+      driver: {
+        variable: 'clang -shared -###',
+        words: [
+          `-L${root}/mingw`,
+          '-Bstatic',
+          '/opt/llvm-mingw/aarch64-w64-mingw32/lib/dllcrt2.o',
+          '/opt/llvm-mingw/aarch64-w64-mingw32/lib/crtbegin.o',
+          'x.o',
+          '-lmingw32',
+          '-lmoldname',
+          '-lmingwex',
+          '-lmsvcrt',
+          '-lkernel32',
+          '/opt/llvm-mingw/aarch64-w64-mingw32/lib/crtend.o',
+        ],
+      },
+    });
+    const clang = shipsInBuild([crt, gccRuntime], link('clang version 23.1.2'));
+    expect(clang.map((s) => s.file)).toEqual(['mingw-w64-crt']);
+    expect(clang[0]!.evidence).toEqual([
+      'dllcrt2.o (clang -shared -###)',
+      'CRT_fp10.o (LDFLAGS)',
+      'libmingw32.a (clang -shared -###)',
+      'libmingwex.a (clang -shared -###)',
+      'libmoldname.a (clang -shared -###)',
+      'libmsvcrt.a (clang -shared -###)',
+    ]);
+    // with GCC, the same crtbegin.o is GCC's: libgcc's
+    expect(
+      shipsInBuild([crt, gccRuntime], link('gcc 16.2.0 (Rev6, Built by MSYS2 project)')).map(
+        (s) => s.file,
+      ),
+    ).toEqual(['mingw-w64-crt', 'libgcc']);
   });
 });

@@ -21,6 +21,8 @@ export interface ShipInBuild extends PlannedShip {
   compilerIdent?: string; // configure's CC_IDENT: the compiler that linked it, as it names itself
   // the runtime's version: the linking compiler's, where the toolchain ships the runtime with it (COMPILER_RUNTIMES)
   version?: { value: string; source: string };
+  // its notice texts, read once where the build runs (notices.ts shipNotices), for the notices and the SBOM
+  read?: { path: string; heading: string; text: string }[];
 }
 
 interface Line {
@@ -34,7 +36,9 @@ export interface ConfiguredLink {
   linker?: string; // config.mak's LD
   flags: Line[];
   libraries: Line[];
-  driver?: Line; // the driver's own link command (observeDriver)
+  driver?: Line; // the driver's own link command for a shared library (observeDriver)
+  programDriver?: Line; // and for a program, where the build has programs
+  programs?: boolean; // config.mak: CONFIG_FFMPEG, CONFIG_FFPROBE or CONFIG_FFPLAY
   windows?: boolean; // PE: -l<name> finds an import library first
 }
 
@@ -63,6 +67,9 @@ export function configuredLink(configMak: string, windows = false): ConfiguredLi
   });
   const ident = variables.get('CC_IDENT')?.trim();
   const linker = variables.get('LD')?.trim();
+  const programs = ['FFMPEG', 'FFPROBE', 'FFPLAY'].some(
+    (program) => variables.get(`CONFIG_${program}`) === 'yes',
+  );
   return {
     ...(ident ? { compilerIdent: ident } : {}),
     ...(linker ? { linker } : {}),
@@ -70,6 +77,7 @@ export function configuredLink(configMak: string, windows = false): ConfiguredLi
     libraries: built
       .sort()
       .map((variable) => ({ variable, words: words(variables.get(variable)) })),
+    ...(programs ? { programs } : {}),
     ...(windows ? { windows } : {}),
   };
 }
@@ -106,8 +114,10 @@ const spawnRunner =
   };
 
 /**
- * The link command FFmpeg's linker driver runs for a shared library with the configured flags, as its -### prints it
- * (nothing is linked): the libraries and search directories the driver adds. `object` is any object file of the build.
+ * The link commands FFmpeg's linker driver runs with the configured flags, as its -### prints them (nothing is
+ * linked): the libraries, startup objects and search directories the driver adds, for a shared library and, where the
+ * build has programs, for a program (whose startup objects differ: crt1.o, crt2.o). `object` is any object file of
+ * the build.
  */
 export function observeDriver(
   link: ConfiguredLink,
@@ -120,26 +130,37 @@ export function observeDriver(
   }
   const [command, ...preset] = link.linker.split(/\s+/);
   // make's own syntax ($(SUBDIR), $$(@F)) is not the driver's
-  const flags = link.flags
-    .filter(({ variable }) => variable === 'LDFLAGS')
-    .flatMap(({ words }) => words)
-    .filter((word) => !word.includes('$'));
-  const out = run(command!, [
-    ...preset,
-    '-shared',
-    ...flags,
-    '-###',
-    '-o',
-    'ffb-link-probe.so',
-    object,
-  ]);
-  const words = out.status === 0 ? driverLinkCommand(`${out.stderr}\n${out.stdout}`) : undefined;
-  if (!words) {
-    throw new Error(
-      `${link.linker} -shared -### printed no link command (exit ${String(out.status)}): ${out.stderr.trim().slice(-STDERR_QUOTE)}`,
-    );
-  }
-  return { ...link, driver: { variable: `${basename(command!)} -shared -###`, words } };
+  const flags = (variables: readonly string[]) =>
+    link.flags
+      .filter(({ variable }) => variables.includes(variable))
+      .flatMap(({ words }) => words)
+      .filter((word) => !word.includes('$'));
+  const ask = (args: readonly string[], output: string): Line => {
+    const label = `${basename(command!)} ${[...args, '-###'].join(' ')}`.replace(/\s+/g, ' ');
+    const out = run(command!, [...preset, ...args, '-###', '-o', output, object]);
+    const words = out.status === 0 ? driverLinkCommand(`${out.stderr}\n${out.stdout}`) : undefined;
+    if (!words) {
+      throw new Error(
+        `${label} printed no link command (exit ${String(out.status)}): ${out.stderr.trim().slice(-STDERR_QUOTE)}`,
+      );
+    }
+    return { variable: label, words };
+  };
+  return {
+    ...link,
+    driver: {
+      ...ask(['-shared', ...flags(['LDFLAGS'])], 'ffb-link-probe.so'),
+      variable: `${basename(command!)} -shared -###`,
+    },
+    ...(link.programs
+      ? {
+          programDriver: {
+            ...ask(flags(['LDFLAGS', 'LDEXEFLAGS']), 'ffb-link-probe'),
+            variable: `${basename(command!)} -###`,
+          },
+        }
+      : {}),
+  };
 }
 
 /** The linker driver's version, for a runtime released with it: GCC's -dumpfullversion, clang's -dumpversion. */
@@ -279,7 +300,8 @@ function scan(
       } else if (linkStatic) {
         named.push(`lib${name}.a`);
       }
-    } else if (!word.startsWith('-') && word.endsWith('.a') && !word.endsWith('.dll.a')) {
+    } else if (!word.startsWith('-') && /\.[ao]$/.test(word) && !word.endsWith('.dll.a')) {
+      // an archive, or an object such as a C runtime's startup file (crti.o, dllcrt2.o)
       named.push(word.split(/[\\/]/).at(-1)!);
     }
   };
@@ -313,7 +335,7 @@ function scan(
 
 /** Where the link shows one `linked:` item: the variables naming the archive, or giving the flag. */
 function shown(link: ConfiguredLink, item: string): string[] {
-  const driver = link.driver ? [link.driver] : [];
+  const drivers = [link.driver, link.programDriver].filter((line) => line !== undefined);
   if (item.startsWith('-')) {
     return [...link.flags, ...link.libraries]
       .filter(({ words }) => words.includes(item))
@@ -325,8 +347,10 @@ function shown(link: ConfiguredLink, item: string): string[] {
   // ld searches the -L directories in order (the flags', then the line's), then the driver's own; without the
   // driver's command, only what is named outright, or found static in a static link, counts
   const userDirs = searchDirs(flagWords);
-  const driverDirs = link.driver
-    ? searchDirs(link.driver.words).filter((dir) => !userDirs.includes(dir))
+  const driverDirs = drivers.length
+    ? [...new Set(drivers.flatMap(({ words }) => searchDirs(words)))].filter(
+        (dir) => !userDirs.includes(dir),
+      )
     : undefined;
   const resolve = (words: readonly string[]) =>
     driverDirs
@@ -337,7 +361,7 @@ function shown(link: ConfiguredLink, item: string): string[] {
     ...link.libraries.filter(({ words }) =>
       scan(words, startStatic, resolve(words)).named.includes(item),
     ),
-    ...driver.filter(({ words }) => scan(words, false, resolve([])).named.includes(item)),
+    ...drivers.filter(({ words }) => scan(words, false, resolve([])).named.includes(item)),
   ].map(({ variable }) => variable);
 }
 

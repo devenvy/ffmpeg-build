@@ -829,11 +829,9 @@ describe("linux-armhf and Android plan the published builds' configure flags", (
 describe('Android ships the NDK libc++', () => {
   it('names libc++_shared.so and its licence, which every license allows', () => {
     for (const platform of ['android-arm64', 'android-x64']) {
-      expect(data.platforms.get(platform)!.ships).toEqual({
-        'libc++_shared.so': {
-          license: 'Apache-2.0 WITH LLVM-exception',
-          notice: [`\${TOOLCHAIN}/NOTICE`],
-        },
+      expect(data.platforms.get(platform)!.ships['libc++_shared.so']).toEqual({
+        license: 'Apache-2.0 WITH LLVM-exception',
+        notice: [`\${TOOLCHAIN}/NOTICE`],
       });
     }
     const lgplv2 = parseProfileText(
@@ -850,44 +848,89 @@ describe('Android ships the NDK libc++', () => {
           .filter(([, s]) => s.linked)
           .map(([file, s]) => [file, s.linked]),
       );
-    const libgcc = ['libgcc.a', 'libgcc_eh.a'];
+    const gccCrt = ['crtbegin.o', 'crtend.o', 'crtbeginS.o', 'crtendS.o'];
+    const libgcc = ['libgcc.a', 'libgcc_eh.a', ...gccCrt];
+    const glibc = ['libc_nonshared.a', 'crt1.o', 'Scrt1.o', 'crti.o', 'crtn.o'];
     const winpthread = ['libwinpthread.a', 'libpthread.a'];
+    const mingw = [
+      'crt2.o',
+      'dllcrt2.o',
+      'CRT_fp10.o',
+      'CRT_fp8.o',
+      'libmingw32.a',
+      'libmingwex.a',
+      'libmoldname.a',
+      'libmsvcrt.a',
+      'libucrt.a',
+      'libucrtbase.a',
+    ];
     for (const platform of ['linux-x64', 'linux-arm64']) {
       expect(linked(platform)).toEqual({
         libgcc,
         'libstdc++_nonshared': ['libstdc++_nonshared.a'],
+        'glibc-static': glibc,
       });
     }
-    expect(linked('linux-armhf')).toEqual({ libgcc });
+    expect(linked('linux-armhf')).toEqual({ libgcc, 'glibc-static': glibc });
     for (const platform of ['linux-musl-x64', 'linux-musl-arm64']) {
       expect(linked(platform)).toEqual({
         'libstdc++': ['libstdc++.a'],
         libgcc,
         libunwind: ['libunwind.a'],
+        'musl-crt': ['crt1.o', 'Scrt1.o', 'rcrt1.o', 'crti.o', 'crtn.o', 'libssp_nonshared.a'],
       });
     }
     expect(linked('win-x64')).toEqual({
       libwinpthread: winpthread,
       'libstdc++': ['libstdc++.a'],
-      libgcc,
+      // GCC's crtbegin.o (with clang, mingw-w64's: the CRT entry's)
+      libgcc: ['libgcc.a', 'libgcc_eh.a', 'crtbegin.o', 'crtend.o'],
       'libc++': ['libc++.a'],
       libunwind: ['libunwind.a'],
       'compiler-rt-builtins': ['libclang_rt.builtins-x86_64.a'],
+      'mingw-w64-crt': mingw,
     });
+    expect(data.platforms.get('win-x64')!.ships['libgcc']!.compiler).toBe('gcc');
     expect(linked('win-arm64')).toEqual({
       libwinpthread: winpthread,
       'libc++': ['libc++.a'],
       libunwind: ['libunwind.a'],
       'compiler-rt-builtins': ['libclang_rt.builtins-aarch64.a'],
+      'mingw-w64-crt': [...mingw, 'crtbegin.o', 'crtend.o'],
     });
+    for (const [platform, arch] of [
+      ['android-arm64', 'aarch64'],
+      ['android-x64', 'x86_64'],
+    ] as const) {
+      expect(linked(platform)).toEqual({
+        'compiler-rt-builtins': [`libclang_rt.builtins-${arch}-android.a`],
+        libunwind: ['libunwind.a'],
+        'bionic-crt': ['crtbegin_so.o', 'crtend_so.o'],
+      });
+    }
+    for (const platform of [
+      'osx-arm64',
+      'osx-x64',
+      'ios-arm64',
+      'ios-sim-arm64',
+      'maccatalyst-arm64',
+      'maccatalyst-x64',
+    ]) {
+      expect(linked(platform)).toEqual({
+        'compiler-rt-builtins': ['libclang_rt.osx.a', 'libclang_rt.ios.a', 'libclang_rt.iossim.a'],
+      });
+    }
     // no unconditional toolchain archive is left: a non-file entry is recorded only on evidence
     for (const [platform, entry] of data.platforms) {
       for (const [file, s] of Object.entries(entry.ships)) {
         expect(s.linked !== undefined || file.endsWith('.so'), `${platform} ${file}`).toBe(true);
       }
     }
+    expect(data.platforms.get('win-x64')!.ships['libwinpthread']!.license).toBe(
+      'MIT AND BSD-3-Clause',
+    );
     const lgplv2 = parseProfileText(
-      'name: t\nffmpeg: 9\nplatforms: [linux-x64, linux-armhf, linux-musl-x64, win-x64, win-arm64]\nlicense: lgplv2\nwith: [dav1d]\n',
+      'name: t\nffmpeg: 9\nplatforms: [linux-x64, linux-armhf, linux-musl-x64, win-x64, win-arm64, android-arm64, osx-arm64]\nlicense: lgplv2\nwith: [dav1d]\n',
       't.yml',
     );
     expect(formatReport(checkProfile(lgplv2, data))).not.toContain('✗');

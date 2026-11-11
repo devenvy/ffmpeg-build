@@ -10,6 +10,7 @@ import { JSON_INDENT } from '../text.ts';
 import { normalizeSpdx } from './cargo.ts';
 import { sha256, type SourceRecord } from './fetch.ts';
 
+import type { HostLoad } from './host-loads.ts';
 import type { BuildContext } from './library.ts';
 import type { ShipInBuild } from './linked.ts';
 
@@ -59,6 +60,7 @@ export function writeBuildSbom(
   ffmpeg: SourceRecord,
   records: readonly SourceRecord[],
   ships: readonly ShipInBuild[] = context.buildPlan.ships.filter((shipped) => !shipped.linked),
+  host: readonly HostLoad[] = [],
 ): void {
   const plan = context.buildPlan;
   const packages = new Map<string, Entry>();
@@ -364,7 +366,11 @@ export function writeBuildSbom(
       key: `toolchain-linked:${shipped.file}:${plan.toolchain}`,
       name: shipped.file,
       ...(shipped.version ? { version: shipped.version.value } : {}),
-      ...declaration(shipped.license, [], shipped.file),
+      ...declaration(
+        shipped.license,
+        (shipped.read ?? []).map((notice) => ({ path: notice.path, text: notice.text })),
+        shipped.file,
+      ),
       purpose: 'LIBRARY',
       sourceInfo: `Toolchain-supplied static archive, linked into the FFmpeg libraries and programs whose link the evidence names; FFmpeg's link (ffbuild/config.mak, and its linker driver's own libraries) shows: ${shipped.evidence!.join('; ')}.${shipped.compilerIdent ? ` C compiler, as FFmpeg's configure identified it (CC_IDENT): ${shipped.compilerIdent}.` : ''} Toolchain identity: ${plan.toolchain}. ${shipped.version ? `Version: the linking compiler's (${shipped.version.source}), which the toolchain releases this runtime with.` : 'Its library version was not recorded.'} It is not a separate file in the archives, so no file checksum applies.`,
     });
@@ -389,7 +395,11 @@ export function writeBuildSbom(
         key: `toolchain:${name}:${hash ?? plan.toolchain}`,
         name: basename(name),
         ...(hash ? { sha256: hash } : {}),
-        ...declaration(shipped.license, [], name),
+        ...declaration(
+          shipped.license,
+          (shipped.read ?? []).map((notice) => ({ path: notice.path, text: notice.text })),
+          name,
+        ),
         purpose: 'LIBRARY',
         sourceInfo: `Toolchain-supplied input: ${shipped.file}; toolchain identity: ${plan.toolchain}. Its library version was not recorded.${hash ? ` Checksum identifies the staged runtime file: ${name.replaceAll('\\', '/')}.` : ''}`,
       });
@@ -401,6 +411,26 @@ export function writeBuildSbom(
         }
       }
     }
+  }
+  // what the shipped binaries load from the system at run time: the host provides it, the archives don't carry it
+  const loaders = {
+    ELF: 'ELF NEEDED entry or program interpreter',
+    PE: 'PE import',
+    'Mach-O': 'Mach-O load command',
+  };
+  for (const load of host) {
+    const key = add({
+      key: `host:${plan.platform}:${load.name.toLowerCase()}`,
+      name: load.name,
+      purpose: 'LIBRARY',
+      sourceInfo: `Provided by the operating system at run time; not shipped in the archives. Loaded by ${load.needers.join(', ')} (${loaders[load.format]}).${load.members ? ` Members: ${load.members.join(', ')}.` : ''} Its version and licence are the host system's and were not recorded.`,
+    });
+    edge(
+      describes[0]!,
+      key,
+      'DEPENDS_ON',
+      `Runtime dependency on the host system: ${load.needers.length} shipped binar${load.needers.length === 1 ? 'y loads' : 'ies load'} it (${loaders[load.format]}); the archives do not carry it.`,
+    );
   }
   const document = createSpdx({
     name: plan.name,

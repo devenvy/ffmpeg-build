@@ -36,17 +36,25 @@ platforms:
     # GCC's runtimes in gcc-toolset-14, linked statically where FFmpeg's link takes them (linked:): libgcc.a, which the
     # driver links into everything (beside the system's libgcc_s.so.1), and libstdc++_nonshared.a, what of GCC 14's
     # libstdc++ the system's libstdc++.so.6 lacks (gcc-toolset's libstdc++.so is a GNU ld script naming both), where a
-    # C++ library brings -lstdc++. gcc-toolset's own licence texts aren't installed (the image keeps no docs): the
-    # engine's copies of GCC's COPYING.RUNTIME and COPYING3, byte for byte the image's system gcc package's.
+    # C++ library brings -lstdc++; GCC's crt objects (crtbegin*.o) go with libgcc. gcc-toolset's own licence texts
+    # aren't installed (the image keeps no docs): the engine's copies of GCC's COPYING.RUNTIME and COPYING3, byte for
+    # byte the image's system gcc package's. And glibc's static parts: libc_nonshared.a (libc.so's GNU ld script adds
+    # it) and its crt objects (crt1.o, crti.o, crtn.o), under the LGPL with the exception their sources carry; their
+    # notices: glibc's COPYING.LIB and LICENSES as the image's package installs them (Debian: libc6-dev's copyright and
+    # the LGPL-2.1 it refers to, on a native Ubuntu build).
     ships:
       libgcc:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
-        linked: [libgcc.a, libgcc_eh.a]
+        linked: [libgcc.a, libgcc_eh.a, crtbegin.o, crtend.o, crtbeginS.o, crtendS.o]
       libstdc++_nonshared:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
         linked: [libstdc++_nonshared.a]
+      glibc-static:
+        license: LGPL-2.1-or-later WITH GCC-exception-2.0
+        notice: ['${GLIBC_LGPL}', '${GLIBC_NOTICE}']
+        linked: [libc_nonshared.a, crt1.o, Scrt1.o, crti.o, crtn.o]
   # musl gives a thread 128 KiB of stack by default, glibc 8 MiB. FFmpeg needs more than 128 KiB: the MPEG-TS demuxer
   # (pmt_cb's copy of a program is about 133 KB) in the ffmpeg program's demux thread, and the rav1e and XEVE encoders
   # in their threads. musl takes the largest PT_GNU_STACK size of the program and the libraries it starts with (at
@@ -72,8 +80,10 @@ platforms:
     # brings it, and LLVM's libunwind (llvm-libunwind-static, the image's only libunwind) where a Rust library brings
     # it (rav1e, librsvg). src/build/toolchain.ts beforeFfmpeg makes each .pc name the archive (-l:libstdc++.a,
     # -l:libunwind.a), and puts a folder of the static runtime archives first on the link for configure's own
-    # -lstdc++. Alpine's packages ship no licence text: the engine's copies of GCC's COPYING.RUNTIME and COPYING3, and
-    # of LLVM 22.1.3's libunwind/LICENSE.TXT (the image's llvm-libunwind-static is 22.1.3).
+    # -lstdc++. And musl's crt objects (musl-dev: Scrt1.o, crti.o, crtn.o) with Alpine's libssp_nonshared.a (musl-dev:
+    # __stack_chk_fail_local), which the driver links into everything. Alpine's packages ship no licence text: the
+    # engine's copies of GCC's COPYING.RUNTIME and COPYING3, of LLVM 22.1.3's libunwind/LICENSE.TXT (the image's
+    # llvm-libunwind-static is 22.1.3), and of musl 1.2.6's COPYRIGHT (MIT; the image's musl is 1.2.6).
     ships:
       libstdc++:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
@@ -82,11 +92,15 @@ platforms:
       libgcc:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
-        linked: [libgcc.a, libgcc_eh.a]
+        linked: [libgcc.a, libgcc_eh.a, crtbegin.o, crtend.o, crtbeginS.o, crtendS.o]
       libunwind:
         license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
         notice: [license-texts/LLVM-libunwind.txt]
         linked: [libunwind.a]
+      musl-crt:
+        license: MIT
+        notice: [license-texts/musl-COPYRIGHT.txt]
+        linked: [crt1.o, Scrt1.o, rcrt1.o, crti.o, crtn.o, libssp_nonshared.a]
   # 64-bit ARM: built natively in arm64 images, as upstream does on arm64 runners. An x64 host runs them under qemu
   # 8.1.5 (qemu 9.2 breaks the manylinux image's tar), registered with mirror.gcr.io/tonistiigi/binfmt:qemu-v8.1.5@sha256:
   # 2d2918e86e5327d0661f7083d67a95280b0f7be8f77ed79a8418f81d7d90ce6f: the README says how.
@@ -108,11 +122,15 @@ platforms:
       libgcc:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
-        linked: [libgcc.a, libgcc_eh.a]
+        linked: [libgcc.a, libgcc_eh.a, crtbegin.o, crtend.o, crtbeginS.o, crtendS.o]
       libstdc++_nonshared:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
         linked: [libstdc++_nonshared.a]
+      glibc-static:
+        license: LGPL-2.1-or-later WITH GCC-exception-2.0
+        notice: ['${GLIBC_LGPL}', '${GLIBC_NOTICE}']
+        linked: [libc_nonshared.a, crt1.o, Scrt1.o, crti.o, crtn.o]
   # (8 MiB thread stacks: as linux-musl-x64)
   linux-musl-arm64:
     image: linux-musl-arm64
@@ -137,11 +155,15 @@ platforms:
       libgcc:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
-        linked: [libgcc.a, libgcc_eh.a]
+        linked: [libgcc.a, libgcc_eh.a, crtbegin.o, crtend.o, crtbeginS.o, crtendS.o]
       libunwind:
         license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
         notice: [license-texts/LLVM-libunwind.txt]
         linked: [libunwind.a]
+      musl-crt:
+        license: MIT
+        notice: [license-texts/musl-COPYRIGHT.txt]
+        linked: [crt1.o, Scrt1.o, rcrt1.o, crti.o, crtn.o, libssp_nonshared.a]
   osx-arm64:
     image: macos
     setup: apple-macos
@@ -157,6 +179,13 @@ platforms:
         --extra-cxxflags=-mmacosx-version-min=11.0,
         --extra-ldflags=-mmacosx-version-min=11.0,
       ]
+    # Xcode's clang links its compiler-rt builtins (libclang_rt.osx.a, .ios.a or .iossim.a) into everything it links,
+    # where FFmpeg's link shows it (linked:); its notice: the engine's copy of LLVM's compiler-rt licence
+    ships:
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: [license-texts/LLVM-compiler-rt.txt]
+        linked: [libclang_rt.osx.a, libclang_rt.ios.a, libclang_rt.iossim.a]
   # osx-x64 is cross-compiled on Apple silicon: FFmpeg and each build system are told the target.
   osx-x64:
     image: macos
@@ -175,6 +204,13 @@ platforms:
         '--extra-cxxflags=-arch x86_64 -mmacosx-version-min=11.0',
         '--extra-ldflags=-arch x86_64 -mmacosx-version-min=11.0',
       ]
+    # Xcode's clang links its compiler-rt builtins (libclang_rt.osx.a, .ios.a or .iossim.a) into everything it links,
+    # where FFmpeg's link shows it (linked:); its notice: the engine's copy of LLVM's compiler-rt licence
+    ships:
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: [license-texts/LLVM-compiler-rt.txt]
+        linked: [libclang_rt.osx.a, libclang_rt.ios.a, libclang_rt.iossim.a]
   # iOS and Mac Catalyst ship frameworks, not programs. The host-specific flags (--cc, --sysroot, the SDK's
   # -isysroot/-target in --extra-*flags) are added by the Apple toolchain before FFmpeg configure.
   ios-arm64:
@@ -192,6 +228,13 @@ platforms:
         --enable-hwaccel=h264_videotoolbox,
         --enable-hwaccel=hevc_videotoolbox,
       ]
+    # Xcode's clang links its compiler-rt builtins (libclang_rt.osx.a, .ios.a or .iossim.a) into everything it links,
+    # where FFmpeg's link shows it (linked:); its notice: the engine's copy of LLVM's compiler-rt licence
+    ships:
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: [license-texts/LLVM-compiler-rt.txt]
+        linked: [libclang_rt.osx.a, libclang_rt.ios.a, libclang_rt.iossim.a]
   maccatalyst-arm64:
     image: macos
     setup: apple-ios
@@ -206,6 +249,13 @@ platforms:
         --arch=aarch64,
         --disable-videotoolbox,
       ]
+    # Xcode's clang links its compiler-rt builtins (libclang_rt.osx.a, .ios.a or .iossim.a) into everything it links,
+    # where FFmpeg's link shows it (linked:); its notice: the engine's copy of LLVM's compiler-rt licence
+    ships:
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: [license-texts/LLVM-compiler-rt.txt]
+        linked: [libclang_rt.osx.a, libclang_rt.ios.a, libclang_rt.iossim.a]
   maccatalyst-x64:
     image: macos
     setup: apple-ios
@@ -220,6 +270,13 @@ platforms:
         --arch=x86_64,
         --disable-videotoolbox,
       ]
+    # Xcode's clang links its compiler-rt builtins (libclang_rt.osx.a, .ios.a or .iossim.a) into everything it links,
+    # where FFmpeg's link shows it (linked:); its notice: the engine's copy of LLVM's compiler-rt licence
+    ships:
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: [license-texts/LLVM-compiler-rt.txt]
+        linked: [libclang_rt.osx.a, libclang_rt.ios.a, libclang_rt.iossim.a]
   ios-sim-arm64:
     image: macos
     setup: apple-ios
@@ -235,6 +292,13 @@ platforms:
         --enable-hwaccel=h264_videotoolbox,
         --enable-hwaccel=hevc_videotoolbox,
       ]
+    # Xcode's clang links its compiler-rt builtins (libclang_rt.osx.a, .ios.a or .iossim.a) into everything it links,
+    # where FFmpeg's link shows it (linked:); its notice: the engine's copy of LLVM's compiler-rt licence
+    ships:
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: [license-texts/LLVM-compiler-rt.txt]
+        linked: [libclang_rt.osx.a, libclang_rt.ios.a, libclang_rt.iossim.a]
   # Windows: cross-compiled; the C/C++ runtimes are linked statically (no libgcc/libstdc++/libc++ DLLs to ship).
   # -DCHROMAPRINT_NODLL: chromaprint is linked statically, and its header otherwise declares dllimport.
   win-x64:
@@ -272,9 +336,15 @@ platforms:
     #   library exception, and the GPLv3 they refer to (in MSYS2, its gcc package's COPYING.RUNTIME and COPYING3)
     # - in MSYS2's CLANG64: LLVM's compiler-rt builtins and libunwind, which clang links into everything, and libc++
     #   where a C++ library brings it, with the licences their packages install
+    # - the mingw-w64 runtime, which the driver links into every DLL and program: the startup objects (dllcrt2.o,
+    #   crt2.o; CRT_fp10.o, which MSYS2's link names), libmingw32, libmingwex, libmoldname and the C runtime's import
+    #   library with its static code (libmsvcrt/libucrt). Its licence is upstream's COPYING.MinGW-w64-runtime.txt
+    #   (ZPL-2.1 overall, parts under other terms it lists), the toolchain's copy as its notice (Ubuntu's
+    #   mingw-w64-x86-64-dev copyright file, which has those terms; in MSYS2, its crt package's file)
+    # winpthreads' COPYING: MIT, with the BSD-3-Clause of the Lockless Inc. code it includes.
     ships:
       libwinpthread:
-        license: MIT
+        license: MIT AND BSD-3-Clause
         notice: '${WINPTHREADS_NOTICE}'
         linked: [libwinpthread.a, libpthread.a]
       libstdc++:
@@ -284,7 +354,8 @@ platforms:
       libgcc:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: ['${LIBGCC_NOTICE}', '${GCC_GPL3}']
-        linked: [libgcc.a, libgcc_eh.a]
+        linked: [libgcc.a, libgcc_eh.a, crtbegin.o, crtend.o]
+        compiler: gcc
       libc++:
         license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
         notice: '${LIBCXX_NOTICE}'
@@ -297,6 +368,22 @@ platforms:
         license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
         notice: '${COMPILER_RT_NOTICE}'
         linked: [libclang_rt.builtins-x86_64.a]
+      mingw-w64-crt:
+        license: LicenseRef-mingw-w64-runtime
+        notice: '${MINGW_CRT_NOTICE}'
+        linked:
+          [
+            crt2.o,
+            dllcrt2.o,
+            CRT_fp10.o,
+            CRT_fp8.o,
+            libmingw32.a,
+            libmingwex.a,
+            libmoldname.a,
+            libmsvcrt.a,
+            libucrt.a,
+            libucrtbase.a,
+          ]
   win-arm64:
     image: cross-windows
     setup: windows
@@ -323,10 +410,12 @@ platforms:
     # winpthreads where a library brings -lpthread, with its notice from llvm-mingw; LLVM's compiler-rt builtins and
     # libunwind, which clang links into everything (-static-libgcc: -l:libunwind.a), and libc++ where a C++ library
     # brings it (src/build/toolchain.ts beforeFfmpeg: -l:libc++.a). Their notice: llvm-mingw's LLVM licence (in MSYS2,
-    # the compiler-rt, libc++ and libunwind packages').
+    # the compiler-rt, libc++ and libunwind packages'). And the mingw-w64 runtime the driver links into everything (its
+    # startup objects, crtbegin.o/crtend.o, libmingw32, libmingwex, libmoldname, libmsvcrt), with llvm-mingw's copy of
+    # upstream's COPYING.MinGW-w64-runtime.txt (in MSYS2, its crt package's).
     ships:
       libwinpthread:
-        license: MIT
+        license: MIT AND BSD-3-Clause
         notice: '${WINPTHREADS_NOTICE}'
         linked: [libwinpthread.a, libpthread.a]
       libc++:
@@ -341,6 +430,24 @@ platforms:
         license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
         notice: '${COMPILER_RT_NOTICE}'
         linked: [libclang_rt.builtins-aarch64.a]
+      mingw-w64-crt:
+        license: LicenseRef-mingw-w64-runtime
+        notice: '${MINGW_CRT_NOTICE}'
+        linked:
+          [
+            crt2.o,
+            dllcrt2.o,
+            CRT_fp10.o,
+            CRT_fp8.o,
+            libmingw32.a,
+            libmingwex.a,
+            libmoldname.a,
+            libmsvcrt.a,
+            libucrt.a,
+            libucrtbase.a,
+            crtbegin.o,
+            crtend.o,
+          ]
   # 32-bit ARM (Raspberry Pi with a 32-bit OS), cross-compiled with Debian's gcc; glibc 2.36+.
   linux-armhf:
     image: cross-armhf
@@ -360,13 +467,18 @@ platforms:
         --enable-cross-compile,
         --target-os=linux,
       ]
-    # GCC's libgcc.a, which the driver links into everything (beside libgcc_s.so.1), where FFmpeg's link takes it
-    # (linked:). Its notice: the engine's copies of GCC's COPYING.RUNTIME and COPYING3
+    # GCC's libgcc.a and crt objects, which the driver links into everything (beside libgcc_s.so.1), and glibc's
+    # libc_nonshared.a (libc.so's GNU ld script) and crt objects, where FFmpeg's link takes them (linked:). Notices: the
+    # engine's copies of GCC's COPYING.RUNTIME and COPYING3; Debian's libc6-dev-armhf-cross copyright and the LGPL-2.1
     ships:
       libgcc:
         license: GPL-3.0-or-later WITH GCC-exception-3.1
         notice: [license-texts/GCC-exception-3.1.txt, license-texts/GPL-3.0-or-later.txt]
-        linked: [libgcc.a, libgcc_eh.a]
+        linked: [libgcc.a, libgcc_eh.a, crtbegin.o, crtend.o, crtbeginS.o, crtendS.o]
+      glibc-static:
+        license: LGPL-2.1-or-later WITH GCC-exception-2.0
+        notice: ['${GLIBC_LGPL}', '${GLIBC_NOTICE}']
+        linked: [libc_nonshared.a, crt1.o, Scrt1.o, crti.o, crtn.o]
   # Android: libraries only (apps load them), 16 KB pages, for API 28+ unless a target says `android-api:` (21-35; no
   # lower than its options and libraries support). The NDK's own paths (--cc for that level, --sysroot, ...) are added
   # by the Android toolchain before FFmpeg configure.
@@ -384,12 +496,23 @@ platforms:
         --arch=aarch64,
         '--extra-ldflags=-Wl,-z,max-page-size=16384',
       ]
-    # the NDK's C++ runtime (Android doesn't provide it) and the NDK's licence text for it (TOOLCHAIN: the Android toolchain)
+    # the NDK's C++ runtime (Android doesn't provide it) and the NDK's licence text for it (TOOLCHAIN: the Android
+    # toolchain); and what the NDK's clang links into every library (linked:): its compiler-rt builtins and libunwind
+    # (their licences in the toolchain's NOTICE) and bionic's crt objects (BSD-2-Clause, in its sysroot's NOTICE)
     ships:
-      {
-        libc++_shared.so:
-          { license: Apache-2.0 WITH LLVM-exception, notice: '${TOOLCHAIN}/NOTICE' },
-      }
+      libc++_shared.so: { license: Apache-2.0 WITH LLVM-exception, notice: '${TOOLCHAIN}/NOTICE' }
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: '${TOOLCHAIN}/NOTICE'
+        linked: [libclang_rt.builtins-aarch64-android.a]
+      libunwind:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: '${TOOLCHAIN}/NOTICE'
+        linked: [libunwind.a]
+      bionic-crt:
+        license: BSD-2-Clause
+        notice: '${TOOLCHAIN}/sysroot/NOTICE'
+        linked: [crtbegin_so.o, crtend_so.o]
   android-x64:
     image: cross-android
     setup: android
@@ -404,9 +527,20 @@ platforms:
         --arch=x86_64,
         '--extra-ldflags=-Wl,-z,max-page-size=16384',
       ]
-    # the NDK's C++ runtime (Android doesn't provide it) and the NDK's licence text for it (TOOLCHAIN: the Android toolchain)
+    # the NDK's C++ runtime (Android doesn't provide it) and the NDK's licence text for it (TOOLCHAIN: the Android
+    # toolchain); and what the NDK's clang links into every library (linked:): its compiler-rt builtins and libunwind
+    # (their licences in the toolchain's NOTICE) and bionic's crt objects (BSD-2-Clause, in its sysroot's NOTICE)
     ships:
-      {
-        libc++_shared.so:
-          { license: Apache-2.0 WITH LLVM-exception, notice: '${TOOLCHAIN}/NOTICE' },
-      }
+      libc++_shared.so: { license: Apache-2.0 WITH LLVM-exception, notice: '${TOOLCHAIN}/NOTICE' }
+      compiler-rt-builtins:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: '${TOOLCHAIN}/NOTICE'
+        linked: [libclang_rt.builtins-x86_64-android.a]
+      libunwind:
+        license: Apache-2.0 WITH LLVM-exception AND (NCSA OR MIT)
+        notice: '${TOOLCHAIN}/NOTICE'
+        linked: [libunwind.a]
+      bionic-crt:
+        license: BSD-2-Clause
+        notice: '${TOOLCHAIN}/sysroot/NOTICE'
+        linked: [crtbegin_so.o, crtend_so.o]
