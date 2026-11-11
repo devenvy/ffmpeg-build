@@ -417,6 +417,88 @@ describe('observed build SBOM', () => {
     );
   });
 
+  it("defines a runtime whose licence only its text states from the toolchain's own notice", () => {
+    const context = fixture();
+    context.buildPlan.platform = 'win-x64';
+    const crt = {
+      file: 'mingw-w64-crt',
+      license: 'LicenseRef-mingw-w64-runtime',
+      notice: ['/ucrt64/share/licenses/crt/COPYING.MinGW-w64-runtime.txt'],
+      linked: ['dllcrt2.o', 'libmingwex.a'],
+    };
+    context.buildPlan.ships = [crt];
+    const text = 'MinGW-w64 runtime licensing\n\nZope Public License (ZPL) Version 2.1 ...\n';
+    writeBuildSbom(
+      context,
+      ffmpeg,
+      [source('sample')],
+      [
+        {
+          ...crt,
+          evidence: ['dllcrt2.o (gcc -shared -###)', 'libmingwex.a (gcc -shared -###)'],
+          read: [
+            {
+              path: '/ucrt64/share/licenses/crt/COPYING.MinGW-w64-runtime.txt',
+              heading: 'COPYING.MinGW-w64-runtime.txt',
+              text,
+            },
+          ],
+        },
+      ],
+    );
+    const document = read(context);
+    const runtime = document.packages.find((item) => item.name === 'mingw-w64-crt')!;
+    expect(runtime.licenseDeclared).toMatch(/^LicenseRef-mingw-w64-runtime-[0-9a-f]+$/);
+    expect(document.hasExtractedLicensingInfos).toContainEqual(
+      expect.objectContaining({ licenseId: runtime.licenseDeclared, extractedText: text }),
+    );
+  });
+
+  it("lists what the shipped binaries load from the host, as the host's, from the runtime archive only", () => {
+    const context = fixture();
+    writeBuildSbom(
+      context,
+      ffmpeg,
+      [source('sample')],
+      [],
+      [
+        { name: 'libc.so.6', format: 'ELF', needers: ['ffmpeg', 'libavutil.so.61.1.102'] },
+        {
+          name: 'Universal C Runtime (api-ms-win-crt-*.dll)',
+          format: 'PE',
+          needers: ['avutil-61.dll'],
+          members: ['api-ms-win-crt-heap-l1-1-0.dll', 'api-ms-win-crt-runtime-l1-1-0.dll'],
+        },
+      ],
+    );
+    const document = read(context);
+    const libc = document.packages.find((item) => item.name === 'libc.so.6')!;
+    expect(libc).toMatchObject({
+      primaryPackagePurpose: 'LIBRARY',
+      licenseDeclared: 'NOASSERTION',
+    });
+    expect(libc).not.toHaveProperty('versionInfo');
+    expect(libc.sourceInfo).toContain('Provided by the operating system at run time; not shipped');
+    expect(libc.sourceInfo).toContain(
+      'ffmpeg, libavutil.so.61.1.102 (ELF NEEDED entry or program interpreter)',
+    );
+    const ucrt = document.packages.find((item) => item.name.startsWith('Universal C Runtime'))!;
+    expect(ucrt.sourceInfo).toContain(
+      'api-ms-win-crt-heap-l1-1-0.dll, api-ms-win-crt-runtime-l1-1-0.dll',
+    );
+    const runtime = document.packages.find(
+      (item) => item.name === `${context.buildPlan.name}.tar.gz`,
+    )!;
+    const onHost = document.relationships.filter((edge) => edge.relatedSpdxElement === libc.SPDXID);
+    expect(onHost).toEqual([
+      expect.objectContaining({
+        spdxElementId: runtime.SPDXID,
+        relationshipType: 'DEPENDS_ON',
+        comment: expect.stringContaining('Runtime dependency on the host system'),
+      }),
+    ]);
+  });
+
   it('rejects unobserved dependencies or mismatched source versions before emitting a document', () => {
     const context = fixture();
     context.buildPlan.libraries[0]!.dependencies = ['not-observed'];

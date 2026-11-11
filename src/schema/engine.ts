@@ -625,11 +625,11 @@ export const platformsSchema = z.strictObject({
       // what the archives carry or link in besides FFmpeg's and the recipes': name -> its SPDX licence and its notice
       // files (their texts go into THIRD-PARTY-NOTICES.txt): paths in the toolchain, where ${VAR} is a variable of the
       // platform's setup, or license-texts/<file>, the engine's standard text, for a toolchain that ships none.
-      // `linked:` makes an entry conditional: it is in a build only when FFmpeg's configured link
-      // (ffbuild/config.mak) shows one of them: a static archive (libstdc++.a) the link names (-l:libstdc++.a, its
-      // path, or -lstdc++ where the link is static), or a compiler-driver flag (-static-libgcc). `compiler:` (with
-      // `linked:`) limits it to one compiler, a word of configure's CC_IDENT (gcc, clang): for a flag whose meaning
-      // depends on the compiler.
+      // `linked:` makes an entry conditional: it is in a build only when FFmpeg's link (ffbuild/config.mak, and the
+      // driver's own link commands: src/build/linked.ts) shows one of them: a static archive or object file
+      // (libstdc++.a, crti.o) it names (-l:libstdc++.a, a path, or a -lstdc++ ld finds as that archive), or a
+      // compiler-driver flag (-static-libgcc). `compiler:` (with `linked:`) limits it to one compiler, a word of
+      // configure's CC_IDENT (gcc, clang): where a file of that name is another compiler's (crtbegin.o).
       ships: z
         .record(
           text,
@@ -640,9 +640,9 @@ export const platformsSchema = z.strictObject({
                 notice: oneOrMany(text, 'expected a notice path, or a list of them'),
                 linked: z
                   .array(
-                    z.string().regex(/^(?:-\S+|[^\s/\\]+\.a)$/, {
+                    z.string().regex(/^(?:-\S+|[^\s/\\]+\.[ao])$/, {
                       error:
-                        'expected a static archive file name (libstdc++.a) or a compiler-driver flag (-static-libgcc)',
+                        'expected a static archive or object file name (libstdc++.a, crti.o) or a compiler-driver flag (-static-libgcc)',
                     }),
                   )
                   .min(1)

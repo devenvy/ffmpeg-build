@@ -162,6 +162,7 @@ describe('native toolchains', () => {
       'gcc/COPYING3',
       'libc++/LICENSE',
       'compiler-rt/LICENSE',
+      'crt/COPYING.MinGW-w64-runtime.txt',
     ]) {
       mkdirSync(`${licenses}/${path.replace(/\/[^/]+$/, '')}`, { recursive: true });
       writeFileSync(`${licenses}/${path}`, path);
@@ -179,6 +180,7 @@ describe('native toolchains', () => {
       GCC_GPL3: `${licenses}/gcc/COPYING3`,
       LIBCXX_NOTICE: `${licenses}/libc++/LICENSE`,
       COMPILER_RT_NOTICE: `${licenses}/compiler-rt/LICENSE`,
+      MINGW_CRT_NOTICE: `${licenses}/crt/COPYING.MinGW-w64-runtime.txt`,
       COMPILER_RUNTIMES: 'libstdc++ libgcc',
     });
     // CLANG64: compiler-rt is built with clang; MSYS2's libc++ and libunwind are packages of their own
@@ -203,12 +205,15 @@ describe('native toolchains', () => {
       LIBSTDCXX_NOTICE: '/usr/share/doc/g++-mingw-w64-x86-64-win32/copyright',
       LIBGCC_NOTICE: '/usr/share/doc/gcc-mingw-w64-x86-64-win32/copyright',
       GCC_GPL3: '/usr/share/common-licenses/GPL-3',
+      MINGW_CRT_NOTICE: '/usr/share/doc/mingw-w64-x86-64-dev/copyright',
       COMPILER_RUNTIMES: 'libstdc++ libgcc',
     });
     expect(image('win-arm64')).toMatchObject({
       LIBCXX_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
       LIBUNWIND_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
       COMPILER_RT_NOTICE: '/opt/llvm-mingw/LICENSE.TXT',
+      MINGW_CRT_NOTICE:
+        '/opt/llvm-mingw/aarch64-w64-mingw32/share/mingw32/COPYING.MinGW-w64-runtime.txt',
       COMPILER_RUNTIMES: 'libc++ libunwind compiler-rt-builtins',
     });
     const linux = (setup: string, platform: string) =>
@@ -216,6 +221,28 @@ describe('native toolchains', () => {
     expect(linux('linux', 'linux-x64')).toBe('libgcc libstdc++_nonshared');
     expect(linux('linux-musl', 'linux-musl-x64')).toBe('libstdc++ libgcc');
     expect(linux('linux-armhf', 'linux-armhf')).toBe('libgcc');
+    // the NDK's compiler-rt builtins and libunwind come with its clang
+    expect(
+      createToolchain({
+        platform: 'android-arm64',
+        setup: 'android',
+        ...dirs(),
+        env: { ANDROID_NDK_HOME: '/ndk' },
+      }).env['COMPILER_RUNTIMES'],
+    ).toBe('compiler-rt-builtins libunwind');
+    // glibc's static parts' notices, as each image's packages install them
+    expect(
+      createToolchain({ platform: 'linux-x64', setup: 'linux', ...dirs(), env: {} }).env,
+    ).toMatchObject({
+      GLIBC_LGPL: '/usr/share/licenses/glibc/COPYING.LIB',
+      GLIBC_NOTICE: '/usr/share/licenses/glibc/LICENSES',
+    });
+    expect(
+      createToolchain({ platform: 'linux-armhf', setup: 'linux-armhf', ...dirs(), env: {} }).env,
+    ).toMatchObject({
+      GLIBC_LGPL: '/usr/share/common-licenses/LGPL-2.1',
+      GLIBC_NOTICE: '/usr/share/doc/libc6-dev-armhf-cross/copyright',
+    });
     expect(image('win-arm64')['LIBSTDCXX_NOTICE']).toBeUndefined();
   });
 });

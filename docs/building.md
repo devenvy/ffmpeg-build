@@ -24,21 +24,40 @@ comments. Runtime files that staging actually finds have their own hashes and co
 tools and source-only Cargo packages are distinguished from linked dependencies. Linked crates use the engine's
 normalization of legacy Cargo licence syntax; their original declarations remain in comments. Source-only crates'
 licence strings are unvalidated metadata, preserved in comments with `NOASSERTION` as the formal declaration.
-A toolchain's static runtime archive is listed only when FFmpeg's link names it: the configured link
-(`ffbuild/config.mak`), or the libraries the linker driver adds to every link itself, which `$(LD) -shared -###` prints
-without linking. A `-l<name>` counts where ld would take the archive for it (the `-L` folders, then the driver's;
-following a GNU ld script such as gcc-toolset's `libstdc++.so`). The archives listed this way are libgcc on every GCC
-platform (with libstdc++ on musl and win-x64, and gcc-toolset's `libstdc++_nonshared.a` on glibc, where a C++ library
-brings it), LLVM's libunwind on musl, libunwind, libc++ and the compiler-rt builtins with clang on Windows, and
-winpthreads on Windows. The evidence and the compiler configure identified are in the comments. The version is the
-linking compiler's (`-dumpfullversion`, clang's `-dumpversion`) where the toolchain releases the runtime with that
-compiler, and is not recorded otherwise (Alpine's libunwind and winpthreads are packages of their own, and so are
-MSYS2's libc++ and libunwind). There is no file hash: these are not files in the archives. The inventory does not say
-which archive members were linked. It does not cover the runtimes Apple's and the NDK's clang link implicitly (the
-compiler-rt builtins, and the NDK's static libunwind), which no ships: entry declares yet. It also does not follow a
+A toolchain's static runtime archive or startup object is listed only when FFmpeg's link names it: the configured link
+(`ffbuild/config.mak`), or what the linker driver adds to every link itself, which `$(LD) -shared -###` (and, for a build
+with programs, `$(LD) -###`) prints without linking. A `-l<name>` counts where ld would take the archive for it (the
+`-L` folders, then the driver's; following a GNU ld script such as gcc-toolset's `libstdc++.so` or glibc's `libc.so`).
+Listed this way:
+
+- GCC's libgcc (libgcc.a, libgcc_eh.a and its crtbegin/crtend objects) on every GCC platform, libstdc++ on musl and
+  win-x64 and gcc-toolset's `libstdc++_nonshared.a` on glibc, where a C++ library brings it;
+- the C library's static parts: glibc's `libc_nonshared.a` and crt objects, musl's crt objects with Alpine's
+  `libssp_nonshared.a`, the mingw-w64 runtime (its startup objects, libmingw32, libmingwex, libmoldname and the C
+  runtime library's static code) and bionic's crt objects on Android;
+- LLVM's runtimes: libunwind on musl, Android and Windows with clang, libc++ on Windows with clang, the compiler-rt
+  builtins with clang (Windows, Android, Apple);
+- winpthreads on Windows.
+
+The evidence and the compiler configure identified are in the comments. The version is the linking compiler's
+(`-dumpfullversion`, clang's `-dumpversion`) where the toolchain releases the runtime with that compiler, and is not
+recorded otherwise (the C libraries, Alpine's libunwind and winpthreads are packages of their own, and so are MSYS2's
+libc++ and libunwind). There is no file hash: these are not files in the archives. A runtime whose licence is stated
+only by its text (the mingw-w64 runtime's `COPYING.MinGW-w64-runtime.txt`) is a `LicenseRef-` defined by the
+toolchain's own copy of that text. The inventory does not say which archive members were linked, and does not follow a
 search ld does beyond those folders (its built-in search directories, a sysroot's `=` prefix).
-Host system packages, frameworks,
-drivers and arbitrary vendored source subtrees are not exhaustively enumerated. Unknown versions and licence terms
+
+What the shipped binaries load from the system at run time, which the archives don't carry, is listed too, read from
+the staged files: their ELF NEEDED entries (`libc.so.6`, `libm.so.6`, `libc.musl-*.so.1`, Android's `libc.so`) and a
+program's dynamic loader (PT_INTERP: `/lib64/ld-linux-x86-64.so.2`), PE
+imports (`KERNEL32.dll`, `bcrypt.dll`, the Universal C Runtime's `api-ms-win-crt-*` API sets as one entry) and Mach-O
+load commands (`/usr/lib/libSystem.B.dylib`, `/usr/lib/libc++.1.dylib`, system frameworks). Each is a package marked as
+provided by the operating system, not shipped, with no version or licence (the host's), and the runtime archive
+`DEPENDS_ON` it with a comment naming the binaries that load it. THIRD-PARTY-NOTICES.txt does not list them: it covers
+what ships.
+
+Beyond what the binaries load directly, what they open at run time (dlopen: GPU drivers, the Vulkan loader's
+ICDs), host system packages and arbitrary vendored source subtrees are not exhaustively enumerated. Unknown versions and licence terms
 remain unknown; the engine does not invent them. Recipe licence declarations are separate from legal conclusions.
 Custom `LicenseRef-` declarations include actual staged licence text when it can be identified separately; otherwise
 the declaration is preserved in a comment with `NOASSERTION` as the formal licence.
@@ -376,12 +395,16 @@ Then the rest, each part under its own `=====` rule:
   build fails when one is missing);
 - **PATCH SETS:** each set's name, licence, sha256 and patches, and its licence texts;
 - **FILES THE PLATFORM SHIPS:** what the toolchain contributes (Android's libc++_shared.so, Windows' winpthreads), each
-  with its licence and notice. A runtime linked statically into the libraries (platforms.yml `ships:` with `linked:`)
-  is there only when FFmpeg's link shows it, with what showed it and the linking compiler's version where it ships with
+  with its licence and notice. A runtime or C library part linked statically into the libraries and programs
+  (platforms.yml `ships:` with `linked:`: the list under [Software bill of materials](#software-bill-of-materials)) is
+  there only when FFmpeg's link shows it, with what showed it and the linking compiler's version where it ships with
   that compiler; a build with no C++ library has no C++ runtime entry. Its notice is the toolchain's own licence file
-  where the toolchain installs one. Alpine's packages carry none, and gcc-toolset's are not installed in the manylinux
-  images, so those builds carry GCC's COPYING.RUNTIME and COPYING3 and LLVM's libunwind licence from the engine
-  (`license-texts/`). A text several entries share is in full once.
+  where the toolchain installs one: glibc's COPYING.LIB and LICENSES (Debian: its copyright file and the LGPL-2.1), the
+  mingw-w64 runtime's notices (MSYS2's crt package, Ubuntu's mingw-w64 copyright file, llvm-mingw's copy), the NDK's
+  NOTICE files. Alpine's packages carry none, gcc-toolset's are not installed in the manylinux images, and Xcode's
+  are not read, so those builds carry the engine's copies (`license-texts/`): GCC's COPYING.RUNTIME and COPYING3, LLVM's
+  libunwind and compiler-rt licences, musl's COPYRIGHT. A text several entries share is in full once. What the
+  binaries load from the system is not here; the SBOM lists it.
 
 The libraries' texts are captured into each library's install tree when it is built, so a library from the cache
 brings them along. devenvy/ffmpeg's archives had a `legal/` folder instead; the owner chose one file.

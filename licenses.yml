@@ -65,6 +65,13 @@ licenses:
   Apache-2.0 WITH LLVM-exception: all
   # GCC's runtime exception permits the compiler libraries in independently licensed builds.
   GPL-3.0-or-later WITH GCC-exception-3.1: all
+  # glibc's parts a link takes statically (libc_nonshared.a, the crt objects) carry the exception that gives
+  # unlimited permission to link them into other programs
+  LGPL-2.1-or-later WITH GCC-exception-2.0: all
+  # the mingw-w64 runtime linked into every Windows binary (crt objects, libmingw32, libmingwex): its
+  # COPYING.MinGW-w64-runtime.txt, ZPL-2.1 overall with parts under ISC, BSD-2-Clause, MIT and Lucent's terms and some
+  # in the public domain; the SBOM carries the toolchain's text as this reference's
+  LicenseRef-mingw-w64-runtime: all
   # libmodplug's COPYING: "ModPlug-XMMS and libmodplug are now in the public domain." (SPDX has no identifier for it)
   LicenseRef-libmodplug-public-domain: all
   # Flite's COPYING: CMU's BSD-like terms (keep the notice, mark modifications, don't use the authors' names), and the

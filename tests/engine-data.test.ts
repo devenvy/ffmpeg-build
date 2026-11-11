@@ -763,7 +763,7 @@ describe('what a platform ships besides its libraries', () => {
       "platforms.yml: linux-x64 ships libfoo with the notice license-texts/Nope.txt, which is not one of the engine's standard texts (license-texts/<file>.txt)",
     ]);
     expect(ships('{ license: MIT, notice: /x/NOTICE, linked: [lib/libfoo.a] }')).toEqual([
-      'platforms.yml: platforms.linux-x64.ships.libfoo.linked[0]: expected a static archive file name (libstdc++.a) or a compiler-driver flag (-static-libgcc)',
+      'platforms.yml: platforms.linux-x64.ships.libfoo.linked[0]: expected a static archive or object file name (libstdc++.a, crti.o) or a compiler-driver flag (-static-libgcc)',
     ]);
     expect(ships('{ license: MIT, notice: /x/NOTICE, compiler: gcc }')).toEqual([
       'platforms.yml: platforms.linux-x64.ships.libfoo: compiler: limits a linked: entry; give the entry linked: too',

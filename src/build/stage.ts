@@ -1,12 +1,15 @@
 import {
+  closeSync,
   copyFileSync,
   cpSync,
   existsSync,
   globSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -18,15 +21,26 @@ import { shipsSymbols, symbolsName } from '../targets.ts';
 import { keptPath } from './cache.ts';
 import { keptFiles, type SourceRecord } from './fetch.ts';
 import {
+  elfInterpreter,
+  type HostLoad,
+  hostLoads,
+  peImports,
+  type StagedBinary,
+} from './host-loads.ts';
+import {
   configuredLink,
   observeCompilerVersion,
   observeDriver,
   type ShipInBuild,
   shipsInBuild,
 } from './linked.ts';
-import { checkNotices, writeNotices } from './notices.ts';
+import { checkNotices, shipNotices, writeNotices } from './notices.ts';
 import { run, searchOutput, step } from './run.ts';
-import { systemCheckEnv, writeRuntimeDependencies } from './runtime-dependencies.ts';
+import {
+  elfRequirements,
+  systemCheckEnv,
+  writeRuntimeDependencies,
+} from './runtime-dependencies.ts';
 import { writeBuildSbom } from './sbom.ts';
 
 import type { BuildContext } from './library.ts';
@@ -708,6 +722,81 @@ function linkedShips(context: BuildContext, ffmpegDir: string): ShipInBuild[] {
   return ships;
 }
 
+const MAGIC_BYTES = 4;
+/** Mach-O's 32- and 64-bit magic numbers, either byte order, and a universal (fat) file's. */
+const MACHO_MAGIC = new Set(['feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', 'cafebabe']);
+
+/** A staged file's executable format, by its first bytes; none for anything else. */
+function binaryFormat(path: string): StagedBinary['format'] | undefined {
+  const fd = openSync(path, 'r');
+  try {
+    const head = Buffer.alloc(MAGIC_BYTES);
+    const read = readSync(fd, head, 0, MAGIC_BYTES, 0);
+    if (read < MAGIC_BYTES) {
+      return undefined;
+    }
+    if (head.toString('latin1') === '\u007fELF') {
+      return 'ELF';
+    }
+    if (head.toString('latin1').startsWith('MZ')) {
+      return 'PE';
+    }
+    return MACHO_MAGIC.has(head.toString('hex')) ? 'Mach-O' : undefined;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * What each library and program in the runtime folder loads at run time, from the file itself: readelf's NEEDED and
+ * SONAME (the NDK's llvm-readelf on Android), objdump's PE imports, otool's load commands.
+ */
+async function hostLoadsOf(context: BuildContext, runDir: string): Promise<HostLoad[]> {
+  if (context.buildPlan.setup === 'fake') {
+    return [];
+  }
+  const env = context.env;
+  const staged = readdirSync(runDir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() || entry.isSymbolicLink())
+    .map((entry) => join(entry.parentPath, entry.name));
+  const binaries: StagedBinary[] = [];
+  for (const path of staged.filter((file) => !lstatSync(file).isSymbolicLink())) {
+    const format = binaryFormat(path);
+    const file = path.slice(runDir.length + 1).replaceAll('\\', '/');
+    if (format === 'ELF') {
+      const readelf =
+        context.buildPlan.setup === 'android'
+          ? `${String(env['TOOLCHAIN'])}/bin/llvm-readelf`
+          : 'readelf';
+      const { soname, needed } = elfRequirements(
+        await run(readelf, ['-dW', path], { env, capture: true }),
+        '',
+      );
+      // a program's dynamic loader (PT_INTERP) is the host's too
+      const interpreter = elfInterpreter(await run(readelf, ['-lW', path], { env, capture: true }));
+      binaries.push({
+        file,
+        format,
+        loads: [...(interpreter ? [interpreter] : []), ...needed],
+        ...(soname ? { soname } : {}),
+      });
+    } else if (format === 'PE') {
+      binaries.push({
+        file,
+        format,
+        loads: peImports(await run(objdumpFor(env), ['-p', path], { env, capture: true })),
+      });
+    } else if (format === 'Mach-O') {
+      binaries.push({
+        file,
+        format,
+        loads: otoolLoads(await run('otool', ['-L', path], { env, capture: true })),
+      });
+    }
+  }
+  return hostLoads(binaries, staged);
+}
+
 export async function stageBuild(
   context: BuildContext,
   ffmpegDir: string,
@@ -721,7 +810,11 @@ export async function stageBuild(
   mkdirSync(runDir, { recursive: true });
   mkdirSync(devDir, { recursive: true });
   await stagePlatform(context, join(context.work, 'install'), runDir, devDir);
-  const ships = linkedShips(context, ffmpegDir);
+  // each with its notice texts, read once: the notices carry them, and the SBOM defines a LicenseRef- by them
+  const ships = linkedShips(context, ffmpegDir).map((shipped) => ({
+    ...shipped,
+    read: shipNotices(shipped, context.env, plan.setup),
+  }));
   const notice = join(runDir, 'THIRD-PARTY-NOTICES.txt');
   writeNotices(context, ffmpegDir, libraries, notice, ships);
   copyFileSync(notice, join(devDir, 'THIRD-PARTY-NOTICES.txt'));
@@ -758,7 +851,7 @@ export async function stageBuild(
   const temp = `${recordPath}.tmp`;
   writeFileSync(temp, `${JSON.stringify(record, null, JSON_INDENT)}\n`);
   renameSync(temp, recordPath);
-  writeBuildSbom(context, ffmpeg, libraries, ships);
+  writeBuildSbom(context, ffmpeg, libraries, ships, await hostLoadsOf(context, runDir));
   const sourceOut = join(context.out, `${plan.name}.sources`);
   rmSync(sourceOut, { recursive: true, force: true });
   // (a Rust library's crates too)

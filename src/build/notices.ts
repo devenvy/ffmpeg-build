@@ -39,6 +39,40 @@ function expandVariables(value: string, env: NodeJS.ProcessEnv, setup: string): 
   });
 }
 
+/**
+ * The notice texts of a ships: entry: each toolchain file it names (${VAR} a variable of the platform's setup), read
+ * where the build runs, or the engine's standard text the plan carries. The SBOM takes them too, for a licence that
+ * only its text defines (LicenseRef-).
+ */
+export function shipNotices(
+  shipped: Pick<ShipInBuild, 'file' | 'notice' | 'texts' | 'read'>,
+  env: NodeJS.ProcessEnv,
+  setup: string,
+): { path: string; heading: string; text: string }[] {
+  if (shipped.read) {
+    return shipped.read;
+  }
+  return shipped.notice.map((notice) => {
+    const standard = shipped.texts?.[notice];
+    if (standard !== undefined) {
+      return {
+        path: notice,
+        heading: `${basename(notice)} (the engine's standard text: the toolchain ships none)`,
+        text: standard,
+      };
+    }
+    const path = expandVariables(notice, env, setup);
+    return {
+      path,
+      heading: basename(path),
+      text: requiredFile(
+        path,
+        `${path}, the notice platforms.yml names for ${shipped.file}, is missing`,
+      ),
+    };
+  });
+}
+
 /** `a`, `a and b`, `a, b and c`. */
 function listed(names: readonly string[]): string {
   return names.length > 1
@@ -216,20 +250,7 @@ export function writeNotices(
         }
       }
       result += '\n';
-      for (const notice of shipped.notice) {
-        const standard = shipped.texts?.[notice];
-        const path =
-          standard === undefined ? expandVariables(notice, context.env, plan.setup) : notice;
-        const heading =
-          standard === undefined
-            ? basename(path)
-            : `${basename(path)} (the engine's standard text: the toolchain ships none)`;
-        const contents =
-          standard ??
-          requiredFile(
-            path,
-            `${path}, the notice platforms.yml names for ${shipped.file}, is missing`,
-          );
+      for (const { heading, text: contents } of shipNotices(shipped, context.env, plan.setup)) {
         const first = seen.get(contents);
         result += text(
           heading,
