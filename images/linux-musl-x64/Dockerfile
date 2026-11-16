@@ -3,7 +3,7 @@
 # they run on any musl system. The library cache keys on this image's Docker ID.
 FROM mirror.gcr.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS toolchain
 RUN apk add --no-cache gettext-dev
-FROM mirror.gcr.io/library/node:24.22.2-alpine3.23@sha256:0efee1e068d21f6edcab7fa8c962fc4ecd50d4e28727bc23963379b63ee318ab AS node
+FROM mirror.gcr.io/library/node:24.22.3-alpine3.23@sha256:3946fb783fdce8a2812136ea694bc95c698c4f4096f3fd18568dc27a8ac389dc AS node
 FROM mirror.gcr.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 COPY --from=node /usr/local/ /usr/local/
 # Bootstrap data only: gettext-dev's GNU header conflicts with musl's native gettext implementation.

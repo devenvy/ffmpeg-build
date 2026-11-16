@@ -2,9 +2,9 @@
 # 2.28, so the artifacts run on any glibc >= 2.28), provisioned as images/linux-x64 is. An arm64 image: it runs
 # natively on an arm64 host and under qemu on an x64 one, as upstream builds it on arm64 runners. Builds use
 # gcc-toolset-14, which the driver enables. The library cache keys on this image's Docker ID.
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.11.07-1@sha256:cb37f0d66c8a75abb93cf6085cad1f1427cd7208f0c0fc48359bb1eea9924f21 AS toolchain
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.11.14-1@sha256:34a5e614a4eb26f73f8bf44cbbf2acf8011620453d03ea35a58537bb3cde44de AS toolchain
 FROM --platform=linux/arm64 mirror.gcr.io/library/node:24.22.2-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS node
-FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.11.07-1@sha256:cb37f0d66c8a75abb93cf6085cad1f1427cd7208f0c0fc48359bb1eea9924f21
+FROM --platform=linux/arm64 quay.io/pypa/manylinux_2_28_aarch64:2026.11.14-1@sha256:34a5e614a4eb26f73f8bf44cbbf2acf8011620453d03ea35a58537bb3cde44de
 COPY --from=node /usr/local/ /usr/local/
 # JACK's unchanged bundled Waf imports imp, removed in Python 3.12.
 ENV JACK_PYTHON=/opt/python/cp311-cp311/bin/python3.11
