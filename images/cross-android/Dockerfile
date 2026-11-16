@@ -2,9 +2,9 @@
 # devenvy/ffmpeg does (platform/android.sh). Upstream used whatever NDK its CI runner had (27.3.13750724, r27d, for the
 # published 9.0.2.3 builds); here that release is pinned by version and SHA-256, on Ubuntu pinned by digest.
 # The library cache keys on this image's Docker ID.
-FROM mirror.gcr.io/library/ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS toolchain
+FROM mirror.gcr.io/library/ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5 AS toolchain
 FROM mirror.gcr.io/library/node:24.22.2-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS node
-FROM mirror.gcr.io/library/ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+FROM mirror.gcr.io/library/ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5
 COPY --from=node /usr/local/ /usr/local/
 
 ENV DEBIAN_FRONTEND=noninteractive
