@@ -1,7 +1,7 @@
-# FFmpeg 9's components, as the configure of its newest release (9.0.2) lists them. A target's
+# FFmpeg 9's components, as the configure of its newest release (9.1) lists them. A target's
 # `components:` names are checked against these. Written by the nightly support check (scripts/ffmpeg-support.ts
 # --write): not edited by hand.
-release: 9.0.2
+release: 9.1
 decoders:
   - aac
   - aac_at
@@ -36,6 +36,7 @@ decoders:
   - adpcm_ima_amv
   - adpcm_ima_apc
   - adpcm_ima_apm
+  - adpcm_ima_citrix
   - adpcm_ima_cunning
   - adpcm_ima_dat4
   - adpcm_ima_dk3
@@ -64,6 +65,7 @@ decoders:
   - adpcm_n64
   - adpcm_psx
   - adpcm_psxc
+  - adpcm_rhetorex
   - adpcm_sanyo
   - adpcm_sbpro_2
   - adpcm_sbpro_3
@@ -255,6 +257,7 @@ decoders:
   - imc
   - imm4
   - imm5
+  - imm6
   - indeo2
   - indeo3
   - indeo4
@@ -274,6 +277,7 @@ decoders:
   - libaom_av1
   - libaribb24
   - libaribcaption
+  - libastcenc
   - libcodec2
   - libdav1d
   - libdavs2
@@ -385,6 +389,7 @@ decoders:
   - pcm_alaw_at
   - pcm_bluray
   - pcm_dvd
+  - pcm_dvda
   - pcm_f16le
   - pcm_f24le
   - pcm_f32be
@@ -467,6 +472,7 @@ decoders:
   - rv30
   - rv40
   - rv60
+  - rw2
   - s302m
   - sami
   - sanm
@@ -638,6 +644,7 @@ encoders:
   - apng
   - aptx
   - aptx_hd
+  - apv_vulkan
   - ass
   - asv1
   - asv2
@@ -661,6 +668,7 @@ encoders:
   - dfpwm
   - dnxhd
   - dpx
+  - dsd_msbf
   - dvbsub
   - dvdsub
   - dvvideo
@@ -712,8 +720,10 @@ encoders:
   - jpeg2000
   - jpegls
   - libaom_av1
+  - libastcenc
   - libcodec2
   - libfdk_aac
+  - libfdk_xhe_aac
   - libgsm
   - libgsm_ms
   - libilbc
@@ -883,6 +893,7 @@ hwaccels:
   - av1_d3d12va
   - av1_dxva2
   - av1_nvdec
+  - av1_nvdec_cuarray
   - av1_vaapi
   - av1_vdpau
   - av1_videotoolbox
@@ -896,6 +907,7 @@ hwaccels:
   - h264_d3d12va
   - h264_dxva2
   - h264_nvdec
+  - h264_nvdec_cuarray
   - h264_vaapi
   - h264_vdpau
   - h264_videotoolbox
@@ -905,6 +917,7 @@ hwaccels:
   - hevc_d3d12va
   - hevc_dxva2
   - hevc_nvdec
+  - hevc_nvdec_cuarray
   - hevc_vaapi
   - hevc_vdpau
   - hevc_videotoolbox
@@ -912,6 +925,7 @@ hwaccels:
   - mjpeg_nvdec
   - mjpeg_vaapi
   - mpeg1_nvdec
+  - mpeg1_nvdec_cuarray
   - mpeg1_vdpau
   - mpeg1_videotoolbox
   - mpeg2_d3d11va
@@ -919,10 +933,12 @@ hwaccels:
   - mpeg2_d3d12va
   - mpeg2_dxva2
   - mpeg2_nvdec
+  - mpeg2_nvdec_cuarray
   - mpeg2_vaapi
   - mpeg2_vdpau
   - mpeg2_videotoolbox
   - mpeg4_nvdec
+  - mpeg4_nvdec_cuarray
   - mpeg4_vaapi
   - mpeg4_vdpau
   - mpeg4_videotoolbox
@@ -935,15 +951,18 @@ hwaccels:
   - vc1_d3d12va
   - vc1_dxva2
   - vc1_nvdec
+  - vc1_nvdec_cuarray
   - vc1_vaapi
   - vc1_vdpau
   - vp8_nvdec
+  - vp8_nvdec_cuarray
   - vp8_vaapi
   - vp9_d3d11va
   - vp9_d3d11va2
   - vp9_d3d12va
   - vp9_dxva2
   - vp9_nvdec
+  - vp9_nvdec_cuarray
   - vp9_vaapi
   - vp9_vdpau
   - vp9_videotoolbox
@@ -954,6 +973,7 @@ hwaccels:
   - wmv3_d3d12va
   - wmv3_dxva2
   - wmv3_nvdec
+  - wmv3_nvdec_cuarray
   - wmv3_vaapi
   - wmv3_vdpau
 demuxers:
@@ -991,9 +1011,9 @@ demuxers:
   - argo_brp
   - argo_cvg
   - asf
-  - asf_o
   - ass
   - ast
+  - astc
   - au
   - av1
   - avi
@@ -1117,6 +1137,7 @@ demuxers:
   - image_psd_pipe
   - image_qdraw_pipe
   - image_qoi_pipe
+  - image_rw2_pipe
   - image_sgi_pipe
   - image_sunrast_pipe
   - image_svg_pipe
@@ -1136,8 +1157,10 @@ demuxers:
   - ivf
   - ivr
   - jacosub
+  - jpeg_mpf
   - jpegxl_anim
   - jv
+  - ktx
   - kux
   - kvag
   - laf
@@ -1185,6 +1208,7 @@ demuxers:
   - musx
   - mv
   - mvi
+  - mvr
   - mxf
   - mxg
   - nc
@@ -1346,6 +1370,7 @@ muxers:
   - asf_stream
   - ass
   - ast
+  - astc
   - au
   - avi
   - avif
@@ -1401,8 +1426,11 @@ muxers:
   - ipod
   - ircam
   - ismv
+  - iterm2
   - ivf
   - jacosub
+  - jpeg_mpf
+  - ktx
   - kvag
   - latm
   - lc3
@@ -1566,6 +1594,7 @@ parsers:
   - prores_raw
   - qoi
   - rv34
+  - rw2
   - sbc
   - sipr
   - tak
@@ -1605,6 +1634,8 @@ bsfs:
   - hevc_metadata
   - hevc_mp4toannexb
   - imx_dump_header
+  - jpegapp
+  - lcevc_merge
   - lcevc_metadata
   - media100_to_mjpegb
   - mjpeg2jpeg
@@ -1621,9 +1652,13 @@ bsfs:
   - remove_extradata
   - setts
   - showinfo
+  - side_data
+  - sink
   - smpte436m_to_eia608
+  - source
   - text2movsub
   - trace_headers
+  - trim
   - truehd_core
   - vp9_metadata
   - vp9_raw_reorder
@@ -1655,6 +1690,7 @@ protocols:
   - ipfs_gateway
   - ipns_gateway
   - libamqp
+  - libcurl
   - librist
   - librtmp
   - librtmpe
@@ -1687,6 +1723,7 @@ protocols:
   - udp
   - udplite
   - unix
+  - windows_handle
 indevs:
   - alsa
   - android_camera
@@ -1986,8 +2023,10 @@ filters:
   - freezeframes
   - frei0r
   - frei0r_src
+  - fruc_vulkan
   - fspp
   - fsync
+  - gainmap
   - gblur
   - gblur_vulkan
   - geq
@@ -2039,6 +2078,7 @@ filters:
   - ladspa
   - lagfun
   - latency
+  - latticepal
   - lcevc
   - lenscorrection
   - lensfun
@@ -2286,6 +2326,7 @@ filters:
   - volumedetect
   - vpp_amf
   - vpp_qsv
+  - vqe_amf
   - vstack
   - vstack_qsv
   - vstack_vaapi
@@ -2340,7 +2381,6 @@ names:
     libaom_av1: libaom-av1
     libvpx_vp8: libvpx
     libvpx_vp9: libvpx-vp9
-    libxevd: evc
     libzvbi_teletext: libzvbi_teletextdec
     movtext: mov_text
     msmpeg4v3: msmpeg4
@@ -2398,6 +2438,7 @@ names:
     image_psd_pipe: psd_pipe
     image_qdraw_pipe: qdraw_pipe
     image_qoi_pipe: qoi_pipe
+    image_rw2_pipe: rw2_pipe
     image_sgi_pipe: sgi_pipe
     image_sunrast_pipe: sunrast_pipe
     image_svg_pipe: svg_pipe
@@ -2492,6 +2533,7 @@ names:
     libsrt: srt
     libssh: sftp
     libzmq: zmq
+    windows_handle: handle
   indevs:
     v4l2: video4linux2,v4l2
     xcbgrab: x11grab
@@ -2543,6 +2585,7 @@ needs:
     libaom_av1: [libaom]
     libaribb24: [libaribb24]
     libaribcaption: [libaribcaption]
+    libastcenc: [libastcenc]
     libcodec2: [libcodec2]
     libdav1d: [libdav1d]
     libdavs2: [libdavs2]
@@ -2626,6 +2669,7 @@ needs:
     ac3_mf: [mediafoundation]
     alac_at: [audiotoolbox]
     apng: [zlib]
+    apv_vulkan: [vulkan]
     av1_amf: [amf]
     av1_d3d12va: [d3d12va]
     av1_mediacodec: [mediacodec]
@@ -2666,8 +2710,10 @@ needs:
     hevc_vulkan: [vulkan]
     ilbc_at: [audiotoolbox]
     libaom_av1: [libaom]
+    libastcenc: [libastcenc]
     libcodec2: [libcodec2]
     libfdk_aac: [libfdk_aac]
+    libfdk_xhe_aac: [libfdk_xhe_aac]
     libgsm: [libgsm]
     libgsm_ms: [libgsm]
     libilbc: [libilbc]
@@ -2730,6 +2776,7 @@ needs:
     av1_d3d12va: [d3d12va]
     av1_dxva2: [dxva2]
     av1_nvdec: [ffnvcodec, nvdec]
+    av1_nvdec_cuarray: [ffnvcodec, nvdec]
     av1_vaapi: [vaapi]
     av1_vdpau: [vdpau]
     av1_videotoolbox: [videotoolbox]
@@ -2743,6 +2790,7 @@ needs:
     h264_d3d12va: [d3d12va]
     h264_dxva2: [dxva2]
     h264_nvdec: [ffnvcodec, nvdec]
+    h264_nvdec_cuarray: [ffnvcodec, nvdec]
     h264_vaapi: [vaapi]
     h264_vdpau: [vdpau]
     h264_videotoolbox: [videotoolbox]
@@ -2752,6 +2800,7 @@ needs:
     hevc_d3d12va: [d3d12va]
     hevc_dxva2: [dxva2]
     hevc_nvdec: [ffnvcodec, nvdec]
+    hevc_nvdec_cuarray: [ffnvcodec, nvdec]
     hevc_vaapi: [vaapi]
     hevc_vdpau: [vdpau]
     hevc_videotoolbox: [videotoolbox]
@@ -2759,6 +2808,7 @@ needs:
     mjpeg_nvdec: [ffnvcodec, nvdec]
     mjpeg_vaapi: [vaapi]
     mpeg1_nvdec: [ffnvcodec, nvdec]
+    mpeg1_nvdec_cuarray: [ffnvcodec, nvdec]
     mpeg1_vdpau: [vdpau]
     mpeg1_videotoolbox: [videotoolbox]
     mpeg2_d3d11va: [d3d11va]
@@ -2766,10 +2816,12 @@ needs:
     mpeg2_d3d12va: [d3d12va]
     mpeg2_dxva2: [dxva2]
     mpeg2_nvdec: [ffnvcodec, nvdec]
+    mpeg2_nvdec_cuarray: [ffnvcodec, nvdec]
     mpeg2_vaapi: [vaapi]
     mpeg2_vdpau: [vdpau]
     mpeg2_videotoolbox: [videotoolbox]
     mpeg4_nvdec: [ffnvcodec, nvdec]
+    mpeg4_nvdec_cuarray: [ffnvcodec, nvdec]
     mpeg4_vaapi: [vaapi]
     mpeg4_vdpau: [vdpau]
     mpeg4_videotoolbox: [videotoolbox]
@@ -2782,15 +2834,18 @@ needs:
     vc1_d3d12va: [d3d12va]
     vc1_dxva2: [dxva2]
     vc1_nvdec: [ffnvcodec, nvdec]
+    vc1_nvdec_cuarray: [ffnvcodec, nvdec]
     vc1_vaapi: [vaapi]
     vc1_vdpau: [vdpau]
     vp8_nvdec: [ffnvcodec, nvdec]
+    vp8_nvdec_cuarray: [ffnvcodec, nvdec]
     vp8_vaapi: [vaapi]
     vp9_d3d11va: [d3d11va]
     vp9_d3d11va2: [d3d11va]
     vp9_d3d12va: [d3d12va]
     vp9_dxva2: [dxva2]
     vp9_nvdec: [ffnvcodec, nvdec]
+    vp9_nvdec_cuarray: [ffnvcodec, nvdec]
     vp9_vaapi: [vaapi]
     vp9_vdpau: [vdpau]
     vp9_videotoolbox: [videotoolbox]
@@ -2801,6 +2856,7 @@ needs:
     wmv3_d3d12va: [d3d12va]
     wmv3_dxva2: [dxva2]
     wmv3_nvdec: [ffnvcodec, nvdec]
+    wmv3_nvdec_cuarray: [ffnvcodec, nvdec]
     wmv3_vaapi: [vaapi]
     wmv3_vdpau: [vdpau]
   demuxers:
@@ -2825,6 +2881,7 @@ needs:
     ipfs_gateway: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
     ipns_gateway: [gnutls|libtls|mbedtls|openssl|schannel|securetransport]
     libamqp: [librabbitmq]
+    libcurl: [libcurl]
     librist: [librist]
     librtmp: [librtmp]
     librtmpe: [librtmp]
@@ -2909,6 +2966,7 @@ needs:
     frc_amf: [amf]
     frei0r: [frei0r]
     frei0r_src: [frei0r]
+    fruc_vulkan: [vulkan]
     fspp: [gpl]
     gblur_vulkan: [vulkan]
     gfxcapture: [d3d11va]
@@ -3000,6 +3058,7 @@ needs:
     vidstabtransform: [libvidstab]
     vpp_amf: [amf]
     vpp_qsv: [libmfx|libvpl]
+    vqe_amf: [amf]
     vstack_qsv: [libmfx|libvpl]
     whisper: [whisper]
     xfade_opencl: [opencl]
