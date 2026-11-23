@@ -1,9 +1,9 @@
 # The linux-x64 toolchain image: upstream devenvy/ffmpeg's pinned manylinux_2_28 (AlmaLinux 8, glibc 2.28, so the
 # artifacts run on any glibc >= 2.28), provisioned the way upstream's 03_install_packages.sh provisions it.
 # Builds use gcc-toolset-14, which the driver enables. The library cache keys on this image's Docker ID.
-FROM quay.io/pypa/manylinux_2_28_x86_64:2026.11.14-1@sha256:d086f64cddcace250ef0f0073583c51b8298159303290a730c9f59bd91edfd2c AS toolchain
+FROM quay.io/pypa/manylinux_2_28_x86_64:2026.11.21-1@sha256:55a36963bc0504cdf004011001c1072306402f0b8b83be5a5eba7068f93eec53 AS toolchain
 FROM mirror.gcr.io/library/node:24.22.2-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS node
-FROM quay.io/pypa/manylinux_2_28_x86_64:2026.11.14-1@sha256:d086f64cddcace250ef0f0073583c51b8298159303290a730c9f59bd91edfd2c
+FROM quay.io/pypa/manylinux_2_28_x86_64:2026.11.21-1@sha256:55a36963bc0504cdf004011001c1072306402f0b8b83be5a5eba7068f93eec53
 COPY --from=node /usr/local/ /usr/local/
 # JACK's unchanged bundled Waf imports imp, removed in Python 3.12.
 ENV JACK_PYTHON=/opt/python/cp311-cp311/bin/python3.11
