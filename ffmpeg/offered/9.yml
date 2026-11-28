@@ -1,9 +1,9 @@
-# What FFmpeg 9's configure offers to turn on, read from its newest release (9.0.2): every external
+# What FFmpeg 9's configure offers to turn on, read from its newest release (9.1): every external
 # library and hardware option (configure's library lists and --help's library section), with its licence class.
 # Each is an option of ffmpeg/<major>.yml or an entry of ffmpeg/unsupported.yml (tests/ffmpeg-coverage.test.ts).
 # `flags:` is every other name configure takes after --enable-/--disable-. Written by the nightly support check
 # (scripts/ffmpeg-support.ts --write): not edited by hand.
-release: 9.0.2
+release: 9.1
 options:
   alsa: { lists: [external-autodetect] }
   amf: { lists: [hwaccel-autodetect] }
@@ -37,11 +37,13 @@ options:
   libaribb24: { lists: [external], license: version3 }
   libaribcaption: { lists: [external] }
   libass: { lists: [external] }
+  libastcenc: { lists: [external], license: version3 }
   libbluray: { lists: [external] }
   libbs2b: { lists: [external] }
   libcaca: { lists: [external] }
   libcdio: { lists: [external], license: gpl }
   libcodec2: { lists: [external] }
+  libcurl: { lists: [external-autodetect] }
   libdav1d: { lists: [external] }
   libdavs2: { lists: [external], license: gpl }
   libdc1394: { lists: [external] }
@@ -49,6 +51,7 @@ options:
   libdvdnav: { lists: [external], license: gpl }
   libdvdread: { lists: [external], license: gpl }
   libfdk_aac: { lists: [external], license: nonfree }
+  libfdk_xhe_aac: { lists: [external], license: nonfree }
   libflite: { lists: [external] }
   libfontconfig: { lists: [external] }
   libfreetype: { lists: [external] }
@@ -145,7 +148,6 @@ options:
   ohcodec: { lists: [external] }
   openal: { lists: [external] }
   opencl: { lists: [hwaccel] }
-  opengl: { lists: [external] }
   openssl: { lists: [external] }
   pocketsphinx: { lists: [external] }
   rkmpp: { lists: [external], license: version3 }
@@ -168,6 +170,7 @@ flags:
   - altivec
   - amd3dnow
   - amd3dnowext
+  - arm_aes
   - arm_crc
   - armv5te
   - armv6
